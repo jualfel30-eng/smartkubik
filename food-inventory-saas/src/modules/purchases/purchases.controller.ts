@@ -8,7 +8,11 @@ import {
   Req,
   Patch,
   Query,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
 import { PurchasesService } from "./purchases.service";
 import { CreatePurchaseOrderDto } from "../../dto/purchase-order.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
@@ -49,14 +53,28 @@ export class PurchasesController {
 
   @Get()
   async findAll(@Query() query: any, @Req() req) {
-    const purchases = await this.purchasesService.findAll(req.user.tenantId, query);
-    return { success: true, data: purchases };
+    const result = await this.purchasesService.findAll(req.user.tenantId, query);
+    return {
+      success: true,
+      data: result.purchases,
+      pagination: {
+        total: result.total,
+        totalPages: result.totalPages,
+        page: result.page,
+        limit: result.limit,
+      },
+    };
   }
 
   @Patch(":id/receive")
-  async receive(@Param("id") id: string, @Req() req) {
+  async receive(
+    @Param("id") id: string,
+    @Body() dto: { receivedBy?: string },
+    @Req() req,
+  ) {
     const purchaseOrder = await this.purchasesService.receivePurchaseOrder(
       id,
+      dto,
       req.user,
     );
     return { success: true, data: purchaseOrder };
@@ -119,6 +137,61 @@ export class PurchasesController {
    * Auto-generate Purchase Orders based on low stock
    * Phase 1.4: Auto-generation
    */
+  /**
+   * Scan an invoice/delivery note image using AI to pre-fill purchase order data.
+   * Accepts multipart form data with an image file.
+   */
+  @Post("scan-invoice")
+  @UseInterceptors(
+    FileInterceptor("image", {
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+      fileFilter: (_req, file, cb) => {
+        if (!file.mimetype.match(/^image\/(jpeg|jpg|png|webp|heic)$/)) {
+          cb(new BadRequestException("Solo se permiten imágenes (JPEG, PNG, WebP, HEIC)"), false);
+        } else {
+          cb(null, true);
+        }
+      },
+    }),
+  )
+  async scanInvoice(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req,
+  ) {
+    if (!file) {
+      throw new BadRequestException("Debe cargar una imagen de la factura o nota de entrega.");
+    }
+
+    const imageBase64 = file.buffer.toString("base64");
+    const result = await this.purchasesService.scanInvoiceImage(
+      imageBase64,
+      file.mimetype,
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      data: result,
+      message: `Factura escaneada con ${Math.round(result.overallConfidence * 100)}% de confianza`,
+    };
+  }
+
+  /**
+   * Reconcile all received POs: detect and repair missing supplier syncs
+   */
+  @Post("reconcile")
+  async reconcile(@Req() req) {
+    const report = await this.purchasesService.reconcilePurchaseOrders(
+      req.user.tenantId,
+      req.user,
+    );
+    return {
+      success: true,
+      data: report,
+      message: `Reconciliación completada: ${report.metricsUpdated} proveedores sincronizados, ${report.productsLinked} productos vinculados, ${report.errors.length} errores`,
+    };
+  }
+
   @Post("auto-generate")
   async autoGenerate(@Req() req) {
     const purchaseOrders = await this.purchasesService.autoGeneratePOs(

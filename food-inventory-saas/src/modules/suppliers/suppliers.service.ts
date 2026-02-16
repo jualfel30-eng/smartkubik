@@ -491,6 +491,7 @@ export class SuppliersService {
         isPrimary: c.isPrimary
       })),
       address: customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0],
+      metrics: customer.metrics, // Fix: Include metrics for virtual suppliers
       paymentSettings: { // Defaults
         defaultCreditDays: 0,
         acceptsCredit: false
@@ -538,6 +539,7 @@ export class SuppliersService {
           isPrimary: c.isPrimary
         })),
         address: customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0],
+        metrics: customer.metrics,
         paymentSettings: {}
       };
     }
@@ -577,7 +579,8 @@ export class SuppliersService {
           phone: c.type === 'phone' ? c.value : undefined,
           isPrimary: c.isPrimary
         })) || plainSupplier.contacts,
-        customer: plainCustomer // Include full customer object for reference
+        customer: plainCustomer, // Include full customer object for reference
+        metrics: plainCustomer.metrics || plainSupplier.metrics // fallback
       };
     }
 
@@ -885,6 +888,331 @@ export class SuppliersService {
       suppliersProcessed: suppliers.length,
       totalProductsUpdated
     };
+  }
+
+  // ============================================================
+  // === PURCHASE ORDER INTEGRATION: Auto-sync from purchases ===
+  // ============================================================
+
+  /**
+   * Ensures a Supplier profile exists and syncs data from a Purchase Order.
+   * Called from PurchasesService when creating or receiving a PO.
+   *
+   * Handles:
+   * - GAP 1: Creates Supplier entity if only Customer exists
+   * - GAP 3: Updates supplier metrics (totalOrders, totalPurchased, lastOrderDate, etc.)
+   * - GAP 4: Syncs payment terms from PO to supplier paymentSettings
+   * - GAP 5: Ensures contact data is complete on the Customer entity
+   */
+  async syncFromPurchaseOrder(
+    supplierId: string,
+    purchaseData: {
+      totalAmount: number;
+      paymentTerms?: {
+        isCredit?: boolean;
+        creditDays?: number;
+        paymentMethods?: string[];
+        expectedCurrency?: string;
+        requiresAdvancePayment?: boolean;
+        advancePaymentPercentage?: number;
+      };
+      newSupplierContactName?: string;
+      newSupplierContactPhone?: string;
+      newSupplierContactEmail?: string;
+      isReceiving?: boolean; // true when PO is being received (vs just created)
+    },
+    user: any,
+  ): Promise<void> {
+    try {
+      // --- Step 1: Ensure Supplier profile exists (GAP 1) ---
+      let supplier = await this.supplierModel
+        .findOne({
+          $or: [
+            { _id: Types.ObjectId.isValid(supplierId) ? new Types.ObjectId(supplierId) : supplierId },
+            { customerId: Types.ObjectId.isValid(supplierId) ? new Types.ObjectId(supplierId) : supplierId }
+          ],
+          tenantId: String(user.tenantId),
+        })
+        .exec();
+
+      if (!supplier) {
+        // The supplierId is actually a Customer ID — create the Supplier profile
+        const customer = await this.customerModel
+          .findOne({
+            _id: new Types.ObjectId(supplierId),
+            tenantId: new Types.ObjectId(user.tenantId),
+          })
+          .exec();
+
+        if (!customer) {
+          this.logger.warn(`syncFromPurchaseOrder: No customer/supplier found for ID ${supplierId}`);
+          return;
+        }
+
+        // Ensure customer is marked as supplier
+        if (customer.customerType !== 'supplier') {
+          customer.customerType = 'supplier';
+          await customer.save();
+        }
+
+        const supplierNumber = await this.generateSupplierNumber(String(user.tenantId));
+        const supplierData = {
+          supplierNumber,
+          supplierType: 'distributor',
+          customerId: customer._id,
+          name: customer.companyName || customer.name,
+          createdBy: user.id,
+          tenantId: String(user.tenantId),
+          taxInfo: {
+            rif: customer.taxInfo?.taxId,
+            businessName: customer.taxInfo?.taxName || customer.companyName,
+            isRetentionAgent: false,
+          },
+          contacts: customer.contacts?.map(c => ({
+            name: c.name || customer.name || 'Contacto',
+            email: c.type === 'email' ? c.value : undefined,
+            phone: c.type === 'phone' ? c.value : undefined,
+            position: 'Principal',
+            isPrimary: c.isPrimary,
+          })) || [],
+          metrics: {
+            totalOrders: 0,
+            totalPurchased: 0,
+            averageOrderValue: 0,
+            onTimeDeliveryRate: 0,
+            qualityIssueRate: 0,
+            returnRate: 0,
+            paymentDelayDays: 0,
+          },
+          paymentSettings: {},
+        };
+
+        const newSupplier = new this.supplierModel(supplierData);
+        supplier = await newSupplier.save();
+        this.logger.log(`syncFromPurchaseOrder: Created Supplier profile ${supplier.supplierNumber} for Customer ${supplierId}`);
+
+        // --- GAP 5: Sync contact data back to Customer if provided ---
+        if (purchaseData.newSupplierContactName) {
+          const primaryContact = customer.contacts?.find(c => c.isPrimary);
+          if (primaryContact) {
+            primaryContact.name = purchaseData.newSupplierContactName;
+          }
+          if (purchaseData.newSupplierContactEmail) {
+            const emailContact = customer.contacts?.find(c => c.type === 'email');
+            if (emailContact) {
+              emailContact.value = purchaseData.newSupplierContactEmail;
+              emailContact.name = purchaseData.newSupplierContactName;
+              emailContact.isPrimary = true;
+            } else {
+              customer.contacts.push({
+                name: purchaseData.newSupplierContactName,
+                type: 'email',
+                value: purchaseData.newSupplierContactEmail,
+                isPrimary: !customer.contacts?.some(c => c.isPrimary),
+                isActive: true,
+              } as any);
+            }
+          }
+          await customer.save();
+        }
+      }
+
+      // --- Step 2: Update supplier metrics (GAP 3) ---
+      if (!supplier.metrics) {
+        supplier.metrics = {
+          totalOrders: 0,
+          totalPurchased: 0,
+          averageOrderValue: 0,
+          onTimeDeliveryRate: 0,
+          qualityIssueRate: 0,
+          returnRate: 0,
+          paymentDelayDays: 0,
+        } as any;
+      }
+
+      supplier.metrics.totalOrders = (supplier.metrics.totalOrders || 0) + 1;
+      supplier.metrics.totalPurchased = (supplier.metrics.totalPurchased || 0) + purchaseData.totalAmount;
+      supplier.metrics.averageOrderValue =
+        supplier.metrics.totalOrders > 0
+          ? supplier.metrics.totalPurchased / supplier.metrics.totalOrders
+          : purchaseData.totalAmount;
+      supplier.metrics.lastOrderDate = new Date();
+
+      // --- Step 3: Sync payment terms from PO (GAP 4) ---
+      if (purchaseData.paymentTerms) {
+        if (!supplier.paymentSettings) {
+          supplier.paymentSettings = {} as any;
+        }
+
+        const pt = purchaseData.paymentTerms;
+
+        // Sync credit settings
+        if (pt.isCredit !== undefined) {
+          supplier.paymentSettings.acceptsCredit = pt.isCredit;
+        }
+        if (pt.creditDays && pt.creditDays > 0) {
+          supplier.paymentSettings.defaultCreditDays = pt.creditDays;
+        }
+
+        // Sync payment methods (merge, don't replace)
+        if (pt.paymentMethods && pt.paymentMethods.length > 0) {
+          const existingMethods = supplier.paymentSettings.acceptedPaymentMethods || [];
+          const mergedMethods = [...new Set([...existingMethods, ...pt.paymentMethods])];
+          supplier.paymentSettings.acceptedPaymentMethods = mergedMethods;
+
+          // Set preferred method if not yet set
+          if (!supplier.paymentSettings.preferredPaymentMethod) {
+            supplier.paymentSettings.preferredPaymentMethod = pt.paymentMethods[0];
+          }
+        }
+
+        // Sync advance payment settings
+        if (pt.requiresAdvancePayment !== undefined) {
+          supplier.paymentSettings.requiresAdvancePayment = pt.requiresAdvancePayment;
+        }
+        if (pt.advancePaymentPercentage && pt.advancePaymentPercentage > 0) {
+          supplier.paymentSettings.advancePaymentPercentage = pt.advancePaymentPercentage;
+        }
+      }
+
+      await supplier.save();
+      this.logger.log(`syncFromPurchaseOrder: Supplier ${supplier.supplierNumber} metrics and payment settings updated`);
+
+      // --- Step 4: Sync payment config to linked products (if payment terms changed) ---
+      if (purchaseData.paymentTerms?.paymentMethods?.length) {
+        const paymentCurrency = this.inferPaymentCurrency(
+          supplier.paymentSettings?.preferredPaymentMethod
+        );
+        const usesParallelRate = this.inferUsesParallelRate(
+          supplier.paymentSettings?.preferredPaymentMethod
+        );
+
+        this.syncPaymentConfigToProducts(
+          supplier._id.toString(),
+          String(user.tenantId),
+          {
+            paymentCurrency,
+            preferredPaymentMethod: supplier.paymentSettings?.preferredPaymentMethod,
+            acceptedPaymentMethods: supplier.paymentSettings?.acceptedPaymentMethods || [],
+            usesParallelRate,
+          }
+        ).catch(err => {
+          this.logger.error(`syncFromPurchaseOrder: Failed to sync payment config to products: ${err.message}`);
+        });
+      }
+    } catch (error) {
+      this.logger.error(
+        `syncFromPurchaseOrder: Error syncing supplier ${supplierId}: ${error.message}`,
+        error.stack,
+      );
+      // Don't re-throw — sync failures shouldn't block the purchase flow
+    }
+  }
+
+  /**
+   * Links a product to a supplier in the Product.suppliers[] array.
+   * Called from PurchasesService when receiving a PO.
+   *
+   * Handles GAP 2: Ensures purchased products are linked to their supplier.
+   */
+  async linkProductToSupplier(
+    productId: string,
+    supplierId: string,
+    tenantId: string,
+    supplierData: {
+      supplierName: string;
+      costPrice: number;
+      productSku: string;
+    },
+  ): Promise<void> {
+    try {
+      // Resolve the actual Supplier document ID (supplierId might be a Customer ID)
+      let actualSupplierId = supplierId;
+      const supplier = await this.supplierModel.findOne({
+        $or: [
+          { _id: Types.ObjectId.isValid(supplierId) ? new Types.ObjectId(supplierId) : supplierId },
+          { customerId: Types.ObjectId.isValid(supplierId) ? new Types.ObjectId(supplierId) : supplierId },
+        ],
+        tenantId: String(tenantId),
+      }).exec();
+
+      if (supplier) {
+        actualSupplierId = supplier._id.toString();
+      }
+
+      const supplierObjId = new Types.ObjectId(actualSupplierId);
+      const productObjId = new Types.ObjectId(productId);
+      const tenantObjId = new Types.ObjectId(tenantId);
+
+      // Check if the product already has this supplier linked
+      const product = await this.productModel.findOne({
+        _id: productObjId,
+        tenantId: tenantObjId,
+      });
+
+      if (!product) {
+        this.logger.warn(`linkProductToSupplier: Product ${productId} not found`);
+        return;
+      }
+
+      const existingLink = product.suppliers?.find(
+        (s: any) => s.supplierId?.toString() === actualSupplierId || s.supplierId?.toString() === supplierId
+      );
+
+      if (existingLink) {
+        // Update cost price and last updated date
+        existingLink.costPrice = supplierData.costPrice;
+        existingLink.lastUpdated = new Date();
+
+        // Sync payment config from supplier if available
+        if (supplier?.paymentSettings) {
+          existingLink.paymentCurrency = this.inferPaymentCurrency(supplier.paymentSettings?.preferredPaymentMethod);
+          existingLink.preferredPaymentMethod = supplier.paymentSettings?.preferredPaymentMethod;
+          existingLink.acceptedPaymentMethods = supplier.paymentSettings?.acceptedPaymentMethods || [];
+          existingLink.usesParallelRate = this.inferUsesParallelRate(supplier.paymentSettings?.preferredPaymentMethod);
+          existingLink.paymentConfigSyncedAt = new Date();
+        }
+
+        await product.save();
+        this.logger.log(`linkProductToSupplier: Updated existing link for product ${productId} → supplier ${actualSupplierId}`);
+      } else {
+        // Add new supplier link
+        const hasExistingSuppliers = product.suppliers && product.suppliers.length > 0;
+
+        const newSupplierEntry: any = {
+          supplierId: supplierObjId,
+          supplierName: supplierData.supplierName,
+          supplierSku: supplierData.productSku,
+          costPrice: supplierData.costPrice,
+          leadTimeDays: 1,
+          minimumOrderQuantity: 1,
+          isPreferred: !hasExistingSuppliers, // First supplier is preferred by default
+          lastUpdated: new Date(),
+        };
+
+        // Sync payment config from supplier if available
+        if (supplier?.paymentSettings) {
+          newSupplierEntry.paymentCurrency = this.inferPaymentCurrency(supplier.paymentSettings?.preferredPaymentMethod);
+          newSupplierEntry.preferredPaymentMethod = supplier.paymentSettings?.preferredPaymentMethod;
+          newSupplierEntry.acceptedPaymentMethods = supplier.paymentSettings?.acceptedPaymentMethods || [];
+          newSupplierEntry.usesParallelRate = this.inferUsesParallelRate(supplier.paymentSettings?.preferredPaymentMethod);
+          newSupplierEntry.paymentConfigSyncedAt = new Date();
+        }
+
+        if (!product.suppliers) {
+          product.suppliers = [];
+        }
+        product.suppliers.push(newSupplierEntry);
+        await product.save();
+        this.logger.log(`linkProductToSupplier: Created new link for product ${productId} → supplier ${actualSupplierId}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `linkProductToSupplier: Error linking product ${productId} to supplier ${supplierId}: ${error.message}`,
+        error.stack,
+      );
+      // Don't re-throw — linking failures shouldn't block the purchase flow
+    }
   }
 }
 

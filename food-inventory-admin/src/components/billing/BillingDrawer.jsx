@@ -42,20 +42,11 @@ import { api } from '../../lib/api';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
 import InvoiceDeliveryDialog from './InvoiceDeliveryDialog';
 import { useCrmContext } from '../../context/CrmContext';
-import { useCountryPlugin } from '../../country-plugins/CountryPluginContext';
 
-const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
+const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated, initialDocumentType }) => {
     const navigate = useNavigate();
     const { rate: bcvRate, loading: loadingRate } = useExchangeRate();
     const { paymentMethods, paymentMethodsLoading } = useCrmContext();
-    const plugin = useCountryPlugin();
-    const primaryCurrency = plugin.currencyEngine.getPrimaryCurrency();
-    const hasSecondaryCurrency = plugin.currencyEngine.getSecondaryCurrencies().length > 0;
-    const exchangeRateConfig = plugin.currencyEngine.getExchangeRateConfig();
-    const defaultTaxRate = plugin.taxEngine.getDefaultTaxes()[0]?.rate ?? 16;
-    const defaultTaxType = plugin.taxEngine.getDefaultTaxes()[0]?.type ?? 'IVA';
-    const igtfTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
-    const fiscalIdLabel = plugin.fiscalIdentity.getFieldLabel();
     const [loading, setLoading] = useState(false);
     const [customers, setCustomers] = useState([]);
     const [products, setProducts] = useState([]);
@@ -74,7 +65,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
         items: [],
         notes: '',
         paymentMethod: '', // Will be set from order or default payment method
-        currency: primaryCurrency.code,
+        currency: 'VES',
         exchangeRate: 1,
         amountBs: 0
     });
@@ -84,7 +75,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
         description: '',
         quantity: 1,
         unitPrice: 0,
-        taxRate: defaultTaxRate,
+        taxRate: 16,
         discount: 0
     });
 
@@ -115,11 +106,11 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                 unit: unit,
                 unitPrice: unitPrice,
                 // Fix: Respect the exemption flag from the order item or product
-                taxRate: isExempt ? 0 : defaultTaxRate,
+                taxRate: isExempt ? 0 : 16,
                 discount: 0,
                 subtotal: (item.quantity || 1) * unitPrice,
-                tax: ((item.quantity || 1) * unitPrice * (isExempt ? 0 : defaultTaxRate) / 100),
-                total: ((item.quantity || 1) * unitPrice * (1 + (isExempt ? 0 : defaultTaxRate) / 100))
+                tax: ((item.quantity || 1) * unitPrice * (isExempt ? 0 : 16) / 100),
+                total: ((item.quantity || 1) * unitPrice * (1 + (isExempt ? 0 : 16) / 100))
             };
         });
 
@@ -185,19 +176,36 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
         // Calculate total for pre-filling Bs amount
         const totalAmount = items.reduce((sum, item) => sum + (item.total || 0), 0);
 
+        const docType = initialDocumentType || 'invoice';
+
+        // Si es Nota de Entrega, eliminar IVA de los items al inicializar
+        const finalItems = docType === 'delivery_note'
+            ? items.map(item => {
+                const subtotal = item.quantity * item.unitPrice;
+                const discountAmount = (subtotal * (item.discount || 0)) / 100;
+                return {
+                    ...item,
+                    _originalTaxRate: item.taxRate,
+                    taxRate: 0,
+                    tax: 0,
+                    total: subtotal - discountAmount
+                };
+            })
+            : items;
+
         setFormData({
-            type: 'invoice',
+            type: docType,
             issueDate: new Date().toISOString().split('T')[0],
             customer: customerId,
             customerData,
-            items,
+            items: finalItems,
             notes: `Orden #${orderData.orderNumber}`,
             paymentMethod,
-            currency: primaryCurrency.code,
+            currency: 'VES',
             exchangeRate: bcvRate || orderData.exchangeRate || 1,
             amountBs: orderData.totalAmountVes || (totalAmount * (bcvRate || orderData.exchangeRate || 1))
         });
-    }, [bcvRate]);
+    }, [bcvRate, initialDocumentType]);
 
     // Effect: When opened, fetch FRESH order details AND full customer details
     useEffect(() => {
@@ -215,12 +223,17 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                     // Fetch full Customer data because Order only stores ID and Name
                     let fullCustomer = null;
                     if (freshOrder.customerId || freshOrder.customer) {
-                        const cId = typeof freshOrder.customer === 'object' ? freshOrder.customer._id : (freshOrder.customerId || freshOrder.customer);
-                        try {
-                            const custRes = await api.get(`/customers/${cId}`);
-                            fullCustomer = custRes.data || custRes;
-                        } catch (err) {
-                            console.warn("Could not fetch full customer details", err);
+                        // ROBUST ID EXTRACTION: Handle populated objects vs strings
+                        const cVal = freshOrder.customer || freshOrder.customerId;
+                        const cId = typeof cVal === 'object' ? cVal._id : cVal;
+
+                        if (cId) {
+                            try {
+                                const custRes = await api.get(`/customers/${cId}`);
+                                fullCustomer = custRes.data || custRes;
+                            } catch (err) {
+                                console.warn("Could not fetch full customer details", err);
+                            }
                         }
                     }
 
@@ -330,11 +343,16 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
             return;
         }
 
+        // Si es Nota de Entrega, forzar taxRate a 0
+        const itemToAdd = formData.type === 'delivery_note'
+            ? { ...newItem, _originalTaxRate: newItem.taxRate, taxRate: 0 }
+            : newItem;
+
         const item = {
-            ...newItem,
-            subtotal: calculateItemSubtotal(newItem),
-            tax: calculateItemTax(newItem),
-            total: calculateItemTotal(newItem)
+            ...itemToAdd,
+            subtotal: calculateItemSubtotal(itemToAdd),
+            tax: calculateItemTax(itemToAdd),
+            total: calculateItemTotal(itemToAdd)
         };
 
         setFormData({
@@ -347,7 +365,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
             description: '',
             quantity: 1,
             unitPrice: 0,
-            taxRate: defaultTaxRate,
+            taxRate: 16,
             discount: 0
         });
     };
@@ -386,7 +404,8 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
         const taxes = formData.items.reduce((sum, item) => sum + calculateItemTax(item), 0);
 
         // IGTF viene de la orden (ya fue calculado en payments)
-        const igtf = order?.igtfTotal || 0;
+        // Nota de Entrega no lleva IGTF
+        const igtf = formData.type === 'delivery_note' ? 0 : (order?.igtfTotal || 0);
 
         const total = subtotal - discounts + taxes + igtf;
 
@@ -440,7 +459,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                         value: item.discount
                     },
                     tax: {
-                        type: defaultTaxType,
+                        type: 'IVA',
                         rate: item.taxRate,
                         amount: item.tax
                     }
@@ -449,15 +468,16 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                     subtotal: totals.subtotal,
                     discounts: totals.discounts,
                     taxes: [
-                        {
-                            type: defaultTaxType,
-                            rate: defaultTaxRate,
+                        // Nota de Entrega no lleva IVA
+                        ...(formData.type !== 'delivery_note' ? [{
+                            type: 'IVA',
+                            rate: 16,
                             amount: totals.taxes,
                             base: totals.subtotal - totals.discounts
-                        },
-                        ...(totals.igtf > 0 && igtfTax ? [{
-                            type: igtfTax.type,
-                            rate: igtfTax.rate,
+                        }] : []),
+                        ...(totals.igtf > 0 ? [{
+                            type: 'IGTF',
+                            rate: 3,
                             amount: totals.igtf,
                             base: totals.subtotal - totals.discounts + totals.taxes
                         }] : [])
@@ -552,7 +572,42 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                                 <div className="grid gap-4 md:grid-cols-2">
                                     <div>
                                         <Label>Tipo</Label>
-                                        <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
+                                        <Select value={formData.type} onValueChange={(value) => {
+                                            if (value === 'delivery_note') {
+                                                // Nota de Entrega: eliminar IVA de todos los items
+                                                const itemsSinIva = formData.items.map(item => {
+                                                    const subtotal = item.quantity * item.unitPrice;
+                                                    const discountAmount = (subtotal * (item.discount || 0)) / 100;
+                                                    return {
+                                                        ...item,
+                                                        _originalTaxRate: item.taxRate, // guardar tasa original para restaurar
+                                                        taxRate: 0,
+                                                        tax: 0,
+                                                        total: subtotal - discountAmount
+                                                    };
+                                                });
+                                                setFormData({ ...formData, type: value, items: itemsSinIva });
+                                            } else if (formData.type === 'delivery_note' && value !== 'delivery_note') {
+                                                // Restaurar tasas originales al cambiar desde Nota de Entrega
+                                                const itemsRestaurados = formData.items.map(item => {
+                                                    const restoredRate = item._originalTaxRate != null ? item._originalTaxRate : 16;
+                                                    const subtotal = item.quantity * item.unitPrice;
+                                                    const discountAmount = (subtotal * (item.discount || 0)) / 100;
+                                                    const base = subtotal - discountAmount;
+                                                    const tax = (base * restoredRate) / 100;
+                                                    return {
+                                                        ...item,
+                                                        taxRate: restoredRate,
+                                                        tax: tax,
+                                                        total: base + tax,
+                                                        _originalTaxRate: undefined
+                                                    };
+                                                });
+                                                setFormData({ ...formData, type: value, items: itemsRestaurados });
+                                            } else {
+                                                setFormData({ ...formData, type: value });
+                                            }
+                                        }}>
                                             <SelectTrigger>
                                                 <SelectValue />
                                             </SelectTrigger>
@@ -645,7 +700,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                                         />
                                     </div>
                                     <div>
-                                        <Label>{fiscalIdLabel} *</Label>
+                                        <Label>RIF / Cédula *</Label>
                                         <Input
                                             value={formData.customerData.rif}
                                             onChange={(e) => setFormData({
@@ -726,7 +781,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                                 <input
                                     type="checkbox"
                                     checked={newItem.taxRate === 0}
-                                    onChange={(e) => setNewItem({ ...newItem, taxRate: e.target.checked ? 0 : defaultTaxRate })}
+                                    onChange={(e) => setNewItem({ ...newItem, taxRate: e.target.checked ? 0 : 16 })}
                                     className="h-4 w-4"
                                 />
                             </div>
@@ -745,18 +800,28 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
 
                         {/* Totals */}
                         <div className="space-y-2 pt-4 border-t">
+                            {formData.type === 'delivery_note' && (
+                                <div className="flex items-center gap-2 p-2 rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs">
+                                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                                    <span>Nota de Entrega: No aplica IVA ni IGTF</span>
+                                </div>
+                            )}
                             <div className="flex justify-between text-sm">
                                 <span className="text-muted-foreground">Subtotal:</span>
                                 <span>${totals.subtotal.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">{defaultTaxType} ({defaultTaxRate}%):</span>
-                                <span>${totals.taxes.toFixed(2)}</span>
+                                <span className="text-muted-foreground">
+                                    {formData.type === 'delivery_note' ? 'IVA:' : 'IVA (16%):'}
+                                </span>
+                                <span className={formData.type === 'delivery_note' ? 'text-muted-foreground' : ''}>
+                                    ${totals.taxes.toFixed(2)}
+                                </span>
                             </div>
-                            {totals.igtf > 0 && igtfTax && (
+                            {totals.igtf > 0 && (
                                 <div className="flex justify-between text-sm text-orange-600">
                                     <span className="flex items-center gap-1">
-                                        <span>{igtfTax.type} ({igtfTax.rate}%):</span>
+                                        <span>IGTF (3%):</span>
                                         <span className="text-[10px]">De pagos registrados</span>
                                     </span>
                                     <span>${totals.igtf.toFixed(2)}</span>
@@ -767,47 +832,43 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                                 <span>${totals.total.toFixed(2)}</span>
                             </div>
 
-                            {/* Exchange Rate and primary currency total — shown only for dual-currency countries */}
-                            {hasSecondaryCurrency && (
-                                <>
-                                    <div className="grid grid-cols-2 gap-4 pt-3 border-t">
-                                        <div>
-                                            <Label className="text-xs text-muted-foreground">
-                                                Tasa {exchangeRateConfig?.source || 'Cambio'} ({primaryCurrency.symbol}/$)
-                                                {loadingRate && <span className="ml-1">(Cargando...)</span>}
-                                            </Label>
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                value={formData.exchangeRate || bcvRate || ''}
-                                                disabled
-                                                className="h-8 text-sm bg-muted"
-                                                title="Tasa oficial — No modificable por transparencia fiscal"
-                                            />
-                                            <p className="text-[10px] text-muted-foreground mt-1">
-                                                Tasa oficial (no modificable)
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <Label className="text-xs text-muted-foreground">Total en {primaryCurrency.symbol} *</Label>
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                value={(totals.total * (formData.exchangeRate || bcvRate || 1)).toFixed(2)}
-                                                disabled
-                                                className="h-8 text-sm font-bold bg-muted"
-                                            />
-                                            <p className="text-[10px] text-muted-foreground mt-1">
-                                                Calculado automáticamente
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-between font-bold text-lg pt-2">
-                                        <span>Total {primaryCurrency.symbol}:</span>
-                                        <span>{primaryCurrency.symbol} {(totals.total * (formData.exchangeRate || bcvRate || 1)).toFixed(2)}</span>
-                                    </div>
-                                </>
-                            )}
+                            {/* Exchange Rate and Bs Amount - Required by SENIAT */}
+                            <div className="grid grid-cols-2 gap-4 pt-3 border-t">
+                                <div>
+                                    <Label className="text-xs text-muted-foreground">
+                                        Tasa de Cambio BCV (Bs/$)
+                                        {loadingRate && <span className="ml-1">(Cargando...)</span>}
+                                    </Label>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={formData.exchangeRate || bcvRate || ''}
+                                        disabled
+                                        className="h-8 text-sm bg-muted"
+                                        title="Tasa oficial del BCV - No modificable por transparencia fiscal"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                        Tasa oficial BCV (no modificable)
+                                    </p>
+                                </div>
+                                <div>
+                                    <Label className="text-xs text-muted-foreground">Total en Bs *</Label>
+                                    <Input
+                                        type="number"
+                                        step="0.01"
+                                        value={(totals.total * (formData.exchangeRate || bcvRate || 1)).toFixed(2)}
+                                        disabled
+                                        className="h-8 text-sm font-bold bg-muted"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                        Calculado automáticamente
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex justify-between font-bold text-lg pt-2">
+                                <span>Total Bs:</span>
+                                <span>Bs {(totals.total * (formData.exchangeRate || bcvRate || 1)).toFixed(2)}</span>
+                            </div>
                         </div>
 
                         <div className="flex flex-col gap-2 pt-4">
@@ -816,7 +877,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
                             </Button>
                             <Button className="w-full" onClick={handleIssue} disabled={loading}>
                                 <Send className="mr-2 h-4 w-4" />
-                                Emitir Factura
+                                {formData.type === 'delivery_note' ? 'Emitir Nota de Entrega' : 'Emitir Factura'}
                             </Button>
                         </div>
 

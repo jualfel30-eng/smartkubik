@@ -37,6 +37,7 @@ import {
   Edit,
   Trash2,
   ShieldAlert,
+  Power,
   Banknote,
   CreditCard,
 } from 'lucide-react';
@@ -50,9 +51,11 @@ import {
 } from '../lib/api';
 import { toast } from 'sonner';
 import { useModuleAccess } from '../hooks/useModuleAccess';
+import { useTipsLabels } from '../hooks/useTipsLabels';
 
 export default function TipsManagementDashboard() {
   const hasTipsModule = useModuleAccess('tips');
+  const labels = useTipsLabels();
   const [loading, setLoading] = useState(false);
   const [distributionRules, setDistributionRules] = useState([]);
   const [consolidatedReport, setConsolidatedReport] = useState(null);
@@ -66,6 +69,9 @@ export default function TipsManagementDashboard() {
   const [ruleType, setRuleType] = useState('equal');
   const [includedRoles, setIncludedRoles] = useState(['waiter', 'bartender']);
   const [poolTips, setPoolTips] = useState(true);
+  const [fixedPercentage, setFixedPercentage] = useState(0);
+  const [fixedAmount, setFixedAmount] = useState(0);
+  const [isActive, setIsActive] = useState(true);
 
   // Distribution form
   const [distStartDate, setDistStartDate] = useState('');
@@ -108,11 +114,14 @@ export default function TipsManagementDashboard() {
       const ruleData = {
         name: ruleName,
         type: ruleType,
+        isActive,
         rules: {
           includedRoles,
           poolTips,
           hourlyWeight: ruleType === 'by-hours' ? 1 : 0,
           salesWeight: ruleType === 'by-sales' ? 1 : 0,
+          fixedPercentage: ruleType === 'fixed-percentage' ? Number(fixedPercentage) : 0,
+          fixedAmount: ruleType === 'fixed-amount' ? Number(fixedAmount) : 0,
         },
       };
 
@@ -148,6 +157,20 @@ export default function TipsManagementDashboard() {
     }
   };
 
+  const handleToggleStatus = async (rule) => {
+    try {
+      await updateTipsDistributionRule(rule._id, {
+        isActive: !rule.isActive,
+      });
+      toast.success(`Regla ${!rule.isActive ? 'activada' : 'desactivada'} correctamente`);
+      fetchDistributionRules();
+    } catch (error) {
+      toast.error('Error al cambiar estado de la regla', {
+        description: error.message,
+      });
+    }
+  };
+
   const handleDistribute = async () => {
     if (!selectedRuleId) {
       toast.error('Selecciona una regla de distribución');
@@ -166,7 +189,7 @@ export default function TipsManagementDashboard() {
         distributionRuleId: selectedRuleId,
       });
 
-      toast.success('Propinas distribuidas correctamente', {
+      toast.success(labels.distributedSuccess, {
         description: `${result.employeesIncluded} empleados recibieron un total de $${result.totalTips.toFixed(2)}`,
       });
 
@@ -184,6 +207,9 @@ export default function TipsManagementDashboard() {
     setRuleType('equal');
     setIncludedRoles(['waiter', 'bartender']);
     setPoolTips(true);
+    setFixedPercentage(0);
+    setFixedAmount(0);
+    setIsActive(true);
     setEditingRule(null);
   };
 
@@ -193,6 +219,9 @@ export default function TipsManagementDashboard() {
     setRuleType(rule.type);
     setIncludedRoles(rule.rules.includedRoles);
     setPoolTips(rule.rules.poolTips);
+    setFixedPercentage(rule.rules.fixedPercentage || 0);
+    setFixedAmount(rule.rules.fixedAmount || 0);
+    setIsActive(rule.isActive);
     setRuleModalOpen(true);
   };
 
@@ -201,6 +230,8 @@ export default function TipsManagementDashboard() {
       equal: 'Distribución Equitativa',
       'by-hours': 'Por Horas Trabajadas',
       'by-sales': 'Por Ventas Generadas',
+      'fixed-percentage': 'Porcentaje Fijo por Venta',
+      'fixed-amount': 'Monto Fijo por Venta',
       custom: 'Personalizada',
     };
     return names[type] || type;
@@ -213,7 +244,7 @@ export default function TipsManagementDashboard() {
       return;
     }
 
-    const headers = ['Empleado', 'Total Propinas (USD)', 'Órdenes Servidas', 'Promedio por Orden', 'Efectivo', 'Tarjeta', 'Digital'];
+    const headers = labels.exportHeaders;
     const rows = consolidatedReport.byEmployee.map(emp => [
       emp.name,
       emp.totalTips?.toFixed(2) || '0.00',
@@ -272,7 +303,7 @@ export default function TipsManagementDashboard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShieldAlert className="h-4 w-4 text-amber-600" />
-            Módulo de Propinas no habilitado
+            {labels.moduleDisabled}
           </CardTitle>
           <CardDescription>
             Activa el módulo de propinas para este tenant desde Configuración &gt; Organización o solicita acceso al equipo de soporte.
@@ -286,9 +317,9 @@ export default function TipsManagementDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Gestión de Propinas</h1>
+          <h1 className="text-3xl font-bold text-foreground">{labels.moduleName}</h1>
           <p className="text-muted-foreground">
-            Distribuye y reporta propinas del equipo
+            Distribuye y reporta {labels.plural.toLowerCase()} del equipo
           </p>
         </div>
         <div className="flex gap-2">
@@ -300,14 +331,14 @@ export default function TipsManagementDashboard() {
             <DialogTrigger asChild>
               <Button>
                 <DollarSign className="mr-2 h-4 w-4" />
-                Distribuir Propinas
+                {labels.distribute}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Distribuir Propinas</DialogTitle>
+                <DialogTitle>{labels.distribute}</DialogTitle>
                 <DialogDescription>
-                  Distribuye las propinas de un período según una regla
+                  Distribuye las {labels.plural.toLowerCase()} de un período según una regla
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -575,6 +606,8 @@ export default function TipsManagementDashboard() {
                             <SelectItem value="equal">Equitativa</SelectItem>
                             <SelectItem value="by-hours">Por Horas Trabajadas</SelectItem>
                             <SelectItem value="by-sales">Por Ventas Generadas</SelectItem>
+                            <SelectItem value="fixed-percentage">Porcentaje Fijo por Venta</SelectItem>
+                            <SelectItem value="fixed-amount">Monto Fijo por Venta</SelectItem>
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground mt-1">
@@ -583,8 +616,36 @@ export default function TipsManagementDashboard() {
                             'Distribuye según horas trabajadas en el período'}
                           {ruleType === 'by-sales' &&
                             'Distribuye según las ventas generadas por cada mesero'}
+                          {ruleType === 'fixed-percentage' &&
+                            'Calcula una comisión de % sobre cada venta realizada'}
+                          {ruleType === 'fixed-amount' &&
+                            'Calcula una comisión de monto fijo por cada venta realizada'}
                         </p>
                       </div>
+
+                      {ruleType === 'fixed-percentage' && (
+                        <div>
+                          <Label>Porcentaje de Comisión (%)</Label>
+                          <Input
+                            type="number"
+                            value={fixedPercentage}
+                            onChange={(e) => setFixedPercentage(e.target.value)}
+                            placeholder="ej. 5"
+                          />
+                        </div>
+                      )}
+
+                      {ruleType === 'fixed-amount' && (
+                        <div>
+                          <Label>Monto Fijo por Venta ($)</Label>
+                          <Input
+                            type="number"
+                            value={fixedAmount}
+                            onChange={(e) => setFixedAmount(e.target.value)}
+                            placeholder="ej. 10"
+                          />
+                        </div>
+                      )}
                       <div className="flex items-center space-x-2">
                         <input
                           type="checkbox"
@@ -595,6 +656,18 @@ export default function TipsManagementDashboard() {
                         />
                         <Label htmlFor="poolTips" className="cursor-pointer">
                           Poolear todas las propinas
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="isActive"
+                          checked={isActive}
+                          onChange={(e) => setIsActive(e.target.checked)}
+                          className="rounded border-gray-300"
+                        />
+                        <Label htmlFor="isActive" className="cursor-pointer">
+                          Regla Activa
                         </Label>
                       </div>
                     </div>
@@ -639,7 +712,15 @@ export default function TipsManagementDashboard() {
                             <Badge variant="outline">Inactiva</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-right space-x-2">
+                        <TableCell className="text-right space-x-2 text-nowrap">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleToggleStatus(rule)}
+                            title={rule.isActive ? "Desactivar" : "Activar"}
+                          >
+                            <Power className={`h-4 w-4 ${rule.isActive ? 'text-green-500' : 'text-muted-foreground'}`} />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"

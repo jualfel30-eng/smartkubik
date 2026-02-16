@@ -44,7 +44,7 @@ export class AuthService {
     private mailService: MailService,
     private tokenService: TokenService,
     private membershipsService: MembershipsService,
-  ) {}
+  ) { }
 
   async login(
     loginDto: LoginDto | UserDocument | string,
@@ -241,8 +241,7 @@ export class AuthService {
         }
       } catch (error) {
         this.logger.warn(
-          `Auto-selection of default tenant failed: ${
-            error instanceof Error ? error.message : error
+          `Auto-selection of default tenant failed: ${error instanceof Error ? error.message : error
           }`,
         );
       }
@@ -798,6 +797,10 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async getMemberships(userId: string) {
+    return this.membershipsService.findActiveMembershipsForUser(userId);
   }
 
   async logout(userId: string) {

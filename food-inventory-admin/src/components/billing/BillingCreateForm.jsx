@@ -32,22 +32,33 @@ import {
 } from '../ui/table';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
-import { useCountryPlugin } from '../../country-plugins/CountryPluginContext';
+import { SearchableSelect } from '../orders/v2/custom/SearchableSelect';
+import { useExchangeRate } from '../../hooks/useExchangeRate';
+
+// Helper pure functions for calculations
+const calculateItemSubtotal = (item) => {
+  return item.quantity * item.unitPrice;
+};
+
+const calculateItemTax = (item) => {
+  const subtotal = calculateItemSubtotal(item);
+  const discountAmount = (subtotal * item.discount) / 100;
+  const base = subtotal - discountAmount;
+  return (base * item.taxRate) / 100;
+};
+
+const calculateItemTotal = (item) => {
+  const subtotal = calculateItemSubtotal(item);
+  const discountAmount = (subtotal * item.discount) / 100;
+  const tax = calculateItemTax(item);
+  return subtotal - discountAmount + tax;
+};
 
 const BillingCreateForm = () => {
   const navigate = useNavigate();
-  const plugin = useCountryPlugin();
-  const primaryCurrency = plugin.currencyEngine.getPrimaryCurrency();
-  const allCurrencies = [primaryCurrency, ...plugin.currencyEngine.getSecondaryCurrencies()];
-  const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
-  const defaultTaxRate = defaultTax?.rate ?? 16;
-  const defaultTaxType = defaultTax?.type ?? 'IVA';
-  const fiscalIdLabel = plugin.fiscalIdentity.getFieldLabel();
-  const phonePrefix = plugin.localeProvider.getPhonePrefix();
-
+  const traverse = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [customers, setCustomers] = useState([]);
-  const [products, setProducts] = useState([]);
+  // Customers/Products state removed in favor of async search
 
   const [formData, setFormData] = useState({
     type: 'invoice',
@@ -62,70 +73,155 @@ const BillingCreateForm = () => {
     items: [],
     notes: '',
     paymentMethod: 'cash',
-    currency: primaryCurrency.code
+
+    currency: 'VES',
+    exchangeRate: 0
   });
+
+  const { rate: bcvRate, loading: loadingRate } = useExchangeRate();
+
+  useEffect(() => {
+    if (bcvRate && !formData.exchangeRate) {
+      setFormData(prev => ({ ...prev, exchangeRate: bcvRate }));
+    }
+  }, [bcvRate]);
 
   const [newItem, setNewItem] = useState({
     productId: '',
     description: '',
     quantity: 1,
     unitPrice: 0,
-    taxRate: defaultTaxRate,
+    taxRate: 16,
     discount: 0
   });
 
-  useEffect(() => {
-    loadCustomers();
-    loadProducts();
-  }, []);
-
-  const loadCustomers = async () => {
+  // Async loaders for SearchableSelect
+  const loadCustomerOptions = async (inputValue) => {
     try {
-      const response = await api.get('/customers');
-      setCustomers(response.data);
+      const response = await api.get(`/customers?search=${inputValue}&limit=20`);
+      return response.data.map(c => ({
+        label: `${c.name} - ${c.rif || c.taxId}`,
+        value: c._id,
+        customer: c
+      }));
     } catch (error) {
-      console.error('Error loading customers:', error);
-      toast.error('Error al cargar clientes');
+      console.error('Error searching customers:', error);
+      return [];
     }
   };
 
-  const loadProducts = async () => {
+  // Helper to extract price from product structure
+  const getProductPrice = (product) => {
+    // Check for explicit price (if any)
+    if (typeof product.price === 'number') return product.price;
+    // Check for selling units (e.g. retail products)
+    if (product.sellingUnits && product.sellingUnits.length > 0) {
+      return product.sellingUnits[0].pricePerUnit;
+    }
+    // Check for variants (e.g. restaurant products)
+    if (product.variants && product.variants.length > 0) {
+      return product.variants[0].basePrice;
+    }
+    return 0;
+  };
+
+  const loadProductOptions = async (inputValue) => {
     try {
-      const response = await api.get('/products');
-      setProducts(response.data);
+      const response = await api.get(`/products?search=${inputValue}&isActive=true&limit=20`);
+      // Adapt response structure if needed (some endpoints return { data: [] })
+      const products = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+      return products.map(p => {
+        const price = getProductPrice(p);
+        return {
+          label: `${p.name} - $${price.toFixed(2)}`,
+          value: p._id,
+          product: p
+        };
+      });
     } catch (error) {
-      console.error('Error loading products:', error);
-      toast.error('Error al cargar productos');
+      console.error('Error searching products:', error);
+      return [];
     }
   };
 
-  const handleCustomerSelect = (customerId) => {
-    const customer = customers.find(c => c._id === customerId);
-    if (customer) {
+  const handleCustomerSelect = (selectedOption) => {
+    // SearchableSelect returns an object { value, label, customer } or null
+    if (selectedOption && selectedOption.customer) {
+      const { customer } = selectedOption;
       setFormData({
         ...formData,
         customer: customer._id,
         customerData: {
           name: customer.name,
-          rif: customer.rif || customer.taxId,
-          email: customer.email,
-          phone: customer.phone,
-          address: customer.address
+          rif: customer.rif || customer.taxId || '',
+          email: customer.email || '',
+          phone: customer.phone || '',
+          address: customer.address || ((customer.addresses && customer.addresses.length > 0) ? customer.addresses[0].street : '')
         }
       });
+      toast.success('Cliente cargado');
     }
   };
 
-  const handleProductSelect = (productId) => {
-    const product = products.find(p => p._id === productId);
-    if (product) {
+  const handleProductSelect = (selectedOption) => {
+    // SearchableSelect returns an object { value, label, product } or null
+    if (selectedOption && selectedOption.product) {
+      const { product } = selectedOption;
+      const basePrice = getProductPrice(product);
+
+      // Calculate price based on selected currency
+      let finalPrice = basePrice;
+      if (formData.currency === 'VES' && bcvRate) {
+        finalPrice = basePrice * bcvRate;
+      }
+
       setNewItem({
         ...newItem,
         productId: product._id,
         description: product.name,
-        unitPrice: product.price || 0
+        unitPrice: parseFloat(finalPrice.toFixed(2))
       });
+      // Optional: Focus quantity input here if we had a ref
     }
+  };
+
+  const handleCurrencyChange = (newCurrency) => {
+    const rate = bcvRate || 1;
+    const oldCurrency = formData.currency;
+
+    // Determine conversion factor
+    let factor = 1;
+    if (newCurrency === 'VES' && oldCurrency === 'USD') {
+      factor = rate;
+    } else if (newCurrency === 'USD' && oldCurrency === 'VES') {
+      factor = 1 / rate;
+    }
+
+    // Update items
+    const updatedItems = formData.items.map(item => {
+      const newUnitPrice = item.unitPrice * factor;
+      const updatedItem = {
+        ...item,
+        unitPrice: newUnitPrice,
+        quantity: item.quantity,
+        discount: item.discount,
+        taxRate: item.taxRate
+      };
+      // Recalculate derived fields
+      return {
+        ...updatedItem,
+        subtotal: calculateItemSubtotal(updatedItem),
+        tax: calculateItemTax(updatedItem),
+        total: calculateItemTotal(updatedItem)
+      };
+    });
+
+    setFormData({
+      ...formData,
+      currency: newCurrency,
+      items: updatedItems,
+      exchangeRate: bcvRate // Ensure rate is current
+    });
   };
 
   const addItem = () => {
@@ -151,7 +247,7 @@ const BillingCreateForm = () => {
       description: '',
       quantity: 1,
       unitPrice: 0,
-      taxRate: defaultTaxRate,
+      taxRate: 16,
       discount: 0
     });
   };
@@ -163,23 +259,7 @@ const BillingCreateForm = () => {
     });
   };
 
-  const calculateItemSubtotal = (item) => {
-    return item.quantity * item.unitPrice;
-  };
 
-  const calculateItemTax = (item) => {
-    const subtotal = calculateItemSubtotal(item);
-    const discountAmount = (subtotal * item.discount) / 100;
-    const base = subtotal - discountAmount;
-    return (base * item.taxRate) / 100;
-  };
-
-  const calculateItemTotal = (item) => {
-    const subtotal = calculateItemSubtotal(item);
-    const discountAmount = (subtotal * item.discount) / 100;
-    const tax = calculateItemTax(item);
-    return subtotal - discountAmount + tax;
-  };
 
   const calculateTotals = () => {
     const subtotal = formData.items.reduce((sum, item) => sum + calculateItemSubtotal(item), 0);
@@ -223,7 +303,7 @@ const BillingCreateForm = () => {
             value: item.discount
           },
           tax: {
-            type: defaultTaxType,
+            type: 'IVA',
             rate: item.taxRate,
             amount: item.tax
           }
@@ -233,8 +313,8 @@ const BillingCreateForm = () => {
           discounts: totals.discounts,
           taxes: [
             {
-              type: defaultTaxType,
-              rate: defaultTaxRate,
+              type: 'IVA',
+              rate: 16,
               amount: totals.taxes,
               base: totals.subtotal - totals.discounts
             }
@@ -288,7 +368,7 @@ const BillingCreateForm = () => {
             value: item.discount
           },
           tax: {
-            type: defaultTaxType,
+            type: 'IVA',
             rate: item.taxRate,
             amount: item.tax
           }
@@ -298,8 +378,8 @@ const BillingCreateForm = () => {
           discounts: totals.discounts,
           taxes: [
             {
-              type: defaultTaxType,
-              rate: defaultTaxRate,
+              type: 'IVA',
+              rate: 16,
               amount: totals.taxes,
               base: totals.subtotal - totals.discounts
             }
@@ -378,16 +458,20 @@ const BillingCreateForm = () => {
               </div>
               <div>
                 <Label>Moneda</Label>
-                <Select value={formData.currency} onValueChange={(value) => setFormData({ ...formData, currency: value })}>
+                <Select value={formData.currency} onValueChange={handleCurrencyChange}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {allCurrencies.map(c => (
-                      <SelectItem key={c.code} value={c.code}>{c.name} ({c.code})</SelectItem>
-                    ))}
+                    <SelectItem value="VES">Bolívares (VES)</SelectItem>
+                    <SelectItem value="USD">Dólares (USD)</SelectItem>
                   </SelectContent>
                 </Select>
+                {formData.currency === 'VES' && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Tasa BCV: {bcvRate ? `${bcvRate.toFixed(2)}` : 'Cargando...'}
+                  </p>
+                )}
               </div>
               <div>
                 <Label>Método de Pago</Label>
@@ -421,18 +505,13 @@ const BillingCreateForm = () => {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
                 <Label>Seleccionar Cliente Existente</Label>
-                <Select onValueChange={handleCustomerSelect}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione un cliente..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer._id} value={customer._id}>
-                        {customer.name} - {customer.rif || customer.taxId}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  placeholder="Buscar cliente (Nombre o RIF)..."
+                  asyncSearch={true}
+                  loadOptions={loadCustomerOptions}
+                  onChange={handleCustomerSelect}
+                  noOptionsMessage={() => "No se encontraron clientes"}
+                />
               </div>
 
               <div>
@@ -448,7 +527,7 @@ const BillingCreateForm = () => {
               </div>
 
               <div>
-                <Label>{fiscalIdLabel} *</Label>
+                <Label>RIF / Cédula *</Label>
                 <Input
                   value={formData.customerData.rif}
                   onChange={(e) => setFormData({
@@ -480,7 +559,7 @@ const BillingCreateForm = () => {
                     ...formData,
                     customerData: { ...formData.customerData, phone: e.target.value }
                   })}
-                  placeholder={`${phonePrefix} 412 1234567`}
+                  placeholder="+58 412 1234567"
                 />
               </div>
 
@@ -513,18 +592,13 @@ const BillingCreateForm = () => {
             <div className="grid gap-4 md:grid-cols-7 mb-4 p-4 border rounded-lg bg-muted/50">
               <div className="md:col-span-2">
                 <Label>Producto</Label>
-                <Select onValueChange={handleProductSelect}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {products.map((product) => (
-                      <SelectItem key={product._id} value={product._id}>
-                        {product.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  placeholder="Buscar producto..."
+                  asyncSearch={true}
+                  loadOptions={loadProductOptions}
+                  onChange={handleProductSelect}
+                  noOptionsMessage={() => "No se encontraron productos"}
+                />
               </div>
 
               <div className="md:col-span-2">
@@ -558,14 +632,15 @@ const BillingCreateForm = () => {
               </div>
 
               <div>
-                <Label>{defaultTaxType} %</Label>
+                <Label>IVA %</Label>
                 <Select value={newItem.taxRate.toString()} onValueChange={(value) => setNewItem({ ...newItem, taxRate: parseFloat(value) })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="0">0%</SelectItem>
-                    <SelectItem value={defaultTaxRate.toString()}>{defaultTaxRate}%</SelectItem>
+                    <SelectItem value="8">8%</SelectItem>
+                    <SelectItem value="16">16%</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -587,7 +662,7 @@ const BillingCreateForm = () => {
                     <TableHead className="text-right">Cantidad</TableHead>
                     <TableHead className="text-right">Precio Unit.</TableHead>
                     <TableHead className="text-right">Subtotal</TableHead>
-                    <TableHead className="text-right">{defaultTaxType}</TableHead>
+                    <TableHead className="text-right">IVA</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
@@ -659,7 +734,7 @@ const BillingCreateForm = () => {
                 </div>
               )}
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{defaultTaxType} ({defaultTaxRate}%):</span>
+                <span className="text-muted-foreground">IVA (16%):</span>
                 <span>${totals.taxes.toFixed(2)}</span>
               </div>
               <div className="border-t pt-2 mt-2">

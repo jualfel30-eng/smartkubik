@@ -26,6 +26,16 @@ const baseProfiles = {
       requiresSerialTracking: false,
       alerts: ['lowStock', 'nearExpiration'],
     },
+    availableReports: [
+      'food-cost',
+      'tips',
+      'menu-engineering',
+      'performance',
+      'ar',
+      'ap',
+      'cash-flow',
+      'tips-management'
+    ],
     orderLine: {
       requireAttributesOnAdd: false,
       allowCustomPrice: true,
@@ -95,6 +105,12 @@ const baseProfiles = {
       requiresSerialTracking: false,
       alerts: ['lowStock'],
     },
+    availableReports: [
+      'performance',
+      'ar',
+      'ap',
+      'cash-flow'
+    ],
     orderLine: {
       requireAttributesOnAdd: true,
       notesPlaceholder: 'Instrucciones de empaque o personalización',
@@ -155,6 +171,12 @@ const baseProfiles = {
       requiresSerialTracking: false,
       alerts: ['lowStock'],
     },
+    availableReports: [
+      'performance',
+      'ar',
+      'ap',
+      'cash-flow'
+    ],
     orderLine: {
       requireAttributesOnAdd: true,
     },
@@ -281,6 +303,12 @@ const baseProfiles = {
       requiresSerialTracking: true,
       alerts: ['lowStock', 'warranty'],
     },
+    availableReports: [
+      'performance',
+      'ar',
+      'ap',
+      'cash-flow'
+    ],
     orderLine: {
       requireAttributesOnAdd: true,
       notesPlaceholder: 'Registrar notas sobre activación o configuración',
@@ -352,6 +380,12 @@ const baseProfiles = {
       requiresSerialTracking: false,
       alerts: ['lowStock', 'ageRange'],
     },
+    availableReports: [
+      'performance',
+      'ar',
+      'ap',
+      'cash-flow'
+    ],
     orderLine: {
       requireAttributesOnAdd: false,
       notesPlaceholder: 'Notas para envoltura o armado',

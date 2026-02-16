@@ -11,6 +11,7 @@ import {
   HttpException,
   Delete,
   Patch,
+  Res,
 } from "@nestjs/common";
 import {
   ApiTags,
@@ -18,7 +19,9 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from "@nestjs/swagger";
+import { Response } from "express";
 import { InventoryService } from "./inventory.service";
+import { InventoryReceiptPdfService } from "./inventory-receipt-pdf.service";
 import {
   CreateInventoryDto,
   InventoryMovementDto,
@@ -40,7 +43,10 @@ import { BulkAdjustInventoryDto } from "./dto/bulk-adjust-inventory.dto";
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
 @ApiBearerAuth()
 export class InventoryController {
-  constructor(private readonly inventoryService: InventoryService) {}
+  constructor(
+    private readonly inventoryService: InventoryService,
+    private readonly inventoryReceiptPdfService: InventoryReceiptPdfService,
+  ) { }
 
   @Post()
   @Permissions("inventory_create")
@@ -470,6 +476,32 @@ export class InventoryController {
       throw new HttpException(
         error.message || "Error al actualizar los lotes",
         HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Get("movements/:id/receipt")
+  @Permissions("inventory_read")
+  @ApiOperation({ summary: "Generar PDF de recibo de movimiento de inventario" })
+  @ApiResponse({ status: 200, description: "PDF generado exitosamente" })
+  async generateMovementReceipt(
+    @Param("id") id: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const pdfBuffer = await this.inventoryReceiptPdfService.generateReceipt(id);
+
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename=recibo-inventario-${id}.pdf`,
+        'Content-Length': pdfBuffer.length,
+      });
+
+      res.send(pdfBuffer);
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al generar el PDF",
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

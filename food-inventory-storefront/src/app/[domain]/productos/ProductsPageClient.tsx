@@ -3,9 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { StorefrontConfig, ProductsResponse } from '@/types';
-import { Header } from '@/templates/ModernEcommerce/components/Header';
-import { Footer } from '@/templates/ModernEcommerce/components/Footer';
-import { ProductsGrid } from '@/templates/ModernEcommerce/components/ProductsGrid';
+import { getTemplateComponents } from '@/lib/getTemplateComponents';
 import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ProductsPageClientProps {
@@ -25,10 +23,15 @@ export function ProductsPageClient({
   currentCategory,
   currentSearch,
 }: ProductsPageClientProps) {
+  const { Header, Footer, ProductsGrid } = getTemplateComponents(config.templateType);
+  const isPremium = config.templateType === 'premium';
   const router = useRouter();
   const [searchInput, setSearchInput] = useState(currentSearch || '');
   const [selectedCategory, setSelectedCategory] = useState(currentCategory || '');
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(isPremium);
+
+  const primaryColor = config.theme?.primaryColor || '#6366f1';
+  const secondaryColor = config.theme?.secondaryColor || '#ec4899';
 
   useEffect(() => {
     const stored = localStorage.getItem('storefront_theme');
@@ -38,10 +41,15 @@ export function ProductsPageClient({
       document.documentElement.classList.toggle('dark', value);
       return;
     }
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    setIsDarkMode(prefersDark);
-    document.documentElement.classList.toggle('dark', prefersDark);
-  }, []);
+    if (isPremium) {
+      setIsDarkMode(true);
+      document.documentElement.classList.add('dark');
+    } else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDarkMode(prefersDark);
+      document.documentElement.classList.toggle('dark', prefersDark);
+    }
+  }, [isPremium]);
 
   const toggleTheme = () => {
     const next = !isDarkMode;
@@ -64,9 +72,9 @@ export function ProductsPageClient({
 
   const updateFilters = (updates: Record<string, any>) => {
     const params = new URLSearchParams();
-    
+
     const newSearch = updates.search !== undefined ? updates.search : currentSearch;
-    const newCategory = updates.category !== undefined ? updates.category : selectedCategory;
+    const newCategory = updates.category !== undefined ? updates.category : currentCategory;
     const newPage = updates.page || currentPage;
 
     if (newSearch) params.set('search', newSearch);
@@ -80,52 +88,85 @@ export function ProductsPageClient({
     updateFilters({ page });
   };
 
+  // Theme-aware class helpers
+  const pageBg = isPremium
+    ? (isDarkMode ? 'bg-[#0a0a1a]' : 'bg-gray-50')
+    : (isDarkMode ? 'bg-gray-950' : 'bg-white');
+  const mainBg = isPremium
+    ? (isDarkMode ? 'bg-[#0a0a1a]' : 'bg-gray-50')
+    : (isDarkMode ? 'bg-gray-950' : 'bg-gray-50');
+  const cardBg = isPremium
+    ? (isDarkMode ? 'bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl' : 'bg-white rounded-2xl shadow-sm border border-gray-100')
+    : (isDarkMode ? 'bg-gray-900 border border-gray-800 rounded-lg' : 'bg-white rounded-lg');
+  const inputBg = isPremium
+    ? (isDarkMode ? 'bg-white/5 border-white/10 text-gray-100 placeholder:text-gray-500' : 'bg-white border-gray-200 text-gray-900')
+    : (isDarkMode ? 'bg-gray-800 border border-gray-700 text-gray-100 placeholder:text-gray-400' : 'bg-white border border-gray-300 text-gray-900');
+  const tagBg = isPremium
+    ? (isDarkMode ? 'bg-white/5 text-gray-200 border border-white/10' : 'bg-gray-100 text-gray-700')
+    : (isDarkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700');
+  const paginationBtn = isPremium
+    ? (isDarkMode ? 'border-white/10 text-gray-200 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50')
+    : (isDarkMode ? 'border-gray-700 text-gray-200 hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-50');
+  const textMain = isDarkMode ? 'text-white' : 'text-gray-900';
+  const textMuted = isDarkMode ? 'text-gray-300' : 'text-gray-600';
+  const iconMuted = isDarkMode ? 'text-gray-500' : 'text-gray-400';
+
   return (
-    <div className={`min-h-screen flex flex-col ${isDarkMode ? 'bg-gray-950 text-gray-100' : 'bg-white text-gray-900'}`}>
+    <div className={`min-h-screen flex flex-col ${pageBg} ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
       <Header config={config} domain={config.domain} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
 
-      <main className={`flex-1 ${isDarkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+      <main className={`flex-1 ${mainBg} ${isPremium ? 'pt-16' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Page Header */}
           <div className="mb-8">
-            <h1 className={`text-3xl md:text-4xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Productos
-            </h1>
-            <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+            {isPremium ? (
+              <>
+                <h1
+                  className="text-3xl md:text-4xl font-bold mb-2"
+                  style={{
+                    background: isDarkMode ? `linear-gradient(135deg, #fff 0%, ${primaryColor} 50%, ${secondaryColor} 100%)` : undefined,
+                    WebkitBackgroundClip: isDarkMode ? 'text' : undefined,
+                    WebkitTextFillColor: isDarkMode ? 'transparent' : undefined,
+                    backgroundClip: isDarkMode ? 'text' : undefined,
+                    color: isDarkMode ? undefined : '#111',
+                  }}
+                >
+                  Productos
+                </h1>
+                <div className="w-16 h-1 rounded-full mt-3 mb-2" style={{ background: `linear-gradient(90deg, ${primaryColor}, ${secondaryColor})` }} />
+              </>
+            ) : (
+              <h1 className={`text-3xl md:text-4xl font-bold mb-2 ${textMain}`}>
+                Productos
+              </h1>
+            )}
+            <p className={textMuted}>
               {productsData.total} productos disponibles
             </p>
           </div>
 
           {/* Filters */}
-          <div className={`${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white'} rounded-lg shadow-sm p-6 mb-8`}>
+          <div className={`${cardBg} shadow-sm p-6 mb-8`}>
             <div className="grid md:grid-cols-2 gap-4">
               {/* Search */}
               <form onSubmit={handleSearch} className="relative">
-                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 ${iconMuted}`} />
                 <input
                   type="text"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Buscar productos..."
-                  className={`w-full pl-10 pr-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${
-                    isDarkMode
-                      ? 'bg-gray-800 border border-gray-700 text-gray-100 placeholder:text-gray-400'
-                      : 'bg-white border border-gray-300 text-gray-900'
-                  }`}
+                  className={`w-full pl-10 pr-4 py-3 ${isPremium ? 'rounded-xl border' : 'rounded-lg border'} focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${inputBg}`}
                 />
               </form>
 
               {/* Category Filter */}
               <div className="relative">
-                <Filter className={`absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                <Filter className={`absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 ${iconMuted}`} />
                 <select
                   value={selectedCategory}
                   onChange={(e) => handleCategoryChange(e.target.value)}
-                  className={`w-full pl-10 pr-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] appearance-none ${
-                    isDarkMode
-                      ? 'bg-gray-800 border border-gray-700 text-gray-100'
-                      : 'bg-white border border-gray-300 text-gray-900'
-                  }`}
+                  className={`w-full pl-10 pr-4 py-3 ${isPremium ? 'rounded-xl border' : 'rounded-lg border'} focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] appearance-none ${inputBg}`}
                 >
                   <option value="">Todas las categorías</option>
                   {categories.map((category) => (
@@ -141,7 +182,7 @@ export function ProductsPageClient({
             {(currentSearch || currentCategory) && (
               <div className="mt-4 flex flex-wrap gap-2">
                 {currentSearch && (
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${isDarkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>
+                  <span className={`inline-flex items-center px-3 py-1 ${isPremium ? 'rounded-full' : 'rounded-full'} text-sm ${tagBg}`}>
                     Búsqueda: {currentSearch}
                     <button
                       onClick={() => {
@@ -155,7 +196,7 @@ export function ProductsPageClient({
                   </span>
                 )}
                 {currentCategory && (
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${isDarkMode ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${tagBg}`}>
                     Categoría: {currentCategory}
                     <button
                       onClick={() => handleCategoryChange('')}
@@ -178,9 +219,7 @@ export function ProductsPageClient({
               <button
                 onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className={`p-2 rounded-lg border disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isDarkMode ? 'border-gray-700 text-gray-200 hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-50'
-                }`}
+                className={`p-2 ${isPremium ? 'rounded-xl' : 'rounded-lg'} border disabled:opacity-50 disabled:cursor-not-allowed ${paginationBtn}`}
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -197,15 +236,20 @@ export function ProductsPageClient({
                   pageNum = currentPage - 2 + i;
                 }
 
+                const isActive = currentPage === pageNum;
+
                 return (
                   <button
                     key={pageNum}
                     onClick={() => goToPage(pageNum)}
-                    className={`px-4 py-2 rounded-lg border ${
-                      currentPage === pageNum
-                        ? 'bg-[var(--primary-color)] text-white border-[var(--primary-color)]'
-                        : `${isDarkMode ? 'border-gray-700 text-gray-200 hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-50'}`
+                    className={`px-4 py-2 ${isPremium ? 'rounded-xl' : 'rounded-lg'} border ${
+                      isActive
+                        ? isPremium
+                          ? 'text-white border-transparent shadow-lg'
+                          : 'bg-[var(--primary-color)] text-white border-[var(--primary-color)]'
+                        : paginationBtn
                     }`}
+                    style={isActive && isPremium ? { background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` } : undefined}
                   >
                     {pageNum}
                   </button>
@@ -215,9 +259,7 @@ export function ProductsPageClient({
               <button
                 onClick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className={`p-2 rounded-lg border disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isDarkMode ? 'border-gray-700 text-gray-200 hover:bg-gray-800' : 'border-gray-300 hover:bg-gray-50'
-                }`}
+                className={`p-2 ${isPremium ? 'rounded-xl' : 'rounded-lg'} border disabled:opacity-50 disabled:cursor-not-allowed ${paginationBtn}`}
               >
                 <ChevronRight className="h-5 w-5" />
               </button>

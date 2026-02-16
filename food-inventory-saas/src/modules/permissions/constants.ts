@@ -66,9 +66,39 @@ export const ALL_PERMISSIONS = [
   "payroll_employees_write",
   "marketing_read",
   "marketing_write",
+  "tips_read",
+  "tips_write",
+  "tips_distribute",
   "opportunities_read",
   "opportunities_create",
   "opportunities_update",
   "opportunities_delete",
   "opportunities_view_all",
+  // Commissions Module
+  "commissions_read",
+  "commissions_write",
+  "commissions_approve",
+  // Goals Module
+  "goals_read",
+  "goals_write",
+  // Bonuses Module
+  "bonuses_read",
+  "bonuses_write",
+  "bonuses_approve",
+  // Cash Register Module (Cierre de Caja)
+  "cash_register_read",
+  "cash_register_open",
+  "cash_register_write",
+  "cash_register_close",
+  "cash_register_admin",
+  "cash_register_approve",
+  "cash_register_reports",
+  "cash_register_export",
+  // Billing Module
+  "billing_create",
+  "billing_void",
+  // Data Import Module
+  "data_import_create",
+  "data_import_read",
+  "data_import_delete",
 ];

@@ -45,7 +45,7 @@ export class CustomersService {
     @InjectModel(EmployeeProfile.name)
     private employeeProfileModel: Model<EmployeeProfileDocument>,
     private readonly loyaltyService: LoyaltyService,
-  ) {}
+  ) { }
 
   private toObjectId(id: string | Types.ObjectId): Types.ObjectId {
     if (id instanceof Types.ObjectId) {
@@ -195,7 +195,11 @@ export class CustomersService {
     };
 
     if (customerType && customerType !== "all") {
-      filter.customerType = customerType;
+      if (customerType.includes(",")) {
+        filter.customerType = { $in: customerType.split(",") };
+      } else {
+        filter.customerType = customerType;
+      }
     }
     if (status && status !== "all") {
       filter.status = status;
@@ -822,14 +826,14 @@ export class CustomersService {
       );
       const daysSinceLastPurchase = Math.floor(
         (today.getTime() - new Date(lastOrderDate).getTime()) /
-          (1000 * 3600 * 24),
+        (1000 * 3600 * 24),
       );
       const rScore = 100 / (daysSinceLastPurchase + 1);
       const fScore = customerOrders.length;
       const mScore = customerOrders.reduce((sum, order) => {
         const daysAgo = Math.floor(
           (today.getTime() - new Date(order.createdAt).getTime()) /
-            (1000 * 3600 * 24),
+          (1000 * 3600 * 24),
         );
         const weight = Math.pow(0.99, daysAgo);
         return sum + order.totalAmount * weight;
@@ -924,14 +928,60 @@ export class CustomersService {
       : [tenantId];
     const idFilter = Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : id;
 
-    return this.customerModel
+    // Fetch customer without populate to avoid ObjectId casting errors
+    const customer = await this.customerModel
       .findOne({
         _id: idFilter,
         tenantId: { $in: tenantCandidates },
       })
-      .populate("assignedTo", "firstName lastName")
-      .populate("createdBy", "firstName lastName")
+      .lean()
       .exec();
+
+    if (!customer) {
+      return null;
+    }
+
+    // Safe populate - only if valid ObjectId
+    // This prevents errors when fields contain invalid values like "assistant-bot"
+    if (customer.assignedTo) {
+      const assignedToStr = customer.assignedTo.toString();
+      if (Types.ObjectId.isValid(assignedToStr)) {
+        try {
+          const assignedUser = await this.customerModel.db
+            .collection('users')
+            .findOne(
+              { _id: new Types.ObjectId(assignedToStr) },
+              { projection: { firstName: 1, lastName: 1 } }
+            );
+          if (assignedUser) {
+            (customer as any).assignedTo = assignedUser;
+          }
+        } catch (error) {
+          this.logger.warn(`Failed to populate assignedTo for customer ${id}: ${error.message}`);
+        }
+      }
+    }
+
+    if (customer.createdBy) {
+      const createdByStr = customer.createdBy.toString();
+      if (Types.ObjectId.isValid(createdByStr)) {
+        try {
+          const createdByUser = await this.customerModel.db
+            .collection('users')
+            .findOne(
+              { _id: new Types.ObjectId(createdByStr) },
+              { projection: { firstName: 1, lastName: 1 } }
+            );
+          if (createdByUser) {
+            (customer as any).createdBy = createdByUser;
+          }
+        } catch (error) {
+          this.logger.warn(`Failed to populate createdBy for customer ${id}: ${error.message}`);
+        }
+      }
+    }
+
+    return customer as CustomerDocument;
   }
 
   async findByEmail(email: string, tenantId: string) {
@@ -1188,9 +1238,9 @@ export class CustomersService {
       firstPurchaseDate: item.firstPurchaseDate,
       daysSinceLastPurchase: item.lastPurchaseDate
         ? Math.floor(
-            (Date.now() - new Date(item.lastPurchaseDate).getTime()) /
-              (1000 * 3600 * 24),
-          )
+          (Date.now() - new Date(item.lastPurchaseDate).getTime()) /
+          (1000 * 3600 * 24),
+        )
         : null,
     }));
   }
@@ -1221,5 +1271,138 @@ export class CustomersService {
 
     // Fallback si el formato no coincide
     return 'CLI-000001';
+  }
+
+  /**
+   * Get customer order history directly from orders collection
+   */
+  async getCustomerOrderHistory(
+    customerId: string,
+    tenantId: string,
+    filters?: {
+      startDate?: string;
+      endDate?: string;
+      status?: string;
+      minAmount?: number;
+      maxAmount?: number;
+    },
+  ): Promise<any[]> {
+    const query: any = {
+      customerId: new Types.ObjectId(customerId),
+      tenantId: tenantId,
+      status: { $nin: ["cancelled", "draft"] },
+    };
+
+    if (filters?.startDate || filters?.endDate) {
+      query.createdAt = {};
+      if (filters.startDate) query.createdAt.$gte = new Date(filters.startDate);
+      if (filters.endDate) query.createdAt.$lte = new Date(filters.endDate);
+    }
+
+    if (filters?.status) {
+      query.status = filters.status;
+    }
+
+    if (filters?.minAmount !== undefined || filters?.maxAmount !== undefined) {
+      query.totalAmount = {};
+      if (filters.minAmount !== undefined) query.totalAmount.$gte = filters.minAmount;
+      if (filters.maxAmount !== undefined) query.totalAmount.$lte = filters.maxAmount;
+    }
+
+    const orders = await this.orderModel
+      .find(query)
+      .sort({ createdAt: -1 })
+      .select(
+        "orderNumber createdAt totalAmount subtotal ivaTotal discountAmount status paymentStatus paymentRecords items channel",
+      )
+      .lean();
+
+    return orders.map((order) => ({
+      _id: order._id,
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      orderDate: order.createdAt,
+      totalAmount: order.totalAmount,
+      subtotal: order.subtotal || 0,
+      tax: order.ivaTotal || 0,
+      discount: order.discountAmount || 0,
+      status: order.status,
+      isPaid: order.paymentStatus === "paid",
+      paymentMethod:
+        order.paymentRecords && order.paymentRecords.length > 0
+          ? order.paymentRecords[0].method
+          : "pending",
+      items: (order.items || []).map((item: any) => ({
+        productId: item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+        category: Array.isArray(item.category)
+          ? item.category[0]
+          : item.category,
+      })),
+    }));
+  }
+
+  /**
+   * Get customer transaction stats directly from orders collection
+   */
+  async getCustomerOrderStats(
+    customerId: string,
+    tenantId: string,
+  ): Promise<any> {
+    const matchStage = {
+      customerId: new Types.ObjectId(customerId),
+      tenantId: tenantId,
+      status: { $nin: ["cancelled", "draft"] },
+      paymentStatus: "paid",
+    };
+
+    const [statsResult, topProductsResult] = await Promise.all([
+      this.orderModel.aggregate([
+        { $match: matchStage },
+        {
+          $group: {
+            _id: null,
+            totalTransactions: { $sum: 1 },
+            totalSpent: { $sum: "$totalAmount" },
+            averageOrderValue: { $avg: "$totalAmount" },
+            lastPurchaseDate: { $max: "$createdAt" },
+            firstPurchaseDate: { $min: "$createdAt" },
+          },
+        },
+      ]),
+      this.orderModel.aggregate([
+        { $match: matchStage },
+        { $unwind: "$items" },
+        {
+          $group: {
+            _id: "$items.productId",
+            productName: { $first: "$items.productName" },
+            purchaseCount: { $sum: 1 },
+            totalQuantity: { $sum: "$items.quantity" },
+            totalSpent: { $sum: "$items.totalPrice" },
+            averageUnitPrice: { $avg: "$items.unitPrice" },
+            lastPurchaseDate: { $max: "$createdAt" },
+          },
+        },
+        { $sort: { totalSpent: -1 } },
+        { $limit: 5 },
+      ]),
+    ]);
+
+    const stats = statsResult[0] || {
+      totalTransactions: 0,
+      totalSpent: 0,
+      averageOrderValue: 0,
+      lastPurchaseDate: null,
+      firstPurchaseDate: null,
+    };
+
+    return {
+      ...stats,
+      topProducts: topProductsResult,
+    };
   }
 }

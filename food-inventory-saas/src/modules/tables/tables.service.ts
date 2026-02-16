@@ -22,7 +22,7 @@ export class TablesService {
   constructor(
     @InjectModel(Table.name)
     private tableModel: Model<Table>,
-  ) {}
+  ) { }
 
   async create(dto: CreateTableDto, tenantId: string): Promise<Table> {
     // Validar que no exista una mesa con el mismo número en el mismo tenant
@@ -147,6 +147,27 @@ export class TablesService {
     );
 
     this.logger.log(`Cleared table ${table.tableNumber}`);
+    return table;
+  }
+
+  async markAvailable(id: string, tenantId: string): Promise<Table> {
+    const table = await this.tableModel
+      .findOne({ _id: id, tenantId, isDeleted: false })
+      .exec();
+
+    if (!table) {
+      throw new NotFoundException(`Table not found`);
+    }
+
+    // Allow transition from cleaning or occupied (manual override)
+    table.status = "available";
+    table.guestCount = 0;
+    table.currentOrderId = undefined;
+    table.seatedAt = undefined;
+
+    await table.save();
+
+    this.logger.log(`Manually set table ${table.tableNumber} to available`);
     return table;
   }
 

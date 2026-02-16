@@ -13,7 +13,6 @@ import { Product, ProductDocument, ProductType } from "../../schemas/product.sch
 import { Inventory, InventoryDocument, InventoryMovement, InventoryMovementDocument } from "../../schemas/inventory.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { CustomersService } from "../customers/customers.service";
-import { InventoryService } from "../inventory/inventory.service";
 import { PurchasesService } from "../purchases/purchases.service";
 import { SuppliersService } from "../suppliers/suppliers.service";
 import {
@@ -24,6 +23,11 @@ import {
 import { CreateProductWithPurchaseDto } from "../../dto/composite.dto";
 import { CreateCustomerDto } from "../../dto/customer.dto";
 import { BulkCreateProductsDto } from "./dto/bulk-create-products.dto";
+import { OpenaiService } from "../openai/openai.service";
+import { PriceHistoryService } from "../price-history/price-history.service";
+import { PriceListsService } from "../price-lists/price-lists.service";
+import * as sharp from "sharp";
+import { calculatePriceWithRounding, validatePricingStrategy } from "../../utils/pricing-strategy.util";
 
 @Injectable()
 export class ProductsService {
@@ -37,9 +41,11 @@ export class ProductsService {
     private inventoryMovementModel: Model<InventoryMovementDocument>,
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     private readonly customersService: CustomersService,
-    private readonly inventoryService: InventoryService,
     private readonly purchasesService: PurchasesService,
-    @Inject(forwardRef(() => SuppliersService)) private readonly suppliersService: SuppliersService, // Added injection
+    @Inject(forwardRef(() => SuppliersService)) private readonly suppliersService: SuppliersService,
+    private readonly openaiService: OpenaiService,
+    private readonly priceHistoryService: PriceHistoryService,
+    private readonly priceListsService: PriceListsService,
     @InjectConnection() private readonly connection: Connection,
   ) { }
 
@@ -88,6 +94,56 @@ export class ProductsService {
         `El código de barras ya está asignado al producto ${conflict.name || conflict.sku}.`,
       );
     }
+  }
+
+  /**
+   * Procesa las variantes de un producto para calcular precios automáticamente
+   * según la estrategia de pricing definida (manual, markup, margin)
+   *
+   * @param variants - Array de variantes a procesar
+   * @returns Array de variantes con precios calculados
+   * @private
+   */
+  private processVariantPricing(variants: any[]): any[] {
+    if (!variants || variants.length === 0) {
+      return variants;
+    }
+
+    return variants.map((variant) => {
+      // Si no hay estrategia de pricing, retornar tal cual
+      if (!variant.pricingStrategy) {
+        return variant;
+      }
+
+      // Validar estrategia
+      const validation = validatePricingStrategy(variant.pricingStrategy);
+      if (!validation.valid) {
+        throw new BadRequestException(
+          `Estrategia de pricing inválida: ${validation.error}`,
+        );
+      }
+
+      // Si la estrategia es manual o autoCalculate está desactivado, mantener basePrice
+      if (
+        variant.pricingStrategy.mode === 'manual' ||
+        !variant.pricingStrategy.autoCalculate
+      ) {
+        return variant;
+      }
+
+      // Calcular precio automáticamente (incluye redondeo psicológico si está configurado)
+      const calculatedPrice = calculatePriceWithRounding(
+        variant.costPrice || 0,
+        variant.pricingStrategy,
+        variant.basePrice,
+      );
+
+      // Actualizar basePrice con el precio calculado
+      return {
+        ...variant,
+        basePrice: calculatedPrice,
+      };
+    });
   }
 
   async createWithInitialPurchase(
@@ -199,33 +255,27 @@ export class ProductsService {
         },
       });
 
-      // 3. Inventory
-      const inventoryDto: any = {
-        productId: savedProduct._id,
-        productSku: savedProduct.sku,
-        productName: savedProduct.name,
-        totalQuantity: dto.inventory.quantity,
-        averageCostPrice: dto.inventory.costPrice,
-        lots: [],
-      };
+      // 3. Purchase Order — created and auto-received so the full receive
+      //    flow runs: inventory, movements, supplier linking,
+      //    payables, and transaction history.
 
-      if (savedProduct.isPerishable) {
-        if (!dto.inventory.lotNumber || !dto.inventory.expirationDate) {
-          throw new BadRequestException(
-            "Lot number and expiration date are required for perishable products.",
-          );
-        }
-        inventoryDto.lots.push({
-          lotNumber: dto.inventory.lotNumber,
-          quantity: dto.inventory.quantity,
-          expirationDate: new Date(dto.inventory.expirationDate),
-          costPrice: dto.inventory.costPrice,
-          receivedDate: new Date(dto.purchaseDate),
-        });
+      // Calculate credit days if payment due date is set
+      let creditDays = 0;
+      if (dto.paymentTerms.isCredit && dto.paymentTerms.paymentDueDate) {
+        const purchaseDate = new Date(dto.purchaseDate);
+        const dueDate = new Date(dto.paymentTerms.paymentDueDate);
+        creditDays = Math.ceil((dueDate.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
+        // Ensure not negative
+        creditDays = creditDays > 0 ? creditDays : 0;
       }
-      await this.inventoryService.create(inventoryDto, user);
 
-      // 4. Purchase Order
+      // Calculate amounts for advance payment logic
+      const totalAmount = dto.inventory.quantity * dto.inventory.costPrice;
+      const advancePaymentAmount = dto.paymentTerms.requiresAdvancePayment
+        ? (totalAmount * (dto.paymentTerms.advancePaymentPercentage / 100))
+        : 0;
+      const remainingBalance = totalAmount - advancePaymentAmount;
+
       const purchaseDto: any = {
         supplierId: supplierId,
         purchaseDate: dto.purchaseDate,
@@ -236,16 +286,30 @@ export class ProductsService {
             productSku: savedProduct.sku,
             quantity: dto.inventory.quantity,
             costPrice: dto.inventory.costPrice,
+            lotNumber: dto.inventory.lotNumber,
+            expirationDate: dto.inventory.expirationDate,
           },
         ],
         notes: dto.notes,
         paymentTerms: {
-          isCredit: false,
-          creditDays: 0,
-          paymentMethods: dto.paymentMethods || [],
+          isCredit: dto.paymentTerms.isCredit,
+          creditDays: creditDays,
+          paymentMethods: dto.paymentTerms.paymentMethods,
+          customPaymentMethod: dto.paymentTerms.customPaymentMethod,
+          expectedCurrency: dto.paymentTerms.expectedCurrency,
+          paymentDueDate: dto.paymentTerms.paymentDueDate,
+          requiresAdvancePayment: dto.paymentTerms.requiresAdvancePayment,
+          advancePaymentPercentage: dto.paymentTerms.advancePaymentPercentage,
+          advancePaymentAmount,
+          remainingBalance,
         },
       };
-      await this.purchasesService.create(purchaseDto, user);
+      const savedPO = await this.purchasesService.create(purchaseDto, user);
+      await this.purchasesService.receivePurchaseOrder(
+        savedPO._id.toString(),
+        {}, // Empty DTO - no receivedBy for auto-received orders
+        user,
+      );
 
       return savedProduct;
     } catch (error) {
@@ -324,8 +388,14 @@ export class ProductsService {
       );
     }
 
+    // Process pricing strategies for variants
+    const processedVariants = this.processVariantPricing(
+      createProductDto.variants,
+    );
+
     const productData = {
       ...createProductDto,
+      variants: processedVariants,
       isActive: true, // Explicitly set new products as active
       createdBy: user.id,
       tenantId: new Types.ObjectId(user.tenantId),
@@ -348,7 +418,11 @@ export class ProductsService {
     session.startTransaction();
     try {
       const createdProducts: any[] = [];
+      let productIndex = 0;
       for (const productDto of bulkCreateProductsDto.products) {
+        productIndex++;
+        this.logger.log(`Processing product ${productIndex}/${bulkCreateProductsDto.products.length}: SKU ${productDto.sku}`);
+
         const createProductDto: CreateProductDto = {
           sku: productDto.sku,
           name: productDto.name,
@@ -361,6 +435,7 @@ export class ProductsService {
           ingredients: productDto.ingredients,
           isPerishable: productDto.isPerishable,
           shelfLifeDays: productDto.shelfLifeDays,
+          shelfLifeUnit: productDto.shelfLifeUnit || 'days',
           storageTemperature: productDto.storageTemperature,
           ivaApplicable: productDto.ivaApplicable,
           taxCategory: productDto.taxCategory || "general",
@@ -389,6 +464,7 @@ export class ProductsService {
               unitSize: productDto.variantUnitSize,
               basePrice: productDto.variantBasePrice,
               costPrice: productDto.variantCostPrice,
+              wholesalePrice: productDto.variantWholesalePrice,
               images: [
                 productDto.image1,
                 productDto.image2,
@@ -399,8 +475,17 @@ export class ProductsService {
           ],
         };
 
-        const createdProduct = await this.create(createProductDto, user);
-        createdProducts.push(createdProduct);
+        try {
+          const createdProduct = await this.create(createProductDto, user);
+          createdProducts.push(createdProduct);
+          this.logger.log(`✅ Successfully created product ${productIndex}: ${productDto.sku}`);
+        } catch (productError) {
+          this.logger.error(
+            `❌ Error creating product ${productIndex} (SKU: ${productDto.sku}): ${productError.message}`,
+            productError.stack,
+          );
+          throw new Error(`Error en producto ${productIndex} (SKU: ${productDto.sku}): ${productError.message}`);
+        }
       }
 
       await session.commitTransaction();
@@ -414,7 +499,7 @@ export class ProductsService {
         `Error durante la creación masiva de productos: ${error.message}`,
         error.stack,
       );
-      throw new Error("Error al crear productos masivamente.");
+      throw new Error(error.message || "Error al crear productos masivamente.");
     } finally {
       session.endSession();
     }
@@ -451,7 +536,7 @@ export class ProductsService {
       filter.isActive = isActive;
     }
     if (category) {
-      filter.category = category;
+      filter.category = new RegExp(`^${this.escapeRegExp(category)}$`, "i");
     }
     if (brand) {
       filter.brand = brand;
@@ -490,24 +575,20 @@ export class ProductsService {
     }
     // PERFORMANCE OPTIMIZATION: Use text search instead of regex for better performance
     if (isSearching) {
-      // Check if search looks like a SKU or barcode (alphanumeric, no spaces)
-      // Treat as SKU/barcode only if it has alphanumerics AND a delimiter or digit
-      looksLikeCode =
-        /^[A-Z0-9\-_]+$/i.test(searchTerm) && /[0-9\-_]/.test(searchTerm);
+      // UX IMPROVEMENT: Use Regex for ALL searches to support partial matching (autocomplete).
+      // Previous optimization using $text search broke partial matching (e.g., "Coc" didn't find "Coca-Cola").
+      const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
 
-      if (looksLikeCode) {
-        // For SKU/barcode searches, use optimized regex on indexed fields only
-        const regex = new RegExp(`^${this.escapeRegExp(searchTerm)}`, "i");
-        filter.$or = [
-          { sku: regex },
-          { "variants.sku": regex },
-          { "variants.barcode": regex },
-        ];
-      } else {
-        // Prefer MongoDB text search (leverages index on name/description/tags)
-        filter.$text = { $search: searchTerm };
-        useTextSearch = true;
-      }
+      filter.$or = [
+        { name: regex },
+        { brand: regex },
+        { sku: regex },
+        { "variants.name": regex },
+        { "variants.sku": regex },
+        { "variants.barcode": regex },
+      ];
+
+      useTextSearch = false;
     }
 
     const skip = (pageNumber - 1) * limitNumber;
@@ -546,9 +627,9 @@ export class ProductsService {
     const listingFields =
       "sku name brand origin description ingredients category subcategory productType isActive hasActivePromotion promotion " +
       "unitOfMeasure isSoldByWeight hasMultipleSellingUnits sellingUnits " +
-      "price salePrice image imageUrl images attributes inventoryConfig " +
-      "ivaApplicable igtfExempt taxCategory isPerishable shelfLifeDays storageTemperature " +
-      "variants.name variants.sku variants.isActive variants.barcode variants.basePrice variants.costPrice variants.price variants.unit variants.unitSize variants.images variants.attributes";
+      "price salePrice image imageUrl images attributes inventoryConfig pricingRules " +
+      "ivaApplicable igtfExempt taxCategory isPerishable shelfLifeDays shelfLifeUnit storageTemperature sendToKitchen " +
+      "variants.name variants.sku variants.isActive variants.barcode variants.basePrice variants.costPrice variants.wholesalePrice variants.price variants.unit variants.unitSize variants.images variants.attributes";
 
     // Build projection to include text score when doing text search
     const projection = useTextSearch ? { score: { $meta: "textScore" } } : {};
@@ -703,7 +784,7 @@ export class ProductsService {
         "variants.barcode": normalized,
       })
       .select(
-        "name sku brand category subcategory productType isActive hasActivePromotion promotion variants.name variants.sku variants.barcode variants.basePrice variants.price variants.images unitOfMeasure hasMultipleSellingUnits sellingUnits isSoldByWeight",
+        "name sku brand category subcategory productType isActive hasActivePromotion promotion variants.name variants.sku variants.barcode variants.basePrice variants.price variants.images unitOfMeasure hasMultipleSellingUnits sellingUnits isSoldByWeight sendToKitchen",
       )
       .lean();
 
@@ -796,7 +877,15 @@ export class ProductsService {
       }
     }
 
-    const updateData = { ...updateProductDto, updatedBy: user.id };
+    // Process pricing strategies for variants if they're being updated
+    let updateData: any = { ...updateProductDto, updatedBy: user.id };
+    if (updateProductDto.variants && updateProductDto.variants.length > 0) {
+      const processedVariants = this.processVariantPricing(
+        updateProductDto.variants,
+      );
+      updateData.variants = processedVariants;
+    }
+
     const updatedProduct = await this.productModel
       .findByIdAndUpdate(id, updateData, { new: true })
       .exec();
@@ -816,6 +905,90 @@ export class ProductsService {
       this.logger.log(
         `Cascaded SKU update from ${productBeforeUpdate.sku} to ${updateProductDto.sku} for product ${id}`,
       );
+    }
+
+    // Track price changes for audit
+    if (updateData.variants && productBeforeUpdate.variants) {
+      for (let i = 0; i < updateData.variants.length; i++) {
+        const newVariant = updateData.variants[i];
+        const oldVariant = productBeforeUpdate.variants[i];
+
+        if (!oldVariant || !newVariant) continue;
+
+        // Check each price field for changes
+        const priceFields: Array<'basePrice' | 'costPrice' | 'wholesalePrice'> = [
+          'basePrice',
+          'costPrice',
+          'wholesalePrice',
+        ];
+
+        for (const field of priceFields) {
+          const oldValue = oldVariant[field];
+          const newValue = newVariant[field];
+
+          // Only track if there's an actual change and both values exist
+          if (
+            newValue !== undefined &&
+            oldValue !== undefined &&
+            newValue !== oldValue &&
+            Math.abs(newValue - oldValue) > 0.001 // Avoid floating point errors
+          ) {
+            try {
+              await this.priceHistoryService.recordPriceChange({
+                productId: id,
+                productSku: productBeforeUpdate.sku,
+                productName: productBeforeUpdate.name,
+                variantSku: oldVariant.sku,
+                variantName: oldVariant.name,
+                tenantId: user.tenantId,
+                field,
+                oldValue,
+                newValue,
+                costPrice: newVariant.costPrice || oldVariant.costPrice || 0,
+                pricingStrategy: newVariant.pricingStrategy,
+                changedBy: user.id,
+                changedByName: user.name || user.email,
+                changeSource: 'manual',
+              });
+            } catch (error) {
+              this.logger.error(
+                `Failed to record price change: ${error.message}`,
+                error.stack,
+              );
+              // Don't fail the update if history recording fails
+            }
+          }
+        }
+      }
+    }
+
+    // Sync custom prices to price lists (Feature 4: Multiple Price Lists)
+    if (updateData.variants) {
+      for (const variant of updateData.variants) {
+        if (variant.customPrices && Array.isArray(variant.customPrices)) {
+          for (const customPrice of variant.customPrices) {
+            try {
+              await this.priceListsService.assignProduct(
+                {
+                  productId: id,
+                  variantSku: variant.sku,
+                  priceListId: customPrice.priceListId,
+                  customPrice: customPrice.customPrice,
+                  notes: customPrice.notes,
+                },
+                user.tenantId,
+                user.id,
+                user.name || user.email,
+              );
+            } catch (error) {
+              this.logger.error(
+                `Failed to sync custom price for variant ${variant.sku}: ${error.message}`,
+                error.stack,
+              );
+            }
+          }
+        }
+      }
     }
 
     if (storageDifference !== 0) {
@@ -906,5 +1079,188 @@ export class ProductsService {
     }
 
     return totalSize / (1024 * 1024); // Convert to MB
+  }
+
+  /**
+   * Scan product label images (up to 3) using AI to extract product information.
+   * Compresses images before sending to reduce memory and API cost.
+   */
+  async scanProductLabel(
+    images: Array<{ buffer: Buffer; mimetype: string }>,
+    tenantId: string,
+  ): Promise<{
+    name: string;
+    brand: string;
+    description: string;
+    ingredients: string;
+    origin: string;
+    isPerishable: boolean;
+    shelfLifeDays: number | null;
+    storageTemperature: string;
+    category: string;
+    subcategory: string;
+    unitOfMeasure: string;
+    allergens: string[];
+    attributes: Record<string, string>;
+    matchedCategory: string | null;
+    matchedSubcategory: string | null;
+    overallConfidence: number;
+  }> {
+    // 1. Compress all images
+    const imageContents: Array<{ type: "image_url"; image_url: { url: string; detail: string } }> = [];
+
+    for (const img of images) {
+      let optimizedBase64: string;
+      let optimizedMime: string;
+      try {
+        const optimized = await sharp(img.buffer)
+          .resize(1600, 2200, { fit: "inside", withoutEnlargement: true })
+          .jpeg({ quality: 75 })
+          .toBuffer();
+        optimizedBase64 = optimized.toString("base64");
+        optimizedMime = "image/jpeg";
+        this.logger.log(
+          `Label scan: Image optimized from ${(img.buffer.length / 1024).toFixed(0)}KB to ${(optimized.length / 1024).toFixed(0)}KB`,
+        );
+      } catch {
+        optimizedBase64 = img.buffer.toString("base64");
+        optimizedMime = img.mimetype;
+      }
+
+      imageContents.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${optimizedMime};base64,${optimizedBase64}`,
+          detail: "low",
+        },
+      });
+    }
+
+    // 2. Build extraction prompt
+    const extractionPrompt = `Eres un experto en productos alimenticios y de consumo. Analiza las imágenes de la etiqueta de un producto y extrae toda la información posible.
+
+Si hay múltiples imágenes, son diferentes caras del mismo producto (frente, reverso, laterales). Combina la información de todas.
+
+Responde ÚNICAMENTE con un JSON válido con esta estructura exacta:
+{
+  "name": "nombre del producto tal cual aparece en la etiqueta",
+  "brand": "marca del producto",
+  "description": "descripción breve del producto basada en lo que se ve",
+  "ingredients": "lista completa de ingredientes tal cual aparece en la etiqueta, como texto corrido",
+  "origin": "país de origen si aparece, o cadena vacía",
+  "isPerishable": true,
+  "shelfLifeDays": null,
+  "storageTemperature": "ambiente | refrigerado | congelado",
+  "suggestedCategory": "categoría general del producto (ej: Lácteos, Bebidas, Snacks, Carnes, Limpieza, etc.)",
+  "suggestedSubcategory": "subcategoría más específica (ej: Quesos, Yogurt, Jugos, etc.)",
+  "unitOfMeasure": "unidad | kg | litro | gramo | ml",
+  "allergens": ["lista de alérgenos si aparecen en la etiqueta"],
+  "attributes": {
+    "contenido_neto": "peso o volumen neto si aparece",
+    "modo_de_empleo": "instrucciones de uso si aparecen",
+    "registro_sanitario": "número de registro sanitario si aparece",
+    "codigo_barras": "código de barras si es visible",
+    "informacion_nutricional": "resumen breve de info nutricional si aparece",
+    "otras_notas": "cualquier otra información relevante de la etiqueta"
+  },
+  "confidence": 0.85
+}
+
+Reglas:
+- isPerishable: true si el producto requiere refrigeración, tiene fecha de vencimiento corta, o es un alimento fresco. false si es un producto de larga duración o no alimenticio.
+- shelfLifeDays: número de días de vida útil si se puede inferir, null si no.
+- storageTemperature: inferir de las instrucciones ("mantener refrigerado" = "refrigerado", "conservar en lugar fresco" = "ambiente").
+- ingredients: copiar textualmente de la etiqueta. Si no hay lista de ingredientes, dejar cadena vacía.
+- allergens: extraer de la sección "Contiene:" o ingredientes destacados.
+- attributes: solo incluir claves que tengan valor real extraído de la etiqueta. Omitir las que estén vacías.
+- unitOfMeasure: inferir del tipo de producto (líquidos = litro/ml, sólidos = kg/gramo/unidad).
+- confidence: tu nivel de confianza general de 0 a 1.`;
+
+    let extractedData: any;
+
+    try {
+      const response = await this.openaiService.createChatCompletion({
+        messages: [
+          { role: "system", content: extractionPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: `Analiza esta(s) ${images.length} imagen(es) de la etiqueta del producto:` },
+              ...imageContents,
+            ] as any,
+          },
+        ],
+        model: "gpt-4o-mini",
+        temperature: 0.1,
+        maxTokens: 2000,
+      });
+
+      const rawContent = response.choices?.[0]?.message?.content || "{}";
+      const cleaned = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      extractedData = JSON.parse(cleaned);
+    } catch (parseError) {
+      this.logger.error(`Label scan: Failed to parse AI response: ${parseError.message}`);
+      throw new BadRequestException(
+        "No se pudo interpretar la imagen. Asegúrese de que sea una etiqueta de producto legible.",
+      );
+    }
+
+    // 3. Match category against existing tenant categories
+    let matchedCategory: string | null = null;
+    let matchedSubcategory: string | null = null;
+
+    if (extractedData.suggestedCategory) {
+      try {
+        const existingCategories = await this.getCategories(tenantId, { onlyActive: true });
+        const suggested = (extractedData.suggestedCategory as string).toLowerCase().trim();
+
+        // Exact or partial match
+        matchedCategory = existingCategories.find(
+          (c) => c.toLowerCase() === suggested || c.toLowerCase().includes(suggested) || suggested.includes(c.toLowerCase()),
+        ) || null;
+
+        // If category matched, try subcategory
+        if (matchedCategory && extractedData.suggestedSubcategory) {
+          const existingSubs = await this.getSubcategories(tenantId, matchedCategory);
+          const suggestedSub = (extractedData.suggestedSubcategory as string).toLowerCase().trim();
+          matchedSubcategory = existingSubs.find(
+            (s) => s.toLowerCase() === suggestedSub || s.toLowerCase().includes(suggestedSub) || suggestedSub.includes(s.toLowerCase()),
+          ) || null;
+        }
+      } catch {
+        // Ignore category matching errors
+      }
+    }
+
+    // 4. Clean up attributes — remove empty values
+    const cleanAttributes: Record<string, string> = {};
+    if (extractedData.attributes && typeof extractedData.attributes === "object") {
+      for (const [key, value] of Object.entries(extractedData.attributes)) {
+        if (value && typeof value === "string" && value.trim()) {
+          cleanAttributes[key] = value.trim();
+        }
+      }
+    }
+
+    const aiConfidence = Number(extractedData.confidence) || 0.5;
+
+    return {
+      name: extractedData.name || "",
+      brand: extractedData.brand || "",
+      description: extractedData.description || "",
+      ingredients: extractedData.ingredients || "",
+      origin: extractedData.origin || "",
+      isPerishable: Boolean(extractedData.isPerishable),
+      shelfLifeDays: extractedData.shelfLifeDays != null ? Number(extractedData.shelfLifeDays) : null,
+      storageTemperature: extractedData.storageTemperature || "",
+      category: extractedData.suggestedCategory || "",
+      subcategory: extractedData.suggestedSubcategory || "",
+      unitOfMeasure: extractedData.unitOfMeasure || "unidad",
+      allergens: Array.isArray(extractedData.allergens) ? extractedData.allergens : [],
+      attributes: cleanAttributes,
+      matchedCategory,
+      matchedSubcategory,
+      overallConfidence: aiConfidence,
+    };
   }
 }

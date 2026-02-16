@@ -33,7 +33,7 @@ export const DEFAULT_PAYROLL_CONCEPTS: DefaultPayrollConceptBlueprint[] = [
     conceptType: "earning",
     description: "Sueldo integral mensual del trabajador.",
     debitAccountCode: "5201",
-    creditAccountCode: "2103",
+    creditAccountCode: "2110",
     calculation: defaultCalculation,
     metadata: { category: "salary", localization: "VE" },
     localization: "VE",
@@ -44,7 +44,7 @@ export const DEFAULT_PAYROLL_CONCEPTS: DefaultPayrollConceptBlueprint[] = [
     conceptType: "earning",
     description: "Pago adicional asociado a vacaciones.",
     debitAccountCode: "5208",
-    creditAccountCode: "2103",
+    creditAccountCode: "2110",
     calculation: defaultCalculation,
     metadata: { category: "vacation_bonus", localization: "VE" },
     localization: "VE",
@@ -55,7 +55,7 @@ export const DEFAULT_PAYROLL_CONCEPTS: DefaultPayrollConceptBlueprint[] = [
     conceptType: "earning",
     description: "Bono de utilidades o aguinaldos.",
     debitAccountCode: "5207",
-    creditAccountCode: "2103",
+    creditAccountCode: "2110",
     calculation: defaultCalculation,
     metadata: { category: "bonus", localization: "VE" },
     localization: "VE",
@@ -98,7 +98,7 @@ export const DEFAULT_PAYROLL_CONCEPTS: DefaultPayrollConceptBlueprint[] = [
     name: "Retención ISLR trabajador",
     conceptType: "deduction",
     description: "Retención de ISLR aplicada al trabajador.",
-    debitAccountCode: "2103",
+    debitAccountCode: "2110",
     creditAccountCode: "2102",
     calculation: defaultCalculation,
     metadata: { category: "withholding", localization: "VE" },
@@ -109,7 +109,7 @@ export const DEFAULT_PAYROLL_CONCEPTS: DefaultPayrollConceptBlueprint[] = [
     name: "Aporte IVSS trabajador",
     conceptType: "deduction",
     description: "Porcentaje del IVSS descontado al trabajador.",
-    debitAccountCode: "2103",
+    debitAccountCode: "2110",
     creditAccountCode: "2105",
     calculation: defaultCalculation,
     metadata: { category: "worker_contribution", localization: "VE" },
@@ -120,10 +120,56 @@ export const DEFAULT_PAYROLL_CONCEPTS: DefaultPayrollConceptBlueprint[] = [
     name: "Aporte parafiscal trabajador",
     conceptType: "deduction",
     description: "FAOV / Paro forzoso aportado por el trabajador.",
-    debitAccountCode: "2103",
+    debitAccountCode: "2110",
     creditAccountCode: "2106",
     calculation: defaultCalculation,
     metadata: { category: "worker_contribution", localization: "VE" },
     localization: "VE",
+  },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // COMPENSACIÓN VARIABLE - Comisiones, Bonos y Propinas
+  // ════════════════════════════════════════════════════════════════════════════
+  {
+    code: "COMMISSION",
+    name: "Comisiones sobre Ventas",
+    conceptType: "earning",
+    description: "Comisiones por ventas realizadas durante el período.",
+    debitAccountCode: "5301", // Gasto de Comisiones
+    creditAccountCode: "2107", // Comisiones por Pagar
+    calculation: defaultCalculation,
+    metadata: {
+      category: "variable",
+      isTaxable: true,
+      source: "commissions",
+    },
+  },
+  {
+    code: "GOAL_BONUS",
+    name: "Bonos por Metas",
+    conceptType: "earning",
+    description: "Bonos otorgados por cumplimiento de metas de ventas.",
+    debitAccountCode: "5302", // Gasto de Bonos
+    creditAccountCode: "2108", // Bonos por Pagar
+    calculation: defaultCalculation,
+    metadata: {
+      category: "variable",
+      isTaxable: true,
+      source: "goals",
+    },
+  },
+  {
+    code: "TIPS",
+    name: "Propinas",
+    conceptType: "earning",
+    description: "Propinas recibidas de clientes durante el período.",
+    debitAccountCode: "2109", // Propinas por Pagar (se revierte)
+    creditAccountCode: "2110", // Sueldos por Pagar
+    calculation: defaultCalculation,
+    metadata: {
+      category: "variable",
+      isTaxable: true,
+      source: "tips",
+    },
   },
 ];

@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useAuth } from '@/hooks/use-auth';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,10 +18,13 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 
+import { generateShippingLabelHTML } from './ShippingLabel';
+
 export const OrderFulfillmentCard = ({ order, onStatusUpdate }) => {
     const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
     const [notes, setNotes] = useState(order.deliveryNotes || '');
     const [trackingNumber, setTrackingNumber] = useState(order.trackingNumber || '');
+    const [responsible, setResponsible] = useState(order.deliveryResponsible || '');
 
     const nextStatus = {
         'pending': 'picking',
@@ -48,8 +52,43 @@ export const OrderFulfillmentCard = ({ order, onStatusUpdate }) => {
     const handleAdvance = () => {
         const next = nextStatus[order.fulfillmentStatus];
         if (next) {
-            onStatusUpdate(order._id, next, notes);
+            // Include responsible field in the notes or a dedicated field if backend supports it
+            // For now passing it in the body as extra data is fine or appending to notes
+            const updateData = {
+                status: next,
+                notes: notes,
+                trackingNumber: trackingNumber,
+                responsible: responsible
+            };
+
+            // We need to modify the parent onStatusUpdate signature or handle it here
+            // The parent function is: const handleStatusUpdate = async (orderId, newStatus, notes) 
+            // It only takes notes. We might need to append responsible to notes if backend doesn't support it yet
+            // OR we assume onStatusUpdate simply forwards the body.
+            // Let's append to notes for safety if it's not supported: "Standard Notes | Responsible: John"
+
+            const finalNotes = responsible ? `${notes}\n[Responsable: ${responsible}]` : notes;
+            onStatusUpdate(order._id, next, finalNotes);
+            onStatusUpdate(order._id, next, finalNotes, trackingNumber, responsible); // Updated to pass trackingNumber and responsible
             setIsUpdateDialogOpen(false);
+        }
+    };
+
+    const handlePrint = () => {
+        // Use browser print for now, optimally would open specific invoice URL
+        window.print();
+    };
+
+    const { tenant } = useAuth();
+
+    const handlePrintLabel = () => {
+        const labelHtml = generateShippingLabelHTML(order, tenant?.name);
+        const printWindow = window.open('', '_blank', 'width=600,height=600');
+        if (printWindow) {
+            printWindow.document.write(labelHtml);
+            printWindow.document.close();
+        } else {
+            alert('Por favor permite ventanas emergentes para imprimir la etiqueta.');
         }
     };
 
@@ -84,7 +123,7 @@ export const OrderFulfillmentCard = ({ order, onStatusUpdate }) => {
 
                 {/* Address */}
                 {isDelivery && order.shipping?.address && (
-                    <div className="flex items-start gap-2 text-sm bg-slate-50 p-2 rounded">
+                    <div className="flex items-start gap-2 text-sm bg-slate-50 dark:bg-slate-800 p-2 rounded">
                         <MapPin className="w-4 h-4 mt-0.5 text-muted-foreground" />
                         <p className="line-clamp-2 text-xs">
                             {order.shipping.address.street}, {order.shipping.address.city}
@@ -110,11 +149,16 @@ export const OrderFulfillmentCard = ({ order, onStatusUpdate }) => {
                     </ul>
                 </div>
             </CardContent>
-
             <CardFooter className="pt-2 border-t flex gap-2">
-                <Button variant="outline" size="icon" className="shrink-0" title="Imprimir">
+                <Button variant="outline" size="icon" className="shrink-0" title="Imprimir" onClick={handlePrint}>
                     <Printer className="w-4 h-4" />
                 </Button>
+
+                {order.fulfillmentType === 'delivery_national' && (
+                    <Button variant="outline" size="icon" className="shrink-0" title="Imprimir Etiqueta de Envío" onClick={handlePrintLabel}>
+                        <Truck className="w-4 h-4" />
+                    </Button>
+                )}
 
                 {nextStatus[order.fulfillmentStatus] && (
                     <Dialog open={isUpdateDialogOpen} onOpenChange={setIsUpdateDialogOpen}>
@@ -146,6 +190,17 @@ export const OrderFulfillmentCard = ({ order, onStatusUpdate }) => {
                                             placeholder="Ej: TEALCA-123456"
                                             value={trackingNumber}
                                             onChange={(e) => setTrackingNumber(e.target.value)}
+                                        />
+                                    </div>
+                                )}
+
+                                {nextStatus[order.fulfillmentStatus] === 'in_transit' && (
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Responsable / Chofer</label>
+                                        <Input
+                                            placeholder="Nombre del repartidor o empresa"
+                                            value={responsible}
+                                            onChange={(e) => setResponsible(e.target.value)}
                                         />
                                     </div>
                                 )}

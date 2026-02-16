@@ -21,6 +21,10 @@ export class RegisterTipsDto {
 
   @IsEnum(["cash", "card", "digital"])
   method: string;
+
+  @IsOptional()
+  @IsMongoId()
+  employeeId?: string;
 }
 
 // Crear regla de distribución
@@ -47,13 +51,23 @@ class TipsDistributionRulesDto {
 
   @IsBoolean()
   poolTips: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  fixedPercentage?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  fixedAmount?: number;
 }
 
 export class CreateTipsDistributionRuleDto {
   @IsString()
   name: string;
 
-  @IsEnum(["equal", "by-hours", "by-sales", "custom"])
+  @IsEnum(["equal", "by-hours", "by-sales", "custom", "fixed-percentage", "fixed-amount"])
   type: string;
 
   @IsOptional()
@@ -71,7 +85,7 @@ export class UpdateTipsDistributionRuleDto {
   name?: string;
 
   @IsOptional()
-  @IsEnum(["equal", "by-hours", "by-sales", "custom"])
+  @IsEnum(["equal", "by-hours", "by-sales", "custom", "fixed-percentage", "fixed-amount"])
   type?: string;
 
   @IsOptional()

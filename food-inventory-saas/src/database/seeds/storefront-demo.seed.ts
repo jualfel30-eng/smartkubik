@@ -105,7 +105,7 @@ export class StorefrontDemoSeed {
         products: true,
       },
       subscription: {
-        plan: "professional",
+        plan: "crecimiento",
         status: "active",
         startDate: new Date(),
       },
@@ -132,7 +132,7 @@ export class StorefrontDemoSeed {
         customers: true,
       },
       subscription: {
-        plan: "professional",
+        plan: "crecimiento",
         status: "active",
         startDate: new Date(),
       },

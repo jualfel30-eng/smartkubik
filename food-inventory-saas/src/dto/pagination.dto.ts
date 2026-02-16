@@ -21,14 +21,14 @@ export class PaginationDto {
   @ApiPropertyOptional({
     description: "Cantidad de registros por página",
     minimum: 1,
-    maximum: 100,
+    maximum: 10000,
     default: 20,
   })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100) // Límite máximo de seguridad
+  @Max(10000) // Límite máximo aumentado para exportaciones
   limit?: number = 20;
 }
 

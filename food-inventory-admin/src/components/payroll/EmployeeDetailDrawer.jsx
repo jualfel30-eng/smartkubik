@@ -549,6 +549,16 @@ export function EmployeeDetailDrawer({
     setContractValidation(evaluateContractValidation());
   }, [evaluateContractValidation]);
 
+  // Auto-cargar el contrato activo en el formulario cuando se cargan los contratos
+  useEffect(() => {
+    if (!contractsLoading && contracts.length > 0 && !editingContractId) {
+      const active = contracts.find((c) => c.status === 'active') || contracts[0];
+      if (active?._id) {
+        handleEditContract(active);
+      }
+    }
+  }, [contractsLoading, contracts]);
+
   const handleProfileInputChange = (field, value) => {
     setProfileForm((prev) => ({
       ...prev,
@@ -1125,20 +1135,8 @@ export function EmployeeDetailDrawer({
     setActiveTab('contracts');
   };
 
-  const buildContractPayload = () => ({
-    contractType: contractForm.contractType,
-    startDate: contractForm.startDate,
-    endDate: contractForm.endDate || undefined,
-    payFrequency: contractForm.payFrequency,
-    payDay: contractForm.payDay ? Number(contractForm.payDay) : undefined,
-    nextPayDate: contractForm.nextPayDate || undefined,
-    compensationType: contractForm.compensationType,
-    compensationAmount: Number(contractForm.compensationAmount),
-    currency: contractForm.currency || 'USD',
-    payrollStructureId: contractForm.payrollStructureId
-      ? contractForm.payrollStructureId
-      : null,
-    schedule: {
+  const buildContractPayload = () => {
+    const schedule = {
       timezone: contractForm.schedule.timezone || undefined,
       days: contractForm.schedule.days
         ? contractForm.schedule.days.split(',').map((day) => day.trim()).filter(Boolean)
@@ -1148,17 +1146,19 @@ export function EmployeeDetailDrawer({
       hoursPerWeek: contractForm.schedule.hoursPerWeek
         ? Number(contractForm.schedule.hoursPerWeek)
         : undefined,
-    },
-    benefits: (contractForm.benefits || []).filter((benefit) => benefit.name),
-    deductions: (contractForm.deductions || []).filter((deduction) => deduction.name),
-    bankAccount: {
+    };
+    const hasSchedule = Object.values(schedule).some((v) => v !== undefined);
+
+    const bankAccount = {
       bankName: contractForm.bankAccount.bankName || undefined,
       accountType: contractForm.bankAccount.accountType || undefined,
       accountNumber: contractForm.bankAccount.accountNumber || undefined,
       currency: contractForm.bankAccount.currency || undefined,
       routingNumber: contractForm.bankAccount.routingNumber || undefined,
-    },
-    taxation: {
+    };
+    const hasBankAccount = Object.values(bankAccount).some((v) => v !== undefined);
+
+    const taxation = {
       taxId: contractForm.taxation.taxId || undefined,
       withholdingPercentage: contractForm.taxation.withholdingPercentage
         ? Number(contractForm.taxation.withholdingPercentage)
@@ -1166,10 +1166,41 @@ export function EmployeeDetailDrawer({
       socialSecurityRate: contractForm.taxation.socialSecurityRate
         ? Number(contractForm.taxation.socialSecurityRate)
         : undefined,
-    },
-    status: contractForm.status || 'active',
-    notes: contractForm.notes || undefined,
-  });
+    };
+    const hasTaxation = Object.values(taxation).some((v) => v !== undefined);
+
+    return {
+      contractType: contractForm.contractType,
+      startDate: contractForm.startDate,
+      endDate: contractForm.endDate || undefined,
+      payFrequency: contractForm.payFrequency,
+      payDay: contractForm.payDay ? Number(contractForm.payDay) : undefined,
+      nextPayDate: contractForm.nextPayDate || undefined,
+      compensationType: contractForm.compensationType,
+      compensationAmount: Number(contractForm.compensationAmount),
+      currency: contractForm.currency || 'USD',
+      payrollStructureId: contractForm.payrollStructureId || undefined,
+      schedule: hasSchedule ? schedule : undefined,
+      benefits: (contractForm.benefits || [])
+        .filter((b) => b.name)
+        .map(({ name, value, amount }) => ({
+          name,
+          value: value || undefined,
+          amount: amount !== undefined && amount !== '' ? Number(amount) : undefined,
+        })),
+      deductions: (contractForm.deductions || [])
+        .filter((d) => d.name)
+        .map(({ name, percentage, amount }) => ({
+          name,
+          percentage: percentage !== undefined && percentage !== '' ? Number(percentage) : undefined,
+          amount: amount !== undefined && amount !== '' ? Number(amount) : undefined,
+        })),
+      bankAccount: hasBankAccount ? bankAccount : undefined,
+      taxation: hasTaxation ? taxation : undefined,
+      status: contractForm.status || 'active',
+      notes: contractForm.notes || undefined,
+    };
+  };
 
   const handleSubmitContract = async () => {
     if (!employeeId) return;
@@ -1182,17 +1213,22 @@ export function EmployeeDetailDrawer({
     try {
       setSavingContract(true);
       const payload = buildContractPayload();
+      let saved;
       if (editingContractId) {
-        await updateEmployeeContract(employeeId, editingContractId, payload);
+        saved = await updateEmployeeContract(employeeId, editingContractId, payload);
         toast.success('Contrato actualizado');
       } else {
-        await createEmployeeContract(employeeId, payload);
+        saved = await createEmployeeContract(employeeId, payload);
         toast.success('Contrato creado');
       }
       await loadContracts();
       await loadProfile();
       onDataChanged?.();
-      resetContractForm();
+      if (saved?._id) {
+        handleEditContract(saved);
+      } else {
+        resetContractForm();
+      }
     } catch (err) {
       toast.error(err.message || 'No se pudo guardar el contrato');
     } finally {
@@ -1626,6 +1662,8 @@ export function EmployeeDetailDrawer({
                               <SelectItem value="E">E</SelectItem>
                               <SelectItem value="J">J</SelectItem>
                               <SelectItem value="G">G</SelectItem>
+                              <SelectItem value="P">P</SelectItem>
+                              <SelectItem value="N">N</SelectItem>
                             </SelectContent>
                           </Select>
                           <Input

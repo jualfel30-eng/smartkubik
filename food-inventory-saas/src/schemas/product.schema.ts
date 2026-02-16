@@ -32,6 +32,9 @@ export class ProductVariant {
   @Prop({ type: Number, required: true })
   basePrice: number;
 
+  @Prop({ type: Number })
+  wholesalePrice?: number;
+
   @Prop({ type: Number, required: true })
   costPrice: number;
 
@@ -54,6 +57,31 @@ export class ProductVariant {
 
   @Prop({ type: Object, default: {} })
   attributes?: Record<string, any>;
+
+  @Prop({ type: Object })
+  pricingStrategy?: {
+    mode: 'manual' | 'markup' | 'margin';
+    markupPercentage?: number;
+    marginPercentage?: number;
+    autoCalculate: boolean;
+    lastManualPrice?: number;
+    psychologicalRounding?: 'none' | '0.99' | '0.95' | '0.90' | 'round_up' | 'round_down';
+  };
+
+  @Prop({ type: [Object], default: [] })
+  locationPricing?: Array<{
+    locationId: Types.ObjectId;
+    customPrice: number;
+    isActive?: boolean;
+    notes?: string;
+  }>;
+
+  @Prop({ type: [Object], default: [] })
+  volumeDiscounts?: Array<{
+    minQuantity: number;
+    discountPercentage?: number;
+    fixedPrice?: number;
+  }>;
 }
 const ProductVariantSchema = SchemaFactory.createForClass(ProductVariant);
 
@@ -204,6 +232,9 @@ export class Product {
   @Prop({ type: Number })
   shelfLifeDays?: number;
 
+  @Prop({ type: String, enum: ['days', 'months', 'years'], default: 'days' })
+  shelfLifeUnit?: string;
+
   @Prop({ type: String })
   storageTemperature?: string;
 
@@ -238,6 +269,8 @@ export class Product {
       minQuantity: number;
       discountPercentage: number;
     }>;
+    wholesaleEnabled?: boolean;
+    wholesaleMinQuantity?: number;
   };
 
   @Prop({ type: Object })
@@ -256,6 +289,9 @@ export class Product {
 
   @Prop({ type: Boolean, required: true, default: false })
   igtfExempt: boolean;
+
+  @Prop({ type: Boolean, default: true })
+  sendToKitchen: boolean; // Indicates if product should be sent to kitchen display/printers
 
   // Promoción/Oferta activa (separado de descuentos por volumen)
   @Prop({ type: Boolean, default: false })
@@ -286,6 +322,13 @@ export class Product {
 
   @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
+
+  // ── Data Import tracking ──
+  @Prop({ type: Types.ObjectId, ref: "ImportJob" })
+  importJobId?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  importedAt?: Date;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

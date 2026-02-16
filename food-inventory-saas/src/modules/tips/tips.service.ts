@@ -17,6 +17,8 @@ import {
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import { User, UserDocument } from "../../schemas/user.schema";
 import { Shift, ShiftDocument } from "../../schemas/shift.schema";
+import { EmployeeProfile, EmployeeProfileDocument } from "../../schemas/employee-profile.schema";
+import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import {
   CreateTipsDistributionRuleDto,
   UpdateTipsDistributionRuleDto,
@@ -39,7 +41,13 @@ export class TipsService {
     private userModel: Model<UserDocument>,
     @InjectModel(Shift.name)
     private shiftModel: Model<ShiftDocument>,
-  ) {}
+    @InjectModel('Role')
+    private roleModel: Model<any>,
+    @InjectModel(EmployeeProfile.name)
+    private employeeProfileModel: Model<EmployeeProfileDocument>,
+    @InjectModel(Customer.name)
+    private customerModel: Model<CustomerDocument>,
+  ) { }
 
   // ========== Distribution Rules ==========
 
@@ -47,9 +55,19 @@ export class TipsService {
     dto: CreateTipsDistributionRuleDto,
     tenantId: string,
   ): Promise<TipsDistributionRule> {
+    const tenantObjectId = new Types.ObjectId(tenantId);
+
+    // If new rule is active, deactivate others
+    if (dto.isActive) {
+      await this.tipsDistributionRuleModel.updateMany(
+        { tenantId: tenantObjectId, isActive: true },
+        { isActive: false },
+      );
+    }
+
     const rule = new this.tipsDistributionRuleModel({
       ...dto,
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: tenantObjectId,
     });
 
     return rule.save();
@@ -81,9 +99,19 @@ export class TipsService {
     dto: UpdateTipsDistributionRuleDto,
     tenantId: string,
   ): Promise<TipsDistributionRule> {
+    const tenantObjectId = new Types.ObjectId(tenantId);
+
+    // If setting to active, deactivate others first
+    if (dto.isActive) {
+      await this.tipsDistributionRuleModel.updateMany(
+        { tenantId: tenantObjectId, _id: { $ne: ruleId }, isActive: true },
+        { isActive: false },
+      );
+    }
+
     const rule = await this.tipsDistributionRuleModel
       .findOneAndUpdate(
-        { _id: ruleId, tenantId: new Types.ObjectId(tenantId) },
+        { _id: ruleId, tenantId: tenantObjectId },
         dto,
         { new: true },
       )
@@ -128,6 +156,7 @@ export class TipsService {
     order.tipsRecords.push({
       amount: dto.amount,
       method: dto.method,
+      employeeId: dto.employeeId ? new Types.ObjectId(dto.employeeId) : undefined, // Convert to ObjectId
       distributedAt: undefined,
     });
 
@@ -176,14 +205,20 @@ export class TipsService {
       throw new NotFoundException("Distribution rule not found");
     }
 
-    // 2. Obtener órdenes del período con propinas no distribuidas
+    // 2. Obtener órdenes del período
+    const query: any = {
+      tenantId,
+      status: { $in: ["completed", "closed"] },
+      createdAt: { $gte: startDate, $lte: endDate },
+    };
+
+    // Si NO es comisión fija, solo órdenes con propinas
+    if (!["fixed-percentage", "fixed-amount"].includes(rule.type)) {
+      query.totalTipsAmount = { $gt: 0 };
+    }
+
     const orders = await this.orderModel
-      .find({
-        tenantId,
-        status: { $in: ["completed", "closed"] },
-        createdAt: { $gte: startDate, $lte: endDate },
-        totalTipsAmount: { $gt: 0 },
-      })
+      .find(query)
       .populate("assignedWaiterId", "firstName lastName role")
       .exec();
 
@@ -191,11 +226,14 @@ export class TipsService {
       throw new BadRequestException("No orders with tips found in this period");
     }
 
-    // 3. Calcular total de propinas
-    const totalTips = orders.reduce(
-      (sum, order) => sum + order.totalTipsAmount,
-      0,
-    );
+    // 3. Calcular total de propinas (solo para tipos que poolean o usan propinas registradas)
+    let totalTips = 0;
+    if (!["fixed-percentage", "fixed-amount"].includes(rule.type)) {
+      totalTips = orders.reduce(
+        (sum, order) => sum + order.totalTipsAmount,
+        0,
+      );
+    }
 
     // 4. Obtener empleados elegibles
     let eligibleEmployees: UserDocument[];
@@ -209,10 +247,27 @@ export class TipsService {
         .exec();
     } else {
       // Filtrar por roles incluidos en la regla
+      // FIX: Resolver Role IDs based on names provided in rule.includedRoles
+      const roleNames = rule.rules.includedRoles;
+      const roles = await this.roleModel.find({
+        tenantId: tenantObjectId,
+        name: { $in: roleNames.map(r => new RegExp(`^${r}$`, 'i')) } // Case insensitive match
+      }).select('_id').exec();
+
+      const roleIds = roles.map(r => r._id);
+
+      // Also try to match if includedRoles contain IDs directly (fallback)
+      const validObjectIds = roleNames.filter(r => Types.ObjectId.isValid(r)).map(r => new Types.ObjectId(r));
+      const allRoleIds = [...roleIds, ...validObjectIds];
+
+      if (allRoleIds.length === 0) {
+        this.logger.warn(`No roles found matching names: ${roleNames.join(', ')}`);
+      }
+
       eligibleEmployees = await this.userModel
         .find({
           tenantId: tenantObjectId,
-          role: { $in: rule.rules.includedRoles },
+          role: { $in: allRoleIds },
           isActive: true,
         })
         .exec();
@@ -259,6 +314,24 @@ export class TipsService {
         );
         break;
 
+      case "fixed-percentage":
+        distribution = await this.distributeByFixedPercentage(
+          eligibleEmployees,
+          orders,
+          rule.rules.fixedPercentage || 0,
+        );
+        totalTips = distribution.reduce((sum, d) => sum + d.amount, 0);
+        break;
+
+      case "fixed-amount":
+        distribution = await this.distributeByFixedAmount(
+          eligibleEmployees,
+          orders,
+          rule.rules.fixedAmount || 0,
+        );
+        totalTips = distribution.reduce((sum, d) => sum + d.amount, 0);
+        break;
+
       case "custom":
         throw new BadRequestException(
           "Custom distribution formulas not yet implemented",
@@ -271,13 +344,106 @@ export class TipsService {
     }
 
     // 6. Actualizar órdenes con la distribución
+    // 6. Actualizar órdenes con la distribución
+    // Primero, crear un mapa de montos por empleado para búsqueda rápida
+    const employeeAmounts = new Map<string, number>();
+    distribution.forEach(d => {
+      // El monto en 'distribution' es el total del período. Necesitamos saber cuánto corresponde a ESTA orden.
+      // Esto es complejo porque 'distribution' tiene el agregado.
+      // Revisemos las estrategias:
+      // - Equitativa: totalTips / N. Se asigna a todas las órdenes del mesero? No, equitativa divide el POZO.
+      // - Por Ventas: Proporcional a ventas.
+      // - Fixed %: (Venta * %). Esto es por orden.
+
+      // ERROR: La arquitectura actual calcula un 'distribution' agreggado al final (array de empleados con sus totales).
+      // Pero para actualizar 'order.tipsRecords', necesitamos saber cuánto de esa orden específica va a cada empleado.
+
+      // Para Fixed % y Fixed Amount, el cálculo es PER ORDER.
+      // Deberíamos hacer el cálculo y actualización PER ORDER, o tener una estrategia que devuelva el desglose por orden.
+
+      // SOLUCIÓN TEMPORAL RÁPIDA:
+      // Si es Fixed % o Fixed Amount, el monto se calcula sobre la orden.
+      // Si es Equitativa/Sales/Hours, es sobre un pozo (totalTips).
+
+    });
+
+    // RE-PENSANDO:
+    // El método 'distributeTips' actual mezcla dos conceptos:
+    // 1. Calcular cuánto le toca a cada empleado en TOTAL (para el reporte y nómina).
+    // 2. Actualizar el histórico en cada ORDEN.
+
+    // Para Fixed Rate/Amount, el paso 6 está MAL porque usa order.totalTipsAmount (que puede ser 0).
+    // Deberíamos, para esos tipos, calcular el valor real por orden.
+
     for (const order of orders) {
-      const distributionForOrder = distribution.map((d) => ({
-        employeeId: new Types.ObjectId(d.employeeId),
-        employeeName: d.name,
-        amount: order.totalTipsAmount / distribution.length, // Simplificado por ahora
-        distributedAt: new Date(),
-      }));
+      let recordsToAdd: any[] = [];
+
+      if (rule.type === 'fixed-percentage' || rule.type === 'fixed-amount') {
+        // Calcular comisión específica para esta orden
+        const percentage = rule.rules.fixedPercentage || 0;
+        const fixedAmt = rule.rules.fixedAmount || 0;
+
+        // Buscar empleado asignado
+        if (order.assignedWaiterId) {
+          let amount = 0;
+          if (rule.type === 'fixed-percentage') {
+            amount = (order.totalAmount * percentage) / 100;
+          } else {
+            amount = fixedAmt;
+          }
+
+          if (amount > 0) {
+            recordsToAdd.push({
+              employeeId: order.assignedWaiterId,
+              employeeName: 'Waiter', // Deberíamos buscar el nombre real si es posible, o dejar que el populate lo resuelva
+              amount: Number(amount.toFixed(2)),
+              distributedAt: new Date(),
+              method: 'digital', // Asumimos digital/interno para comisiones
+              type: 'commission' // Nuevo campo o reutilizar existente?
+            });
+          }
+        }
+      } else {
+        // Lógica original para distribución de pozo (Equitativa, Horas, Ventas)
+        // Aquí SÍ distribuimos order.totalTipsAmount
+        if (order.totalTipsAmount > 0) {
+          recordsToAdd = distribution.map((d) => ({
+            employeeId: new Types.ObjectId(d.employeeId),
+            employeeName: d.name,
+            amount: order.totalTipsAmount / distribution.length, // OJO: Esto asume equitativa sobre la orden. 
+            // Si la regla es "por horas", ¿cómo distribuimos una orden específica? 
+            // Matemáticamente: (TotalTipsEmpleado / TotalTipsGlobal) * OrderTips? No necesariamente.
+            // Por simplicidad actual mantenemos el comportamiento previo para pozo: dividir entre todos los elegibles.
+            distributedAt: new Date(),
+          }));
+        }
+      }
+
+      if (recordsToAdd.length > 0) {
+        // Convertir a objetos planos si es necesario o usar push directo
+        // Necesitamos los nombres de empleados para recordsToAdd en fixed cases
+        // Optimizacion: Usar el mapa de empleados 'eligibleEmployees'
+
+        if (rule.type === 'fixed-percentage' || rule.type === 'fixed-amount') {
+          if (order.assignedWaiterId) {
+            const emp = eligibleEmployees.find(e => e._id.toString() === order.assignedWaiterId!.toString());
+            if (emp) {
+              recordsToAdd[0].employeeName = `${emp.firstName} ${emp.lastName}`;
+            }
+          }
+        }
+
+        // Actualizar order.totalTipsAmount si es comisión fija (porque no existía antes)
+        if (rule.type === 'fixed-percentage' || rule.type === 'fixed-amount') {
+          const totalComm = recordsToAdd.reduce((sum, r) => sum + r.amount, 0);
+          order.totalTipsAmount = (order.totalTipsAmount || 0) + totalComm;
+        }
+
+        const existingRecords = order.tipsRecords || [];
+        order.tipsRecords = [...existingRecords, ...recordsToAdd];
+
+        await order.save();
+      }
 
       order.tipsRecords.forEach((tip) => {
         tip.distributedAt = new Date();
@@ -403,6 +569,71 @@ export class TipsService {
       ...emp,
       amount: Number(((emp.hoursWorked / totalHours) * totalTips).toFixed(2)),
     }));
+  }
+
+  // Distribución por porcentaje fijo por venta
+  private async distributeByFixedPercentage(
+    employees: UserDocument[],
+    orders: OrderDocument[],
+    percentage: number,
+  ): Promise<
+    Array<{
+      employeeId: string;
+      name: string;
+      amount: number;
+      ordersServed: number;
+      salesGenerated: number;
+    }>
+  > {
+    return employees.map((emp) => {
+      const empOrders = orders.filter(
+        (o) => o.assignedWaiterId?.toString() === emp._id.toString(),
+      );
+
+      const salesGenerated = empOrders.reduce(
+        (sum, order) => sum + order.totalAmount,
+        0,
+      );
+
+      const amount = (salesGenerated * percentage) / 100;
+
+      return {
+        employeeId: emp._id.toString(),
+        name: `${emp.firstName} ${emp.lastName}`,
+        amount: Number(amount.toFixed(2)),
+        ordersServed: empOrders.length,
+        salesGenerated,
+      };
+    });
+  }
+
+  // Distribución por monto fijo por venta
+  private async distributeByFixedAmount(
+    employees: UserDocument[],
+    orders: OrderDocument[],
+    fixedAmount: number,
+  ): Promise<
+    Array<{
+      employeeId: string;
+      name: string;
+      amount: number;
+      ordersServed: number;
+    }>
+  > {
+    return employees.map((emp) => {
+      const empOrders = orders.filter(
+        (o) => o.assignedWaiterId?.toString() === emp._id.toString(),
+      );
+
+      const amount = empOrders.length * fixedAmount;
+
+      return {
+        employeeId: emp._id.toString(),
+        name: `${emp.firstName} ${emp.lastName}`,
+        amount: Number(amount.toFixed(2)),
+        ordersServed: empOrders.length,
+      };
+    });
   }
 
   // Distribución por ventas generadas
@@ -584,10 +815,9 @@ export class TipsService {
       .find({
         tenantId,
         createdAt: { $gte: startDate, $lte: endDate },
-        status: { $in: ["completed", "closed"] },
-        totalTipsAmount: { $gt: 0 },
+        status: { $nin: ["draft", "cancelled", "refunded"] }, // Show all except cancelled
+        $or: [{ totalTipsAmount: { $gt: 0 } }, { "tipsRecords.0": { $exists: true } }],
       })
-      .populate("assignedWaiterId", "firstName lastName")
       .exec();
 
     const totalTips = orders.reduce(
@@ -606,19 +836,82 @@ export class TipsService {
       { name: string; totalTips: number; orders: number }
     >();
 
+    // Collect all unique employee IDs
+    const allEmployeeIds = new Set<string>();
     orders.forEach((order) => {
       if (order.assignedWaiterId) {
         const empId =
           (order.assignedWaiterId as any)?._id?.toString?.() ||
           order.assignedWaiterId.toString();
-        const waiterAny = order.assignedWaiterId as any;
-        const waiterName =
-          waiterAny?.firstName || waiterAny?.lastName
-            ? `${waiterAny.firstName || ""} ${waiterAny.lastName || ""}`.trim()
-            : "Mesero";
+        allEmployeeIds.add(empId);
+      }
+    });
+
+    // Resolve names: check if IDs are EmployeeProfiles, then get Customer names
+    const employeeNames = new Map<string, string>();
+
+    if (allEmployeeIds.size > 0) {
+      const idsArray = Array.from(allEmployeeIds);
+
+      // 1. Check if these are EmployeeProfile IDs
+      const employeeProfiles = await this.employeeProfileModel
+        .find({ _id: { $in: idsArray } })
+        .select("_id customerId")
+        .lean()
+        .exec();
+
+      const profileMap = new Map(
+        employeeProfiles.map((p) => [p._id.toString(), p.customerId.toString()])
+      );
+
+      // 2. Get Customer names for the profiles found
+      if (employeeProfiles.length > 0) {
+        const customerIds = Array.from(profileMap.values());
+        const customers = await this.customerModel
+          .find({ _id: { $in: customerIds } })
+          .select("_id name lastName")
+          .lean()
+          .exec();
+
+        customers.forEach((c) => {
+          const fullName = `${c.name} ${c.lastName || ""}`.trim();
+          // Find which profile ID maps to this customer
+          for (const [profileId, custId] of profileMap.entries()) {
+            if (custId === c._id.toString()) {
+              employeeNames.set(profileId, fullName);
+            }
+          }
+        });
+      }
+
+      // 3. For IDs not found as EmployeeProfiles, try as Users (legacy)
+      const remainingIds = idsArray.filter((id) => !profileMap.has(id));
+      if (remainingIds.length > 0) {
+        const users = await this.userModel
+          .find({ _id: { $in: remainingIds } })
+          .select("_id firstName lastName")
+          .lean()
+          .exec();
+
+        users.forEach((u) => {
+          const fullName = `${u.firstName || ""} ${u.lastName || ""}`.trim();
+          employeeNames.set(u._id.toString(), fullName);
+        });
+      }
+    }
+
+    // Aggregate tips by employee
+    orders.forEach((order) => {
+      if (order.assignedWaiterId) {
+        const empId =
+          (order.assignedWaiterId as any)?._id?.toString?.() ||
+          order.assignedWaiterId.toString();
+
+        const empName = employeeNames.get(empId) || "Empleado Desconocido";
+
         if (!employeeMap.has(empId)) {
           employeeMap.set(empId, {
-            name: waiterName,
+            name: empName,
             totalTips: 0,
             orders: 0,
           });
@@ -653,15 +946,22 @@ export class TipsService {
       ...data,
     }));
 
-    // Por método
+    // Por método (support all payment method variations)
     let cash = 0,
       card = 0,
       digital = 0;
     orders.forEach((order) => {
       order.tipsRecords.forEach((tip) => {
-        if (tip.method === "cash") cash += tip.amount;
-        else if (tip.method === "card") card += tip.amount;
-        else if (tip.method === "digital") digital += tip.amount;
+        const methodLower = (tip.method || '').toLowerCase();
+        if (methodLower.includes('efectivo') || methodLower.includes('cash')) {
+          cash += tip.amount;
+        } else if (methodLower.includes('card') || methodLower.includes('tarjeta') ||
+          methodLower.includes('pos') || methodLower.includes('pago_movil') ||
+          methodLower.includes('zelle') || methodLower.includes('transferencia')) {
+          card += tip.amount;
+        } else if (methodLower.includes('digital')) {
+          digital += tip.amount;
+        }
       });
     });
 

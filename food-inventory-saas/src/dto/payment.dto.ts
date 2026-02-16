@@ -149,4 +149,23 @@ export class CreatePaymentDto {
   @IsString()
   @SanitizeText()
   reconciliationNote?: string;
+
+  // === Cash Tender & Change Tracking ===
+  @IsOptional()
+  @IsNumber()
+  amountTendered?: number; // Monto entregado por el cliente (solo para cash)
+
+  @IsOptional()
+  @IsNumber()
+  changeGiven?: number; // Vuelto dado al cliente (solo para cash)
+
+  @IsOptional()
+  changeGivenBreakdown?: {
+    usd: number;
+    ves: number;
+    vesMethod?: string;
+  };
+
+  @IsOptional()
+  isLegacyPayment?: boolean; // Marca pagos anteriores a esta feature
 }

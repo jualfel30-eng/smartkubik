@@ -110,6 +110,10 @@ export class OrderItem {
   @Prop({ type: String, trim: true })
   specialInstructions?: string;
 
+  // NUEVO: Ingredientes removidos (IDs de productos raw material)
+  @Prop({ type: [{ type: Types.ObjectId, ref: "Product" }], default: [] })
+  removedIngredients: Types.ObjectId[];
+
   @Prop({ type: Number, required: true })
   ivaAmount: number;
 
@@ -135,7 +139,7 @@ export class OrderShipping {
   @Prop({
     type: String,
     required: true,
-    enum: ["pickup", "delivery", "envio_nacional"],
+    enum: ["pickup", "delivery", "envio_nacional", "store"],
   })
   method: string;
 
@@ -190,10 +194,28 @@ export class Order {
   customerName: string;
 
   @Prop({ type: String })
+  customerRif?: string; // Denormalized TaxID for persistence
+
+  @Prop({ type: String, default: 'V' })
+  taxType?: string;
+
+  @Prop({ type: Boolean, default: false })
+  customerIsSpecialTaxpayer?: boolean; // Cliente es Contribuyente Especial (retiene IVA)
+
+  @Prop({ type: Number, default: 0 })
+  ivaWithholdingPercentage?: number; // 75 o 100, según tipo de contribuyente del tenant
+
+  @Prop({ type: Number, default: 0 })
+  ivaWithholdingAmount?: number; // Monto de IVA retenido por el cliente
+
+  @Prop({ type: String })
   customerEmail?: string;
 
   @Prop({ type: String })
   customerPhone?: string;
+
+  @Prop({ type: String })
+  customerAddress?: string;
 
   @Prop({ type: [OrderItemSchema] })
   items: OrderItem[];
@@ -245,6 +267,10 @@ export class Order {
         amountVes: Number,
         exchangeRate: Number,
         currency: String,
+        // New fields for cash tracking
+        amountTendered: Number,
+        changeGiven: Number,
+        changeGivenBreakdown: Object,
         reference: String,
         date: Date,
         isConfirmed: { type: Boolean, default: false },
@@ -268,6 +294,14 @@ export class Order {
     confirmedAt?: Date;
     confirmedMethod?: string;
     igtf?: number;
+    // Cash tender tracking
+    amountTendered?: number;
+    changeGiven?: number;
+    changeGivenBreakdown?: {
+      usd: number;
+      ves: number;
+      vesMethod?: string;
+    };
   }>;
 
   @Prop({ type: String, required: true, default: "pending" })
@@ -403,6 +437,25 @@ export class Order {
   assignedWaiterId?: Types.ObjectId;
 
   // ========================================
+  // COMISIONES (Sales Commission Tracking)
+  // ========================================
+
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  salesPersonId?: Types.ObjectId; // Vendedor asignado (puede ser diferente a waiter)
+
+  @Prop({ type: Boolean, default: false })
+  commissionCalculated: boolean; // ¿Ya se calculó la comisión?
+
+  @Prop({ type: Types.ObjectId, ref: "CommissionRecord" })
+  commissionRecordId?: Types.ObjectId; // Referencia al registro de comisión
+
+  @Prop({ type: Number, default: 0 })
+  commissionAmount: number; // Monto de comisión (desnormalizado para reportes)
+
+  @Prop({ type: Boolean, default: false })
+  contributesToGoals: boolean; // ¿Esta venta contribuye a metas? (default true después de procesarse)
+
+  // ========================================
   // MARKETING: Cupones y Promociones
   // ========================================
 
@@ -465,6 +518,15 @@ export class Order {
   @Prop({ type: Types.ObjectId, ref: "User" })
   fulfilledBy?: Types.ObjectId;
 
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  deliveryDriver?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  driverAssignedAt?: Date;
+
+  @Prop({ type: String })
+  deliveryProofPhoto?: string;
+
   // ========================================
   // BILLING DOCUMENT LINK
   // ========================================
@@ -481,6 +543,16 @@ export class Order {
     default: 'none'
   })
   billingDocumentType: string;
+
+  // ============================================
+  // INTEGRACIÓN CON CAJA REGISTRADORA
+  // ============================================
+
+  @Prop({ type: Types.ObjectId, ref: 'CashRegisterSession', default: null })
+  cashSessionId: Types.ObjectId;
+
+  @Prop({ type: String, default: null })
+  cashRegisterId: string; // Nombre de la caja: "Caja 1", "Caja Principal", etc.
 
   @Prop({ type: String, ref: "Tenant", required: true })
   tenantId: string;
@@ -511,6 +583,11 @@ OrderSchema.index({ tableId: 1, tenantId: 1 });
 OrderSchema.index({ isSplit: 1, activeSplitId: 1, tenantId: 1 });
 OrderSchema.index({ source: 1, createdAt: -1, tenantId: 1 });
 
+// Comisiones
+OrderSchema.index({ salesPersonId: 1, createdAt: -1, tenantId: 1 });
+OrderSchema.index({ commissionCalculated: 1, status: 1, tenantId: 1 });
+OrderSchema.index({ commissionRecordId: 1, tenantId: 1 });
+
 // Índice de texto para búsqueda
 OrderSchema.index({
   orderNumber: "text",
@@ -518,3 +595,6 @@ OrderSchema.index({
   customerEmail: "text",
   customerPhone: "text",
 });
+
+// Cash Register integration
+OrderSchema.index({ cashSessionId: 1, tenantId: 1 });

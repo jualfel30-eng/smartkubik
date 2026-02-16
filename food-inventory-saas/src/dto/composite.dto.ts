@@ -15,17 +15,46 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 
+class PaymentTermsDto {
+  @IsBoolean()
+  isCredit: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  paymentDueDate?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  paymentMethods: string[];
+
+  @IsOptional()
+  @IsString()
+  customPaymentMethod?: string;
+
+  @IsString()
+  expectedCurrency: string;
+
+  @IsBoolean()
+  requiresAdvancePayment: boolean;
+
+  @IsNumber()
+  advancePaymentPercentage: number;
+}
+
 // This is a rich product DTO, mirroring CreateProductDto
 class RichProductDataDto {
   @IsString() @IsNotEmpty() sku: string;
   @IsString() @IsNotEmpty() name: string;
-  @IsString() @IsNotEmpty() category: string;
-  @IsString() @IsNotEmpty() subcategory: string;
+  @IsArray() @IsString({ each: true }) category: string[];
+  @IsArray() @IsString({ each: true }) subcategory: string[];
   @IsString() @IsNotEmpty() brand: string;
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsString() ingredients?: string;
+  @IsOptional() @IsString() origin?: string;
+  @IsOptional() @IsString() productType?: string;
   @IsBoolean() isPerishable: boolean;
   @IsOptional() @IsNumber() shelfLifeDays?: number;
+  @IsOptional() @IsEnum(["days", "months", "years"]) shelfLifeUnit?: string;
   @IsOptional()
   @IsEnum(["ambiente", "refrigerado", "congelado"])
   storageTemperature?: string;
@@ -33,8 +62,12 @@ class RichProductDataDto {
   @IsString() @IsNotEmpty() taxCategory: string;
   @IsBoolean() isSoldByWeight: boolean;
   @IsString() unitOfMeasure: string;
+  @IsOptional() @IsBoolean() hasMultipleSellingUnits?: boolean;
+  @IsOptional() @IsArray() sellingUnits?: any[];
   @IsObject() pricingRules: any;
   @IsObject() inventoryConfig: any;
+  @IsOptional() @IsObject() attributes?: any;
+  @IsOptional() @IsBoolean() sendToKitchen?: boolean;
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ProductVariantDataDto)
@@ -106,8 +139,7 @@ export class CreateProductWithPurchaseDto {
   @IsOptional()
   notes?: string;
 
-  @IsArray()
-  @IsString({ each: true })
-  @IsNotEmpty({ message: 'Debe seleccionar al menos un método de pago' })
-  paymentMethods: string[];
+  @ValidateNested()
+  @Type(() => PaymentTermsDto)
+  paymentTerms: PaymentTermsDto;
 }

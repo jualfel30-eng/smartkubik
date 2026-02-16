@@ -149,6 +149,19 @@ export class BillingService {
         throw new NotFoundException("Documento original no encontrado");
       }
     }
+    // If creating from an order, check for IVA withholding data
+    let ivaWithholdingData: any = {};
+    if (dto.relatedOrderId) {
+      const relatedOrder: any = await this.orderModel.findById(dto.relatedOrderId).lean();
+      if (relatedOrder && relatedOrder.customerIsSpecialTaxpayer) {
+        ivaWithholdingData = {
+          requiresIvaWithholding: true,
+          withheldIvaPercentage: relatedOrder.ivaWithholdingPercentage || 0,
+          withheldIvaAmount: relatedOrder.ivaWithholdingAmount || 0,
+        };
+      }
+    }
+
     const billing = new this.billingModel({
       type: dto.type,
       seriesId: series._id,
@@ -170,6 +183,8 @@ export class BillingService {
       references: dto.originalDocumentId
         ? { originalDocumentId: dto.originalDocumentId, orderId: dto.relatedOrderId }
         : { orderId: dto.relatedOrderId },
+      // IVA Withholding from order (Contribuyente Especial)
+      ...ivaWithholdingData,
       tenantId,
     });
     await billing.save();
@@ -215,6 +230,26 @@ export class BillingService {
     doc.controlNumber = control.controlNumber || undefined;
     doc.status = "issued";
     doc.issueDate = new Date();
+
+    // Calcular y persistir montos en VES (fuente de verdad para contabilidad SENIAT)
+    const docCurrency = doc.totals?.currency || "VES";
+    const exRate: number =
+      docCurrency !== "VES" && (doc.totals?.exchangeRate ?? 0) > 0
+        ? (doc.totals!.exchangeRate as number)
+        : 1;
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const rawTaxAmount = (doc.totals?.taxes || []).reduce(
+      (s: number, t: any) => s + (t.amount || 0),
+      0,
+    );
+
+    doc.totalsVes = {
+      subtotal: round2((doc.totals?.subtotal || 0) * exRate),
+      taxAmount: round2(rawTaxAmount * exRate),
+      grandTotal: round2((doc.totals?.grandTotal || 0) * exRate),
+      exchangeRate: exRate,
+    };
+
     await doc.save();
 
     const hashPayload = createHash("sha256")
@@ -289,14 +324,6 @@ export class BillingService {
       tenantId,
     });
 
-    // Calcular totales para contabilidad
-    const taxAmount = (doc.totals?.taxes || []).reduce(
-      (sum, t) => sum + (t.amount || 0),
-      0,
-    );
-    const subtotal = doc.totals?.subtotal || 0;
-    const total = doc.totals?.grandTotal || 0;
-
     // Only listen for accounting integration if it is NOT a quote
     if (doc.type !== 'quote') {
       this.eventEmitter.emit("billing.document.issued", {
@@ -310,10 +337,17 @@ export class BillingService {
         customerName: doc.customer?.name,
         customerRif: doc.customer?.taxId,
         customerAddress: doc.customer?.address,
-        subtotal,
-        taxAmount,
-        total,
+        // Montos originales (moneda del documento)
+        subtotal: doc.totals?.subtotal || 0,
+        taxAmount: rawTaxAmount,
+        total: doc.totals?.grandTotal || 0,
         taxes: doc.totals?.taxes || [],
+        currency: docCurrency,
+        exchangeRate: exRate,
+        // Montos en VES pre-calculados (fuente de verdad para contabilidad)
+        subtotalVes: doc.totalsVes!.subtotal,
+        taxAmountVes: doc.totalsVes!.taxAmount,
+        totalVes: doc.totalsVes!.grandTotal,
       });
     }
 
@@ -430,11 +464,8 @@ export class BillingService {
       throw new NotFoundException('Documento no encontrado');
     }
 
-    // Convert to format expected by validation service
-    const validationDoc = this.mapToValidationFormat(doc);
-
-    // Run SENIAT validation
-    const result = await this.seniatValidation.validateForSENIAT(validationDoc);
+    // Run SENIAT validation directly on the document
+    const result = await this.seniatValidation.validateForSENIAT(doc as any);
 
     // Save validation errors in document if any
     if (!result.valid && result.errors.length > 0) {
@@ -783,13 +814,14 @@ export class BillingService {
       endDate: endDate.toISOString().split('T')[0],
     };
 
-    // Calculate amounts and group by type
+    // Calculate amounts and group by type (use VES amounts)
     documents.forEach((doc) => {
-      const total = doc.totals?.grandTotal || 0;
-      const taxAmount = (doc.totals?.taxes || []).reduce(
-        (sum, t) => sum + (t.amount || 0),
-        0,
-      );
+      const total = doc.totalsVes?.grandTotal || doc.totals?.grandTotal || 0;
+      const taxAmount = doc.totalsVes?.taxAmount ||
+        (doc.totals?.taxes || []).reduce(
+          (sum, t) => sum + (t.amount || 0),
+          0,
+        );
 
       stats.totalAmount += total;
       stats.totalTaxAmount += taxAmount;
@@ -816,7 +848,7 @@ export class BillingService {
           byMonth[monthKey] = { count: 0, amount: 0 };
         }
         byMonth[monthKey].count++;
-        byMonth[monthKey].amount += doc.totals?.grandTotal || 0;
+        byMonth[monthKey].amount += doc.totalsVes?.grandTotal || doc.totals?.grandTotal || 0;
       }
     });
 
@@ -1021,6 +1053,13 @@ export class BillingService {
             email: order.customerEmail,
             phone: order.customerPhone
           };
+        }
+
+        // Sync IVA withholding data from order
+        if (order.customerIsSpecialTaxpayer) {
+          doc.requiresIvaWithholding = true;
+          doc.withheldIvaPercentage = order.ivaWithholdingPercentage || 0;
+          doc.withheldIvaAmount = order.ivaWithholdingAmount || 0;
         }
 
         await doc.save();

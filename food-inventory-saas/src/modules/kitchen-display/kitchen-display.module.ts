@@ -7,16 +7,20 @@ import {
   KitchenOrderSchema,
 } from "../../schemas/kitchen-order.schema";
 import { Order, OrderSchema } from "../../schemas/order.schema";
+import { ProductSchema } from "../../schemas/product.schema";
+
+import { KitchenDisplayListener } from "./kitchen-display.listener";
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: KitchenOrder.name, schema: KitchenOrderSchema },
       { name: Order.name, schema: OrderSchema },
+      { name: 'Product', schema: ProductSchema },
     ]),
   ],
   controllers: [KitchenDisplayController],
-  providers: [KitchenDisplayService],
+  providers: [KitchenDisplayService, KitchenDisplayListener],
   exports: [KitchenDisplayService],
 })
-export class KitchenDisplayModule {}
+export class KitchenDisplayModule { }

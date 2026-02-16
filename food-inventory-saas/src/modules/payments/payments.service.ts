@@ -485,6 +485,81 @@ export class PaymentsService {
       );
     }
 
+    // === Cash Tender & Change Validation ===
+    const isCashPayment = paymentDetails.method?.toLowerCase().includes('efectivo') ||
+      paymentDetails.method?.toLowerCase().includes('cash');
+
+    if (isCashPayment && paymentDetails.amountTendered) {
+      // Validate that tender amount is sufficient
+      if (paymentDetails.amountTendered < paymentDetails.amount) {
+        throw new BadRequestException(
+          `Amount tendered ($${paymentDetails.amountTendered}) is less than payment amount ($${paymentDetails.amount})`
+        );
+      }
+
+      // Calculate change if not provided
+      if (paymentDetails.changeGiven === undefined || paymentDetails.changeGiven === null) {
+        // Determine the amount to subtract based on currency
+        const isVesPayment = paymentDetails.currency === 'VES' || paymentDetails.method?.toLowerCase().includes('ves');
+        const amountToSubtract = isVesPayment
+          ? (paymentDetails.amountVes || (paymentDetails.amount * (paymentDetails.exchangeRate || 1)))
+          : paymentDetails.amount;
+
+        paymentDetails.changeGiven = paymentDetails.amountTendered - amountToSubtract;
+
+        this.logger.log(
+          `Auto-calculated change: tendered=${paymentDetails.amountTendered}, amountToPay=${amountToSubtract} (${isVesPayment ? 'VES' : 'USD'}), change=${paymentDetails.changeGiven}`
+        );
+      }
+    } else if (isCashPayment && !paymentDetails.amountTendered) {
+      // Legacy cash payment without tender tracking - assume exact payment
+      paymentDetails.amountTendered = paymentDetails.amount;
+      paymentDetails.changeGiven = 0;
+      paymentDetails.isLegacyPayment = true;
+    }
+
+    // === Mixed Change Validation (USD + VES) ===
+    if (paymentDetails.changeGivenBreakdown) {
+      // Only allow breakdown for cash payments
+      if (!isCashPayment) {
+        throw new BadRequestException(
+          'Change breakdown is only allowed for cash payments'
+        );
+      }
+
+      const { usd, ves, vesMethod } = paymentDetails.changeGivenBreakdown;
+
+      // Validar que la suma coincida (convirtiendo VES a USD si aplica)
+      const rate = paymentDetails.exchangeRate && paymentDetails.exchangeRate > 0
+        ? paymentDetails.exchangeRate
+        : 1;
+
+      const vesInUsd = ves ? (ves / rate) : 0;
+      const breakdownTotal = (usd || 0) + vesInUsd;
+
+      // Tolerancia amplia para evitar bloqueo por redondeo
+      const tolerance = 0.50;
+
+      if (Math.abs(breakdownTotal - (paymentDetails.changeGiven || 0)) > tolerance) {
+        // CAMBIO CRÍTICO: Solo advertir, NO bloquear la venta.
+        this.logger.warn(
+          `Change breakdown mismatch (non-blocking): USD=$${usd} + VES=${ves} (~$${vesInUsd.toFixed(2)}) = $${breakdownTotal.toFixed(2)} vs Given=$${paymentDetails.changeGiven}`
+        );
+      }
+
+      // Validate VES method if VES amount is provided
+      if (ves && ves > 0 && !vesMethod) {
+        // También relajar esto a advertencia por ahora
+        this.logger.warn('vesMethod missing for VES change component');
+      }
+
+      this.logger.log(
+        `Mixed change breakdown accepted: USD=$${usd}, VES=Bs${ves}, method=${vesMethod || 'N/A'}`
+      );
+    }
+
+
+
     // Create and save the core payment document first
     const newPayment = new this.paymentModel({
       ...paymentDetails,
@@ -638,7 +713,7 @@ export class PaymentsService {
   ): Promise<void> {
     const order = await this.orderModel
       .findById(orderId)
-      .select("payments paymentStatus totalAmount tenantId")
+      .select("payments paymentStatus totalAmount totalAmountVes tenantId orderNumber")
       .lean();
     if (!order) {
       throw new NotFoundException(`Order with ID ${orderId} not found.`);
@@ -667,6 +742,20 @@ export class PaymentsService {
           : order.paymentStatus;
 
     // Actualizar sin depender de versión previa
+    const paymentRecord = {
+      _id: payment._id,
+      method: payment.method,
+      amount: payment.amount,
+      amountVes: payment.amountVes,
+      currency: payment.currency,
+      exchangeRate: payment.fees?.igtf ? 0 : 1, // simplified
+      amountTendered: payment.amountTendered,
+      changeGiven: payment.changeGiven,
+      changeGivenBreakdown: payment.changeGivenBreakdown,
+      reference: payment.reference,
+      date: payment.date
+    };
+
     await this.orderModel.findByIdAndUpdate(
       orderId,
       {
@@ -675,39 +764,18 @@ export class PaymentsService {
           paidAmount,
           paidAmountVes,
         },
-        $addToSet: { payments: payment._id },
+        $addToSet: {
+          payments: payment._id,
+          paymentRecords: paymentRecord // Push to snapshot array too
+        },
       },
       { new: true },
     );
     this.logger.log(`Updated order ${orderId} with new payment ${payment._id}`);
 
-    // --- Automatic Journal Entry Creation ---
-    this.logger.log(
-      `[Accounting Hook] Attempting to create journal entry for sale payment ${payment._id}.`,
-    );
-    this.logger.debug(
-      `[Accounting Hook] Payment data: ${JSON.stringify(payment, null, 2)}`,
-    );
-    this.logger.debug(
-      `[Accounting Hook] Order data: ${JSON.stringify(order, null, 2)}`,
-    );
-    try {
-      // Note: The accounting service expects the embedded payment type, but our new PaymentDocument is compatible.
-      // We cast it to `any` to satisfy TypeScript for now. This is acceptable because the structure is correct.
-      await this.accountingService.createJournalEntryForPayment(
-        order,
-        payment as any,
-        tenantId,
-      );
-      this.logger.log(
-        `[Accounting Hook] SUCCESS: Journal entry created for sale payment ${payment._id}`,
-      );
-    } catch (accountingError) {
-      this.logger.error(
-        `[Accounting Hook] FAILED to create journal entry for sale payment ${payment._id}. The payment was processed correctly, but accounting needs review.`,
-        accountingError.stack,
-      );
-    }
+    // Los asientos contables se generan SOLO desde la factura emitida
+    // (billing.document.issued → BillingAccountingListener)
+    // para evitar duplicidad y usar los montos VES ya calculados en la factura.
   }
 
   private async handlePayablePayment(

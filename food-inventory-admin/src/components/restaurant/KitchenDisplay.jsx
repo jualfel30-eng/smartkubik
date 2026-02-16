@@ -16,6 +16,7 @@ import {
   VolumeX,
   Settings,
 } from 'lucide-react';
+import { useTheme } from '@/components/ThemeProvider';
 import { fetchApi } from '@/lib/api';
 import OrderTicket from './OrderTicket';
 
@@ -25,6 +26,10 @@ import OrderTicket from './OrderTicket';
  * Mejoras: Alertas sonoras, tema oscuro, colores por urgencia
  */
 export default function KitchenDisplay() {
+  const { theme } = useTheme();
+  // Detectar si el modo oscuro está activo globalmente
+  const isGlobalDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -36,13 +41,19 @@ export default function KitchenDisplay() {
   });
   const [settings, setSettings] = useState({
     soundEnabled: true,
-    darkMode: true,
+    darkMode: isGlobalDark, // Inicializar con el tema global
     autoRefresh: true,
     urgentAlertInterval: 30, // segundos
   });
   const [showSettings, setShowSettings] = useState(false);
   const audioContextRef = useRef(null);
   const lastAlertTimeRef = useRef(Date.now());
+
+  // Sincronizar con cambios de tema global
+  useEffect(() => {
+    const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    setSettings(prev => ({ ...prev, darkMode: isDark }));
+  }, [theme]);
 
   // Función para reproducir sonido de alerta
   const playAlertSound = useCallback((type = 'new') => {
@@ -98,7 +109,7 @@ export default function KitchenDisplay() {
 
       // Alerta para órdenes urgentes cada X segundos
       if (urgentOrders.length > 0 &&
-          now - lastAlertTimeRef.current > settings.urgentAlertInterval * 1000) {
+        now - lastAlertTimeRef.current > settings.urgentAlertInterval * 1000) {
         playAlertSound('urgent');
         lastAlertTimeRef.current = now;
       }
@@ -246,7 +257,7 @@ export default function KitchenDisplay() {
   }
 
   return (
-    <div className={`min-h-screen ${settings.darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'} p-4`}>
+    <div className={`min-h-screen ${settings.darkMode ? 'bg-gray-900 text-white' : 'bg-gray-50 text-gray-900'} p-4 transition-colors duration-200`}>
       {/* Header con estadísticas */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
@@ -399,9 +410,8 @@ export default function KitchenDisplay() {
             onClick={() => setFilters({ ...filters, status: 'new' })}
             variant={filters.status === 'new' ? 'default' : 'outline'}
             size="sm"
-            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${
-              filters.status === 'new' ? 'bg-blue-500 hover:bg-blue-600' : ''
-            }`}
+            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${filters.status === 'new' ? 'bg-blue-500 hover:bg-blue-600' : ''
+              }`}
           >
             <div className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
             Nuevas
@@ -410,9 +420,8 @@ export default function KitchenDisplay() {
             onClick={() => setFilters({ ...filters, status: 'preparing' })}
             variant={filters.status === 'preparing' ? 'default' : 'outline'}
             size="sm"
-            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${
-              filters.status === 'preparing' ? 'bg-yellow-500 hover:bg-yellow-600' : ''
-            }`}
+            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${filters.status === 'preparing' ? 'bg-yellow-500 hover:bg-yellow-600' : ''
+              }`}
           >
             <div className="w-2 h-2 rounded-full bg-yellow-500 mr-2" />
             En Preparación
@@ -421,9 +430,8 @@ export default function KitchenDisplay() {
             onClick={() => setFilters({ ...filters, status: 'ready' })}
             variant={filters.status === 'ready' ? 'default' : 'outline'}
             size="sm"
-            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${
-              filters.status === 'ready' ? 'bg-green-500 hover:bg-green-600' : ''
-            }`}
+            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${filters.status === 'ready' ? 'bg-green-500 hover:bg-green-600' : ''
+              }`}
           >
             <div className="w-2 h-2 rounded-full bg-green-500 mr-2" />
             Listas
@@ -434,9 +442,8 @@ export default function KitchenDisplay() {
             }
             variant={filters.isUrgent ? 'default' : 'outline'}
             size="sm"
-            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${
-              filters.isUrgent ? 'bg-red-500 hover:bg-red-600 animate-pulse' : ''
-            }`}
+            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${filters.isUrgent ? 'bg-red-500 hover:bg-red-600 animate-pulse' : ''
+              }`}
           >
             <AlertTriangle className="w-4 h-4 mr-2" />
             Urgentes ({orders.filter(o => o.isUrgent).length})

@@ -1,23 +1,29 @@
-import React, { useState, useEffect } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { motion, useScroll, useTransform, useInView } from "framer-motion";
+// Critical icons (used in Hero/Navbar - above the fold)
 import {
-    Cpu,
-    Globe,
-    BarChart3,
-    Zap,
-    CheckCircle2,
     ArrowRight,
-    ShieldCheck,
-    Factory,
-    MessageSquare,
-    Box,
-    Layers,
-    Activity,
-    Server,
-    Users,
 } from "lucide-react";
+// Non-critical icons (lazy loaded for sections below the fold)
+const Cpu = lazy(() => import("lucide-react").then(mod => ({ default: mod.Cpu })));
+const Globe = lazy(() => import("lucide-react").then(mod => ({ default: mod.Globe })));
+const BarChart3 = lazy(() => import("lucide-react").then(mod => ({ default: mod.BarChart3 })));
+const Zap = lazy(() => import("lucide-react").then(mod => ({ default: mod.Zap })));
+const CheckCircle2 = lazy(() => import("lucide-react").then(mod => ({ default: mod.CheckCircle2 })));
+const ShieldCheck = lazy(() => import("lucide-react").then(mod => ({ default: mod.ShieldCheck })));
+const Factory = lazy(() => import("lucide-react").then(mod => ({ default: mod.Factory })));
+const MessageSquare = lazy(() => import("lucide-react").then(mod => ({ default: mod.MessageSquare })));
+const Box = lazy(() => import("lucide-react").then(mod => ({ default: mod.Box })));
+const Layers = lazy(() => import("lucide-react").then(mod => ({ default: mod.Layers })));
+const Activity = lazy(() => import("lucide-react").then(mod => ({ default: mod.Activity })));
+const Server = lazy(() => import("lucide-react").then(mod => ({ default: mod.Server })));
+const Users = lazy(() => import("lucide-react").then(mod => ({ default: mod.Users })));
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+
+// Icon fallback component
+const IconFallback = () => <div className="h-7 w-7 animate-pulse bg-white/10 rounded" />;
 
 // --- COMPONENTS ---
 
@@ -90,7 +96,13 @@ const Hero = () => {
             <div className="absolute inset-0 z-0">
                 <div className="absolute left-1/2 top-1/2 h-[800px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-violet-600/20 blur-[120px]" />
                 <div className="absolute left-1/4 top-1/4 h-[400px] w-[400px] rounded-full bg-indigo-500/10 blur-[90px]" />
-                <div className="bg-[url('https://grainy-gradients.vercel.app/noise.svg')] absolute inset-0 opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
+                {/* CSS-only grain effect - no external image needed */}
+                <div className="absolute inset-0 opacity-20 brightness-100 contrast-150 mix-blend-overlay"
+                    style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+                        backgroundRepeat: 'repeat'
+                    }}
+                ></div>
             </div>
 
             <div className="relative z-10 mx-auto max-w-7xl px-6 text-center">
@@ -174,12 +186,20 @@ const Hero = () => {
                             {/* Left Col */}
                             <div className="col-span-3 space-y-4">
                                 <div className="h-32 rounded-lg bg-white/5 p-4 border border-white/5">
-                                    <div className="mb-2 h-8 w-8 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center"><Activity size={18} /></div>
+                                    <div className="mb-2 h-8 w-8 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                                        <Suspense fallback={<div className="h-4 w-4 bg-emerald-500/20 rounded" />}>
+                                            <Activity size={18} />
+                                        </Suspense>
+                                    </div>
                                     <div className="text-2xl font-bold text-white">$4.2M</div>
                                     <div className="text-xs text-slate-500">Monthly Revenue (+12%)</div>
                                 </div>
                                 <div className="h-32 rounded-lg bg-white/5 p-4 border border-white/5">
-                                    <div className="mb-2 h-8 w-8 rounded bg-blue-500/20 text-blue-400 flex items-center justify-center"><Users size={18} /></div>
+                                    <div className="mb-2 h-8 w-8 rounded bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                                        <Suspense fallback={<div className="h-4 w-4 bg-blue-500/20 rounded" />}>
+                                            <Users size={18} />
+                                        </Suspense>
+                                    </div>
                                     <div className="text-2xl font-bold text-white">8,430</div>
                                     <div className="text-xs text-slate-500">Active Users</div>
                                 </div>
@@ -208,15 +228,30 @@ const Hero = () => {
                                 <div className="h-full rounded-lg bg-white/5 p-4 border border-white/5 flex flex-col gap-3">
                                     <div className="text-sm font-medium text-slate-300 mb-2">System Health</div>
                                     <div className="flex items-center justify-between p-2 rounded bg-black/40 border border-white/5">
-                                        <span className="text-xs text-slate-400 flex items-center gap-2"><Server size={12} /> API Gateway</span>
+                                        <span className="text-xs text-slate-400 flex items-center gap-2">
+                                            <Suspense fallback={<div className="h-3 w-3 bg-white/10 rounded" />}>
+                                                <Server size={12} />
+                                            </Suspense>
+                                            API Gateway
+                                        </span>
                                         <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
                                     </div>
                                     <div className="flex items-center justify-between p-2 rounded bg-black/40 border border-white/5">
-                                        <span className="text-xs text-slate-400 flex items-center gap-2"><Zap size={12} /> AI Engine</span>
+                                        <span className="text-xs text-slate-400 flex items-center gap-2">
+                                            <Suspense fallback={<div className="h-3 w-3 bg-white/10 rounded" />}>
+                                                <Zap size={12} />
+                                            </Suspense>
+                                            AI Engine
+                                        </span>
                                         <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
                                     </div>
                                     <div className="flex items-center justify-between p-2 rounded bg-black/40 border border-white/5">
-                                        <span className="text-xs text-slate-400 flex items-center gap-2"><Globe size={12} /> CDN Edge</span>
+                                        <span className="text-xs text-slate-400 flex items-center gap-2">
+                                            <Suspense fallback={<div className="h-3 w-3 bg-white/10 rounded" />}>
+                                                <Globe size={12} />
+                                            </Suspense>
+                                            CDN Edge
+                                        </span>
                                         <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
                                     </div>
                                 </div>
@@ -232,189 +267,233 @@ const Hero = () => {
     );
 };
 
-const BrainSection = () => (
-    <section className="relative py-32">
-        <div className="mx-auto max-w-7xl px-6">
-            <SectionHeading
-                badge="Neural Core"
-                title="Automate Decisions. Not Just Tasks."
-                subtitle="Vector-Embedded Intelligence analyzes correlation between Production Costs and Sales Velocity in real-time."
-            />
+const BrainSection = () => {
+    const ref = useRef(null);
+    const isInView = useInView(ref, { once: true, margin: "-100px" });
 
-            <div className="grid gap-8 md:grid-cols-3">
-                <GlassCard className="group p-8">
-                    <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-violet-500/20 text-violet-400 ring-1 ring-violet-500/50 transition-all group-hover:scale-110 group-hover:bg-violet-500 group-hover:text-white">
-                        <Zap size={28} />
-                    </div>
-                    <h3 className="mb-3 text-2xl font-bold text-white">Predictive Actions</h3>
-                    <p className="text-slate-400">The system notices matcha latte sales spiking and autonomously schedules a new production run for almond milk 48 hours in advance.</p>
-                </GlassCard>
+    return (
+        <section ref={ref} className="relative py-32">
+            <div className="mx-auto max-w-7xl px-6">
+                <SectionHeading
+                    badge="Neural Core"
+                    title="Automate Decisions. Not Just Tasks."
+                    subtitle="Vector-Embedded Intelligence analyzes correlation between Production Costs and Sales Velocity in real-time."
+                />
 
-                <GlassCard className="group p-8 relative overflow-hidden border-violet-500/30 bg-violet-900/10">
-                    <div className="absolute inset-0 bg-gradient-to-b from-violet-500/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-                    <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-white text-black ring-1 ring-white/50 transition-all group-hover:scale-110">
-                        <Cpu size={28} />
-                    </div>
-                    <h3 className="mb-3 text-2xl font-bold text-white">Vector Brain</h3>
-                    <p className="text-slate-400">Unlike basic chatbots, our AI understands semantic relationships between your inventory, recipes, and customer reviews.</p>
-                </GlassCard>
-
-                <GlassCard className="group p-8">
-                    <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50 transition-all group-hover:scale-110 group-hover:bg-blue-500 group-hover:text-white">
-                        <MessageSquare size={28} />
-                    </div>
-                    <h3 className="mb-3 text-2xl font-bold text-white">Conversational Ops</h3>
-                    <p className="text-slate-400">"Hey SmartKubik, what's our margin impact if we switch avocado suppliers?" Get instant, calculated answers.</p>
-                </GlassCard>
-            </div>
-        </div>
-    </section>
-);
-
-const FactorySection = () => (
-    <section className="relative py-32 bg-[#0A0A0A]">
-        {/* Grid Background */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
-
-        <div className="relative z-10 mx-auto max-w-7xl px-6">
-            <div className="grid gap-16 lg:grid-cols-2 items-center">
-                <div>
-                    <Badge variant="outline" className="mb-4 text-emerald-400 border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 uppercase tracking-widest">
-                        Manufacturing Depth
-                    </Badge>
-                    <h2 className="mb-6 text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl font-outfit">
-                        Industrial-Grade Precision.
-                    </h2>
-                    <p className="mb-8 text-lg text-slate-400">
-                        Most IMS tools just subtract stock. We handle recursive BOMs, Work Center overheads, and automated journal entries per production run.
-                    </p>
-
-                    <div className="space-y-6">
-                        {["Recursive Bill of Materials", "Work Center Management", "Live Cost Calculation", "Scrap & Waste Tracking"].map((item) => (
-                            <div key={item} className="flex items-center gap-4">
-                                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500">
-                                    <CheckCircle2 size={16} />
-                                </div>
-                                <span className="text-lg text-white">{item}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="relative">
-                    {/* 3D Exploded View Card */}
-                    <GlassCard className="p-0 border-white/10 bg-[#111]">
-                        <div className="p-6 border-b border-white/5 flex justify-between items-center">
-                            <span className="text-sm font-mono text-slate-400">BOM: TECH-BURGER-V2</span>
-                            <Badge className="bg-emerald-500 hover:bg-emerald-600">Active</Badge>
+                <motion.div
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
+                    transition={{ duration: 0.6 }}
+                    className="grid gap-8 md:grid-cols-3"
+                >
+                    <GlassCard className="group p-8">
+                        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-violet-500/20 text-violet-400 ring-1 ring-violet-500/50 transition-all group-hover:scale-110 group-hover:bg-violet-500 group-hover:text-white">
+                            <Suspense fallback={<IconFallback />}>
+                                <Zap size={28} />
+                            </Suspense>
                         </div>
-                        <div className="p-8 space-y-4">
-                            {/* Layer 1 */}
-                            <div className="flex items-center gap-4 p-4 rounded-lg bg-white/5 border border-white/5 hover:border-emerald-500/50 transition-colors">
-                                <Box className="text-emerald-500" />
-                                <div className="flex-1">
-                                    <div className="text-white font-medium">Finished Unit</div>
-                                    <div className="text-xs text-slate-500">SKU: TB-001 • Target Cost: $4.20</div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-white font-mono">1.0 ea</div>
-                                </div>
-                            </div>
-                            {/* Connector */}
-                            <div className="ml-8 h-6 w-0.5 bg-white/10"></div>
-                            {/* Layer 2 */}
-                            <div className="ml-8 flex items-center gap-4 p-4 rounded-lg bg-white/5 border border-white/5">
-                                <Layers className="text-blue-500" />
-                                <div className="flex-1">
-                                    <div className="text-white font-medium">Sub-Assembly: Sauce Mix</div>
-                                    <div className="text-xs text-slate-500">SKU: SM-002 • Labor: 4 mins</div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-white font-mono">0.05 L</div>
-                                </div>
-                            </div>
-                            {/* Connector */}
-                            <div className="ml-16 h-6 w-0.5 bg-white/10"></div>
-                            {/* Layer 3 */}
-                            <div className="ml-16 flex items-center gap-4 p-4 rounded-lg bg-white/5 border border-white/5">
-                                <Factory className="text-violet-500" />
-                                <div className="flex-1">
-                                    <div className="text-white font-medium">Raw Material: Spice Blend</div>
-                                    <div className="text-xs text-slate-500">Vendor: Spicely Inc</div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-white font-mono">12 g</div>
-                                </div>
-                            </div>
-                        </div>
+                        <h3 className="mb-3 text-2xl font-bold text-white">Predictive Actions</h3>
+                        <p className="text-slate-400">The system notices matcha latte sales spiking and autonomously schedules a new production run for almond milk 48 hours in advance.</p>
                     </GlassCard>
-                </div>
+
+                    <GlassCard className="group p-8 relative overflow-hidden border-violet-500/30 bg-violet-900/10">
+                        <div className="absolute inset-0 bg-gradient-to-b from-violet-500/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-white text-black ring-1 ring-white/50 transition-all group-hover:scale-110">
+                            <Suspense fallback={<IconFallback />}>
+                                <Cpu size={28} />
+                            </Suspense>
+                        </div>
+                        <h3 className="mb-3 text-2xl font-bold text-white">Vector Brain</h3>
+                        <p className="text-slate-400">Unlike basic chatbots, our AI understands semantic relationships between your inventory, recipes, and customer reviews.</p>
+                    </GlassCard>
+
+                    <GlassCard className="group p-8">
+                        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/50 transition-all group-hover:scale-110 group-hover:bg-blue-500 group-hover:text-white">
+                            <Suspense fallback={<IconFallback />}>
+                                <MessageSquare size={28} />
+                            </Suspense>
+                        </div>
+                        <h3 className="mb-3 text-2xl font-bold text-white">Conversational Ops</h3>
+                        <p className="text-slate-400">"Hey SmartKubik, what's our margin impact if we switch avocado suppliers?" Get instant, calculated answers.</p>
+                    </GlassCard>
+                </motion.div>
             </div>
-        </div>
-    </section>
-);
+        </section>
+    );
+};
 
-const EcosystemSection = () => (
-    <section className="relative py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-900/10 via-[#050505] to-[#050505]" />
-        <div className="relative z-10 mx-auto max-w-7xl px-6 text-center">
-            <SectionHeading
-                badge="Global Scale"
-                title="Built for the Franchise."
-                subtitle="Centralized Control, Decentralized Execution. Manage 100+ locations from a single pane of glass."
-            />
+const FactorySection = () => {
+    const ref = useRef(null);
+    const isInView = useInView(ref, { once: true, margin: "-100px" });
 
-            <div className="relative mx-auto mt-20 max-w-5xl">
-                {/* Abstract Map Visualization */}
-                <div className="aspect-[16/9] rounded-2xl border border-white/10 bg-[#0A0A0A] relative overflow-hidden">
-                    <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(#4b5563 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
+    return (
+        <section ref={ref} className="relative py-32 bg-[#0A0A0A]">
+            {/* Grid Background */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
 
-                    {/* Nodes */}
-                    <div className="absolute top-1/3 left-1/4">
-                        <div className="relative flex items-center justify-center">
-                            <div className="absolute h-24 w-24 animate-ping rounded-full bg-violet-500/20"></div>
-                            <div className="relative h-4 w-4 rounded-full bg-white shadow-[0_0_20px_rgba(139,92,246,0.8)]"></div>
-                            <GlassCard className="absolute left-6 top-6 w-48 p-3 !bg-[#050505]/90">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-                                    <span className="text-xs font-bold text-white">Miami HQ</span>
+            <motion.div
+                initial={{ opacity: 0, y: 50 }}
+                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
+                transition={{ duration: 0.6 }}
+                className="relative z-10 mx-auto max-w-7xl px-6"
+            >
+                <div className="grid gap-16 lg:grid-cols-2 items-center">
+                    <div>
+                        <Badge variant="outline" className="mb-4 text-emerald-400 border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 uppercase tracking-widest">
+                            Manufacturing Depth
+                        </Badge>
+                        <h2 className="mb-6 text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl font-outfit">
+                            Industrial-Grade Precision.
+                        </h2>
+                        <p className="mb-8 text-lg text-slate-400">
+                            Most IMS tools just subtract stock. We handle recursive BOMs, Work Center overheads, and automated journal entries per production run.
+                        </p>
+
+                        <div className="space-y-6">
+                            {["Recursive Bill of Materials", "Work Center Management", "Live Cost Calculation", "Scrap & Waste Tracking"].map((item) => (
+                                <div key={item} className="flex items-center gap-4">
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-500">
+                                        <Suspense fallback={<IconFallback />}>
+                                            <CheckCircle2 size={16} />
+                                        </Suspense>
+                                    </div>
+                                    <span className="text-lg text-white">{item}</span>
                                 </div>
-                                <div className="text-[10px] text-slate-400">Sales: $12,402 / day</div>
-                            </GlassCard>
+                            ))}
                         </div>
                     </div>
 
-                    <div className="absolute bottom-1/3 right-1/3">
-                        <div className="relative flex items-center justify-center">
-                            <div className="absolute h-16 w-16 animate-ping rounded-full bg-blue-500/20 animation-delay-500"></div>
-                            <div className="relative h-3 w-3 rounded-full bg-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.8)]"></div>
-                        </div>
+                    <div className="relative">
+                        {/* 3D Exploded View Card */}
+                        <GlassCard className="p-0 border-white/10 bg-[#111]">
+                            <div className="p-6 border-b border-white/5 flex justify-between items-center">
+                                <span className="text-sm font-mono text-slate-400">BOM: TECH-BURGER-V2</span>
+                                <Badge className="bg-emerald-500 hover:bg-emerald-600">Active</Badge>
+                            </div>
+                            <div className="p-8 space-y-4">
+                                {/* Layer 1 */}
+                                <div className="flex items-center gap-4 p-4 rounded-lg bg-white/5 border border-white/5 hover:border-emerald-500/50 transition-colors">
+                                    <Suspense fallback={<IconFallback />}>
+                                        <Box className="text-emerald-500" />
+                                    </Suspense>
+                                    <div className="flex-1">
+                                        <div className="text-white font-medium">Finished Unit</div>
+                                        <div className="text-xs text-slate-500">SKU: TB-001 • Target Cost: $4.20</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-white font-mono">1.0 ea</div>
+                                    </div>
+                                </div>
+                                {/* Connector */}
+                                <div className="ml-8 h-6 w-0.5 bg-white/10"></div>
+                                {/* Layer 2 */}
+                                <div className="ml-8 flex items-center gap-4 p-4 rounded-lg bg-white/5 border border-white/5">
+                                    <Suspense fallback={<IconFallback />}>
+                                        <Layers className="text-blue-500" />
+                                    </Suspense>
+                                    <div className="flex-1">
+                                        <div className="text-white font-medium">Sub-Assembly: Sauce Mix</div>
+                                        <div className="text-xs text-slate-500">SKU: SM-002 • Labor: 4 mins</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-white font-mono">0.05 L</div>
+                                    </div>
+                                </div>
+                                {/* Connector */}
+                                <div className="ml-16 h-6 w-0.5 bg-white/10"></div>
+                                {/* Layer 3 */}
+                                <div className="ml-16 flex items-center gap-4 p-4 rounded-lg bg-white/5 border border-white/5">
+                                    <Suspense fallback={<IconFallback />}>
+                                        <Factory className="text-violet-500" />
+                                    </Suspense>
+                                    <div className="flex-1">
+                                        <div className="text-white font-medium">Raw Material: Spice Blend</div>
+                                        <div className="text-xs text-slate-500">Vendor: Spicely Inc</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-white font-mono">12 g</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </GlassCard>
                     </div>
-
-                    <div className="absolute top-1/4 right-1/4">
-                        <div className="relative flex items-center justify-center">
-                            <div className="absolute h-16 w-16 animate-ping rounded-full bg-emerald-500/20 animation-delay-700"></div>
-                            <div className="relative h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.8)]"></div>
-                        </div>
-                    </div>
-
-                    {/* Connecting Lines (SVG) */}
-                    <svg className="absolute inset-0 h-full w-full pointer-events-none">
-                        <path d="M 300 200 Q 500 100 700 300" stroke="url(#lineGradient)" strokeWidth="2" fill="none" opacity="0.5" />
-                        <path d="M 300 200 Q 500 400 600 200" stroke="url(#lineGradient)" strokeWidth="2" fill="none" opacity="0.3" />
-                        <defs>
-                            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0" />
-                                <stop offset="50%" stopColor="#8B5CF6" stopOpacity="1" />
-                                <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
-                            </linearGradient>
-                        </defs>
-                    </svg>
                 </div>
-            </div>
-        </div>
-    </section>
-);
+            </motion.div>
+        </section>
+    );
+};
+
+const EcosystemSection = () => {
+    const ref = useRef(null);
+    const isInView = useInView(ref, { once: true, margin: "-100px" });
+
+    return (
+        <section ref={ref} className="relative py-32 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-900/10 via-[#050505] to-[#050505]" />
+            <motion.div
+                initial={{ opacity: 0, y: 50 }}
+                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
+                transition={{ duration: 0.6 }}
+                className="relative z-10 mx-auto max-w-7xl px-6 text-center"
+            >
+                <SectionHeading
+                    badge="Global Scale"
+                    title="Built for the Franchise."
+                    subtitle="Centralized Control, Decentralized Execution. Manage 100+ locations from a single pane of glass."
+                />
+
+                <div className="relative mx-auto mt-20 max-w-5xl">
+                    {/* Abstract Map Visualization */}
+                    <div className="aspect-[16/9] rounded-2xl border border-white/10 bg-[#0A0A0A] relative overflow-hidden">
+                        <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'radial-gradient(#4b5563 1px, transparent 1px)', backgroundSize: '32px 32px' }}></div>
+
+                        {/* Nodes - optimized ping animations */}
+                        <div className="absolute top-1/3 left-1/4">
+                            <div className="relative flex items-center justify-center">
+                                {isInView && <div className="absolute h-24 w-24 animate-ping rounded-full bg-violet-500/20"></div>}
+                                <div className="relative h-4 w-4 rounded-full bg-white shadow-[0_0_20px_rgba(139,92,246,0.8)]"></div>
+                                <GlassCard className="absolute left-6 top-6 w-48 p-3 !bg-[#050505]/90">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                                        <span className="text-xs font-bold text-white">Miami HQ</span>
+                                    </div>
+                                    <div className="text-[10px] text-slate-400">Sales: $12,402 / day</div>
+                                </GlassCard>
+                            </div>
+                        </div>
+
+                        <div className="absolute bottom-1/3 right-1/3">
+                            <div className="relative flex items-center justify-center">
+                                {isInView && <div className="absolute h-16 w-16 animate-ping rounded-full bg-blue-500/20 animation-delay-500"></div>}
+                                <div className="relative h-3 w-3 rounded-full bg-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.8)]"></div>
+                            </div>
+                        </div>
+
+                        <div className="absolute top-1/4 right-1/4">
+                            <div className="relative flex items-center justify-center">
+                                {isInView && <div className="absolute h-16 w-16 animate-ping rounded-full bg-emerald-500/20 animation-delay-700"></div>}
+                                <div className="relative h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.8)]"></div>
+                            </div>
+                        </div>
+
+                        {/* Connecting Lines (SVG) */}
+                        <svg className="absolute inset-0 h-full w-full pointer-events-none">
+                            <path d="M 300 200 Q 500 100 700 300" stroke="url(#lineGradient)" strokeWidth="2" fill="none" opacity="0.5" />
+                            <path d="M 300 200 Q 500 400 600 200" stroke="url(#lineGradient)" strokeWidth="2" fill="none" opacity="0.3" />
+                            <defs>
+                                <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0" />
+                                    <stop offset="50%" stopColor="#8B5CF6" stopOpacity="1" />
+                                    <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                </div>
+            </motion.div>
+        </section>
+    );
+};
 
 const Footer = () => (
     <footer className="border-t border-white/10 bg-[#020202] py-20">

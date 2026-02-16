@@ -171,6 +171,13 @@ export class Inventory {
 
   @Prop({ type: Types.ObjectId, ref: "Tenant", required: true })
   tenantId: Types.ObjectId;
+
+  // ── Data Import tracking ──
+  @Prop({ type: Types.ObjectId, ref: "ImportJob" })
+  importJobId?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  importedAt?: Date;
 }
 
 @Schema({ timestamps: true })
@@ -244,6 +251,12 @@ export class InventoryMovement {
     reservedQuantity: number;
     averageCostPrice: number;
   };
+
+  @Prop({ type: String })
+  receivedBy?: string;
+
+  @Prop({ type: String })
+  notes?: string;
 
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;

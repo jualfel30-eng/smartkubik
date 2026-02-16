@@ -25,6 +25,7 @@ export default function ModuleAccessDenied({ moduleName, vertical }) {
     fleet: 'Flota',
     warehousing: 'Almacenamiento',
     dispatch: 'Despacho',
+    commissions: 'Comisiones (Ventas)',
   };
 
   const verticalNames = {

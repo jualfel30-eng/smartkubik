@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth, AuthProvider } from './hooks/use-auth.jsx';
 import { useShift, ShiftProvider } from './context/ShiftContext.jsx';
 import { useTheme } from '@/components/ThemeProvider';
+import { useTipsLabels } from '@/hooks/useTipsLabels';
 import { ThemeProvider as MuiThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import SmartKubikLogoLight from '@/assets/logo-smartkubik-light.png';
@@ -68,7 +68,18 @@ import {
   Zap,
   AlertCircle,
   PlusCircle,
-  Bell,
+  Trash2,
+  Bike,
+  BanknoteArrowUp,
+  BanknoteArrowDown,
+  CircleDollarSign,
+  HandCoins,
+  PackageCheck,
+  MessageCircleMore,
+  Boxes,
+  PackagePlus,
+  UserCheck,
+  Upload,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
@@ -78,7 +89,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CrmProvider } from './context/CrmContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
 import { NotificationProvider, useNotification } from './context/NotificationContext.jsx';
-import { CountryPluginProvider } from './country-plugins/CountryPluginContext.jsx';
+import { CashRegisterProvider } from './contexts/CashRegisterContext.jsx';
+import { NotificationCenter } from './components/NotificationCenter.jsx';
 import { TenantPickerDialog } from '@/components/auth/TenantPickerDialog.jsx';
 import {
   Sidebar,
@@ -133,7 +145,9 @@ const GeneralLedger = lazy(() => import('@/components/accounting/GeneralLedger.j
 const AccountingPeriods = lazy(() => import('@/components/accounting/AccountingPeriods.jsx'));
 const RecurringEntries = lazy(() => import('@/components/accounting/RecurringEntries.jsx'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
+const FoundersPage = lazy(() => import('./pages/FoundersPage'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
 const SmartKubikLandingV2 = lazy(() => import('./pages/SmartKubikLandingV2'));
 const WebVentasSectionDemo = lazy(() => import('./pages/WebVentasSectionDemo'));
@@ -141,11 +155,17 @@ const BlogIndex = lazy(() => import('./pages/BlogIndex.jsx'));
 const BlogPost = lazy(() => import('./pages/BlogPost.jsx'));
 const DocsLanding = lazy(() => import('./pages/DocsLanding.jsx'));
 const DocsCategoryPage = lazy(() => import('./pages/DocsCategoryPage.jsx'));
+const TimeClock = lazy(() => import('./pages/TimeClock.jsx'));
 const DocsArticle = lazy(() => import('./pages/DocsArticle.jsx'));
 const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
 const BankAccountsManagement = lazy(() => import('@/components/BankAccountsManagement.jsx'));
+const FixedAssetsView = lazy(() => import('@/components/FixedAssetsView.jsx'));
+const InvestmentsView = lazy(() => import('@/components/InvestmentsView.jsx'));
 const BankReconciliationView = lazy(() => import('@/components/BankReconciliationView.jsx'));
-const RubikLoader = lazy(() => import('@/components/RubikLoader.jsx'));
+import { DriverLayout } from '@/components/drivers/DriverLayout.jsx';
+import { DriverDashboard } from '@/components/drivers/DriverDashboard.jsx';
+// RubikLoader imported directly (not lazy) - it's used as the loading fallback
+import { RubikLoader } from '@/components/RubikLoader.jsx';
 const ServicesManagement = lazy(() => import('@/components/ServicesManagement.jsx'));
 const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.jsx'));
 const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManagement.jsx'));
@@ -155,10 +175,12 @@ const TablesPage = lazy(() => import('./pages/TablesPage.jsx'));
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
 const ReservationsPage = lazy(() => import('./pages/ReservationsPage.jsx'));
 const TipsPage = lazy(() => import('./pages/TipsPage.jsx'));
+const CommissionsPage = lazy(() => import('./pages/CommissionsPage.jsx'));
 const MenuEngineeringPage = lazy(() => import('./pages/MenuEngineeringPage.jsx'));
 const RecipesPage = lazy(() => import('./pages/RecipesPage.jsx'));
 const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage.jsx'));
 const MarketingPage = lazy(() => import('./pages/MarketingPage.jsx'));
+const WasteManagementPage = lazy(() => import('./pages/WasteManagementPage.jsx'));
 const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
 const AssistantChatWidget = lazy(() => import('@/components/AssistantChatWidget.jsx'));
 const PaymentsManagementDashboard = lazy(() => import('@/components/hospitality/PaymentsManagementDashboard.jsx'));
@@ -175,13 +197,13 @@ const BillingCreateForm = lazy(() => import('@/components/billing/BillingCreateF
 const BillingDocumentDetail = lazy(() => import('@/components/billing/BillingDocumentDetail.jsx'));
 const BillingSequencesManager = lazy(() => import('@/components/billing/BillingSequencesManager.jsx'));
 const FulfillmentDashboard = lazy(() => import('@/components/fulfillment/FulfillmentDashboard.jsx').then(module => ({ default: module.FulfillmentDashboard })));
+const CashRegisterPage = lazy(() => import('./pages/CashRegisterPage.jsx'));
+const DataImportPage = lazy(() => import('./components/data-import/DataImportPage.jsx'));
 
 
-// Loading fallback component
+// Loading fallback component - RubikLoader is now directly imported (not lazy)
 const LoadingFallback = () => (
-  <Suspense fallback={<div className="flex items-center justify-center h-screen"><div className="text-lg">Cargando...</div></div>}>
-    <RubikLoader fullScreen message="Cargando..." />
-  </Suspense>
+  <RubikLoader fullScreen message="Cargando..." />
 );
 
 
@@ -242,6 +264,12 @@ function TenantLayout() {
 
     setResolvedTheme(theme);
   }, [theme]);
+
+  // Scope App.css typography overrides to dashboard only
+  useEffect(() => {
+    document.body.classList.add('erp-active');
+    return () => document.body.classList.remove('erp-active');
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -319,6 +347,8 @@ function TenantLayout() {
 
   const navLinks = [
     { name: 'Panel de Control', href: 'dashboard', icon: LayoutDashboard, permission: 'dashboard_read' },
+
+    // 1. Módulos Operativos
     {
       name: 'Órdenes',
       href: 'orders',
@@ -329,12 +359,10 @@ function TenantLayout() {
         { name: 'Historial', href: 'orders/history', icon: List },
       ]
     },
-    { name: 'Entregas', href: 'fulfillment', icon: Truck, permission: 'orders_read' },
-    { name: 'WhatsApp', href: 'whatsapp', icon: MessageSquare, permission: 'chat_read' },
     {
       name: 'Inventario',
       href: 'inventory-management',
-      icon: Package,
+      icon: Boxes,
       permission: 'inventory_read',
       children: [
         {
@@ -360,10 +388,15 @@ function TenantLayout() {
             { name: 'Alertas de Stock', href: 'inventory-management?tab=inventory-alerts', icon: AlertCircle },
           ],
         },
-        { name: 'Compras', href: 'inventory-management?tab=purchases', icon: Truck },
-        { name: 'Proveedores', href: 'inventory-management?tab=suppliers', icon: Truck },
+        { name: 'Compras', href: 'inventory-management?tab=purchases', icon: PackagePlus },
+        { name: 'Proveedores', href: 'inventory-management?tab=suppliers', icon: UserCheck },
+        { name: 'Control de Mermas', href: 'waste-control', icon: Trash2, permission: 'inventory_read' },
       ]
     },
+    { name: 'Entregas', href: 'fulfillment', icon: PackageCheck, permission: 'orders_read' },
+    { name: 'Portal Repartidores', href: 'driver', icon: Truck, permission: 'orders_read' }, // TODO: Add driver permission
+    { name: 'WhatsApp', href: 'whatsapp', icon: MessageCircleMore, permission: 'chat_read' },
+    { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
     {
       name: 'Producción',
       href: 'production',
@@ -381,14 +414,34 @@ function TenantLayout() {
         { name: 'Versiones', href: 'production?tab=versions', icon: Layers },
       ]
     },
-    { name: 'Mi Storefront', href: 'storefront', icon: Store, permission: 'dashboard_read', requiresModule: 'ecommerce' },
+    { name: 'Mi Sitio Web', href: 'storefront', icon: Store, permission: 'dashboard_read', requiresModule: 'ecommerce' },
+
+    // Módulos específicos de Restaurante
     { name: 'Mesas', href: 'restaurant/floor-plan', icon: Utensils, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Cocina (KDS)', href: 'restaurant/kitchen-display', icon: ChefHat, permission: 'restaurant_read', requiresModule: 'restaurant' },
-    { name: 'Reservas', href: 'restaurant/reservations', icon: Calendar, permission: 'restaurant_read', requiresModule: 'restaurant' },
-    { name: 'Propinas', href: 'restaurant/tips', icon: DollarSign, permission: 'restaurant_read', requiresModule: 'restaurant' },
-    { name: 'Ingeniería de Menú', href: 'restaurant/menu-engineering', icon: Target, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Recetas', href: 'restaurant/recipes', icon: BookOpen, permission: 'restaurant_read', requiresModule: 'restaurant' },
+    { name: 'Reservas', href: 'restaurant/reservations', icon: Calendar, permission: 'restaurant_read', requiresModule: 'restaurant' },
+    { name: 'Ingeniería de Menú', href: 'restaurant/menu-engineering', icon: Target, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Órdenes de Compra', href: 'restaurant/purchase-orders', icon: FileText, permission: 'restaurant_read', requiresModule: 'restaurant' },
+
+    // Módulos específicos de Hotel / Servicios
+    { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    { name: 'Plano Hotel', href: 'hospitality/floor-plan', icon: Building, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    { name: 'Servicios', href: 'services', icon: Briefcase, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    {
+      name: 'Citas',
+      href: 'appointments',
+      icon: Calendar,
+      permission: 'appointments_read',
+      requiresVertical: ['SERVICES', 'HOSPITALITY'],
+      children: [
+        { name: 'Lista', href: 'appointments?tab=list', icon: List },
+        { name: 'Calendario hotel', href: 'appointments?tab=calendar', icon: Calendar },
+      ]
+    },
+
+    // 2. Marketing y CRM
     {
       name: 'Marketing',
       href: 'marketing',
@@ -411,60 +464,6 @@ function TenantLayout() {
         { name: 'Lealtad', href: 'marketing?tab=loyalty', icon: Award },
         { name: 'Cupones', href: 'marketing?tab=coupons', icon: Tag },
         { name: 'Promociones', href: 'marketing?tab=promotions', icon: Percent },
-      ]
-    },
-    {
-      name: 'Cuentas por Pagar',
-      href: 'accounts-payable',
-      icon: ArrowDownRight,
-      permission: 'accounting_read',
-      children: [
-        { name: 'Cuentas por Pagar', href: 'accounts-payable?tab=monthly', icon: TrendingDown },
-        { name: 'Pagos Recurrentes', href: 'accounts-payable?tab=recurring', icon: RefreshCw },
-        { name: 'Historial', href: 'accounts-payable?tab=history', icon: List },
-      ]
-    },
-    {
-      name: 'Cuentas por Cobrar',
-      href: 'receivables?tab=pending',
-      icon: ArrowUpRight,
-      permission: 'accounting_read',
-      children: [
-        { name: 'Pendientes', href: 'receivables?tab=pending', icon: Clock },
-        { name: 'Confirmados', href: 'receivables?tab=confirmed', icon: CheckCircle2 },
-        { name: 'Por cliente', href: 'receivables?tab=customers', icon: Users },
-        { name: 'Reportes', href: 'receivables?tab=reports', icon: TrendingUp },
-      ]
-    },
-    {
-      name: 'Contabilidad General',
-      href: 'accounting',
-      icon: BookCopy,
-      permission: 'accounting_read',
-      children: [
-        { name: 'Libro Diario', href: 'accounting?tab=journal', icon: FileText },
-        { name: 'Plan de Cuentas', href: 'accounting?tab=chart-of-accounts', icon: List },
-        { name: 'Balance de Comprobación', href: 'accounting/reports/trial-balance', icon: BarChart3 },
-        { name: 'Libro Mayor', href: 'accounting/reports/general-ledger', icon: BookOpen },
-        { name: 'Estado de Resultados', href: 'accounting?tab=profit-loss', icon: TrendingUp },
-        { name: 'Balance General', href: 'accounting?tab=balance-sheet', icon: AreaChart },
-        { name: 'Períodos Contables', href: 'accounting/periods', icon: Calendar },
-        { name: 'Asientos Recurrentes', href: 'accounting/recurring-entries', icon: RefreshCw },
-        { name: 'Facturas Electrónicas', href: 'accounting/electronic-invoices', icon: Receipt },
-        { name: 'Retenciones ISLR', href: 'accounting/islr-withholding', icon: FileText },
-        { name: 'Informes', href: 'accounting?tab=reports', icon: FileText },
-      ]
-    },
-    { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
-    {
-      name: 'Facturación Electrónica',
-      href: 'billing',
-      icon: FileText,
-      permission: 'billing_read',
-      children: [
-        { name: 'Dashboard', href: 'billing', icon: BarChart3 },
-        { name: 'Nueva Factura', href: 'billing/create', icon: Receipt },
-        { name: 'Series de Numeración', href: 'billing/sequences', icon: List },
       ]
     },
     {
@@ -491,6 +490,49 @@ function TenantLayout() {
             { name: 'Pipeline', href: 'crm?tab=pipeline', icon: BarChart3 },
           ]
         }
+      ]
+    },
+
+    // 3. Contabilidad, Finanzas y RH
+    {
+      name: 'Contabilidad General',
+      href: 'accounting',
+      icon: Calculator,
+      permission: 'accounting_read',
+      children: [
+        { name: 'Facturación Electrónica', href: 'accounting?tab=electronic-invoices', icon: Receipt },
+        { name: 'Libro Diario', href: 'accounting?tab=journal', icon: FileText },
+        { name: 'Libro Mayor', href: 'accounting?tab=general-ledger', icon: BookOpen },
+        { name: 'Libro de Ventas', href: 'accounting?tab=sales-book', icon: BookOpen },
+        { name: 'Declaración IVA', href: 'accounting?tab=iva-declaration', icon: FileText },
+        { name: 'Retenciones ISLR', href: 'accounting?tab=islr-withholding', icon: FileText },
+        { name: 'Balance de Comprobación', href: 'accounting?tab=trial-balance', icon: BarChart3 },
+        { name: 'Estado de Resultados', href: 'accounting?tab=profit-loss', icon: TrendingUp },
+        { name: 'Balance General', href: 'accounting?tab=balance-sheet', icon: AreaChart },
+        { name: 'Informes', href: 'accounting?tab=reports', icon: FileText },
+      ]
+    },
+    {
+      name: 'Cuentas por Pagar',
+      href: 'accounts-payable',
+      icon: BanknoteArrowDown,
+      permission: 'accounting_read',
+      children: [
+        { name: 'Cuentas por Pagar', href: 'accounts-payable?tab=monthly', icon: TrendingDown },
+        { name: 'Pagos Recurrentes', href: 'accounts-payable?tab=recurring', icon: RefreshCw },
+        { name: 'Historial', href: 'accounts-payable?tab=history', icon: List },
+      ]
+    },
+    {
+      name: 'Cuentas por Cobrar',
+      href: 'receivables?tab=pending',
+      icon: BanknoteArrowUp,
+      permission: 'accounting_read',
+      children: [
+        { name: 'Pendientes', href: 'receivables?tab=pending', icon: Clock },
+        { name: 'Confirmados', href: 'receivables?tab=confirmed', icon: CheckCircle2 },
+        { name: 'Por cliente', href: 'receivables?tab=customers', icon: Users },
+        { name: 'Reportes', href: 'receivables?tab=reports', icon: TrendingUp },
       ]
     },
     {
@@ -522,22 +564,17 @@ function TenantLayout() {
         }
       ],
     },
-    { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
-    {
-      name: 'Citas',
-      href: 'appointments',
-      icon: Calendar,
-      permission: 'appointments_read',
-      requiresVertical: ['SERVICES', 'HOSPITALITY'],
-      children: [
-        { name: 'Lista', href: 'appointments?tab=list', icon: List },
-        { name: 'Calendario hotel', href: 'appointments?tab=calendar', icon: Calendar },
-      ]
-    },
-    { name: 'Servicios', href: 'services', icon: Briefcase, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
-    { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
-    { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
-    { name: 'Plano Hotel', href: 'hospitality/floor-plan', icon: Building, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    { name: 'tips', href: 'tips', icon: CircleDollarSign, permission: 'tips_read', requiresModule: 'tips', dynamicLabel: true }, // Dynamic label: Tips or Commissions
+    { name: 'Comisiones y Metas', href: 'commissions', icon: HandCoins, permission: 'commissions_read', requiresModule: 'commissions' },
+    { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
+    { name: 'Activos Fijos', href: 'fixed-assets', icon: Building, permission: 'reports_read' },
+    { name: 'Inversiones', href: 'investments', icon: Briefcase, permission: 'reports_read' },
+    { name: 'Cierre de Caja', href: 'cash-register', icon: Receipt, permission: 'cash_register_read', requiresModule: 'cashRegister' },
+    // Facturación Electrónica ahora vive dentro de Contabilidad General
+    { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
+    { name: 'Importar Datos', href: 'data-import', icon: Upload, permission: 'data_import_read' },
+
+    // 4. Calendario
     {
       name: 'Calendario',
       href: 'calendar',
@@ -548,14 +585,25 @@ function TenantLayout() {
         { name: 'Configuración', href: 'calendar?tab=management', icon: Settings },
       ]
     },
-    { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
   ];
 
   const SidebarNavigation = () => {
     const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
     const { unreadCount } = useNotification();
+    const tipsLabels = useTipsLabels();
 
     const currentBasePath = activeTab.split('?')[0];
+
+    // Helper function to get display name for menu items
+    const getDisplayName = (item) => {
+      if (item.dynamicLabel && item.name === 'tips') {
+        return tipsLabels.plural; // "Propinas" or "Comisiones"
+      }
+      if (item.name === 'Citas' && tenant?.vertical === 'HOSPITALITY') {
+        return 'Reservaciones';
+      }
+      return item.name;
+    };
 
     // Función optimizada para verificar si una ruta está activa
     const isRouteActive = useCallback((itemHref) => {
@@ -732,10 +780,10 @@ function TenantLayout() {
               <SidebarMenuItem>
                 <CollapsibleTrigger asChild>
                   <SidebarMenuButton
-                    tooltip={item.name}
+                    tooltip={getDisplayName(item)}
                     isActive={isItemActive}
                     className="justify-start"
-                    aria-label={item.name}
+                    aria-label={getDisplayName(item)}
                     onClick={() => {
                       if (state === 'collapsed') {
                         setOpen(true);
@@ -743,7 +791,7 @@ function TenantLayout() {
                     }}
                   >
                     <item.icon strokeWidth={1.25} />
-                    <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{item.name}</span>
+                    <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{getDisplayName(item)}</span>
                     <ChevronRight className="ml-auto transition-transform duration-200 group-data-[collapsible=icon]:hidden"
                       style={{ transform: openMenus[item.href] ? 'rotate(90deg)' : 'rotate(0deg)' }}
                     />
@@ -795,14 +843,14 @@ function TenantLayout() {
         return (
           <SidebarMenuItem key={item.href}>
             <SidebarMenuButton
-              tooltip={item.name}
+              tooltip={getDisplayName(item)}
               isActive={activeTab === item.href}
               className=""
-              aria-label={item.name}
+              aria-label={getDisplayName(item)}
               onClick={() => handleNavigationClick(item.href)}
             >
               <item.icon strokeWidth={1.25} />
-              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden flex-1">{item.name}</span>
+              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden flex-1">{getDisplayName(item)}</span>
               {item.href === 'whatsapp' && unreadCount > 0 && (
                 <Badge variant="destructive" className="ml-auto rounded-full px-1.5 py-0.5 text-[10px] h-5 min-w-5 flex items-center justify-center group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:shadow-md">
                   {unreadCount > 99 ? '99+' : unreadCount}
@@ -923,61 +971,6 @@ function TenantLayout() {
     );
   };
 
-  const NotificationBell = () => {
-    const { unreadCount, notifications } = useNotification();
-    const [open, setOpen] = useState(false);
-
-    return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell size={20} />
-            {unreadCount > 0 && (
-              <Badge variant="destructive" className="absolute -top-1 -right-1 px-1 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] rounded-full">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </Badge>
-            )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80 p-0" align="end">
-          <div className="p-3 border-b border-border font-medium">Notificaciones</div>
-          <div className="max-h-[300px] overflow-y-auto">
-            {notifications.length === 0 && unreadCount === 0 ? (
-              <div className="p-4 text-center text-muted-foreground text-sm">
-                No tienes notificaciones
-              </div>
-            ) : (
-              <div className="flex flex-col">
-                {unreadCount > 0 && (
-                  <div className="p-3 border-b border-border hover:bg-muted/50 cursor-pointer flex items-start gap-3 transition-colors" onClick={() => navigate('/whatsapp')}>
-                    <div className="bg-green-100 text-green-600 rounded-full p-2 mt-0.5">
-                      <MessageSquare size={16} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">WhatsApp</p>
-                      <p className="text-xs text-muted-foreground">{unreadCount} mensajes sin leer</p>
-                    </div>
-                  </div>
-                )}
-                {notifications.map((notif, idx) => (
-                  <div key={idx} className="p-3 border-b border-border hover:bg-muted/50 cursor-pointer flex items-start gap-3 transition-colors">
-                    <div className="bg-blue-100 text-blue-600 rounded-full p-2 mt-0.5">
-                      <AlertCircle size={16} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{notif.title || 'Alerta'}</p>
-                      <p className="text-xs text-muted-foreground">{notif.message || notif.productName || 'Nueva notificación'}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
-    );
-  };
-
   return (
     <SidebarProvider defaultOpen={false}>
       <Toaster richColors />
@@ -999,7 +992,7 @@ function TenantLayout() {
           <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 md:hidden">
             <div className="flex items-center gap-2">
               <SidebarTrigger className="text-muted-foreground" />
-              <img src={logoSrc} alt="Smart Kubik" className="h-8 w-auto" />
+              <img src={logoSrc} alt="Smart Kubik" className="h-[18px] w-auto" />
             </div>
             <div className="flex items-center gap-2">
               <ShiftTimer />
@@ -1014,10 +1007,10 @@ function TenantLayout() {
           </div>
           <div className="hidden items-center justify-between border-b border-border bg-card px-6 py-4 md:flex">
             <div className="flex items-center gap-3">
-              <img src={logoSrc} alt="Smart Kubik" className="h-12 w-auto" />
+              <img src={logoSrc} alt="Smart Kubik" className="h-8 w-auto" />
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">Hola, {user?.firstName || 'Usuario'}</span>
+              <span className="text-sm text-muted-foreground">Hola, {tenant?.ownerFirstName || user?.firstName || 'Usuario'}</span>
               <ShiftTimer />
               {isClockedIn ? (
                 <Button variant="destructive" size="sm" onClick={clockOut} disabled={isShiftLoading}>
@@ -1040,7 +1033,7 @@ function TenantLayout() {
                   {tenant?.name || 'Seleccionar organización'}
                 </Button>
               )}
-              <NotificationBell />
+              <NotificationCenter />
               <ThemeToggle />
               <Button id="settings-button" variant="outline" size="icon" onClick={() => navigate('/settings')}>
                 <Settings size={12} />
@@ -1148,10 +1141,13 @@ function TenantLayout() {
                 <Route path="accounting/recurring-entries" element={<RecurringEntries />} />
                 <Route path="accounting/electronic-invoices" element={<ElectronicInvoicesManager />} />
                 <Route path="accounting/islr-withholding" element={<IslrWithholdingList />} />
-                <Route path="billing" element={<BillingDashboard />} />
+                <Route path="billing" element={<Navigate to="/accounting?tab=electronic-invoices" replace />} />
                 <Route path="billing/create" element={<BillingCreateForm />} />
                 <Route path="billing/sequences" element={<BillingSequencesManager />} />
                 <Route path="billing/documents/:id" element={<BillingDocumentDetail />} />
+                <Route path="cash-register" element={<CashRegisterPage />} />
+                <Route path="fixed-assets" element={<FixedAssetsView />} />
+                <Route path="investments" element={<InvestmentsView />} />
                 <Route path="bank-accounts" element={<BankAccountsManagement />} />
                 <Route path="bank-accounts/:accountId/reconciliation" element={<BankReconciliationView />} />
                 <Route path="organizations" element={<OrganizationsManagement />} />
@@ -1167,6 +1163,7 @@ function TenantLayout() {
                 } />
                 <Route path="services" element={<ServicesManagement />} />
                 <Route path="resources" element={<ResourcesManagement />} />
+                <Route path="fichar" element={<TimeClock />} />
                 <Route path="hospitality/deposits" element={
                   <CrmProvider>
                     <PaymentsManagementDashboard />
@@ -1176,13 +1173,20 @@ function TenantLayout() {
                 <Route path="hospitality/floor-plan" element={<HotelFloorPlanPage />} />
                 <Route path="calendar" element={<CalendarModule />} />
                 <Route path="production" element={<ProductionManagement />} />
-                <Route path="restaurant/floor-plan" element={<TablesPage />} />
+                <Route path="restaurant/floor-plan" element={
+                  <CrmProvider>
+                    <TablesPage />
+                  </CrmProvider>
+                } />
                 <Route path="restaurant/kitchen-display" element={<KitchenDisplay />} />
                 <Route path="restaurant/reservations" element={<ReservationsPage />} />
-                <Route path="restaurant/tips" element={<TipsPage />} />
+                <Route path="tips" element={<TipsPage />} />
+                <Route path="restaurant/tips" element={<Navigate to="/tips" replace />} /> {/* Redirect old route */}
+                <Route path="commissions" element={<CommissionsPage />} />
                 <Route path="restaurant/menu-engineering" element={<MenuEngineeringPage />} />
                 <Route path="restaurant/recipes" element={<RecipesPage />} />
                 <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />
+                <Route path="waste-control" element={<WasteManagementPage />} />
                 <Route path="marketing" element={
                   <CrmProvider>
                     <MarketingPage />
@@ -1195,8 +1199,9 @@ function TenantLayout() {
                   }
                 />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="data-import" element={<DataImportPage />} />
                 <Route path="reports" element={<ReportsPage />} />
-                <Route path="*" element={<Navigate to="dashboard" />} />
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
           </div>
@@ -1227,6 +1232,7 @@ function AppContent() {
 
         <Routes>
           <Route path="/v2" element={<SmartKubikLandingV2 />} />
+          <Route path="/fundadores" element={<FoundersPage />} />
           <Route path="/demo-web-ventas" element={<WebVentasSectionDemo />} />
           <Route path="/" element={<SmartKubikLanding />} />
           <Route path="/blog" element={<BlogIndex />} />
@@ -1234,6 +1240,12 @@ function AppContent() {
           <Route path="/docs" element={<DocsLanding />} />
           <Route path="/docs/:category" element={<DocsCategoryPage />} />
           <Route path="/docs/:category/:slug" element={<DocsArticle />} />
+          <Route path="/docs/:category/:slug" element={<DocsArticle />} />
+          <Route path="/driver" element={<ProtectedRoute><DriverLayout /></ProtectedRoute>}>
+            <Route path="pool" element={<DriverDashboard />} />
+            <Route path="active" element={<DriverDashboard />} />
+            <Route index element={<Navigate to="pool" replace />} />
+          </Route>
           <Route path="/login" element={<LoginV2 />} />
           <Route path="/register" element={<Register />} />
           <Route path="/confirm-account" element={<ConfirmAccount />} />
@@ -1262,7 +1274,9 @@ function AppContent() {
               <ProtectedRoute requireOrganization>
                 <ShiftProvider>
                   <AccountingProvider>
-                    <TenantLayout />
+                    <CashRegisterProvider>
+                      <TenantLayout />
+                    </CashRegisterProvider>
                   </AccountingProvider>
                 </ShiftProvider>
               </ProtectedRoute>
@@ -1309,11 +1323,9 @@ function App() {
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
         <MuiThemeBridge>
           <AuthProvider>
-            <CountryPluginProvider>
-              <NotificationProvider>
-                <AppContent />
-              </NotificationProvider>
-            </CountryPluginProvider>
+            <NotificationProvider>
+              <AppContent />
+            </NotificationProvider>
           </AuthProvider>
         </MuiThemeBridge>
       </ThemeProvider>

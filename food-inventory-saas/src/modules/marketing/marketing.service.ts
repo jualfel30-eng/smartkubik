@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, Logger } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import {
   MarketingCampaign,
   MarketingCampaignDocument,
@@ -15,7 +16,6 @@ import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import { AudienceFilterDto } from "../../dto/audience-filter.dto";
 import { NotificationsService } from "../notifications/notifications.service";
-import { Logger } from "@nestjs/common";
 
 @Injectable()
 export class MarketingService {
@@ -29,6 +29,7 @@ export class MarketingService {
     @InjectModel(Order.name)
     private orderModel: Model<OrderDocument>,
     private readonly notificationsService: NotificationsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async create(
@@ -226,6 +227,15 @@ export class MarketingService {
       this.logger.error(
         `Error sending campaign ${campaign._id}: ${error.message}`,
       );
+    });
+
+    // Emit event for notification center
+    this.eventEmitter.emit("campaign.started", {
+      campaignId: campaign._id.toString(),
+      campaignName: campaign.name,
+      channel: campaign.channel,
+      recipientCount: recipients.length,
+      tenantId,
     });
 
     return campaign;

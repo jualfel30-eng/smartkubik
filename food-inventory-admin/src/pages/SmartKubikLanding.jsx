@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Meteors } from "../components/ui/meteors";
 import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import LightRaysCanvas from '../components/LightRaysCanvas';
 import SalesContactModal from '../components/SalesContactModal';
+import { CheckCircle2, XCircle } from 'lucide-react';
 
 // Industry Backgrounds
 import RestaurantBg from '@/assets/industries/restaurant.png';
@@ -20,6 +22,106 @@ import ErpBillSplitting from '@/assets/industries/erp_billsplitting.png';
 import ErpTips from '@/assets/industries/erp_tips.png';
 import ErpMenu from '@/assets/industries/erp_menu.png';
 
+const StickyFoundersBanner = () => (
+    <>
+        <style>
+            {`
+        @keyframes slideDown {
+          from { transform: translateY(-100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+      `}
+        </style>
+        <div style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 9999,
+            background: 'linear-gradient(135deg, #00D9C0 0%, #0BA89F 100%)',
+            padding: '4px 12px',
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0, 217, 192, 0.3)',
+            animation: 'slideDown 0.5s ease-out'
+        }}>
+            <div className="founders-banner-content" style={{
+                maxWidth: '1200px',
+                margin: '0 auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                flexWrap: 'wrap'
+            }}>
+                {/* Title and Cupos */}
+                <span style={{
+                    color: 'white',
+                    fontSize: '13px'
+                }}>
+                    <span style={{ fontWeight: 600 }}>🏆 PROGRAMA CLIENTES FUNDADORES</span>
+                    {' | '}
+                    <span style={{ fontWeight: 400 }}>Solo 90 cupos</span>
+                    {' | '}
+                </span>
+
+                {/* Discount + CTA (grouped for mobile) */}
+                <div className="banner-cta-group" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    flexWrap: 'wrap',
+                    justifyContent: 'center'
+                }}>
+                    {/* Discount */}
+                    <span style={{ color: 'rgba(255,255,255,0.95)', fontSize: '12px' }}>
+                        Hasta <strong style={{ fontSize: '14px', color: '#FFF700' }}>51% OFF</strong> de por vida
+                    </span>
+
+                    {/* CTA Button */}
+                    <a href="/fundadores"
+                        style={{
+                            background: 'white',
+                            color: '#0BA89F',
+                            padding: '4px 14px',
+                            borderRadius: '8px',
+                            textDecoration: 'none',
+                            fontWeight: 700,
+                            fontSize: '12px',
+                            transition: 'transform 0.2s, box-shadow 0.2s',
+                            boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
+                            whiteSpace: 'nowrap'
+                        }}
+                        onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 12px rgba(0,0,0,0.3)'; }}
+                        onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)'; }}
+                    >
+                        Ver Oferta →
+                    </a>
+                </div>
+            </div>
+
+            <style>{`
+                /* Desktop: Single line */
+                @media (min-width: 768px) {
+                    .founders-banner-content {
+                        flex-direction: row !important;
+                        gap: 16px !important;
+                    }
+                }
+                
+                /* Mobile: Two lines */
+                @media (max-width: 767px) {
+                    .founders-banner-content {
+                        flex-direction: column !important;
+                        gap: 6px !important;
+                    }
+                    .banner-cta-group {
+                        width: 100%;
+                        justify-content: center !important;
+                    }
+                }
+            `}</style>
+        </div>
+    </>
+);
+
 const SmartKubikLanding = () => {
     const [language, setLanguage] = useState('es');
     const [isDashboardHovered, setIsDashboardHovered] = useState(false);
@@ -30,6 +132,22 @@ const SmartKubikLanding = () => {
 
     // Industry Active Feature States
     const [activeRestaurantFeature, setActiveRestaurantFeature] = useState(null); // Default: None (Show generic bg + card)
+
+    // Pricing Configuration
+    const [billingCycle, setBillingCycle] = useState('annual'); // 'annual' | 'monthly'
+
+    const PRICING_TIERS = {
+        fundamental: { annual: 29, monthlyMarkup: 1.345 }, // $39/mes, $29/anual
+        crecimiento: { annual: 79, monthlyMarkup: 1.253 }, // $99/mes, $79/anual
+        expansion: { annual: 125, monthlyMarkup: 1.192 }   // $149/mes, $125/anual
+    };
+
+    const getPrice = (tier, forceMonthly = false) => {
+        const config = PRICING_TIERS[tier];
+        if (forceMonthly) return Math.round(config.annual * config.monthlyMarkup);
+        if (billingCycle === 'annual') return config.annual;
+        return Math.round(config.annual * config.monthlyMarkup);
+    };
 
     // Configuration for Contact Details
     const CONTACT_CONFIG = {
@@ -110,6 +228,10 @@ const SmartKubikLanding = () => {
           }
 
           /* Animations */
+          @keyframes landing-page-slideDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+          }
           @keyframes float {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-20px); }
@@ -366,7 +488,8 @@ const SmartKubikLanding = () => {
         setLanguage(prev => prev === 'es' ? 'en' : 'es');
     };
 
-    // Scroll Stack Animation Logic - Optimized for Mobile/iOS
+    // Scroll Stack Animation Logic - Speed-Clamped for consistent experience across devices
+    // Uses lerp-smoothed progress so mouse wheel users see the same smooth animation as trackpad users
     useEffect(() => {
         let metrics = {
             sectionTop: 0,
@@ -379,6 +502,13 @@ const SmartKubikLanding = () => {
         const cards = document.querySelectorAll('.stack-card');
         const title = document.querySelector('#stack-title');
         const footer = document.querySelector('#stack-footer');
+
+        // Smoothed animation state
+        let targetProgress = 0;      // Raw scroll-derived progress (updates instantly on scroll)
+        let animatedProgress = 0;    // Smoothed value that lerps toward target (used for rendering)
+        let animFrameId = null;      // Current rAF handle
+        let lastFrameTime = 0;       // For frame-rate-independent speed
+        let hasInitialized = false;   // Snap to position on first load (no animation)
 
         const calculateMetrics = () => {
             if (!section) return;
@@ -399,36 +529,26 @@ const SmartKubikLanding = () => {
             metrics.scrollDistance = metrics.sectionHeight - metrics.viewportHeight;
         };
 
-        const handleScroll = () => {
+        // Rendering logic — applies transforms based on a progress value (0 to 1)
+        // All animation curves, thresholds, and visual output are IDENTICAL to the original
+        const renderFrame = (progress) => {
             if (!section || cards.length === 0) return;
-
-            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-
-            // Calculate progress (0 to 1) using CACHED metrics
-            let rawProgress = (scrollTop - metrics.sectionTop) / metrics.scrollDistance;
-            let progress = Math.max(0, Math.min(1, rawProgress));
 
             // Title - KEEP VISIBLE (Pinned) UNTIL EXIT
             // Exit Logic: Mimic Card Stacking Physics
             // Last card settles at ~0.51. We start Title "stacking back" at 0.50.
             let titleDepth = 0;
             if (progress > 0.50) {
-                titleDepth = (progress - 0.50) / 0.10; // Rate of moving back
+                titleDepth = (progress - 0.50) / 0.10;
             }
 
             if (title) {
                 if (titleDepth > 0) {
-                    // Mimic Card Stacking: Scale down + Fade
-                    // Scale: 1 -> 0.8
                     const exitScale = Math.max(0.8, 1 - (titleDepth * 0.05));
-
-                    // Opacity: Aggressive fade matching "depth > 0.2" logic of cards
-                    // We accelerate it slightly to ensure it's gone by the time "Eso es SmartKubik" is fully up
                     let exitOpacity = 1;
                     if (titleDepth > 0.1) {
                         exitOpacity = Math.max(0, 1 - ((titleDepth - 0.1) * 2));
                     }
-
                     title.style.transform = `scale(${exitScale})`;
                     title.style.opacity = exitOpacity.toString();
                 } else {
@@ -441,87 +561,70 @@ const SmartKubikLanding = () => {
             const cardGap = 20;
             const scaleStep = 0.05;
 
-            // Global exit phase for cards - Starts later to clear the stagfe
+            // Global exit phase for cards
             let cardsExitPhase = 0;
             if (progress > 0.55) {
                 cardsExitPhase = (progress - 0.55) / 0.15;
             }
 
             cards.forEach((card, index) => {
-                // Calculate specific trigger points for each card
                 const cardStart = 0.0 + (index * 0.12);
 
                 let cardProgress = (progress - cardStart) / 0.15;
                 cardProgress = Math.max(0, Math.min(1, cardProgress));
 
-                // Entrance: Translate Y from lower down to 0
+                // Entrance: ease-out cubic from 80% below viewport
                 const easeOut = 1 - Math.pow(1 - cardProgress, 3);
-                // Start VERY low (80% of viewport) to be hidden by bottom mask
                 let translateY = (1 - easeOut) * (metrics.viewportHeight * 0.8);
 
                 // Stacking Logic
                 const currentCardFloat = (progress - 0.0) / 0.12;
                 let depth = Math.max(0, currentCardFloat - (index + 1));
 
-                // Apply stacking effects based on depth
                 let stackOffset = -(depth * cardGap);
                 let scale = 1 - (depth * scaleStep);
 
-                // Aggressive Fade & Blur for background cards (readability)
+                // Fade & Blur for background cards
                 let opacity = 1;
                 let blur = 0;
 
                 if (depth > 0) {
-                    // Delay the blur/fade slightly to allow readability as it starts moving back
-                    // Only apply strong effects after depth > 0.2
                     if (depth > 0.2) {
                         const effectDepth = depth - 0.2;
                         opacity = Math.max(0.1, 1 - (effectDepth * 1.5));
                         blur = effectDepth * 10;
                     } else {
-                        // Gentle fade initially w/o blur
                         opacity = 1 - (depth * 0.2);
                     }
                 }
 
-                // Initial entrance opacity (reveal as it comes up from bottom)
+                // Initial entrance opacity
                 if (cardProgress < 1) {
-                    // Combine entrance opacity with stacking opacity
                     opacity = opacity * Math.min(1, easeOut * 2);
                 }
 
                 // SYNCHRONIZED BACKWARDS EXIT
                 if (cardsExitPhase > 0) {
-                    // Scale down further
                     scale = scale * (1 - (cardsExitPhase * 0.2));
-                    // Fade out
                     opacity = opacity * (1 - (cardsExitPhase * 3));
                 }
 
-                // Apply transforms
                 const finalY = translateY + stackOffset;
                 card.style.transform = `translate3d(0, ${finalY}px, 0) scale(${Math.max(0.8, scale)})`;
                 card.style.opacity = Math.max(0, opacity).toString();
-                // We use Filter for blur. Note: 'backdrop-filter' is already on the class, this is standard filter.
                 card.style.filter = `blur(${blur}px)`;
             });
 
-            // Footer Animation - REVERTED to "Static Hold / Docking" (The V4 Original)
+            // Footer Animation - "Static Hold / Docking"
             if (footer) {
-                footer.style.transition = 'none'; // Keep transition disabled for JS control
+                footer.style.transition = 'none';
 
                 if (progress > 0.5) {
-                    // Phase 1: Rise to Center (0.5 to 0.75)
-                    // Phase 2: HOLD (0.75 to 1.0) - The "Docking" Effect
+                    let holdProgress = (progress - 0.5) / 0.25;
+                    holdProgress = Math.min(1, holdProgress);
 
-                    let holdProgress = (progress - 0.5) / 0.25; // Normalizes 0.5->0.75 to 0->1
-                    holdProgress = Math.min(1, holdProgress); // Clamp at 1 (HOLD)
-
-                    // Opacity: 0 to 1 quickly
                     footer.style.opacity = Math.min(1, holdProgress * 4).toString();
 
-                    // TranslateY: Move to -25vh (Center) and STAY THERE
-                    // The "Mask" (Section 4) will rise to meet it.
                     const startY = 20;
                     const holdY = -25;
                     const currentY = startY - ((startY - holdY) * holdProgress);
@@ -534,8 +637,43 @@ const SmartKubikLanding = () => {
             }
         };
 
-        // Use requestAnimationFrame for smoother performance
-        let ticking = false;
+        // Animation loop — smoothly interpolates animatedProgress toward targetProgress
+        // Speed is clamped so cards always animate at a readable pace (~500ms per card)
+        // Frame-rate independent: works consistently at 30/60/120/144fps
+        const animationLoop = (currentTime) => {
+            if (!lastFrameTime) lastFrameTime = currentTime;
+            const dt = Math.min(currentTime - lastFrameTime, 50); // Cap at 50ms (20fps floor)
+            lastFrameTime = currentTime;
+
+            const delta = targetProgress - animatedProgress;
+
+            if (Math.abs(delta) > 0.0005) {
+                // 0.3 progress/sec → one card entrance (0.15 window) takes ~500ms
+                // Trackpad: deltas are naturally small, so clamping rarely activates
+                // Mouse wheel: large jumps get clamped → smooth, deliberate animations
+                const maxSpeedPerSec = 0.3;
+                const maxStep = maxSpeedPerSec * (dt / 1000);
+
+                const step = Math.sign(delta) * Math.min(Math.abs(delta), maxStep);
+                animatedProgress += step;
+
+                renderFrame(animatedProgress);
+                animFrameId = requestAnimationFrame(animationLoop);
+            } else {
+                // Close enough — snap and stop the loop
+                animatedProgress = targetProgress;
+                renderFrame(animatedProgress);
+                animFrameId = null;
+            }
+        };
+
+        // Start the animation loop if not already running
+        const ensureAnimationRunning = () => {
+            if (!animFrameId) {
+                lastFrameTime = 0;
+                animFrameId = requestAnimationFrame(animationLoop);
+            }
+        };
 
         // Smart Pause: Detect when iOS address bar is actively moving
         let isViewportChanging = false;
@@ -543,40 +681,40 @@ const SmartKubikLanding = () => {
         let lastViewportHeight = window.innerHeight;
 
         const checkViewportChange = () => {
-            // Only on mobile
             if (window.innerWidth >= 768) return;
 
             const currentHeight = window.innerHeight;
 
             if (currentHeight !== lastViewportHeight) {
-                // Viewport is changing - pause animation
                 isViewportChanging = true;
                 lastViewportHeight = currentHeight;
 
-                // Clear existing timer
                 if (viewportChangeTimer) clearTimeout(viewportChangeTimer);
 
-                // Resume animation after 150ms of no changes
                 viewportChangeTimer = setTimeout(() => {
                     isViewportChanging = false;
                 }, 150);
             }
         };
 
+        // Scroll handler — only updates targetProgress, animation loop does the rendering
         const onScroll = () => {
-            // Check if viewport is actively changing
             checkViewportChange();
-
-            // Skip animation if viewport is changing
             if (isViewportChanging) return;
 
-            if (!ticking) {
-                window.requestAnimationFrame(() => {
-                    handleScroll();
-                    ticking = false;
-                });
-                ticking = true;
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const rawProgress = (scrollTop - metrics.sectionTop) / metrics.scrollDistance;
+            targetProgress = Math.max(0, Math.min(1, rawProgress));
+
+            if (!hasInitialized) {
+                // First call: snap directly to scroll position (no animation on page load)
+                animatedProgress = targetProgress;
+                renderFrame(animatedProgress);
+                hasInitialized = true;
+                return;
             }
+
+            ensureAnimationRunning();
         };
 
         // Initial measurement
@@ -595,11 +733,12 @@ const SmartKubikLanding = () => {
         window.addEventListener('scroll', onScroll, { passive: true });
 
         // Initial call to set positions
-        handleScroll();
+        onScroll();
 
         return () => {
             window.removeEventListener('scroll', onScroll);
             window.removeEventListener('resize', onResize);
+            if (animFrameId) cancelAnimationFrame(animFrameId);
             if (viewportChangeTimer) clearTimeout(viewportChangeTimer);
         };
     }, []);
@@ -675,12 +814,12 @@ const SmartKubikLanding = () => {
 
             if (userCount) userCount.textContent = users;
 
-            // SmartKubik Cost (Flat Fee Tiers)
-            let skCost = 29;
-            if (users > 5 && users <= 20) {
-                skCost = 59;
-            } else if (users > 20) {
+            // SmartKubik Cost (Updated Tiers)
+            let skCost = 49;
+            if (users >= 4 && users <= 8) {
                 skCost = 99;
+            } else if (users >= 9) {
+                skCost = 149;
             }
 
             // Fragmented Stack Cost
@@ -734,6 +873,7 @@ const SmartKubikLanding = () => {
 
     return (
         <div id="landing-page-root">
+
             <div className="v4-landing-page">
                 {/* Background Effects */}
                 <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -752,131 +892,136 @@ const SmartKubikLanding = () => {
                 </div>
 
                 {/*  NAVIGATION (From V2: Sticky & Floating Glass Pill)  */}
-                <nav className="fixed top-0 w-full z-50 py-4 px-4 lg:px-8">
-                    <div className="max-w-7xl mx-auto">
-                        <div id="nav-card" className="glass-card rounded-full px-6 py-3 flex justify-between items-center">
-                            {/*  Logo  */}
-                            <a href="#" className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
-                                <img src="/assets/logo-smartkubik.png" alt="SmartKubik Logo" className="h-8 w-auto" />
-                            </a>
+                {/*  FIXED HEADER CONTAINER: Stacks Banner and Nav  */}
+                <div className="fixed top-0 w-full z-50 flex flex-col">
+                    <StickyFoundersBanner />
+                    <nav className="w-full py-4 px-4 lg:px-8">
+                        <div className="max-w-7xl mx-auto">
+                            <div id="nav-card" className="glass-card rounded-full px-6 py-3 flex justify-between items-center">
+                                {/*  Logo  */}
+                                <a href="#" className="flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer">
+                                    <img src="/assets/logo-smartkubik.png" alt="SmartKubik Logo" className="h-[20px] md:h-[28px] w-auto" />
 
-                            {/*  Nav Links - Desktop (V2 Style + New Links)  */}
-                            <div className="hidden md:flex items-center gap-8 text-sm font-medium text-text-secondary">
-                                <a href="#modulos" className="hover:text-cyan-electric hover:font-bold transition-all">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Módulos</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Features</span>
                                 </a>
-                                <a href="#industrias" className="hover:text-cyan-electric hover:font-bold transition-all">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Industrias</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Industries</span>
-                                </a>
-                                <a href="#ia" className="hover:text-cyan-electric hover:font-bold transition-all">IA</a>
-                                <a href="#whatsapp" className="hover:text-cyan-electric hover:font-bold transition-all">
-                                    WhatsApp
-                                </a>
-                                <a href="#pricing" className="hover:text-cyan-electric hover:font-bold transition-all">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Precios</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Pricing</span>
-                                </a>
-                                <Link to="/docs" className="hover:text-cyan-electric hover:font-bold transition-all">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ayuda</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Help</span>
-                                </Link>
-                                <Link to="/blog" className="hover:text-cyan-electric hover:font-bold transition-all">Blog</Link>
+
+                                {/*  Nav Links - Desktop (V2 Style + New Links)  */}
+                                <div className="hidden md:flex items-center gap-8 text-sm font-medium text-text-secondary">
+                                    <a href="#modulos" className="hover:text-cyan-electric hover:font-bold transition-all">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Módulos</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Features</span>
+                                    </a>
+                                    <a href="#industrias" className="hover:text-cyan-electric hover:font-bold transition-all">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Industrias</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Industries</span>
+                                    </a>
+                                    <a href="#ia" className="hover:text-cyan-electric hover:font-bold transition-all">IA</a>
+                                    <a href="#whatsapp" className="hover:text-cyan-electric hover:font-bold transition-all">
+                                        WhatsApp
+                                    </a>
+                                    <a href="#pricing" className="hover:text-cyan-electric hover:font-bold transition-all">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Precios</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Pricing</span>
+                                    </a>
+                                    <Link to="/docs" className="hover:text-cyan-electric hover:font-bold transition-all">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ayuda</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Help</span>
+                                    </Link>
+                                    <Link to="/blog" className="hover:text-cyan-electric hover:font-bold transition-all">Blog</Link>
+                                </div>
+
+                                {/*  Language Toggle & CTA (V2 Style + Login/Register)  */}
+                                <div className="flex items-center gap-4">
+                                    <button id="langToggle" onClick={toggleLanguage}
+                                        className="text-sm text-text-secondary hover:text-text-primary transition-colors">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>🇪🇸 ES</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>🇺🇸 EN</span>
+                                    </button>
+
+                                    <Link to="/login"
+                                        className="hidden md:flex items-center justify-center w-9 h-9 rounded-full glass-card text-text-secondary hover:text-white hover:bg-white/10 transition-all group"
+                                        title={language === "es" ? "Inicia sesión" : "Log in"}>
+                                        <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                    </Link>
+
+                                    <Link to="/register"
+                                        className="hidden md:inline-flex bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 py-2 rounded-full font-bold text-sm hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Regístrate</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sign Up</span>
+                                    </Link>
+
+                                    {/*  Mobile Menu Toggle  */}
+                                    <button
+                                        className="md:hidden text-white p-2"
+                                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                    >
+                                        {isMenuOpen ? (
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        ) : (
+                                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
+                        </div>
 
-                            {/*  Language Toggle & CTA (V2 Style + Login/Register)  */}
-                            <div className="flex items-center gap-4">
-                                <button id="langToggle" onClick={toggleLanguage}
-                                    className="text-sm text-text-secondary hover:text-text-primary transition-colors">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>🇪🇸 ES</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>🇺🇸 EN</span>
-                                </button>
-
-                                <Link to="/login"
-                                    className="hidden md:flex items-center justify-center w-9 h-9 rounded-full glass-card text-text-secondary hover:text-white hover:bg-white/10 transition-all group"
-                                    title={language === "es" ? "Inicia sesión" : "Log in"}>
-                                    <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.5">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    </svg>
-                                </Link>
-
-                                <Link to="/register"
-                                    className="hidden md:inline-flex bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-6 py-2 rounded-full font-bold text-sm hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Regístrate</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sign Up</span>
-                                </Link>
-
-                                {/*  Mobile Menu Toggle  */}
+                        {/*  Mobile Menu Overlay  */}
+                        {isMenuOpen && (
+                            <div className="fixed inset-0 z-[60] bg-navy-900/95 backdrop-blur-xl flex flex-col justify-center items-center md:hidden animate-fade-in">
                                 <button
-                                    className="md:hidden text-white p-2"
-                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                    className="absolute top-6 right-6 text-white/50 hover:text-white p-2"
+                                    onClick={() => setIsMenuOpen(false)}
                                 >
-                                    {isMenuOpen ? (
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    ) : (
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                                        </svg>
-                                    )}
+                                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
                                 </button>
+
+                                <div className="flex flex-col items-center gap-8 text-xl font-medium text-white">
+                                    <a href="#modulos" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Módulos</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Features</span>
+                                    </a>
+                                    <a href="#industrias" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Industrias</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Industries</span>
+                                    </a>
+                                    <a href="#ia" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">IA</a>
+                                    <a href="#whatsapp" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">WhatsApp</a>
+                                    <a href="#pricing" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Precios</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Pricing</span>
+                                    </a>
+                                    <Link to="/docs" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ayuda</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Help</span>
+                                    </Link>
+                                    <Link to="/blog" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">Blog</Link>
+
+                                    <div className="h-px w-24 bg-white/10 my-4"></div>
+
+                                    <Link to="/login" onClick={() => setIsMenuOpen(false)} className="text-text-secondary hover:text-white transition-colors">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Inicia sesión</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Log in</span>
+                                    </Link>
+                                    <Link to="/register" onClick={() => setIsMenuOpen(false)}
+                                        className="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-8 py-3 rounded-full font-bold hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Regístrate</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sign Up</span>
+                                    </Link>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-
-                    {/*  Mobile Menu Overlay  */}
-                    {isMenuOpen && (
-                        <div className="fixed inset-0 z-[60] bg-navy-900/95 backdrop-blur-xl flex flex-col justify-center items-center md:hidden animate-fade-in">
-                            <button
-                                className="absolute top-6 right-6 text-white/50 hover:text-white p-2"
-                                onClick={() => setIsMenuOpen(false)}
-                            >
-                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-
-                            <div className="flex flex-col items-center gap-8 text-xl font-medium text-white">
-                                <a href="#modulos" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Módulos</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Features</span>
-                                </a>
-                                <a href="#industrias" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Industrias</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Industries</span>
-                                </a>
-                                <a href="#ia" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">IA</a>
-                                <a href="#whatsapp" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">WhatsApp</a>
-                                <a href="#pricing" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Precios</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Pricing</span>
-                                </a>
-                                <Link to="/docs" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ayuda</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Help</span>
-                                </Link>
-                                <Link to="/blog" onClick={() => setIsMenuOpen(false)} className="hover:text-cyan-electric transition-colors">Blog</Link>
-
-                                <div className="h-px w-24 bg-white/10 my-4"></div>
-
-                                <Link to="/login" onClick={() => setIsMenuOpen(false)} className="text-text-secondary hover:text-white transition-colors">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Inicia sesión</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Log in</span>
-                                </Link>
-                                <Link to="/register" onClick={() => setIsMenuOpen(false)}
-                                    className="bg-gradient-to-br from-cyan-500 to-emerald-500 text-white px-8 py-3 rounded-full font-bold hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transition-all">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Regístrate</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sign Up</span>
-                                </Link>
-                            </div>
-                        </div>
-                    )}
-                </nav>
+                        )}
+                    </nav>
+                </div>
 
                 {/*  SECTION 1: HERO (From V3: High Impact 2-Column with 3D Mockup)  */}
-                <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden min-h-screen flex items-center" style={{
+                <section className="relative pt-64 pb-20 lg:pt-80 lg:pb-32 overflow-hidden min-h-screen flex items-center" style={{
                     background: `radial-gradient(ellipse at 20% 30%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
                         radial-gradient(ellipse at 80% 70%, rgba(16, 185, 129, 0.12) 0%, transparent 50%),
                         radial-gradient(ellipse at 50% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 60%),
@@ -1163,7 +1308,7 @@ const SmartKubikLanding = () => {
                         </div>
 
                         {/*  Closing Statement  */}
-                        <div className="text-center mt-12">
+                        <div className="text-center mt-6">
                             <p className="text-xl text-text-secondary">
                                 <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Si marcaste 2 o más... no es tu culpa. <span className="text-white font-bold block mt-2 md:inline md:mt-0">Tu negocio creció, tus herramientas no.</span></span>
                                 <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>If you checked 2 or more... it's not your fault. <span className="text-white font-bold block mt-2 md:inline md:mt-0">Your business grew, your tools didn't.</span></span>
@@ -1172,6 +1317,7 @@ const SmartKubikLanding = () => {
 
                     </div>
                 </section>
+
 
                 {/*  SECTION 3: SCROLL STACK (Vanilla JS Implementation)  */}
                 {/* Fixed height to prevent mobile jumps - Lock to svh (Small Viewport Height) */}
@@ -1192,7 +1338,7 @@ const SmartKubikLanding = () => {
                         </div >
 
                         {/*  Doubled horizontal padding for more refined look  */}
-                        <div className="relative z-10 w-full max-w-5xl px-12 sm:px-16 md:px-8 flex flex-col items-center h-full justify-start pt-32 md:justify-center md:pt-0">
+                        <div className="relative z-10 w-full max-w-5xl px-12 sm:px-16 md:px-8 flex flex-col items-center h-full justify-start pt-16 md:justify-center md:pt-0">
 
                             {/*  Initial Title - Increased mb for separation  */}
                             <h2 id="stack-title"
@@ -3167,13 +3313,83 @@ const SmartKubikLanding = () => {
                                 <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-end">
                                     <span className={`text-white font-medium lang-es ${language === "es" ? "" : "hidden"}`}>Total Mensual (8 usuarios)</span>
                                     <span className={`text-white font-medium lang-en ${language === "en" ? "" : "hidden"}`}>Monthly Total (8 users)</span>
-                                    <span className="text-3xl font-bold text-emerald-400">$280<span
+                                    <span className="text-3xl font-bold text-emerald-400">$99<span
                                         className="text-sm text-gray-400 font-normal">/mes</span></span>
                                 </div>
 
                                 <div className="mt-6 bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-4 text-center">
-                                    <p className={`text-emerald-300 font-bold text-lg lang-es ${language === "es" ? "" : "hidden"}`}>Ahorras $7,236 al año 🎉</p>
-                                    <p className={`text-emerald-300 font-bold text-lg lang-en ${language === "en" ? "" : "hidden"}`}>Save $7,236 per year 🎉</p>
+                                    <p className={`text-emerald-300 font-bold text-lg lang-es ${language === "es" ? "" : "hidden"}`}>Ahorras $9,408 al año 🎉</p>
+                                    <p className={`text-emerald-300 font-bold text-lg lang-en ${language === "en" ? "" : "hidden"}`}>Save $9,408 per year 🎉</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/*  CALCULATOR SECTION  */}
+                        <div className="my-24 relative">
+                            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+                                <div className="glass-card rounded-3xl p-8 md:p-12 max-w-3xl mx-auto">
+                                    <h3 className="text-2xl font-bold mb-6 text-center text-white">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Calculadora Interactiva</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Interactive Calculator</span>
+                                    </h3>
+
+                                    <div className="mb-6">
+                                        <label className="block text-gray-400 mb-3">
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Cuántos usuarios tienes?</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>How many users do you have?</span>
+                                        </label>
+                                        <input type="range" min="1" max="30" defaultValue="8"
+                                            className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                                            id="userSlider" />
+                                        <div className="text-center mt-2">
+                                            <span className="text-4xl font-bold font-mono text-white" id="userCount">8</span>
+                                            <span className="text-gray-500 ml-2">
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>usuarios</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>users</span>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                        <div className="text-center">
+                                            <div className="text-sm text-gray-400 mb-2">
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Tu costo mensual</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Your monthly cost</span>
+                                            </div>
+                                            <div className="text-5xl font-bold font-mono text-cyan-400" id="monthlyCost">$99</div>
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/mes</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/month</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-center">
+                                            <div className="text-sm text-gray-400 mb-2">
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Vs. alternativas fragmentadas</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Vs. fragmented alternatives</span>
+                                            </div>
+                                            <div className="text-5xl font-bold font-mono text-gray-600 line-through" id="competitorCost">
+                                                ~$900
+                                            </div>
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/mes</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/month</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        className="text-center glass-card rounded-2xl p-6 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border-emerald-500/30">
+                                        <div className="text-sm text-gray-400 mb-2">
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>You save</span>
+                                        </div>
+                                        <div className="text-4xl font-bold text-emerald-400 mb-1" id="savings">$801</div>
+                                        <div className="text-lg text-gray-400">
+                                            = <span className="font-bold text-emerald-400" id="annualSavings">$9,612</span>
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/año 🎉</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/year 🎉</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -3255,6 +3471,8 @@ const SmartKubikLanding = () => {
                     </div>
                 </section >
 
+
+
                 {/*  SECTION 10: PRICING  */}
                 < section id="pricing" className="py-24 relative overflow-hidden bg-[#050810]" >
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
@@ -3272,84 +3490,208 @@ const SmartKubikLanding = () => {
                             </p>
                         </div>
 
-                        <div className="grid md:grid-cols-3 gap-8 items-center max-w-[90%] mx-auto">
-                            {/*  Starter  */}
-                            <div className="glass-card p-8 rounded-3xl border border-white/10 hover:border-white/20 transition-all">
-                                <h3 className="text-2xl font-bold text-white mb-2">Starter</h3>
-                                <div className="text-4xl font-bold font-mono text-white mb-6">$29<span
-                                    className="text-lg font-normal text-gray-400">/mes</span></div>
-                                <p className={`text-gray-400 text-sm mb-6 lang-es ${language === "es" ? "" : "hidden"}`}>Para pequeños negocios que quieren orden.</p>
-                                <p className={`text-gray-400 text-sm mb-6 lang-en ${language === "en" ? "" : "hidden"}`}>For small businesses that want order.</p>
+                        {/* Pricing Toggle */}
+                        <div className="flex justify-center mb-20">
+                            <div className="bg-white/5 backdrop-blur-sm border border-white/10 p-1 rounded-xl inline-flex relative">
+                                <button
+                                    onClick={() => setBillingCycle('annual')}
+                                    className={`px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 relative z-10 ${billingCycle === 'annual' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25' : 'text-gray-400 hover:text-white'}`}>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Anual (Mejor Precio)</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Annual (Best Price)</span>
+                                </button>
+                                <button
+                                    onClick={() => setBillingCycle('monthly')}
+                                    className={`px-6 py-2 rounded-lg text-sm font-medium transition-all duration-300 relative z-10 ${billingCycle === 'monthly' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25' : 'text-gray-400 hover:text-white'}`}>
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Mensual</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Monthly</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-3 gap-8 items-stretch max-w-[75%] mx-auto">
+                            {/*  Fundamental / Essentials  */}
+                            <div className="relative rounded-3xl p-6 mt-8 border border-white/10 hover:border-white/20 backdrop-blur-md flex flex-col bg-[#0A0F1C]/60 transition-all">
+                                <div className="mb-4">
+                                    <h3 className="text-3xl font-bold text-white mb-2">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Fundamental</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Essentials</span>
+                                    </h3>
+                                    <div className="flex items-baseline gap-2">
+                                        {billingCycle === 'annual' && (
+                                            <span className="text-gray-500 line-through text-base">${getPrice('fundamental', true)}</span>
+                                        )}
+                                        <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
+                                            ${getPrice('fundamental')}
+                                        </span>
+                                        <span className="text-gray-400 text-xs">/mes</span>
+                                    </div>
+                                    {billingCycle === 'annual' && (
+                                        <div className="mt-2 inline-block px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 26% vs Mensual</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 26% vs Monthly</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <p className={`text-gray-400 text-sm mb-4 lang-es ${language === "es" ? "" : "hidden"}`}>Para pequeños negocios que quieren orden.</p>
+                                <p className={`text-gray-400 text-sm mb-4 lang-en ${language === "en" ? "" : "hidden"}`}>For small businesses that want order.</p>
+
+                                <ul className="space-y-3 mb-6 flex-1">
+                                    {[
+                                        { es: "1 usuario", en: "1 user" },
+                                        { es: "1 sucursal", en: "1 branch" },
+                                        { es: "Todos los módulos básicos incluídos", en: "All basic modules included" },
+                                        { es: "Web de ventas vinculada al sistema", en: "Linked sales website" },
+                                        { es: "Analítica y reportes básicos", en: "Analytics and basic reports" },
+                                        { es: "Backup mensual", en: "Monthly backup" },
+                                        { es: "Soporte estandar", en: "Standard support" },
+                                    ].map((feat, i) => (
+                                        <li key={i} className="flex items-start gap-3 text-xs text-gray-300">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                            <span>
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>{feat.es}</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>{feat.en}</span>
+                                            </span>
+                                        </li>
+                                    ))}
+                                    {[
+                                        { es: "Sin automatización IA", en: "No AI automation" },
+                                        { es: "Sin agentes de análisis predictivo", en: "No predictive analysis agents" },
+                                        { es: "Sin integraciones de correo, calendario o tareas", en: "No email/calendar integrations" },
+                                    ].map((feat, i) => (
+                                        <li key={`x-${i}`} className="flex items-start gap-3 text-xs text-gray-600">
+                                            <XCircle className="w-4 h-4 text-gray-700 shrink-0" />
+                                            <span>
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>{feat.es}</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>{feat.en}</span>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+
                                 <Link to="/register"
-                                    className="btn-secondary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8">
+                                    className="w-full py-3 rounded-xl font-bold text-center transition-all bg-white/10 text-white hover:bg-white/20 flex justify-center text-sm">
                                     <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Empezar Gratis</span>
                                     <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start for Free</span>
                                 </Link>
-                                <ul className="space-y-4 text-sm text-gray-300">
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Hasta 3 usuarios</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Up to 3 users</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>1 sucursal</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>1 branch</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Módulos de gestión operativa</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Operational management modules</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Web de ventas vinculada al sistema</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Sales website linked to system</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Analítica y reportes básicos</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Basic analytics & reports</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Backup 30 días</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>30-day backup</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Soporte vía email</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Email support</span></li>
-                                </ul>
                             </div>
 
-                            {/*  Professional  */}
+                            {/*  Crecimiento / Growth  */}
                             <div
-                                id="pro-plan-card"
-                                className="glass-card p-8 rounded-3xl border border-cyan-500/50 bg-cyan-900/5 relative transform md:scale-105 shadow-[0_0_30px_rgba(6,182,212,0.15)] z-10 transition-all duration-300">
-                                <div
-                                    className={`absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white text-xs font-bold px-4 py-1 rounded-b-lg lang-es ${language === "es" ? "" : "hidden"}`}>
-                                    MÁS POPULAR</div>
-                                <div
-                                    className={`absolute top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white text-xs font-bold px-4 py-1 rounded-b-lg lang-en ${language === "en" ? "" : "hidden"}`}>
-                                    MOST POPULAR</div>
-                                <h3 className="text-2xl font-bold text-white mb-2">Professional</h3>
-                                <div className="text-4xl font-bold font-mono text-white mb-6">$59<span
-                                    className="text-lg font-normal text-gray-400">/mes</span></div>
-                                <p className={`text-gray-400 text-sm mb-6 lang-es ${language === "es" ? "" : "hidden"}`}>Para empresas que crecen rápido.</p>
-                                <p className={`text-gray-400 text-sm mb-6 lang-en ${language === "en" ? "" : "hidden"}`}>For fast-growing companies.</p>
+                                className="relative rounded-3xl pt-12 px-6 pb-6 border border-cyan-500/50 backdrop-blur-md flex flex-col bg-[#0F172A]/80 shadow-2xl shadow-cyan-900/20 z-10 transition-all duration-300">
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white px-4 py-1 rounded-full text-[10px] font-black tracking-wider shadow-lg">
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>MÁS POPULAR</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>MOST POPULAR</span>
+                                </div>
+
+                                <div className="mb-4">
+                                    <h3 className="text-3xl font-bold text-white mb-2">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Crecimiento</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Growth</span>
+                                    </h3>
+                                    <div className="flex items-baseline gap-2">
+                                        {billingCycle === 'annual' && (
+                                            <span className="text-gray-500 line-through text-base">${getPrice('crecimiento', true)}</span>
+                                        )}
+                                        <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
+                                            ${getPrice('crecimiento')}
+                                        </span>
+                                        <span className="text-gray-400 text-xs">/mes</span>
+                                    </div>
+                                    {billingCycle === 'annual' && (
+                                        <div className="mt-2 inline-block px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 20% vs Mensual</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 20% vs Monthly</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <p className={`text-gray-400 text-sm mb-4 lang-es ${language === "es" ? "" : "hidden"}`}>Para empresas que crecen rápido.</p>
+                                <p className={`text-gray-400 text-sm mb-4 lang-en ${language === "en" ? "" : "hidden"}`}>For fast-growing companies.</p>
+
+                                <ul className="space-y-3 mb-6 flex-1">
+                                    {[
+                                        { es: "Todo lo del plan Fundamental", en: "Everything in Essentials plan" },
+                                        { es: "Todos los módulos + funciones IA avanzadas", en: "All modules + advanced AI features" },
+                                        { es: "Hasta 5 usuarios", en: "Up to 5 users" },
+                                        { es: "Hasta 2 sucursales", en: "Up to 2 branches" },
+                                        { es: "Integración WhatsApp + ventas/reservas", en: "WhatsApp Integration + Sales/Reservations" },
+                                        { es: "Automatizaciones IA", en: "AI Automations" },
+                                        { es: "Agente IA de Análisis predictivo", en: "Predictive AI Analysis Agent" },
+                                        { es: "Mayor personalización de tu web", en: "More web customization" },
+                                        { es: "Integraciones Full (Gmail/Outlook)", en: "Full Integrations (Gmail/Outlook)" },
+                                        { es: "Backup semanal", en: "Weekly backup" },
+                                        { es: "Soporte prioritario", en: "Priority support" },
+                                    ].map((feat, i) => (
+                                        <li key={i} className="flex items-start gap-3 text-xs text-gray-300">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                            <span>
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>{feat.es}</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>{feat.en}</span>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+
                                 <Link to="/register"
-                                    className="btn-primary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8 shadow-lg shadow-cyan-500/25">
+                                    className="w-full py-3 rounded-xl font-bold text-center transition-all bg-gradient-to-r from-cyan-600 to-emerald-600 text-white hover:shadow-lg hover:shadow-cyan-500/25 flex justify-center text-sm">
                                     <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Prueba Gratis 14 Días</span>
                                     <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start Free 14-Day Trial</span>
                                 </Link>
-                                <ul className="space-y-4 text-sm text-gray-300">
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todo lo del plan Starter</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Everything in Starter plan</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Hasta 8 usuarios</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Up to 8 users</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>3 sucursales</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>3 branches</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>WhatsApp nativo</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Native WhatsApp</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Asistente de IA</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>AI Assistant</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Analítica predictiva IA</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>AI predictive analytics</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Integraciones (Gmail, etc)</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Integrations (Gmail, etc)</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Soporte prioritario</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Priority support</span></li>
-                                </ul>
                             </div>
 
-                            {/*  Enterprise  */}
-                            <div className="glass-card p-8 rounded-3xl border border-white/10 hover:border-white/20 transition-all">
-                                <h3 className="text-2xl font-bold text-white mb-2">Enterprise</h3>
-                                <div className="text-4xl font-bold font-mono text-white mb-6">$99<span
-                                    className="text-lg font-normal text-gray-400">/mes</span></div>
-                                <p className={`text-gray-400 text-sm mb-6 lang-es ${language === "es" ? "" : "hidden"}`}>Para grandes operaciones y franquicias.</p>
-                                <p className={`text-gray-400 text-sm mb-6 lang-en ${language === "en" ? "" : "hidden"}`}>For large operations and franchises.</p>
+                            {/*  Expansión / Expansion  */}
+                            <div className="relative rounded-3xl p-6 mt-8 border border-white/10 hover:border-white/20 backdrop-blur-md flex flex-col bg-[#0A0F1C]/60 transition-all">
+                                <div className="mb-4">
+                                    <h3 className="text-3xl font-bold text-white mb-2">
+                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Expansión</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Expansion</span>
+                                    </h3>
+                                    <div className="flex items-baseline gap-2">
+                                        {billingCycle === 'annual' && (
+                                            <span className="text-gray-500 line-through text-lg">${getPrice('expansion', true)}</span>
+                                        )}
+                                        <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
+                                            ${getPrice('expansion')}
+                                        </span>
+                                        <span className="text-gray-400 text-xs">/mes</span>
+                                    </div>
+                                    {billingCycle === 'annual' && (
+                                        <div className="mt-2 inline-block px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 16% vs Mensual</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 16% vs Monthly</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <p className={`text-gray-400 text-sm mb-4 lang-es ${language === "es" ? "" : "hidden"}`}>Para grandes operaciones y franquicias.</p>
+                                <p className={`text-gray-400 text-sm mb-4 lang-en ${language === "en" ? "" : "hidden"}`}>For large operations and franchises.</p>
+
+                                <ul className="space-y-3 mb-6 flex-1">
+                                    {[
+                                        { es: "Todo lo del plan Crecimiento", en: "Everything in Growth" },
+                                        { es: "Usuarios Ilimitados", en: "Unlimited Users" },
+                                        { es: "Sucursales Ilimitadas", en: "Unlimited Branches" },
+                                        { es: "Soporte dedicado / SLA", en: "Dedicated Support / SLA" },
+                                        { es: "Migración gratuita", en: "Free migration" },
+                                        { es: "Asistente IA Ilimitado", en: "Unlimited AI Assistant" },
+                                        { es: "Back up diario", en: "Daily backup" },
+                                        { es: "Dominio web propio", en: "Custom web domain" },
+                                        { es: "Acceso prioritario a nuevas funciones", en: "Priority access to new features" },
+                                        { es: "Web sin publicidad", en: "Ad-free website" },
+                                    ].map((feat, i) => (
+                                        <li key={i} className="flex items-start gap-3 text-xs text-gray-300">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                            <span>
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>{feat.es}</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>{feat.en}</span>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+
                                 <Link to="/register"
-                                    className="btn-secondary w-full py-3 rounded-xl flex justify-center text-white font-bold mb-8">
+                                    className="w-full py-3 rounded-xl font-bold text-center transition-all bg-white/10 text-white hover:bg-white/20 flex justify-center text-sm">
                                     <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Contactar Ventas</span>
                                     <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Contact Sales</span>
                                 </Link>
-                                <ul className="space-y-4 text-sm text-gray-300">
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Todo lo del plan Pro</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Everything in Pro</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>25+ usuarios</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>25+ users</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Sucursales ilimitadas</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Unlimited branches</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Asistente IA Ilimitado</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Unlimited AI Assistant</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Dominio web propio</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Custom web domain</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Web sin publicidad</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Ad-free website</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Migración gratuita</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Free migration</span></li>
-                                    <li className="flex gap-3"><span className="text-emerald-400">✓</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Soporte dedicado / SLA</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Dedicated support / SLA</span></li>
-                                </ul>
                             </div>
                         </div>
 
@@ -3382,182 +3724,66 @@ const SmartKubikLanding = () => {
                             </div>
                             <div className="glass-card p-3 rounded-lg flex items-center justify-center gap-2">
                                 <span className="text-emerald-400">✓</span>
-                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>20% dcto anual</span>
-                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>20% annual discount</span>
+                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Hasta 25% dcto anual</span>
+                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Up to 25% annual discount</span>
                             </div>
                         </div>
-                    </div>
-                </section >
 
-                {/*  CALCULATOR SECTION  */}
-                < section className="py-24 relative border-t border-white/5" >
-                    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-                        <div className="glass-card rounded-3xl p-8 md:p-12 max-w-3xl mx-auto">
-                            <h3 className="text-2xl font-bold mb-6 text-center text-white">
-                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Calculadora Interactiva</span>
-                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Interactive Calculator</span>
-                            </h3>
+                        <div className="mt-12 text-center relative overflow-hidden rounded-3xl p-6 md:p-9 bg-gray-900 border border-emerald-500/20">
+                            {/* Meteors background effect */}
+                            <Meteors number={60} />
 
-                            <div className="mb-6">
-                                <label className="block text-gray-400 mb-3">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Cuántos usuarios tienes?</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>How many users do you have?</span>
-                                </label>
-                                <input type="range" min="1" max="30" defaultValue="8"
-                                    className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
-                                    id="userSlider" />
-                                <div className="text-center mt-2">
-                                    <span className="text-4xl font-bold font-mono text-white" id="userCount">8</span>
-                                    <span className="text-gray-500 ml-2">
-                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>usuarios</span>
-                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>users</span>
+                            <div className="relative z-10">
+                                <div className="inline-block bg-emerald-500/10 border border-emerald-500 rounded-full px-4 py-1.5 mb-6">
+                                    <span className="text-emerald-400 font-bold text-sm tracking-widest">
+                                        🚀 <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>OFERTA DE LANZAMIENTO</span>
+                                        <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>LAUNCH OFFER</span>
                                     </span>
                                 </div>
-                            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                <div className="text-center">
-                                    <div className="text-sm text-gray-400 mb-2">
-                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Tu costo mensual</span>
-                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Your monthly cost</span>
-                                    </div>
-                                    <div className="text-5xl font-bold font-mono text-cyan-400" id="monthlyCost">$59</div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/mes</span>
-                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/month</span>
-                                    </div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-sm text-gray-400 mb-2">
-                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Vs. alternativas fragmentadas</span>
-                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Vs. fragmented alternatives</span>
-                                    </div>
-                                    <div className="text-5xl font-bold font-mono text-gray-600 line-through" id="competitorCost">
-                                        ~$1,200
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/mes</span>
-                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/month</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div
-                                className="text-center glass-card rounded-2xl p-6 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border-emerald-500/30">
-                                <div className="text-sm text-gray-400 mb-2">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>You save</span>
-                                </div>
-                                <div className="text-4xl font-bold text-emerald-400 mb-1" id="savings">$1,141</div>
-                                <div className="text-lg text-gray-400">
-                                    = <span className="font-bold text-emerald-400" id="annualSavings">$13,692</span>
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/año 🎉</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/year 🎉</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section >
-
-                {/*  SECTION 13: URGENCY  */}
-                < section className="py-24 relative overflow-hidden bg-gradient-to-br from-navy-900 via-[#0a0f1c] to-red-900/10" >
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 w-full relative z-10">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                            {/*  Left Column: Problem  */}
-                            <div>
-                                <h2 className="text-3xl md:text-5xl font-display font-bold mb-8 text-left">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Cada Día que Pasa, <br />Tu Negocio Pierde Dinero.</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Every Day That Passes, <br />Your Business Loses Money.</span>
+                                <h2 className="text-4xl md:text-6xl font-display font-bold text-white mb-6 leading-tight">
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>Únete al programa <br /><span className="text-emerald-400">Clientes Fundadores</span></span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>Join the <br /><span className="text-emerald-400">Founding Clients</span> program</span>
                                 </h2>
-
-                                <div className="space-y-4">
-                                    <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl flex items-center gap-4">
-                                        <div className="text-3xl">⏰</div>
-                                        <div className="text-left">
-                                            <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>3 horas/día</div>
-                                            <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>3 hours/day</div>
-                                            <div className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>perdidas en WhatsApp</div>
-                                            <div className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>lost on WhatsApp</div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl flex items-center gap-4">
-                                        <div className="text-3xl">💸</div>
-                                        <div className="text-left">
-                                            <div className="font-bold text-white">$500+/mes</div>
-                                            <div className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>en apps innecesarias</div>
-                                            <div className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>on unnecessary apps</div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-2xl flex items-center gap-4">
-                                        <div className="text-3xl">📉</div>
-                                        <div className="text-left">
-                                            <div className={`font-bold text-white lang-es ${language === "es" ? "" : "hidden"}`}>20% ventas</div>
-                                            <div className={`font-bold text-white lang-en ${language === "en" ? "" : "hidden"}`}>20% sales</div>
-                                            <div className={`text-sm text-gray-400 lang-es ${language === "es" ? "" : "hidden"}`}>perdidas por desorden</div>
-                                            <div className={`text-sm text-gray-400 lang-en ${language === "en" ? "" : "hidden"}`}>lost due to disorganization</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/*  Right Column: Solution & Offer  */}
-                            <div>
-                                <p id="section13-subtitle" className="text-xl text-gray-300 mb-8 text-left">
-                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>No es que no puedas seguir como estás. Puedes. Pero cada mes que pasa
-                                        sin
-                                        un sistema integrado es dinero perdido y estrés acumulado.</span>
-                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>It's not that you can't go on like this. You can. But every
-                                        month
-                                        that passes without an integrated system is money lost and accumulated stress.</span>
-                                    <br /><br />
-                                    <span className={`text-white font-bold lang-es ${language === "es" ? "" : "hidden"}`}>La pregunta no es SI necesitas SmartKubik. Es
-                                        cuánto
-                                        más vas a esperar.</span>
-                                    <span className={`text-white font-bold lang-en ${language === "en" ? "" : "hidden"}`}>The question isn't IF you need SmartKubik.
-                                        It's how much longer you will wait.</span>
+                                <p className="max-w-4xl mx-auto mb-10 leading-relaxed">
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"}`}>
+                                        <span className="text-[22px] text-gray-300">Únete a los primeros 90 clientes y asegura tu precio,</span><br />
+                                        <span className="text-[22px] text-[#FFF700] font-bold">hasta 51% de descuento de por vida</span>
+                                    </span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"}`}>
+                                        <span className="text-[22px] text-gray-300">Join the first 90 customers and secure your price,</span><br />
+                                        <span className="text-[22px] text-[#FFF700] font-bold">up to 51% off for life</span>
+                                    </span>
                                 </p>
 
-                                <div className="glass-card p-8 rounded-3xl border border-cyan-500/30 w-full">
-                                    <div className="text-left mb-6">
-                                        <span
-                                            className="bg-cyan-500 text-white text-xs font-bold px-2 py-1 rounded uppercase mb-2 inline-block">
-                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Oferta Especial</span>
-                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Special Offer</span>
-                                        </span>
-                                        <h3 className="text-2xl font-bold text-white">
-                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Empieza hoy y recibe:</span>
-                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start today and receive:</span>
-                                        </h3>
-                                    </div>
-                                    <ul className="text-left space-y-3 mb-8 text-gray-300">
-                                        <li className="flex gap-2"><span className="text-emerald-400">✅</span> <span
-                                            className={`lang-es ${language === "es" ? "" : "hidden"} `}>Setup
-                                            guiado gratis (valor $200)</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Free guided setup
-                                                ($200
-                                                value)</span>
-                                        </li>
-                                        <li className="flex gap-2"><span className="text-emerald-400">✅</span> <span
-                                            className={`lang-es ${language === "es" ? "" : "hidden"} `}>Migración
-                                            de datos incluida</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Data migration
-                                                included</span>
-                                        </li>
-                                        <li className="flex gap-2"><span className="text-emerald-400">✅</span> <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>14
-                                            días
-                                            sin
-                                            tarjeta de crédito</span><span className={`lang-en ${language === "en" ? "" : "hidden"} `}>14 days without credit
-                                                card</span>
-                                        </li>
-                                    </ul>
-                                    <Link to="/register"
-                                        className="btn-primary w-full py-4 rounded-xl text-white font-bold text-lg block text-center shadow-lg hover:shadow-cyan-500/50 transition-all">
-                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Empezar Mi Prueba Gratis →</span>
-                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start My Free Trial →</span>
-                                    </Link>
-                                </div>
+                                <Link to="/fundadores" style={{
+                                    display: 'inline-block',
+                                    background: '#00D9C0',
+                                    color: '#001F3F',
+                                    padding: '18px 48px',
+                                    borderRadius: '12px',
+                                    textDecoration: 'none',
+                                    fontWeight: 800,
+                                    fontSize: '18px',
+                                    boxShadow: '0 12px 40px rgba(0, 217, 192, 0.4)',
+                                    transition: 'all 0.3s'
+                                }}
+                                    onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 16px 50px rgba(0, 217, 192, 0.6)'; }}
+                                    onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 217, 192, 0.4)'; }}
+                                >
+                                    Ver Oferta Completa de Fundadores →
+                                </Link>
+
+
                             </div>
                         </div>
                     </div>
-                </section >
+                </section>
+
+
+
+
+
 
                 {/*  SECTION 14: FAQ  */}
                 < section className="py-24 px-4 bg-[#050810] relative overflow-hidden" >
@@ -3966,7 +4192,7 @@ const SmartKubikLanding = () => {
                 </a>
 
             </div >
-        </div>
+        </div >
     );
 };
 

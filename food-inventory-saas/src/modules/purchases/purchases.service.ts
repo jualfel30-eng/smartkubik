@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, ClientSession } from "mongoose";
+import { Model, ClientSession, Types } from "mongoose";
 import {
   PurchaseOrder,
   PurchaseOrderDocument,
@@ -24,6 +24,9 @@ import { EventsService } from "../events/events.service"; // Import EventsServic
 import { TransactionHistoryService } from "../../services/transaction-history.service"; // Import TransactionHistoryService
 import { InventoryMovementsService } from "../inventory/inventory-movements.service";
 import { MovementType } from "../../dto/inventory-movement.dto";
+import { SuppliersService } from "../suppliers/suppliers.service";
+import { OpenaiService } from "../openai/openai.service";
+import * as sharp from "sharp";
 
 @Injectable()
 export class PurchasesService {
@@ -40,6 +43,8 @@ export class PurchasesService {
     private readonly eventsService: EventsService, // Inject EventsService
     private readonly transactionHistoryService: TransactionHistoryService, // Inject TransactionHistoryService
     private readonly inventoryMovementsService: InventoryMovementsService,
+    private readonly suppliersService: SuppliersService,
+    private readonly openaiService: OpenaiService,
   ) { }
 
   async create(
@@ -106,7 +111,9 @@ export class PurchasesService {
     const { Types } = require("mongoose");
     let totalAmount = 0;
     const poItems = dto.items.map((item) => {
-      const totalCost = item.costPrice * item.quantity;
+      // Calculate discount multiplier (1 - discount/100)
+      const discountMultiplier = 1 - (item.discount || 0) / 100;
+      const totalCost = item.costPrice * item.quantity * discountMultiplier;
       totalAmount += totalCost;
 
       const resolvedVariantId =
@@ -118,6 +125,7 @@ export class PurchasesService {
         ...item,
         ...(resolvedVariantId ? { variantId: resolvedVariantId } : {}),
         variantSku: item.variantSku || item.productSku,
+        discount: item.discount || 0, // Ensure discount is always a number
         totalCost,
       };
     });
@@ -183,31 +191,112 @@ export class PurchasesService {
     }
 
     this.logger.log(`Creating new purchase order: ${poNumber}`);
+
+    // --- Sync supplier profile from purchase data (GAPs 1, 3, 4, 5) ---
+    this.suppliersService.syncFromPurchaseOrder(
+      supplierId!,
+      {
+        totalAmount,
+        paymentTerms: dto.paymentTerms,
+        newSupplierContactName: dto.newSupplierContactName,
+        newSupplierContactPhone: dto.newSupplierContactPhone,
+        newSupplierContactEmail: dto.newSupplierContactEmail,
+        isReceiving: false,
+      },
+      user,
+    ).catch(err => {
+      this.logger.error(`Failed to sync supplier from PO creation: ${err.message}`);
+    });
+
     return savedPurchaseOrder;
   }
 
-  async findAll(tenantId: string, query?: any) {
-    // Convert tenantId to ObjectId to handle both string and ObjectId types in database
+  async findAll(tenantId: string, query: any) {
     const { Types } = require("mongoose");
-    const tenantObjectId = new Types.ObjectId(tenantId);
-    const filter: any = { tenantId: tenantObjectId };
+    console.log(`DEBUG: findAll called. TenantId: ${tenantId}, Query:`, query);
 
+    // Fix: Handle mixed BSON types for tenantId (String vs ObjectId)
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const filter: any = {
+      tenantId: { $in: [tenantObjectId, tenantId] }
+    };
+
+    // Smart Query: If supplierId provided, verify if it links to a Customer ID
     if (query?.supplierId) {
-      filter.supplierId = new Types.ObjectId(query.supplierId);
+      console.log(`DEBUG: Processing supplierId: ${query.supplierId}`);
+      const searchIds = [query.supplierId];
+
+      try {
+        // Try to resolve implicit link
+        const supplier = await this.suppliersService.findOne(query.supplierId, tenantId);
+        if (supplier) {
+          console.log(`DEBUG: Found supplier: ${supplier.name} (${supplier._id})`);
+          // Check for linked customer ID
+          if (supplier.customerId) {
+            const cId = typeof supplier.customerId === 'object' ? supplier.customerId._id : supplier.customerId;
+            if (cId) {
+              searchIds.push(cId.toString());
+              console.log(`DEBUG: Added Linked CustomerID: ${cId}`);
+            }
+          }
+          // Check for customer property (populated)
+          if (supplier.customer && supplier.customer._id) {
+            searchIds.push(supplier.customer._id.toString());
+            console.log(`DEBUG: Added Populated CustomerID: ${supplier.customer._id}`);
+          }
+        } else {
+          console.log("DEBUG: Supplier not found via findOne");
+        }
+      } catch (err) {
+        console.error("DEBUG: Error resolving supplier:", err);
+      }
+
+      // De-duplicate and filter valid ObjectIds
+      const uniqueIds = [...new Set(searchIds)].filter(id => Types.ObjectId.isValid(id)).map(id => new Types.ObjectId(id));
+
+      // Fix: Handle mixed BSON types for supplierId (String vs ObjectId)
+      const stringIds = uniqueIds.map(id => id.toString());
+      const allIds = [...uniqueIds, ...stringIds];
+
+      console.log(`DEBUG: Final Search IDs (Hybrid):`, allIds);
+
+      if (allIds.length > 0) {
+        filter.supplierId = { $in: allIds };
+      }
     }
+
+    console.log("DEBUG: Final Mongo Filter:", JSON.stringify(filter));
     // Also support status filtering if needed for future
     if (query?.status) {
       filter.status = query.status;
     }
 
-    return this.poModel
-      .find(filter)
-      .sort({ purchaseDate: -1 })
-      .exec();
+    const page = Math.max(Number(query?.page) || 1, 1);
+    const limit = Math.max(Number(query?.limit) || 25, 1);
+    const skip = (page - 1) * limit;
+
+    const [purchases, total] = await Promise.all([
+      this.poModel
+        .find(filter)
+        .sort({ purchaseDate: -1 })
+        .skip(skip)
+        .limit(limit)
+        .exec(),
+      this.poModel.countDocuments(filter),
+    ]);
+
+    return {
+      purchases,
+      total,
+      totalPages: Math.ceil(total / limit),
+      page,
+      limit,
+    };
   }
 
   async receivePurchaseOrder(
     id: string,
+    dto: { receivedBy?: string },
     user: any,
     session?: ClientSession,
   ): Promise<PurchaseOrderDocument> {
@@ -286,12 +375,36 @@ export class PurchasesService {
       }
     }
 
+    // --- GAP 2: Link each purchased product to the supplier in Product.suppliers[] ---
+    for (const item of purchaseOrder.items) {
+      this.suppliersService.linkProductToSupplier(
+        item.productId.toString(),
+        purchaseOrder.supplierId.toString(),
+        user.tenantId,
+        {
+          supplierName: purchaseOrder.supplierName,
+          costPrice: item.costPrice,
+          productSku: item.variantSku || item.productSku,
+        },
+      ).catch(err => {
+        this.logger.error(
+          `Failed to link product ${item.productSku} to supplier: ${err.message}`,
+        );
+      });
+    }
+
     purchaseOrder.status = "received";
+    purchaseOrder.receivedDate = new Date();
+    if (dto.receivedBy) {
+      purchaseOrder.receivedBy = dto.receivedBy;
+    }
     purchaseOrder.history.push({
       status: "received",
       changedAt: new Date(),
       changedBy: user.id,
-      notes: "Orden de compra recibida y stock actualizado.",
+      notes: dto.receivedBy
+        ? `Orden de compra recibida por ${dto.receivedBy} y stock actualizado.`
+        : "Orden de compra recibida y stock actualizado.",
     });
 
     const savedPurchaseOrder = await purchaseOrder.save({ session });
@@ -786,6 +899,423 @@ export class PurchasesService {
     const seconds = now.getSeconds().toString().padStart(2, "0");
     const randomPart = Math.random().toString().slice(2, 8); // 6 random digits
     return `OC-${year}${month}${day}-${hours}${minutes}${seconds}-${randomPart}`;
+  }
+
+  /**
+   * Scan an invoice/delivery note image using AI (GPT-4o-mini Vision).
+   * Extracts structured purchase data and attempts to match products/suppliers.
+   *
+   * Returns a pre-filled PO DTO that the frontend can use to populate the form.
+   */
+  async scanInvoiceImage(
+    imageBase64: string,
+    mimeType: string,
+    tenantId: string,
+  ): Promise<{
+    supplier: {
+      name: string;
+      rif: string;
+      contactName: string;
+      contactPhone: string;
+      contactEmail: string;
+      matchedSupplierId: string | null;
+      confidence: number;
+    };
+    items: Array<{
+      productName: string;
+      productSku: string;
+      quantity: number;
+      costPrice: number;
+      lotNumber: string;
+      expirationDate: string;
+      matchedProductId: string | null;
+      matchedVariantId: string | null;
+      confidence: number;
+    }>;
+    invoiceNumber: string;
+    invoiceDate: string;
+    totalAmount: number;
+    paymentTerms: {
+      isCredit: boolean;
+      paymentMethods: string[];
+      expectedCurrency: string;
+    };
+    notes: string;
+    overallConfidence: number;
+  }> {
+    const { Types } = require("mongoose");
+
+    // 1. Call GPT-4o-mini Vision to extract data from the invoice image
+    const extractionPrompt = `Eres un experto en lectura de facturas, notas de entrega y documentos comerciales de América Latina (especialmente Venezuela).
+
+Analiza esta imagen de factura/nota de entrega y extrae TODA la información que puedas en formato JSON estricto.
+
+IMPORTANTE:
+- Si un campo no es legible o no existe, usa null
+- Los precios deben ser numéricos (sin símbolos de moneda)
+- El RIF venezolano tiene formato: J-12345678-9 o V-12345678-9 (letra-números-dígito verificador)
+- Busca datos del PROVEEDOR (quien emite la factura), no del cliente
+- Identifica cada producto/item con nombre, cantidad, precio unitario
+- Detecta si es a crédito o contado
+- Detecta la moneda (USD, VES, EUR)
+
+Responde SOLO con JSON válido, sin markdown ni texto adicional:
+{
+  "supplier": {
+    "companyName": "string o null",
+    "rif": "string o null",
+    "contactName": "string o null",
+    "contactPhone": "string o null",
+    "contactEmail": "string o null",
+    "address": "string o null"
+  },
+  "invoice": {
+    "number": "string o null",
+    "date": "YYYY-MM-DD o null",
+    "dueDate": "YYYY-MM-DD o null"
+  },
+  "items": [
+    {
+      "description": "nombre del producto",
+      "sku": "código o null",
+      "quantity": 0,
+      "unitPrice": 0,
+      "totalPrice": 0,
+      "lotNumber": "string o null",
+      "expirationDate": "YYYY-MM-DD o null"
+    }
+  ],
+  "totals": {
+    "subtotal": 0,
+    "tax": 0,
+    "total": 0,
+    "currency": "USD | VES | EUR"
+  },
+  "payment": {
+    "isCredit": false,
+    "creditDays": 0,
+    "methods": [],
+    "notes": "string o null"
+  },
+  "notes": "cualquier nota adicional relevante"
+}`;
+
+    let extractedData: any;
+
+    // Compress and resize image to reduce memory usage and API cost
+    let optimizedBase64: string;
+    let optimizedMimeType: string;
+    try {
+      const inputBuffer = Buffer.from(imageBase64, "base64");
+      const optimizedBuffer = await sharp(inputBuffer)
+        .resize(1600, 2200, { fit: "inside", withoutEnlargement: true }) // Max 1600x2200px (enough for invoices)
+        .jpeg({ quality: 75 }) // Convert to JPEG at 75% quality
+        .toBuffer();
+      optimizedBase64 = optimizedBuffer.toString("base64");
+      optimizedMimeType = "image/jpeg";
+      this.logger.log(
+        `Invoice scan: Image optimized from ${(inputBuffer.length / 1024).toFixed(0)}KB to ${(optimizedBuffer.length / 1024).toFixed(0)}KB`,
+      );
+    } catch (compressError) {
+      this.logger.warn(`Invoice scan: Image compression failed, using original: ${compressError.message}`);
+      optimizedBase64 = imageBase64;
+      optimizedMimeType = mimeType;
+    }
+
+    try {
+      // Add timeout to prevent hanging (60 seconds)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('TIMEOUT')), 60000);
+      });
+
+      const apiPromise = this.openaiService.createChatCompletion({
+        messages: [
+          { role: "system", content: extractionPrompt },
+          {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${optimizedMimeType};base64,${optimizedBase64}`,
+                  detail: "low",
+                },
+              },
+            ] as any,
+          },
+        ],
+        model: "gpt-4o-mini",
+        temperature: 0.1,
+        maxTokens: 2000,
+      });
+
+      const response = await Promise.race([apiPromise, timeoutPromise]) as any;
+
+      if (!response || !response.choices || response.choices.length === 0) {
+        throw new Error('NO_RESPONSE');
+      }
+
+      const rawContent = response.choices?.[0]?.message?.content || "{}";
+      // Clean potential markdown wrapping
+      const cleaned = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      extractedData = JSON.parse(cleaned);
+    } catch (parseError) {
+      this.logger.error(`Invoice scan: Failed to process image: ${parseError.message}`);
+
+      if (parseError.message === 'TIMEOUT') {
+        throw new BadRequestException(
+          "El escaneo de la factura está tomando demasiado tiempo. Por favor, intente con una imagen más clara o de menor tamaño.",
+        );
+      }
+
+      if (parseError.message === 'NO_RESPONSE') {
+        throw new BadRequestException(
+          "No se recibió respuesta del servicio de escaneo. Por favor, intente nuevamente.",
+        );
+      }
+
+      throw new BadRequestException(
+        "No se pudo interpretar la imagen. Asegúrese de que sea una factura o nota de entrega legible.",
+      );
+    }
+
+    // 2. Match extracted supplier against existing suppliers
+    let matchedSupplierId: string | null = null;
+    let supplierConfidence = 0;
+
+    if (extractedData.supplier?.rif) {
+      // Try exact RIF match via the Supplier model first, then Customer
+      try {
+        const supplierByRif = await this.suppliersService.findAll(tenantId, extractedData.supplier.rif);
+        if (Array.isArray(supplierByRif) && supplierByRif.length > 0) {
+          matchedSupplierId = supplierByRif[0]._id.toString();
+          supplierConfidence = 0.95;
+        }
+      } catch {
+        // Ignore search errors
+      }
+    }
+
+    if (!matchedSupplierId && extractedData.supplier?.companyName) {
+      // Try fuzzy name match via suppliers
+      try {
+        const suppliersByName = await this.suppliersService.findAll(tenantId, extractedData.supplier.companyName);
+        if (Array.isArray(suppliersByName) && suppliersByName.length > 0) {
+          matchedSupplierId = suppliersByName[0]._id.toString();
+          supplierConfidence = 0.7;
+        }
+      } catch {
+        // Ignore search errors
+      }
+    }
+
+    // 3. Match extracted items against existing products
+    const tenantObjectId = new Types.ObjectId(tenantId);
+    const matchedItems: Array<{
+      productName: string;
+      productSku: string;
+      quantity: number;
+      costPrice: number;
+      lotNumber: string;
+      expirationDate: string;
+      matchedProductId: string | null;
+      matchedVariantId: string | null;
+      confidence: number;
+    }> = [];
+
+    for (const item of extractedData.items || []) {
+      let matchedProductId: string | null = null;
+      let matchedVariantId: string | null = null;
+      let itemConfidence = 0;
+
+      // Try SKU match first
+      if (item.sku) {
+        const productBySku = await this.productModel
+          .findOne({
+            tenantId: tenantObjectId,
+            $or: [
+              { sku: item.sku },
+              { "variants.sku": item.sku },
+            ],
+          })
+          .lean();
+
+        if (productBySku) {
+          matchedProductId = productBySku._id.toString();
+          itemConfidence = 0.95;
+
+          // Check if it matches a variant
+          const matchedVariant = (productBySku as any).variants?.find(
+            (v: any) => v.sku === item.sku,
+          );
+          if (matchedVariant) {
+            matchedVariantId = matchedVariant._id.toString();
+          }
+        }
+      }
+
+      // Try name match if SKU didn't work
+      if (!matchedProductId && item.description) {
+        const productByName = await this.productModel
+          .findOne({
+            tenantId: tenantObjectId,
+            name: { $regex: this.escapeRegex(item.description), $options: "i" },
+          })
+          .lean();
+
+        if (productByName) {
+          matchedProductId = productByName._id.toString();
+          itemConfidence = 0.7;
+        }
+      }
+
+      matchedItems.push({
+        productName: item.description || "",
+        productSku: item.sku || "",
+        quantity: Number(item.quantity) || 0,
+        costPrice: Number(item.unitPrice) || 0,
+        lotNumber: item.lotNumber || "",
+        expirationDate: item.expirationDate || "",
+        matchedProductId,
+        matchedVariantId,
+        confidence: itemConfidence,
+      });
+    }
+
+    // 4. Calculate overall confidence based on extraction quality + matching bonus
+    // Base: how much data the AI actually extracted (0-0.7)
+    let extractionScore = 0;
+    if (extractedData.supplier?.companyName) extractionScore += 0.15;
+    if (extractedData.supplier?.rif) extractionScore += 0.1;
+    if (extractedData.invoice?.number) extractionScore += 0.1;
+    if ((extractedData.items || []).length > 0) extractionScore += 0.2;
+    if (extractedData.totals?.total) extractionScore += 0.1;
+    if (extractedData.invoice?.date) extractionScore += 0.05;
+
+    // Bonus: matching against existing data (0-0.3)
+    const matchBonus = (supplierConfidence > 0 ? 0.15 : 0) +
+      (matchedItems.filter(i => i.matchedProductId).length > 0
+        ? 0.15 * (matchedItems.filter(i => i.matchedProductId).length / Math.max(matchedItems.length, 1))
+        : 0);
+
+    const overallConfidence = Math.min(extractionScore + matchBonus, 1);
+
+    // Determine currency mapping
+    const currencyMap: Record<string, string> = {
+      USD: "USD",
+      VES: "VES",
+      BS: "VES",
+      EUR: "EUR",
+      BOLIVARES: "VES",
+      DOLARES: "USD",
+    };
+    const rawCurrency = (extractedData.totals?.currency || "USD").toUpperCase();
+    const expectedCurrency = currencyMap[rawCurrency] || "USD";
+
+    return {
+      supplier: {
+        name: extractedData.supplier?.companyName || "",
+        rif: extractedData.supplier?.rif || "",
+        contactName: extractedData.supplier?.contactName || "",
+        contactPhone: extractedData.supplier?.contactPhone || "",
+        contactEmail: extractedData.supplier?.contactEmail || "",
+        matchedSupplierId,
+        confidence: supplierConfidence,
+      },
+      items: matchedItems,
+      invoiceNumber: extractedData.invoice?.number || "",
+      invoiceDate: extractedData.invoice?.date || "",
+      totalAmount: Number(extractedData.totals?.total) || 0,
+      paymentTerms: {
+        isCredit: extractedData.payment?.isCredit || false,
+        paymentMethods: extractedData.payment?.methods || [],
+        expectedCurrency,
+      },
+      notes: extractedData.notes || "",
+      overallConfidence,
+    };
+  }
+
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  /**
+   * Reconcile all received POs: detect and repair missing supplier syncs.
+   * Checks that each received PO has:
+   * 1. A proper Supplier entity (not just Customer)
+   * 2. Products linked to the supplier in Product.suppliers[]
+   * 3. Supplier metrics updated
+   *
+   * Returns a report of what was found and fixed.
+   */
+  async reconcilePurchaseOrders(tenantId: string, user: any): Promise<{
+    totalPOs: number;
+    suppliersCreated: number;
+    productsLinked: number;
+    metricsUpdated: number;
+    errors: string[];
+  }> {
+    const { Types } = require("mongoose");
+    const tenantObjectId = new Types.ObjectId(tenantId);
+
+    const receivedPOs = await this.poModel
+      .find({ tenantId: tenantObjectId, status: 'received' })
+      .sort({ purchaseDate: 1 })
+      .lean();
+
+    const report = {
+      totalPOs: receivedPOs.length,
+      suppliersCreated: 0,
+      productsLinked: 0,
+      metricsUpdated: 0,
+      errors: [] as string[],
+    };
+
+    this.logger.log(`Reconciliation: Processing ${receivedPOs.length} received POs for tenant ${tenantId}`);
+
+    for (const po of receivedPOs) {
+      try {
+        // 1. Ensure Supplier profile exists
+        await this.suppliersService.syncFromPurchaseOrder(
+          po.supplierId.toString(),
+          {
+            totalAmount: po.totalAmount,
+            paymentTerms: po.paymentTerms,
+            isReceiving: true,
+          },
+          user,
+        );
+        report.metricsUpdated++;
+
+        // 2. Link products to supplier
+        for (const item of po.items) {
+          try {
+            await this.suppliersService.linkProductToSupplier(
+              item.productId.toString(),
+              po.supplierId.toString(),
+              tenantId,
+              {
+                supplierName: po.supplierName,
+                costPrice: item.costPrice,
+                productSku: item.variantSku || item.productSku,
+              },
+            );
+            report.productsLinked++;
+          } catch (linkErr) {
+            report.errors.push(`PO ${po.poNumber} - Product ${item.productSku}: ${linkErr.message}`);
+          }
+        }
+      } catch (syncErr) {
+        report.errors.push(`PO ${po.poNumber} - Supplier sync: ${syncErr.message}`);
+      }
+    }
+
+    this.logger.log(
+      `Reconciliation complete: ${report.metricsUpdated} suppliers synced, ${report.productsLinked} products linked, ${report.errors.length} errors`,
+    );
+
+    return report;
   }
 
   /**

@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { StorefrontConfig, CartItem, OrderData } from '@/types';
-import { Header } from '@/templates/ModernEcommerce/components/Header';
-import { Footer } from '@/templates/ModernEcommerce/components/Footer';
+import { getTemplateComponents } from '@/lib/getTemplateComponents';
 import { formatPrice, getImageUrl } from '@/lib/utils';
 import { createOrder, getPaymentMethods, calculateDeliveryCost } from '@/lib/api';
 import { CheckCircle, Loader, User, MapPin, CreditCard, Truck } from 'lucide-react';
@@ -25,6 +24,8 @@ interface PaymentMethod {
 }
 
 export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) {
+  const { Header, Footer } = getTemplateComponents(config.templateType);
+  const isPremium = config.templateType === 'premium';
   const router = useRouter();
   const { customer, isAuthenticated } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -32,7 +33,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
   const [submitting, setSubmitting] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderNumber, setOrderNumber] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(isPremium);
   const [tenantIdOverride, setTenantIdOverride] = useState<string | null>(null);
 
   // Payment methods
@@ -56,6 +57,9 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
 
   const [locationData, setLocationData] = useState<{ lat: number; lng: number } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const primaryColor = config.theme?.primaryColor || '#6366f1';
+  const secondaryColor = config.theme?.secondaryColor || '#ec4899';
 
   useEffect(() => {
     const cart = JSON.parse(localStorage.getItem('cart') || '[]');
@@ -118,10 +122,15 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
       document.documentElement.classList.toggle('dark', val);
       return;
     }
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    setIsDarkMode(prefersDark);
-    document.documentElement.classList.toggle('dark', prefersDark);
-  }, []);
+    if (isPremium) {
+      setIsDarkMode(true);
+      document.documentElement.classList.add('dark');
+    } else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDarkMode(prefersDark);
+      document.documentElement.classList.toggle('dark', prefersDark);
+    }
+  }, [isPremium]);
 
   const toggleTheme = () => {
     const next = !isDarkMode;
@@ -234,7 +243,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
         shippingMethod: formData.shippingMethod,
         shippingAddress: formData.shippingMethod === 'delivery' ? {
           street: formData.customerAddress,
-          city: '', // Should be captured in form
+          city: '',
           state: '',
           country: '',
           coordinates: locationData || undefined,
@@ -288,12 +297,37 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
     return `https://wa.me/${(phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
   };
 
+  // Theme-aware classes
+  const pageBg = isPremium
+    ? (isDarkMode ? 'bg-[#0a0a1a]' : 'bg-gray-50')
+    : (isDarkMode ? 'bg-gray-950' : 'bg-white');
+  const mainBg = isPremium
+    ? (isDarkMode ? 'bg-[#0a0a1a]' : 'bg-gray-50')
+    : (isDarkMode ? 'bg-gray-950' : 'bg-gray-50');
+  const cardBg = isPremium
+    ? (isDarkMode ? 'bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl' : 'bg-white rounded-2xl shadow-sm border border-gray-100')
+    : (isDarkMode ? 'bg-gray-900 border border-gray-800 rounded-lg' : 'bg-white rounded-lg shadow-sm');
+  const textMain = isDarkMode ? 'text-white' : 'text-gray-900';
+  const textMuted = isDarkMode ? 'text-gray-300' : 'text-gray-600';
+  const textSub = isDarkMode ? 'text-gray-400' : 'text-gray-500';
+  const inputCls = isPremium
+    ? (isDarkMode
+      ? 'border-white/10 bg-white/5 text-gray-100 placeholder-gray-500 rounded-xl focus:border-white/20 focus:ring-white/10'
+      : 'border-gray-200 bg-white text-gray-900 rounded-xl focus:ring-2')
+    : (isDarkMode
+      ? 'border-gray-700 bg-gray-800 text-gray-100 rounded-lg'
+      : 'border-gray-300 rounded-lg');
+  const borderCls = isDarkMode ? (isPremium ? 'border-white/10' : 'border-gray-800') : 'border-gray-200';
+  const infoBg = isPremium
+    ? (isDarkMode ? 'bg-blue-500/10 border border-blue-400/20 rounded-2xl' : 'bg-blue-50 border border-blue-200 rounded-2xl')
+    : (isDarkMode ? 'bg-blue-900/30 border border-blue-800 rounded-lg' : 'bg-blue-50 border border-blue-200 rounded-lg');
+
   if (loading) {
     return (
-      <div className={`min-h-screen flex flex-col ${isDarkMode ? 'bg-gray-950 text-gray-100' : ''}`}>
+      <div className={`min-h-screen flex flex-col ${pageBg}`}>
         <Header config={config} domain={config.domain} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
-        <main className="flex-1 flex items-center justify-center">
-          <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Cargando...</p>
+        <main className={`flex-1 flex items-center justify-center ${mainBg}`}>
+          <p className={textMuted}>Cargando...</p>
         </main>
         <Footer config={config} domain={config.domain} isDarkMode={isDarkMode} />
       </div>
@@ -304,21 +338,35 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
     const whatsappLink = generateWhatsAppLink();
 
     return (
-      <div className={`min-h-screen flex flex-col ${isDarkMode ? 'bg-gray-950 text-gray-100' : ''}`}>
+      <div className={`min-h-screen flex flex-col ${pageBg} ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
         <Header config={config} domain={config.domain} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} />
-        <main className={`flex-1 flex items-center justify-center py-12 ${isDarkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+        <main className={`flex-1 flex items-center justify-center py-12 ${mainBg} ${isPremium ? 'pt-16' : ''}`}>
           <div className="max-w-md w-full mx-4">
-            <div className={`${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white'} rounded-lg shadow-sm p-8 text-center`}>
+            <div className={`${cardBg} p-8 text-center`}>
               <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-6 ${isDarkMode ? 'bg-green-900/30' : 'bg-green-100'}`}>
                 <CheckCircle className="h-10 w-10 text-green-600" />
               </div>
-              <h1 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                ¡Orden Confirmada!
-              </h1>
-              <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mb-2`}>
+              {isPremium && isDarkMode ? (
+                <h1
+                  className="text-2xl font-bold mb-2"
+                  style={{
+                    background: `linear-gradient(135deg, #fff 0%, ${primaryColor} 50%, ${secondaryColor} 100%)`,
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  ¡Orden Confirmada!
+                </h1>
+              ) : (
+                <h1 className={`text-2xl font-bold mb-2 ${textMain}`}>
+                  ¡Orden Confirmada!
+                </h1>
+              )}
+              <p className={`${textMuted} mb-2`}>
                 Tu orden <span className="font-semibold">#{orderNumber}</span> ha sido recibida exitosamente.
               </p>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} mb-6`}>
+              <p className={`text-sm ${textSub} mb-6`}>
                 En breve recibirás un mensaje por WhatsApp con los detalles de pago y seguimiento.
               </p>
 
@@ -327,15 +375,16 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                   href={whatsappLink}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block w-full mb-3 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
+                  className={`block w-full mb-3 px-6 py-3 bg-green-600 text-white font-semibold ${isPremium ? 'rounded-xl' : 'rounded-lg'} hover:bg-green-700 transition`}
                 >
-                  📱 Confirmar por WhatsApp
+                  Confirmar por WhatsApp
                 </a>
               )}
 
               <button
                 onClick={() => router.push(`/${config.domain}`)}
-                className="w-full px-6 py-3 bg-[var(--primary-color)] text-white font-semibold rounded-lg hover:opacity-90 transition"
+                className={`w-full px-6 py-3 text-white font-semibold ${isPremium ? 'rounded-xl hover:shadow-xl' : 'rounded-lg'} hover:opacity-90 transition-all`}
+                style={isPremium ? { background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` } : { backgroundColor: 'var(--primary-color)' }}
               >
                 Volver al inicio
               </button>
@@ -347,8 +396,15 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
     );
   }
 
+  const radioSelectedCls = isPremium
+    ? (isDarkMode ? 'border-white/30 bg-white/[0.05]' : `border-[${primaryColor}] bg-blue-50`)
+    : 'border-[var(--primary-color)] bg-blue-50 dark:bg-blue-900/20';
+  const radioUnselectedCls = isPremium
+    ? (isDarkMode ? 'border-white/10 hover:border-white/20' : 'border-gray-200')
+    : (isDarkMode ? 'border-gray-700' : 'border-gray-300');
+
   return (
-    <div className={`min-h-screen flex flex-col ${isDarkMode ? 'bg-gray-950 text-gray-100' : ''}`}>
+    <div className={`min-h-screen flex flex-col ${pageBg} ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
       <Header
         config={config}
         domain={config.domain}
@@ -357,19 +413,37 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
         onToggleTheme={toggleTheme}
       />
 
-      <main className={`flex-1 ${isDarkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+      <main className={`flex-1 ${mainBg} ${isPremium ? 'pt-16' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Page Header */}
           <div className="mb-8">
-            <h1 className={`text-3xl md:text-4xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Finalizar Compra
-            </h1>
-            <p className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>
+            {isPremium && isDarkMode ? (
+              <>
+                <h1
+                  className="text-3xl md:text-4xl font-bold mb-2"
+                  style={{
+                    background: `linear-gradient(135deg, #fff 0%, ${primaryColor} 50%, ${secondaryColor} 100%)`,
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  Finalizar Compra
+                </h1>
+                <div className="w-16 h-1 rounded-full mt-3 mb-2" style={{ background: `linear-gradient(90deg, ${primaryColor}, ${secondaryColor})` }} />
+              </>
+            ) : (
+              <h1 className={`text-3xl md:text-4xl font-bold mb-2 ${textMain}`}>
+                Finalizar Compra
+              </h1>
+            )}
+            <p className={textMuted}>
               Completa tus datos para confirmar la orden
             </p>
           </div>
 
           {!isAuthenticated && (
-            <div className={`mb-6 ${isDarkMode ? 'bg-blue-900/30 border border-blue-800' : 'bg-blue-50 border border-blue-200'} rounded-lg p-4`}>
+            <div className={`mb-6 ${infoBg} p-4`}>
               <div className="flex items-start gap-3">
                 <User className={`w-5 h-5 mt-0.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
                 <div className="flex-1">
@@ -382,13 +456,15 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                   <div className="flex gap-3">
                     <Link
                       href={`/${config.domain}/login?redirect=checkout`}
-                      className="text-sm font-medium text-[var(--primary-color)] hover:opacity-80"
+                      className="text-sm font-medium hover:opacity-80"
+                      style={{ color: primaryColor }}
                     >
                       Iniciar Sesión
                     </Link>
                     <Link
                       href={`/${config.domain}/registro?redirect=checkout`}
-                      className="text-sm font-medium text-[var(--primary-color)] hover:opacity-80"
+                      className="text-sm font-medium hover:opacity-80"
+                      style={{ color: primaryColor }}
                     >
                       Crear Cuenta
                     </Link>
@@ -402,8 +478,8 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
             <div className="grid lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">
                 {/* Customer Information */}
-                <div className={`${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white'} rounded-lg shadow-sm p-6`}>
-                  <h2 className={`text-xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <div className={`${cardBg} p-6`}>
+                  <h2 className={`text-xl font-bold mb-6 ${textMain}`}>
                     Información de Contacto
                   </h2>
                   <div className="space-y-4">
@@ -416,8 +492,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                         name="customerName"
                         value={formData.customerName}
                         onChange={handleInputChange}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${errors.customerName ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                          }`}
+                        className={`w-full px-4 py-3 border focus:outline-none focus:ring-2 ${inputCls} ${errors.customerName ? 'border-red-500' : ''}`}
                       />
                       {errors.customerName && <p className="mt-1 text-sm text-red-400">{errors.customerName}</p>}
                     </div>
@@ -431,8 +506,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                         name="customerEmail"
                         value={formData.customerEmail}
                         onChange={handleInputChange}
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${errors.customerEmail ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                          }`}
+                        className={`w-full px-4 py-3 border focus:outline-none focus:ring-2 ${inputCls} ${errors.customerEmail ? 'border-red-500' : ''}`}
                       />
                       {errors.customerEmail && <p className="mt-1 text-sm text-red-400">{errors.customerEmail}</p>}
                     </div>
@@ -447,8 +521,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                         value={formData.customerPhone}
                         onChange={handleInputChange}
                         placeholder="+58 412 1234567"
-                        className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${errors.customerPhone ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                          }`}
+                        className={`w-full px-4 py-3 border focus:outline-none focus:ring-2 ${inputCls} ${errors.customerPhone ? 'border-red-500' : ''}`}
                       />
                       {errors.customerPhone && <p className="mt-1 text-sm text-red-400">{errors.customerPhone}</p>}
                     </div>
@@ -456,17 +529,16 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                 </div>
 
                 {/* Shipping Method */}
-                <div className={`${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white'} rounded-lg shadow-sm p-6`}>
-                  <h2 className={`text-xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <div className={`${cardBg} p-6`}>
+                  <h2 className={`text-xl font-bold mb-6 ${textMain}`}>
                     <Truck className="inline w-6 h-6 mr-2" />
                     Método de Entrega
                   </h2>
                   <div className="space-y-4">
                     <div className="flex gap-4">
-                      <label className={`flex-1 flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${formData.shippingMethod === 'pickup'
-                        ? 'border-[var(--primary-color)] bg-blue-50 dark:bg-blue-900/20'
-                        : isDarkMode ? 'border-gray-700' : 'border-gray-300'
-                        }`}>
+                      <label className={`flex-1 flex items-center gap-3 p-4 border-2 ${isPremium ? 'rounded-xl' : 'rounded-lg'} cursor-pointer transition ${
+                        formData.shippingMethod === 'pickup' ? radioSelectedCls : radioUnselectedCls
+                      }`}>
                         <input
                           type="radio"
                           name="shippingMethod"
@@ -475,13 +547,12 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                           onChange={handleInputChange}
                           className="w-5 h-5"
                         />
-                        <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Retiro en tienda (Gratis)</span>
+                        <span className={textMain}>Retiro en tienda (Gratis)</span>
                       </label>
 
-                      <label className={`flex-1 flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${formData.shippingMethod === 'delivery'
-                        ? 'border-[var(--primary-color)] bg-blue-50 dark:bg-blue-900/20'
-                        : isDarkMode ? 'border-gray-700' : 'border-gray-300'
-                        }`}>
+                      <label className={`flex-1 flex items-center gap-3 p-4 border-2 ${isPremium ? 'rounded-xl' : 'rounded-lg'} cursor-pointer transition ${
+                        formData.shippingMethod === 'delivery' ? radioSelectedCls : radioUnselectedCls
+                      }`}>
                         <input
                           type="radio"
                           name="shippingMethod"
@@ -490,7 +561,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                           onChange={handleInputChange}
                           className="w-5 h-5"
                         />
-                        <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>Delivery</span>
+                        <span className={textMain}>Delivery</span>
                       </label>
                     </div>
 
@@ -505,8 +576,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                             name="customerAddress"
                             value={formData.customerAddress}
                             onChange={handleInputChange}
-                            className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${errors.customerAddress ? 'border-red-500' : isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                              }`}
+                            className={`w-full px-4 py-3 border focus:outline-none focus:ring-2 ${inputCls} ${errors.customerAddress ? 'border-red-500' : ''}`}
                           />
                           {errors.customerAddress && <p className="mt-1 text-sm text-red-400">{errors.customerAddress}</p>}
                         </div>
@@ -515,7 +585,8 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                           type="button"
                           onClick={handleGetLocation}
                           disabled={calculatingDelivery}
-                          className="flex items-center gap-2 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                          className={`flex items-center gap-2 px-4 py-2 text-sm text-white ${isPremium ? 'rounded-xl' : 'rounded-lg'} hover:opacity-90 transition disabled:opacity-50`}
+                          style={isPremium ? { background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` } : { backgroundColor: '#2563eb' }}
                         >
                           {calculatingDelivery ? (
                             <>
@@ -531,8 +602,8 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                         </button>
 
                         {deliveryInfo && (
-                          <div className={`p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          <div className={`p-4 ${isPremium ? 'rounded-xl' : 'rounded-lg'} ${isPremium ? (isDarkMode ? 'bg-white/5' : 'bg-gray-100') : (isDarkMode ? 'bg-gray-800' : 'bg-gray-100')}`}>
+                            <p className={`text-sm ${textMuted}`}>
                               {deliveryInfo.freeDelivery ? (
                                 <span className="font-semibold text-green-600">¡Envío Gratis!</span>
                               ) : (
@@ -551,24 +622,23 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                 </div>
 
                 {/* Payment Method */}
-                <div className={`${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white'} rounded-lg shadow-sm p-6`}>
-                  <h2 className={`text-xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <div className={`${cardBg} p-6`}>
+                  <h2 className={`text-xl font-bold mb-6 ${textMain}`}>
                     <CreditCard className="inline w-6 h-6 mr-2" />
                     Método de Pago
                   </h2>
                   {loadingPaymentMethods ? (
-                    <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>Cargando métodos de pago...</p>
+                    <p className={textSub}>Cargando métodos de pago...</p>
                   ) : paymentMethods.length === 0 ? (
-                    <p className={isDarkMode ? 'text-gray-400' : 'text-gray-600'}>No hay métodos de pago configurados</p>
+                    <p className={textSub}>No hay métodos de pago configurados</p>
                   ) : (
                     <div className="space-y-3">
                       {paymentMethods.map((method) => (
                         <label
                           key={method.methodId}
-                          className={`flex items-start gap-3 p-4 border-2 rounded-lg cursor-pointer transition ${formData.selectedPaymentMethod === method.methodId
-                            ? 'border-[var(--primary-color)] bg-blue-50 dark:bg-blue-900/20'
-                            : isDarkMode ? 'border-gray-700' : 'border-gray-300'
-                            }`}
+                          className={`flex items-start gap-3 p-4 border-2 ${isPremium ? 'rounded-xl' : 'rounded-lg'} cursor-pointer transition ${
+                            formData.selectedPaymentMethod === method.methodId ? radioSelectedCls : radioUnselectedCls
+                          }`}
                         >
                           <input
                             type="radio"
@@ -579,11 +649,11 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                             className="w-5 h-5 mt-0.5"
                           />
                           <div className="flex-1">
-                            <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <p className={`font-medium ${textMain}`}>
                               {method.name}
                             </p>
                             {method.instructions && (
-                              <p className={`text-sm mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <p className={`text-sm mt-1 ${textSub}`}>
                                 {method.instructions}
                               </p>
                             )}
@@ -598,7 +668,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                 </div>
 
                 {/* Notes */}
-                <div className={`${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white'} rounded-lg shadow-sm p-6`}>
+                <div className={`${cardBg} p-6`}>
                   <label className={`block text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
                     Notas adicionales (opcional)
                   </label>
@@ -607,8 +677,7 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
                     value={formData.notes}
                     onChange={handleInputChange}
                     rows={3}
-                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] ${isDarkMode ? 'border-gray-700 bg-gray-800 text-gray-100' : 'border-gray-300'
-                      }`}
+                    className={`w-full px-4 py-3 border focus:outline-none focus:ring-2 ${inputCls}`}
                     placeholder="Instrucciones especiales, referencias, etc."
                   />
                 </div>
@@ -616,59 +685,63 @@ export function CheckoutPageClientEnhanced({ config }: CheckoutPageClientProps) 
 
               {/* Order Summary */}
               <div className="lg:col-span-1">
-                <div className={`${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white'} rounded-lg shadow-sm p-6 sticky top-24`}>
-                  <h2 className={`text-xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                <div className={`${cardBg} p-6 sticky top-24`}>
+                  <h2 className={`text-xl font-bold mb-6 ${textMain}`}>
                     Resumen de Orden
                   </h2>
 
                   <div className="space-y-4 mb-6 max-h-64 overflow-y-auto">
                     {cartItems.map((item) => (
                       <div key={item.product._id} className="flex gap-3">
-                        <div className={`w-16 h-16 rounded overflow-hidden flex-shrink-0 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                        <div className={`w-16 h-16 ${isPremium ? 'rounded-xl' : 'rounded'} overflow-hidden flex-shrink-0 ${isPremium ? (isDarkMode ? 'bg-white/5' : 'bg-gray-100') : (isDarkMode ? 'bg-gray-800' : 'bg-gray-100')}`}>
                           <Image
                             src={getImageUrl((item.product as any).image || (item.product as any).imageUrl || (item.product as any).images?.[0])}
                             alt={item.product.name}
                             width={64}
                             height={64}
+                            unoptimized
                             className="object-cover w-full h-full"
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className={`text-sm font-medium truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          <h3 className={`text-sm font-medium truncate ${textMain}`}>
                             {item.product.name}
                           </h3>
-                          <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                          <p className={`text-sm ${textMuted}`}>
                             Cantidad: {item.quantity}
                           </p>
-                          <p className={`text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                            {formatPrice(item.product.price * item.quantity)}
+                          <p className="text-sm font-semibold" style={isPremium ? { color: primaryColor } : undefined}>
+                            {isPremium ? formatPrice(item.product.price * item.quantity) : <span className={textMain}>{formatPrice(item.product.price * item.quantity)}</span>}
                           </p>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="border-t pt-4 space-y-2 mb-6">
+                  <div className={`border-t ${borderCls} pt-4 space-y-2 mb-6`}>
                     <div className="flex justify-between">
-                      <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Subtotal</span>
-                      <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{formatPrice(calculateSubtotal())}</span>
+                      <span className={textMuted}>Subtotal</span>
+                      <span className={textMain}>{formatPrice(calculateSubtotal())}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className={isDarkMode ? 'text-gray-300' : 'text-gray-600'}>Envío</span>
-                      <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>
+                      <span className={textMuted}>Envío</span>
+                      <span className={textMain}>
                         {deliveryCost === 0 ? 'Gratis' : formatPrice(deliveryCost)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-lg font-bold pt-2 border-t">
-                      <span className={isDarkMode ? 'text-gray-200' : 'text-gray-900'}>Total</span>
-                      <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{formatPrice(calculateTotal())}</span>
+                    <div className={`flex justify-between text-lg font-bold pt-2 border-t ${borderCls}`}>
+                      <span className={textMain}>Total</span>
+                      <span style={isPremium ? { color: primaryColor } : undefined} className={isPremium ? '' : textMain}>
+                        {formatPrice(calculateTotal())}
+                      </span>
                     </div>
                   </div>
 
                   <button
                     type="submit"
                     disabled={submitting || loadingPaymentMethods}
-                    className="w-full px-6 py-4 bg-[var(--primary-color)] text-white font-semibold rounded-lg hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    className={`w-full px-6 py-4 text-white font-semibold ${isPremium ? 'rounded-xl hover:shadow-xl' : 'rounded-lg'} hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center`}
+                    style={isPremium ? { background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` } : { backgroundColor: 'var(--primary-color)' }}
                   >
                     {submitting ? (
                       <>

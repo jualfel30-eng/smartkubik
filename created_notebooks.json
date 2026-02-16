@@ -1,0 +1,30 @@
+[
+  {
+    "title": "Smartkubik - Compras/Inventarios/Costeo",
+    "id": "8cb60700-bdda-4123-a93c-32a238697eb5"
+  },
+  {
+    "title": "Smartkubik - Ventas/\u00d3rdenes/POS",
+    "id": "689fe3df-58e4-4f83-ac95-0042e6351c85"
+  },
+  {
+    "title": "Smartkubik - Finanzas/Contabilidad",
+    "id": "270283a1-7918-4c7a-afaa-9994da732566"
+  },
+  {
+    "title": "Smartkubik - Operaciones/Log\u00edstica/Servicios",
+    "id": "442836a1-5603-473e-9a15-eeb286fad9ab"
+  },
+  {
+    "title": "Smartkubik - CRM/Posventa/Automatizaci\u00f3n",
+    "id": "95c96005-95bd-4a08-98ef-05efb20d2ca4"
+  },
+  {
+    "title": "Smartkubik - Anal\u00edtica/KPIs/Reportes/BI",
+    "id": "f205f6b8-e9a0-4292-88df-47704a937937"
+  },
+  {
+    "title": "Smartkubik - N\u00f3mina/RRHH/Productividad",
+    "id": "8384e1e9-7de0-4324-b94a-4da741dad063"
+  }
+]

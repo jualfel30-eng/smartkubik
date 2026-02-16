@@ -1,6 +1,15 @@
 # SmartKubik Robots.txt
 # Allow all crawlers to index public content
 
+User-agent: Googlebot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
 User-agent: *
 Allow: /
 Allow: /docs
@@ -26,3 +35,5 @@ Disallow: /api/
 
 # Sitemap location
 Sitemap: https://smartkubik.com/sitemap.xml
+Sitemap: https://smartkubik.com/blog/sitemap.xml
+Sitemap: https://smartkubik.com/sitemap-blog.xml

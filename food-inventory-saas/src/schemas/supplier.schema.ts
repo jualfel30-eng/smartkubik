@@ -149,6 +149,8 @@ export class Supplier {
     qualityIssueRate: number;
     returnRate: number;
     paymentDelayDays: number;
+    averageRating?: number; // Average supplier rating (1-5)
+    totalRatings?: number; // Total number of rated orders
   };
 
   @Prop({ type: String, required: true, default: "active" })
@@ -177,6 +179,13 @@ export class Supplier {
 
   @Prop({ type: Types.ObjectId, ref: "Customer" })
   customerId?: Types.ObjectId;
+
+  // ── Data Import tracking ──
+  @Prop({ type: Types.ObjectId, ref: "ImportJob" })
+  importJobId?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  importedAt?: Date;
 }
 
 export const SupplierSchema = SchemaFactory.createForClass(Supplier);

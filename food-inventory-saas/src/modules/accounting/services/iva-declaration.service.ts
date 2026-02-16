@@ -1,129 +1,205 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { IvaDeclaration, IvaDeclarationDocument } from '../../../schemas/iva-declaration.schema';
 import { IvaPurchaseBookService } from './iva-purchase-book.service';
 import { IvaSalesBookService } from './iva-sales-book.service';
+import { BillingDocument, BillingDocumentDocument } from '../../../schemas/billing-document.schema';
 import {
   CalculateIvaDeclarationDto,
   UpdateIvaDeclarationDto,
   FileIvaDeclarationDto,
   RecordPaymentDto,
 } from '../../../dto/iva-declaration.dto';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 
 @Injectable()
 export class IvaDeclarationService {
+  private readonly logger = new Logger(IvaDeclarationService.name);
+
   constructor(
     @InjectModel(IvaDeclaration.name)
     private ivaDeclarationModel: Model<IvaDeclarationDocument>,
+    @InjectModel(BillingDocument.name)
+    private billingModel: Model<BillingDocumentDocument>,
     private purchaseBookService: IvaPurchaseBookService,
     private salesBookService: IvaSalesBookService,
-  ) {}
+  ) { }
 
   /**
    * Calcular declaración de IVA automáticamente desde los libros
    */
   async calculate(dto: CalculateIvaDeclarationDto, user: any): Promise<IvaDeclaration> {
-    const { month, year, previousCreditBalance = 0 } = dto;
+    try {
+      const { month, year, previousCreditBalance = 0 } = dto;
 
-    // Verificar si ya existe una declaración para este período
-    const existing = await this.ivaDeclarationModel.findOne({
+      // Verificar si ya existe una declaración para este período
+      const existing = await this.ivaDeclarationModel.findOne({
+        tenantId: user.tenantId,
+        month,
+        year,
+      });
+
+      // Permitir recalcular siempre, EXCEPTO si ya está PAGADA.
+      // Si está 'filed' (presentada), permitimos recalcular para correcciones (generará un reemplazo).
+      if (existing && existing.status === 'paid') {
+        throw new BadRequestException(
+          `Ya existe una declaración PAGADA para ${month}/${year}. No se puede modificar.`,
+        );
+      }
+
+      // Auto-Curación: Sincronizar documentos de facturación al libro de ventas
+      try {
+        await this.syncBillingToSalesBook(month, year, user);
+      } catch (error) {
+        this.logger.error(`Error durante auto-curación de libros: ${error.message}`);
+        // Continuar con el cálculo aunque falle la sincronización parcial
+      }
+
+      // Validar libros de compras y ventas
+      const [purchasesValidation, salesValidation] = await Promise.all([
+        this.purchaseBookService.validateBook(month, year, user.tenantId),
+        this.salesBookService.validateBook(month, year, user.tenantId),
+      ]);
+
+      const validationErrors = [
+        ...purchasesValidation.errors.map((e) => `[Compras] ${e}`),
+        ...salesValidation.errors.map((e) => `[Ventas] ${e}`),
+      ];
+
+      // Obtener resúmenes de libros
+      const [purchasesSummary, salesSummary] = await Promise.all([
+        this.purchaseBookService.getSummary(month, year, user.tenantId),
+        this.salesBookService.getSummary(month, year, user.tenantId),
+      ]);
+
+      // Calcular débito fiscal (IVA de ventas)
+      const salesBaseAmount = salesSummary.totalBaseAmount;
+      const salesIvaAmount = salesSummary.totalIvaAmount;
+      // ... rest of calculation logic matches previous logic ...
+      const totalDebitFiscal = salesIvaAmount;
+
+      // Calcular crédito fiscal (IVA de compras)
+      const purchasesBaseAmount = purchasesSummary.totalBaseAmount;
+      const purchasesIvaAmount = purchasesSummary.totalIvaAmount;
+      const totalCreditFiscal = purchasesIvaAmount;
+
+      // Retenciones
+      const ivaWithheldOnSales = salesSummary.totalWithheldIva; // IVA retenido por clientes
+      const ivaWithheldOnPurchases = purchasesSummary.totalWithheldIva; // IVA retenido a proveedores
+
+      // Cálculo final
+      const totalCreditToApply = totalCreditFiscal + ivaWithheldOnSales + previousCreditBalance;
+      const netAmount = totalDebitFiscal - totalCreditToApply;
+
+      const ivaToPay = netAmount > 0 ? netAmount : 0;
+      const creditBalance = netAmount < 0 ? Math.abs(netAmount) : 0;
+
+      // Generar número de declaración
+      const declarationNumber = existing
+        ? existing.declarationNumber // Mantener número si existe
+        : await this.generateDeclarationNumber(month, year, user.tenantId);
+
+      // Desglose por alícuota
+      const rateBreakdown = this.calculateRateBreakdown(
+        purchasesSummary.byIvaRate,
+        salesSummary.byIvaRate,
+      );
+
+      // Crear o actualizar declaración
+      const declarationData = {
+        tenantId: user.tenantId,
+        month,
+        year,
+        declarationNumber,
+        salesBaseAmount,
+        salesIvaAmount,
+        totalDebitFiscal,
+        purchasesBaseAmount,
+        purchasesIvaAmount,
+        totalCreditFiscal,
+        ivaWithheldOnSales,
+        ivaWithheldOnPurchases,
+        previousCreditBalance,
+        totalCreditToApply,
+        ivaToPay,
+        creditBalance,
+        totalToPay: ivaToPay,
+        rateBreakdown,
+        totalSalesTransactions: salesSummary.totalEntries,
+        totalPurchasesTransactions: purchasesSummary.totalEntries,
+        electronicInvoices: salesSummary.electronicInvoices || 0,
+        physicalInvoices: salesSummary.physicalInvoices || 0,
+        validated: validationErrors.length === 0,
+        validationErrors,
+        status: 'calculated', // Forzar estado a calculado (reseteando 'filed')
+        exportedToSENIAT: false, // Resetear flag de exportación
+        filingDate: null, // Limpiar fecha de presentación
+        xmlContent: null, // Limpiar XML anterior
+        createdBy: existing ? existing.createdBy : user._id,
+        updatedBy: user._id,
+      };
+
+      if (existing) {
+        Object.assign(existing, declarationData);
+        return await existing.save();
+      }
+
+      return await this.ivaDeclarationModel.create(declarationData);
+    } catch (error) {
+      this.logger.error(`Error crítico en cálculo de IVA: ${error.message}`, error.stack);
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(`Error interno al calcular: ${error.message}`);
+    }
+  }
+
+  /**
+   * Sincroniza facturas emitidas en el período seleccionado hacia el libro de ventas
+   */
+  private async syncBillingToSalesBook(month: number, year: number, user: any) {
+    this.logger.log(`Syncing billing details for ${month}/${year}`);
+
+    // Crear rango de fechas para el mes
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = endOfMonth(startDate); // from date-fns
+
+    console.log(`[Sync DIAGNOSTIC] Range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`[Sync DIAGNOSTIC] Tenant: ${user.tenantId}`);
+
+    // DIAGNOSTICO ESPECIFICO PARA F50
+    const probeF50 = await this.billingModel.findOne({ documentNumber: 'F50', tenantId: user.tenantId });
+    if (probeF50) {
+      console.log(`[Sync DIAGNOSTIC F50] FOUND in Billing! Status=${probeF50.status}, Date=${probeF50.issueDate}, Type=${probeF50.type}`);
+    } else {
+      console.log(`[Sync DIAGNOSTIC F50] NOT FOUND in BillingModel with tenant ${user.tenantId}`);
+    }
+
+    // Buscar facturas emitidas o validadas en el rango
+    const billingDocs = await this.billingModel.find({
       tenantId: user.tenantId,
-      month,
-      year,
+      issueDate: { $gte: startDate, $lte: endDate },
+      // Solo facturas fiscales (emitidas) - Ampliado para asegurar cobertura
+      status: { $in: ['issued', 'paid', 'partially_paid', 'sent', 'validated', 'closed'] },
+      // Excluir cotizaciones
+      type: { $ne: 'quote' }
     });
 
-    if (existing && existing.status !== 'draft') {
-      throw new BadRequestException(
-        `Ya existe una declaración ${existing.status} para ${month}/${year}`,
-      );
+    console.log(`[Sync] Found ${billingDocs.length} billing documents to sync for period ${month}/${year}`);
+
+    let syncedCount = 0;
+    for (const doc of billingDocs) {
+      try {
+        await this.salesBookService.syncFromBillingDocument(doc._id.toString(), doc, user);
+        syncedCount++;
+      } catch (error) {
+        this.logger.error(`Failed to sync billing doc ${doc.documentNumber}: ${error.message}`);
+        // No detener el proceso, intentar con los demás
+      }
     }
 
-    // Validar libros de compras y ventas
-    const [purchasesValidation, salesValidation] = await Promise.all([
-      this.purchaseBookService.validateBook(month, year, user.tenantId),
-      this.salesBookService.validateBook(month, year, user.tenantId),
-    ]);
-
-    const validationErrors = [
-      ...purchasesValidation.errors.map((e) => `[Compras] ${e}`),
-      ...salesValidation.errors.map((e) => `[Ventas] ${e}`),
-    ];
-
-    // Obtener resúmenes de libros
-    const [purchasesSummary, salesSummary] = await Promise.all([
-      this.purchaseBookService.getSummary(month, year, user.tenantId),
-      this.salesBookService.getSummary(month, year, user.tenantId),
-    ]);
-
-    // Calcular débito fiscal (IVA de ventas)
-    const salesBaseAmount = salesSummary.totalBaseAmount;
-    const salesIvaAmount = salesSummary.totalIvaAmount;
-    const totalDebitFiscal = salesIvaAmount;
-
-    // Calcular crédito fiscal (IVA de compras)
-    const purchasesBaseAmount = purchasesSummary.totalBaseAmount;
-    const purchasesIvaAmount = purchasesSummary.totalIvaAmount;
-    const totalCreditFiscal = purchasesIvaAmount;
-
-    // Retenciones
-    const ivaWithheldOnSales = salesSummary.totalWithheldIva; // IVA retenido por clientes
-    const ivaWithheldOnPurchases = purchasesSummary.totalWithheldIva; // IVA retenido a proveedores
-
-    // Cálculo final
-    const totalCreditToApply = totalCreditFiscal + ivaWithheldOnSales + previousCreditBalance;
-    const netAmount = totalDebitFiscal - totalCreditToApply;
-
-    const ivaToPay = netAmount > 0 ? netAmount : 0;
-    const creditBalance = netAmount < 0 ? Math.abs(netAmount) : 0;
-
-    // Generar número de declaración
-    const declarationNumber = await this.generateDeclarationNumber(month, year, user.tenantId);
-
-    // Desglose por alícuota
-    const rateBreakdown = this.calculateRateBreakdown(
-      purchasesSummary.byIvaRate,
-      salesSummary.byIvaRate,
-    );
-
-    // Crear o actualizar declaración
-    const declarationData = {
-      tenantId: user.tenantId,
-      month,
-      year,
-      declarationNumber,
-      salesBaseAmount,
-      salesIvaAmount,
-      totalDebitFiscal,
-      purchasesBaseAmount,
-      purchasesIvaAmount,
-      totalCreditFiscal,
-      ivaWithheldOnSales,
-      ivaWithheldOnPurchases,
-      previousCreditBalance,
-      totalCreditToApply,
-      ivaToPay,
-      creditBalance,
-      totalToPay: ivaToPay,
-      rateBreakdown,
-      totalSalesTransactions: salesSummary.totalEntries,
-      totalPurchasesTransactions: purchasesSummary.totalEntries,
-      electronicInvoices: salesSummary.electronicInvoices || 0,
-      physicalInvoices: salesSummary.physicalInvoices || 0,
-      validated: validationErrors.length === 0,
-      validationErrors,
-      status: 'calculated',
-      createdBy: user._id,
-      updatedBy: user._id,
-    };
-
-    if (existing) {
-      Object.assign(existing, declarationData);
-      return await existing.save();
-    }
-
-    return await this.ivaDeclarationModel.create(declarationData);
+    this.logger.log(`Synced ${syncedCount} documents to Sales Book`);
   }
 
   /**
@@ -285,11 +361,15 @@ export class IvaDeclarationService {
   /**
    * Eliminar declaración (solo draft o calculated)
    */
+  /**
+   * Eliminar declaración (solo draft, calculated o filed si no está pagada)
+   */
   async delete(id: string, tenantId: string): Promise<void> {
     const declaration = await this.findOne(id, tenantId);
 
-    if (declaration.status === 'filed' || declaration.status === 'paid') {
-      throw new BadRequestException('No se puede eliminar una declaración presentada o pagada');
+    // Permitir borrar 'filed' para permitir correcciones/reprocesamiento
+    if (declaration.status === 'paid') {
+      throw new BadRequestException('No se puede eliminar una declaración PAGADA');
     }
 
     await this.ivaDeclarationModel.deleteOne({ _id: id });

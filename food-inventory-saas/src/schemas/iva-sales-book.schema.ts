@@ -23,7 +23,7 @@ export class IvaSalesBook {
   operationDate: Date; // Fecha de la operación/factura
 
   // ============ INFORMACIÓN DEL CLIENTE ============
-  @Prop({ required: true, type: Types.ObjectId, ref: 'Customer' })
+  @Prop({ required: false, type: Types.ObjectId, ref: 'Customer' })
   customerId: Types.ObjectId;
 
   @Prop({ required: true, type: String })
@@ -57,6 +57,25 @@ export class IvaSalesBook {
     default: 'sale',
   })
   transactionType: string; // Tipo de transacción
+
+  // ============ MONTOS ORIGINALES (Añadido para trazabilidad) ============
+  @Prop({ type: String })
+  originalCurrency: string; // 'USD' | 'VES'
+
+  @Prop({ type: Number })
+  exchangeRate: number; // Tasa de cambio aplicada
+
+  @Prop({ type: Number, default: 0 })
+  originalBaseAmount: number; // Monto base en moneda original
+
+  @Prop({ type: Number, default: 0 })
+  originalIvaAmount: number; // IVA en moneda original
+
+  @Prop({ type: Number, default: 0 })
+  originalTotalAmount: number; // Total en moneda original
+
+  @Prop({ type: Boolean, default: false })
+  isForeignCurrency: boolean;
 
   // ============ MONTOS ============
   @Prop({ required: true, type: Number, default: 0 })
@@ -145,3 +164,4 @@ IvaSalesBookSchema.index({ tenantId: 1, customerRif: 1 });
 IvaSalesBookSchema.index({ tenantId: 1, invoiceNumber: 1 }, { unique: true });
 IvaSalesBookSchema.index({ tenantId: 1, status: 1 });
 IvaSalesBookSchema.index({ tenantId: 1, isElectronic: 1 });
+IvaSalesBookSchema.index({ tenantId: 1, originalCurrency: 1 });

@@ -137,6 +137,27 @@ export class TenantSettings {
     manualNotes?: string;
   };
 
+  @Prop({
+    type: {
+      minimumMarginPercentage: { type: Number, default: 15 },
+      enforceMinimumMargin: { type: Boolean, default: false },
+      warningThreshold: { type: Number, default: 10 },
+    },
+    _id: false,
+  })
+  pricingPolicies?: {
+    minimumMarginPercentage: number; // Margen mínimo recomendado (%)
+    enforceMinimumMargin: boolean; // Si debe bloquear guardado cuando margen < mínimo
+    warningThreshold: number; // Mostrar warning si margen < este valor (%)
+  };
+
+  @Prop({ type: Object })
+  shipping?: {
+    enabled: boolean;
+    activeProviders: string[]; // Array of provider codes (e.g., ['MRW-VE', 'ZOOM-VE'])
+    defaultProvider?: string;
+  };
+
   @Prop({ type: Object })
   payroll?: {
     baseCurrency?: string;
@@ -229,6 +250,10 @@ export class TenantSettings {
     printers?: {
       receiptPrinterIp?: string;
     };
+    /** Genera y emite factura automáticamente al pagar una orden */
+    autoInvoiceOnPayment?: boolean;
+    /** Tipo de documento a generar automáticamente */
+    autoInvoiceDocumentType?: "invoice" | "delivery_note";
   };
 }
 
@@ -238,6 +263,12 @@ const TenantSettingsSchema = SchemaFactory.createForClass(TenantSettings);
 export class Tenant {
   @Prop({ type: String, required: true })
   name: string;
+
+  @Prop({ type: String })
+  ownerFirstName?: string;
+
+  @Prop({ type: String })
+  ownerLastName?: string;
 
   @Prop({ type: String })
   description?: string;
@@ -279,6 +310,8 @@ export class Tenant {
     businessName: string;
     isRetentionAgent: boolean;
     taxRegime: string;
+    taxpayerType: string; // 'ordinario' | 'especial'
+    specialTaxpayerWithholdingRate: number; // 75 | 100 — solo aplica si taxpayerType es 'especial'
   };
 
   @Prop({ type: TenantSettingsSchema })
@@ -297,6 +330,9 @@ export class Tenant {
     bankAccounts?: boolean;
     hrCore?: boolean;
     timeAndAttendance?: boolean;
+    tips?: boolean; // Core module for all verticals (Tips for Food Service)
+    commissions?: boolean; // General Commissions module for sales
+    cashRegister?: boolean; // Cash register sessions and closings (Cierre de Caja)
 
     // Communication & Marketing modules
     chat?: boolean;
@@ -308,7 +344,6 @@ export class Tenant {
     recipes?: boolean;
     kitchenDisplay?: boolean;
     menuEngineering?: boolean;
-    tips?: boolean;
     reservations?: boolean;
 
     // RETAIL specific modules

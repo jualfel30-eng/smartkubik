@@ -720,6 +720,8 @@ export default function QuickCheckInDialog({ open, onOpenChange, room = null, on
                         <SelectItem value="E">E</SelectItem>
                         <SelectItem value="J">J</SelectItem>
                         <SelectItem value="G">G</SelectItem>
+                        <SelectItem value="P">P</SelectItem>
+                        <SelectItem value="N">N</SelectItem>
                       </SelectContent>
                     </Select>
                     <Input
@@ -1051,7 +1053,7 @@ export default function QuickCheckInDialog({ open, onOpenChange, room = null, on
                     <SelectValue placeholder="Selecciona el método" />
                   </SelectTrigger>
                   <SelectContent>
-                <SelectItem value={PAYMENT_METHOD_UNSET}>Sin definir</SelectItem>
+                    <SelectItem value={PAYMENT_METHOD_UNSET}>Sin definir</SelectItem>
                     {PAYMENT_METHOD_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}

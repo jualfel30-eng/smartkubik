@@ -1,0 +1,757 @@
+import { useState, useMemo } from 'react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Cell,
+  LineChart,
+  Line,
+} from 'recharts';
+import { ChartCard, ChartEmptyState, ChartSkeleton } from './BaseChart.jsx';
+import { chartPalette, defaultTooltipProps } from './chart-theme.js';
+import { Card, CardContent } from '@/components/ui/card.jsx';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select.jsx';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion.jsx';
+import { useExpenseIncomeBreakdown } from '@/hooks/use-expense-income-breakdown';
+import { PeriodSelector, buildPeriods } from './PeriodSelector.jsx';
+import {
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
+  XCircle,
+  Info,
+} from 'lucide-react';
+
+// ─── Constants ───────────────────────────────────────────────
+const GRANULARITY_OPTIONS = [
+  { value: 'month', label: 'Mensual' },
+  { value: 'quarter', label: 'Trimestral' },
+  { value: 'year', label: 'Anual' },
+];
+
+// ─── Formatters ──────────────────────────────────────────────
+const fmt = (v, decimals = 2) => {
+  if (v == null || isNaN(v)) return '--';
+  return new Intl.NumberFormat('es-VE', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(v);
+};
+
+const fmtUsd = (v) => {
+  if (v == null || isNaN(v)) return '--';
+  return `$${fmt(v)}`;
+};
+
+const fmtPct = (v) => {
+  if (v == null || isNaN(v)) return '--';
+  return `${fmt(v)}%`;
+};
+
+// ─── Delta badges ────────────────────────────────────────────
+function DeltaBadge({ delta }) {
+  if (!delta || delta.percentChange == null) return null;
+
+  const isUp = delta.direction === 'up';
+  const isDown = delta.direction === 'down';
+  const Icon = isUp ? ArrowUpRight : isDown ? ArrowDownRight : Minus;
+  const color = isUp
+    ? 'text-green-600 dark:text-green-400'
+    : isDown
+      ? 'text-red-600 dark:text-red-400'
+      : 'text-muted-foreground';
+
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${color}`}
+    >
+      <Icon className="h-3 w-3" />
+      {Math.abs(delta.percentChange).toFixed(1)}%
+    </span>
+  );
+}
+
+function DeltaBadgeInverse({ delta }) {
+  if (!delta || delta.percentChange == null) return null;
+
+  const isUp = delta.direction === 'up';
+  const isDown = delta.direction === 'down';
+  const Icon = isUp ? ArrowUpRight : isDown ? ArrowDownRight : Minus;
+  const color = isDown
+    ? 'text-green-600 dark:text-green-400'
+    : isUp
+      ? 'text-red-600 dark:text-red-400'
+      : 'text-muted-foreground';
+
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 text-[11px] font-medium ${color}`}
+    >
+      <Icon className="h-3 w-3" />
+      {Math.abs(delta.percentChange).toFixed(1)}%
+    </span>
+  );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+function computeDelta(current, previous) {
+  if (current == null || previous == null) return null;
+  const change = current - previous;
+  const pct = previous !== 0 ? (change / Math.abs(previous)) * 100 : 0;
+  return {
+    current,
+    previous,
+    absoluteChange: change,
+    percentChange: Math.round(pct * 10) / 10,
+    direction: change > 0 ? 'up' : change < 0 ? 'down' : 'flat',
+  };
+}
+
+// ─── Chart sub-components ────────────────────────────────────
+function GroupHorizontalBar({ groups, palette }) {
+  if (!groups?.length) return null;
+
+  const chartData = groups.map((g, i) => ({
+    name: g.label,
+    total: g.total,
+    percentage: g.percentage,
+    fill: palette[i % palette.length],
+  }));
+
+  return (
+    <ResponsiveContainer
+      width="100%"
+      height={Math.max(200, groups.length * 48)}
+    >
+      <BarChart
+        data={chartData}
+        layout="vertical"
+        margin={{ left: 20, right: 60 }}
+      >
+        <CartesianGrid
+          strokeDasharray="3 3"
+          horizontal={false}
+          stroke="rgba(148, 163, 184, 0.35)"
+        />
+        <XAxis
+          type="number"
+          tickFormatter={(v) =>
+            v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v}`
+          }
+          stroke="#94a3b8"
+          tick={{ fontSize: 11 }}
+        />
+        <YAxis
+          type="category"
+          dataKey="name"
+          width={180}
+          stroke="#94a3b8"
+          tick={{ fontSize: 11 }}
+        />
+        <Tooltip
+          {...defaultTooltipProps}
+          formatter={(value, name, props) => [
+            `${fmtUsd(value)} (${props.payload.percentage}%)`,
+            'Total',
+          ]}
+        />
+        <Bar dataKey="total" radius={[0, 4, 4, 0]} barSize={28}>
+          {chartData.map((entry, i) => (
+            <Cell key={i} fill={entry.fill} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function GroupTrendChart({ trend, label, color }) {
+  if (!trend?.length || trend.length < 2) {
+    return (
+      <div className="flex items-center justify-center h-[180px] text-xs text-muted-foreground">
+        No hay suficientes datos temporales.
+      </div>
+    );
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height={180}>
+      <LineChart data={trend}>
+        <CartesianGrid
+          strokeDasharray="3 3"
+          stroke="rgba(148, 163, 184, 0.35)"
+        />
+        <XAxis dataKey="period" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+        <YAxis
+          tickFormatter={(v) =>
+            v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${v}`
+          }
+          stroke="#94a3b8"
+          tick={{ fontSize: 10 }}
+        />
+        <Tooltip
+          {...defaultTooltipProps}
+          formatter={(v) => [fmtUsd(v), label]}
+        />
+        <Line
+          type="monotone"
+          dataKey="total"
+          stroke={color}
+          strokeWidth={2}
+          dot={{ r: 3, fill: color }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function DrillDownTable({ items }) {
+  if (!items?.length) {
+    return (
+      <div className="flex items-center justify-center h-[180px] text-xs text-muted-foreground">
+        Sin datos de detalle.
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-h-64 overflow-y-auto">
+      <table className="w-full text-sm">
+        <thead className="text-xs text-muted-foreground border-b sticky top-0 bg-background">
+          <tr>
+            <th className="text-left py-2 pr-4 font-medium">Nombre</th>
+            <th className="text-right py-2 px-2 font-medium">Total</th>
+            <th className="text-right py-2 px-2 font-medium">Cant.</th>
+            <th className="text-right py-2 pl-2 font-medium">%</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item, i) => (
+            <tr key={i} className="border-b border-border/30 last:border-0">
+              <td
+                className="py-1.5 pr-4 truncate max-w-[200px]"
+                title={item.name}
+              >
+                {item.name}
+              </td>
+              <td className="py-1.5 px-2 text-right font-medium font-mono">
+                {fmtUsd(item.total)}
+              </td>
+              <td className="py-1.5 px-2 text-right text-muted-foreground font-mono">
+                {fmt(item.count, 0)}
+              </td>
+              <td className="py-1.5 pl-2 text-right text-muted-foreground font-mono">
+                {fmtPct(item.percentage)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function GroupAccordion({ groups, palette, isExpense, deltas }) {
+  if (!groups?.length) return null;
+
+  return (
+    <Accordion type="multiple" className="space-y-2">
+      {groups.map((group, i) => {
+        const delta = deltas?.[group.key] ?? group.delta;
+        return (
+          <AccordionItem
+            key={group.key}
+            value={group.key}
+            className="border rounded-lg px-4"
+          >
+            <AccordionTrigger className="hover:no-underline py-3">
+              <div className="flex items-center justify-between w-full pr-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-3 h-3 rounded-sm flex-shrink-0"
+                    style={{
+                      backgroundColor: palette[i % palette.length],
+                    }}
+                  />
+                  <span className="font-medium text-sm text-left">
+                    {group.label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-muted-foreground text-xs">
+                    {fmtPct(group.percentage)}
+                  </span>
+                  <span className="font-semibold">{fmtUsd(group.total)}</span>
+                  {delta &&
+                    (isExpense ? (
+                      <DeltaBadgeInverse delta={delta} />
+                    ) : (
+                      <DeltaBadge delta={delta} />
+                    ))}
+                </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-4">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Tendencia Temporal
+                  </p>
+                  <GroupTrendChart
+                    trend={group.trend}
+                    label={group.label}
+                    color={palette[i % palette.length]}
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Desglose ({group.drillDown?.length ?? 0} items)
+                  </p>
+                  <DrillDownTable items={group.drillDown} />
+                </div>
+              </div>
+              {delta && (
+                <div className="border-t pt-2 pb-1 flex items-center gap-4 text-xs text-muted-foreground">
+                  <span>Periodo anterior: {fmtUsd(delta.previous)}</span>
+                  <span>
+                    Cambio: {delta.absoluteChange > 0 ? '+' : ''}
+                    {fmtUsd(delta.absoluteChange)}
+                  </span>
+                </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        );
+      })}
+    </Accordion>
+  );
+}
+
+// ─── Multi-year comparison for breakdown ─────────────────────
+function BreakdownComparison({ results }) {
+  if (results.length < 2) return null;
+
+  const validResults = results.filter((r) => r.data);
+  if (validResults.length < 2) return null;
+
+  return (
+    <ChartCard
+      title="Comparacion Multi-Periodo"
+      description={`${validResults.length} periodos seleccionados`}
+    >
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-xs text-muted-foreground">
+              <th className="pb-2 text-left font-medium">Indicador</th>
+              {validResults.map((r) => (
+                <th key={r.year} className="pb-2 text-right font-medium">
+                  {r.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-border/30">
+              <td className="py-2 font-medium">Total Gastos</td>
+              {validResults.map((r) => (
+                <td key={r.year} className="py-2 text-right font-mono text-red-600 dark:text-red-400">
+                  {fmtUsd(r.data?.expenses?.total)}
+                </td>
+              ))}
+            </tr>
+            <tr className="border-b border-border/30">
+              <td className="py-2 font-medium">Total Ingresos</td>
+              {validResults.map((r) => (
+                <td key={r.year} className="py-2 text-right font-mono text-green-600 dark:text-green-400">
+                  {fmtUsd(r.data?.income?.total)}
+                </td>
+              ))}
+            </tr>
+            <tr className="border-b border-border/30">
+              <td className="py-2 font-medium">Resultado Neto</td>
+              {validResults.map((r) => {
+                const net = (r.data?.income?.total ?? 0) - (r.data?.expenses?.total ?? 0);
+                return (
+                  <td
+                    key={r.year}
+                    className={`py-2 text-right font-mono font-semibold ${
+                      net >= 0
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}
+                  >
+                    {fmtUsd(net)}
+                  </td>
+                );
+              })}
+            </tr>
+            <tr className="border-b border-border/30">
+              <td className="py-2 font-medium">Grupos Gasto</td>
+              {validResults.map((r) => (
+                <td key={r.year} className="py-2 text-right font-mono">
+                  {r.data?.expenses?.groups?.length ?? 0}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="py-2 font-medium">Categorias Ingreso</td>
+              {validResults.map((r) => (
+                <td key={r.year} className="py-2 text-right font-mono">
+                  {r.data?.income?.groups?.length ?? 0}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </ChartCard>
+  );
+}
+
+// ─── Controls bar ────────────────────────────────────────────
+function BreakdownControls({
+  granularity,
+  setGranularity,
+  groupBy,
+  setGroupBy,
+  dataPeriod,
+  selectedYears,
+  selectedMonths,
+  onYearsChange,
+  onMonthsChange
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h3 className="text-lg font-semibold">
+          Desglose de Gastos e Ingresos
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          Analisis drill-down por {groupBy === 'account' ? 'cuenta contable' : 'tipo'}
+          {dataPeriod && (
+            <span className="ml-1">
+              ({new Date(dataPeriod.from).toLocaleDateString('es-VE')} -{' '}
+              {new Date(dataPeriod.to).toLocaleDateString('es-VE')})
+            </span>
+          )}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Period Selector */}
+        <PeriodSelector
+          selectedYears={selectedYears}
+          selectedMonths={selectedMonths}
+          onYearsChange={onYearsChange}
+          onMonthsChange={onMonthsChange}
+        />
+        {/* GroupBy toggle */}
+        <div className="flex rounded-md border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setGroupBy('type')}
+            className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+              groupBy === 'type'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            Por Tipo
+          </button>
+          <button
+            type="button"
+            onClick={() => setGroupBy('account')}
+            className={`px-2.5 py-1 text-xs font-medium transition-colors border-l border-border ${
+              groupBy === 'account'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            Por Cuenta
+          </button>
+        </div>
+
+        {/* Granularity */}
+        <Select value={granularity} onValueChange={setGranularity}>
+          <SelectTrigger className="w-[120px] h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {GRANULARITY_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ──────────────────────────────────────────
+export function ExpenseIncomeBreakdown() {
+  const now = new Date();
+
+  // Estado para el selector de período (independiente de KPIs)
+  const [selectedYears, setSelectedYears] = useState(() => new Set([now.getFullYear()]));
+  const [selectedMonths, setSelectedMonths] = useState(() => new Set([now.getMonth()]));
+
+  const [granularity, setGranularity] = useState('month');
+  const [groupBy, setGroupBy] = useState('type');
+
+  // Construir períodos desde años y meses seleccionados
+  const periods = useMemo(
+    () => buildPeriods([...selectedYears], [...selectedMonths]),
+    [selectedYears, selectedMonths]
+  );
+
+  const { results, primary, loading, error } = useExpenseIncomeBreakdown(
+    periods,
+    granularity,
+    groupBy,
+  );
+
+  const isComparing = results.filter((r) => r.data).length > 1;
+
+  // Compute deltas between most recent and second most recent period
+  const expenseDeltas = useMemo(() => {
+    if (results.length < 2) return {};
+    const a = results[0]?.data?.expenses;
+    const b = results[1]?.data?.expenses;
+    if (!a?.groups || !b?.groups) return {};
+    const map = {};
+    for (const g of a.groups) {
+      const prev = b.groups.find((x) => x.key === g.key);
+      if (prev) {
+        map[g.key] = computeDelta(g.total, prev.total);
+      }
+    }
+    return map;
+  }, [results]);
+
+  const incomeDeltas = useMemo(() => {
+    if (results.length < 2) return {};
+    const a = results[0]?.data?.income;
+    const b = results[1]?.data?.income;
+    if (!a?.groups || !b?.groups) return {};
+    const map = {};
+    for (const g of a.groups) {
+      const prev = b.groups.find((x) => x.key === g.key);
+      if (prev) {
+        map[g.key] = computeDelta(g.total, prev.total);
+      }
+    }
+    return map;
+  }, [results]);
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">
+            Desglose de Gastos e Ingresos
+          </h3>
+        </div>
+        <ChartSkeleton />
+        <ChartSkeleton />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className="border-destructive/50 bg-destructive/5">
+        <CardContent className="p-6 text-center">
+          <XCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
+          <p className="text-sm text-destructive">{error}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const expenses = primary?.expenses;
+  const income = primary?.income;
+
+  if (!expenses?.groups?.length && !income?.groups?.length) {
+    return (
+      <div className="space-y-4">
+        <BreakdownControls
+          granularity={granularity}
+          setGranularity={setGranularity}
+          groupBy={groupBy}
+          setGroupBy={setGroupBy}
+          dataPeriod={primary?.period}
+          selectedYears={selectedYears}
+          selectedMonths={selectedMonths}
+          onYearsChange={setSelectedYears}
+          onMonthsChange={setSelectedMonths}
+        />
+        <Card>
+          <CardContent className="p-6 text-center text-muted-foreground">
+            <Info className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">
+              No hay datos de gastos ni ingresos disponibles para este periodo.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const netResult = (income?.total ?? 0) - (expenses?.total ?? 0);
+
+  return (
+    <div className="space-y-4">
+      <BreakdownControls
+        granularity={granularity}
+        setGranularity={setGranularity}
+        groupBy={groupBy}
+        setGroupBy={setGroupBy}
+        dataPeriod={primary?.period}
+        selectedYears={selectedYears}
+        selectedMonths={selectedMonths}
+        onYearsChange={setSelectedYears}
+        onMonthsChange={setSelectedMonths}
+      />
+
+      {/* Multi-year comparison table */}
+      {isComparing && <BreakdownComparison results={results} />}
+
+      {/* Summary totals */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="border bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
+          <CardContent className="p-4">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Total Gastos
+            </p>
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
+              {fmtUsd(expenses?.total)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {expenses?.groups?.length ?? 0} grupos
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+          <CardContent className="p-4">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Total Ingresos
+            </p>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
+              {fmtUsd(income?.total)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {income?.groups?.length ?? 0} categorias
+            </p>
+          </CardContent>
+        </Card>
+        <Card
+          className={`border ${
+            netResult >= 0
+              ? 'bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
+              : 'bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+          }`}
+        >
+          <CardContent className="p-4">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Resultado Neto
+            </p>
+            <p
+              className={`text-2xl font-bold mt-1 ${
+                netResult >= 0
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+              }`}
+            >
+              {fmtUsd(netResult)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ingresos - Gastos
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Tabbed view */}
+      <Tabs defaultValue="expenses">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="expenses">
+            Gastos ({expenses?.groups?.length ?? 0})
+          </TabsTrigger>
+          <TabsTrigger value="income">
+            Ingresos ({income?.groups?.length ?? 0})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="expenses" className="space-y-4 mt-4">
+          {expenses?.groups?.length > 0 ? (
+            <>
+              <ChartCard
+                title={
+                  groupBy === 'account'
+                    ? 'Gastos por Cuenta Contable'
+                    : 'Gastos por Grupo'
+                }
+                description="Haz clic en un grupo abajo para ver el desglose detallado"
+              >
+                <GroupHorizontalBar
+                  groups={expenses.groups}
+                  palette={chartPalette}
+                />
+              </ChartCard>
+              <GroupAccordion
+                groups={expenses.groups}
+                palette={chartPalette}
+                isExpense
+                deltas={isComparing ? expenseDeltas : null}
+              />
+            </>
+          ) : (
+            <ChartEmptyState message="No hay gastos registrados en este periodo." />
+          )}
+        </TabsContent>
+
+        <TabsContent value="income" className="space-y-4 mt-4">
+          {income?.groups?.length > 0 ? (
+            <>
+              <ChartCard
+                title="Ingresos por Categoria"
+                description="Haz clic en una categoria abajo para ver el desglose detallado"
+              >
+                <GroupHorizontalBar
+                  groups={income.groups}
+                  palette={chartPalette}
+                />
+              </ChartCard>
+              <GroupAccordion
+                groups={income.groups}
+                palette={chartPalette}
+                isExpense={false}
+                deltas={isComparing ? incomeDeltas : null}
+              />
+            </>
+          ) : (
+            <ChartEmptyState message="No hay ingresos registrados en este periodo." />
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

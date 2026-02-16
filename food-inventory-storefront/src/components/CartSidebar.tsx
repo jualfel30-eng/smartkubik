@@ -181,6 +181,7 @@ export function CartSidebar({ isOpen, onClose, domain }: CartSidebarProps) {
                     )}
                     alt={item.product.name}
                     fill
+                    unoptimized
                     className="object-cover"
                   />
                 </div>

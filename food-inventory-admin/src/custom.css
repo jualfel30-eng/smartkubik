@@ -16,5 +16,44 @@
 }
 
 .PhoneInputCountry {
-    margin-right: 0.5rem;
+  margin-right: 0.5rem;
+}
+
+/* Forced override for Login Hero Title */
+.hero-title-forced {
+  font-size: 40px !important;
+  /* Fallback for mobile */
+  line-height: 1.1 !important;
+}
+
+@media (min-width: 768px) {
+  .hero-title-forced {
+    font-size: 60px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-title-forced {
+    font-size: 72px !important;
+  }
+}
+
+@keyframes meteor-custom {
+  0% {
+    transform: rotate(110deg) translateX(0);
+    opacity: 1;
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: rotate(110deg) translateX(-2000px);
+    opacity: 0;
+  }
+}
+
+.animate-meteor-custom {
+  animation: meteor-custom 5s linear infinite;
 }

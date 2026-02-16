@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, InternalServerErrorException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import {
@@ -15,6 +15,8 @@ import {
 } from "../../dto/waste.dto";
 import { ConfigService } from "@nestjs/config";
 import { ChatOpenAI } from "@langchain/openai";
+import { InventoryService } from "../inventory/inventory.service";
+import { AccountingService } from "../accounting/accounting.service";
 
 @Injectable()
 export class WasteService {
@@ -25,7 +27,9 @@ export class WasteService {
     private readonly wasteModel: Model<WasteEntryDocument>,
     @InjectModel(Product.name)
     private readonly productModel: Model<ProductDocument>,
+    private readonly inventoryService: InventoryService,
     private readonly configService: ConfigService,
+    private readonly accountingService: AccountingService,
   ) {
     // Inicializar OpenAI si está disponible
     const openaiKey = this.configService.get<string>("OPENAI_API_KEY");
@@ -52,7 +56,7 @@ export class WasteService {
       .findOne({
         _id: new Types.ObjectId(dto.productId),
         tenantId: new Types.ObjectId(tenantId),
-        isDeleted: false,
+        isDeleted: { $ne: true },
       })
       .exec();
 
@@ -60,52 +64,123 @@ export class WasteService {
       throw new NotFoundException("Product not found");
     }
 
-    // Calcular costo - obtener del primer/preferido proveedor
-    let costPerUnit = 0;
-    if (product.suppliers && product.suppliers.length > 0) {
-      const preferredSupplier = product.suppliers.find((s) => s.isPreferred);
-      costPerUnit =
-        preferredSupplier?.costPrice || product.suppliers[0].costPrice || 0;
-    } else if (product.sellingUnits && product.sellingUnits.length > 0) {
-      const defaultUnit = product.sellingUnits.find((u) => u.isDefault);
-      costPerUnit =
-        defaultUnit?.costPerUnit || product.sellingUnits[0].costPerUnit || 0;
+    try {
+      // Calcular costo - obtener del primer/preferido proveedor
+      let costPerUnit = 0;
+      if (product.suppliers && product.suppliers.length > 0) {
+        const preferredSupplier = product.suppliers.find((s) => s.isPreferred);
+        costPerUnit =
+          preferredSupplier?.costPrice || product.suppliers[0].costPrice || 0;
+      } else if (product.sellingUnits && product.sellingUnits.length > 0) {
+        const defaultUnit = product.sellingUnits.find((u) => u.isDefault);
+        costPerUnit =
+          defaultUnit?.costPerUnit || product.sellingUnits[0].costPerUnit || 0;
+      }
+
+      // FALLBACK: Use main variant cost price if no supplier/selling unit found
+      // This covers "Simple" products (Finished Goods) that don't have suppliers
+      if (costPerUnit === 0 && product.variants && product.variants.length > 0) {
+        costPerUnit = product.variants[0].costPrice || 0;
+      }
+
+      // If we fall through here, costPerUnit remains 0, which is safe
+
+      console.log(`Computed costPerUnit: ${costPerUnit} for product ${product._id}`);
+      const totalCost = costPerUnit * dto.quantity;
+
+      // Generar sugerencia de prevención si es AI-powered
+      let preventionSuggestion: string | undefined;
+      if (this.llm && dto.isPreventable) {
+        preventionSuggestion = await this.generatePreventionSuggestion(
+          product.name,
+          dto.reason,
+          dto.quantity,
+          dto.unit,
+        );
+      }
+
+      const entry = new this.wasteModel({
+        tenantId: new Types.ObjectId(tenantId),
+        productId: new Types.ObjectId(dto.productId),
+        productName: product.name,
+        sku: product.sku,
+        quantity: dto.quantity,
+        unit: dto.unit,
+        reason: dto.reason,
+        costPerUnit,
+        totalCost,
+        location: dto.location,
+        notes: dto.notes,
+        wasteDate: dto.wasteDate ? new Date(dto.wasteDate) : new Date(),
+        isPreventable: dto.isPreventable || false,
+        preventionSuggestion,
+        reportedBy: userId ? new Types.ObjectId(userId) : undefined,
+        reportedByName: userName,
+        category: Array.isArray(product.category) ? product.category[0] : product.category,
+        environmentalFactors: dto.environmentalFactors,
+      });
+
+      const savedEntry = await entry.save();
+
+      // Deduct from inventory
+      try {
+        // Find inventory item for this product
+        // We need to find the inventory ID. Since createMovement requires inventoryId,
+        // we first find the inventory.
+        // NOTE: InventoryService.createMovement expects inventoryId, but we might not have it easily if there are multiple lots.
+        // However, usually there is one main inventory record per product/variant.
+
+        const inventory = await this.inventoryService["inventoryModel"].findOne({
+          productId: new Types.ObjectId(dto.productId),
+          tenantId: new Types.ObjectId(tenantId),
+          isActive: true
+        });
+
+        if (inventory) {
+          await this.inventoryService.createMovement(
+            {
+              inventoryId: inventory._id.toString(),
+              productId: dto.productId,
+              productSku: product.sku,
+              movementType: "out",
+              quantity: dto.quantity,
+              unitCost: costPerUnit,
+              reason: `Merma: ${dto.reason}`,
+              reference: savedEntry._id.toString(),
+            } as any, // casting to any to avoid strict DTO validation issues if minor mismatches exist
+            { id: userId, tenantId }, // user context
+          );
+        } else {
+          console.warn(`No inventory found for waste product ${dto.productId} to deduct stock.`);
+        }
+      } catch (error) {
+        console.error("Error deducting inventory for waste (STACK):", error.stack);
+        console.error("Error deducting inventory for waste (MSG):", error.message);
+        // We don't fail the waste creation if inventory update fails, but log it
+      }
+
+      // 3. Registrar pérdida en contabilidad (asíncrono)
+      if (totalCost > 0) {
+        setImmediate(async () => {
+          try {
+            await this.accountingService.createJournalEntryForWaste(
+              savedEntry,
+              tenantId,
+            );
+          } catch (error) {
+            console.error(
+              `Error recording accounting entry for waste ${savedEntry._id}:`,
+              error,
+            );
+          }
+        });
+      }
+
+      return savedEntry;
+    } catch (error) {
+      console.error("Error in WasteService.create:", error);
+      throw new InternalServerErrorException(`Error creating waste entry: ${(error as any).message} - Stack: ${(error as any).stack}`);
     }
-    const totalCost = costPerUnit * dto.quantity;
-
-    // Generar sugerencia de prevención si es AI-powered
-    let preventionSuggestion: string | undefined;
-    if (this.llm && dto.isPreventable) {
-      preventionSuggestion = await this.generatePreventionSuggestion(
-        product.name,
-        dto.reason,
-        dto.quantity,
-        dto.unit,
-      );
-    }
-
-    const entry = new this.wasteModel({
-      tenantId: new Types.ObjectId(tenantId),
-      productId: new Types.ObjectId(dto.productId),
-      productName: product.name,
-      sku: product.sku,
-      quantity: dto.quantity,
-      unit: dto.unit,
-      reason: dto.reason,
-      costPerUnit,
-      totalCost,
-      location: dto.location,
-      notes: dto.notes,
-      wasteDate: dto.wasteDate ? new Date(dto.wasteDate) : new Date(),
-      isPreventable: dto.isPreventable || false,
-      preventionSuggestion,
-      reportedBy: userId ? new Types.ObjectId(userId) : undefined,
-      reportedByName: userName,
-      category: product.category,
-      environmentalFactors: dto.environmentalFactors,
-    });
-
-    return entry.save();
   }
 
   /**

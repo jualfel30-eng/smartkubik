@@ -13,6 +13,7 @@ import { AuthModule } from "./auth/auth.module";
 import { OnboardingModule } from "./modules/onboarding/onboarding.module";
 import { ProductsModule } from "./modules/products/products.module";
 import { InventoryModule } from "./modules/inventory/inventory.module";
+import { InventoryMovementsModule } from "./modules/inventory/inventory-movements.module";
 import { OrdersModule } from "./modules/orders/orders.module";
 import { CustomersModule } from "./modules/customers/customers.module";
 import { PricingModule } from "./modules/pricing/pricing.module";
@@ -59,6 +60,7 @@ import { BankReconciliationModule } from "./modules/bank-reconciliation/bank-rec
 import { PayrollModule } from "./modules/payroll/payroll.module";
 import { PayrollEmployeesModule } from "./modules/payroll-employees/payroll-employees.module";
 import { TipsModule } from "./modules/tips/tips.module";
+import { CommissionsModule } from "./modules/commissions/commissions.module";
 import { ReservationsModule } from "./modules/reservations/reservations.module";
 import { WhapiModule } from "./modules/whapi/whapi.module";
 import { ServicePackagesModule } from "./modules/service-packages/service-packages.module";
@@ -105,6 +107,7 @@ import { PayrollWebhooksModule } from "./modules/payroll-webhooks/payroll-webhoo
 import { UserThrottlerGuard } from "./guards/user-throttler.guard";
 import { AuditLogModule } from "./modules/audit-log/audit-log.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
+import { NotificationCenterModule } from "./modules/notification-center/notification-center.module";
 import { SecurityMonitoringModule } from "./modules/security-monitoring/security-monitoring.module";
 import { WarehousesModule } from "./modules/warehouses/warehouses.module";
 import { OpportunitiesModule } from "./modules/opportunities/opportunities.module";
@@ -117,7 +120,12 @@ import { ActivitiesModule } from "./modules/activities/activities.module";
 import { RemindersModule } from "./modules/reminders/reminders.module";
 import { TenantPaymentConfigModule } from "./modules/tenant-payment-config/tenant-payment-config.module";
 import { BinancePayModule } from "./modules/binance-pay/binance-pay.module";
-import { CountryPluginModule } from "./country-plugins/country-plugin.module";
+import { DriversModule } from "./modules/drivers/drivers.module";
+import { CashRegisterModule } from "./modules/cash-register/cash-register.module";
+import { FixedAssetsModule } from "./modules/fixed-assets/fixed-assets.module";
+import { InvestmentsModule } from "./modules/investments/investments.module";
+import { DataImportModule } from "./modules/data-import/data-import.module";
+import { PriceListsModule } from "./modules/price-lists/price-lists.module";
 
 import { Redis } from "ioredis";
 
@@ -134,7 +142,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
       delimiter: ".",
       newListener: false,
       removeListener: false,
-      maxListeners: 20, // Increased to handle more event types
+      maxListeners: 20,
       verboseMemoryLeak: false,
       ignoreErrors: false,
     }),
@@ -168,22 +176,21 @@ let sharedSecondaryRedisConnection: Redis | null = null;
       },
       inject: [ConfigService],
     }),
-    // Rate Limiting Configuration
     ThrottlerModule.forRoot([
       {
         name: "short",
-        ttl: 60000, // 1 minuto
-        limit: process.env.NODE_ENV === "production" ? 50 : 200, // 200 requests/min en dev, 50 en prod
+        ttl: 60000,
+        limit: process.env.NODE_ENV === "production" ? 50 : 200,
       },
       {
         name: "medium",
-        ttl: 600000, // 10 minutos
-        limit: process.env.NODE_ENV === "production" ? 300 : 1000, // 1000 requests/10min en dev, 300 en prod
+        ttl: 600000,
+        limit: process.env.NODE_ENV === "production" ? 300 : 1000,
       },
       {
         name: "long",
-        ttl: 3600000, // 1 hora
-        limit: process.env.NODE_ENV === "production" ? 1000 : 3000, // 3000 requests/hora en dev, 1000 en prod
+        ttl: 3600000,
+        limit: process.env.NODE_ENV === "production" ? 1000 : 3000,
       },
     ]),
     ...(process.env.DISABLE_BULLMQ === "true"
@@ -212,7 +219,6 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               },
             };
 
-            // Return existing shared connection if available
             if (sharedRedisConnection) {
               return {
                 connection: sharedRedisConnection,
@@ -233,7 +239,6 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               const config: Record<string, any> = {
                 host: parsed.hostname,
                 port: parsed.port ? Number(parsed.port) : 6379,
-                // Essential for BullMQ when reusing connections
                 maxRetriesPerRequest: null,
                 enableReadyCheck: false,
               };
@@ -256,7 +261,6 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               const tlsQuery =
                 parsed.searchParams.get("tls") ||
                 parsed.searchParams.get("ssl");
-
               const tlsExplicitlyDisabled =
                 tlsQuery && tlsQuery.toLowerCase() === "false";
 
@@ -316,11 +320,9 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               }
             }
 
-            // Create the shared instance
             console.log("--- Initializing Shared Redis Connection for BullMQ ---");
             sharedRedisConnection = new Redis(redisOpts);
 
-            // Handle error events to prevent crash on connection loss
             sharedRedisConnection.on('error', (err) => {
               console.error('Shared Redis Connection Error:', err);
             });
@@ -347,37 +349,6 @@ let sharedSecondaryRedisConnection: Redis | null = null;
                 delay: 3000,
               },
             };
-
-            // Return existing shared secondary connection if available
-            if (sharedSecondaryRedisConnection) {
-              return {
-                connection: sharedSecondaryRedisConnection,
-                prefix,
-                defaultJobOptions,
-              };
-            }
-
-            const secondaryUrl = configService
-              .get<string>("REDIS_URL_SECONDARY")
-              ?.trim();
-
-            if (!secondaryUrl) {
-              console.log(
-                "--- No REDIS_URL_SECONDARY found, falling back to PRIMARY for 'secondary' scope ---",
-              );
-              if (sharedRedisConnection) {
-                return { connection: sharedRedisConnection, prefix, defaultJobOptions };
-              }
-              return {
-                connection: new Redis(
-                  configService.get<string>("REDIS_URL") ||
-                  "redis://127.0.0.1:6379",
-                  { maxRetriesPerRequest: null, enableReadyCheck: false },
-                ),
-                prefix,
-                defaultJobOptions,
-              };
-            }
 
             const buildConnectionConfig = (url: string) => {
               let normalized = url.trim();
@@ -406,10 +377,16 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               const tlsQuery =
                 parsed.searchParams.get("tls") ||
                 parsed.searchParams.get("ssl");
+              const tlsExplicitlyDisabled =
+                tlsQuery && tlsQuery.toLowerCase() === "false";
+
               const forceTls =
-                parsed.protocol === "rediss:" ||
-                tlsQuery === "true" ||
-                parsed.hostname.endsWith(".redis-cloud.com");
+                !tlsExplicitlyDisabled &&
+                (parsed.protocol === "rediss:" ||
+                  (tlsQuery && tlsQuery.toLowerCase() === "true") ||
+                  parsed.hostname.endsWith(".redis-cloud.com") ||
+                  configService.get<string>("REDIS_TLS") === "true");
+
               if (forceTls) {
                 config.tls = {
                   rejectUnauthorized: false,
@@ -418,6 +395,33 @@ let sharedSecondaryRedisConnection: Redis | null = null;
               }
               return config;
             };
+
+            if (sharedSecondaryRedisConnection) {
+              return {
+                connection: sharedSecondaryRedisConnection,
+                prefix,
+                defaultJobOptions,
+              };
+            }
+
+            const secondaryUrl = configService
+              .get<string>("REDIS_URL_SECONDARY")
+              ?.trim();
+
+            if (!secondaryUrl) {
+              console.log(
+                "--- No REDIS_URL_SECONDARY found, falling back to PRIMARY for 'secondary' scope ---",
+              );
+              if (sharedRedisConnection) {
+                return { connection: sharedRedisConnection, prefix, defaultJobOptions };
+              }
+              const primaryUrl = configService.get<string>("REDIS_URL") || "redis://127.0.0.1:6379";
+              return {
+                connection: new Redis(buildConnectionConfig(primaryUrl)),
+                prefix,
+                defaultJobOptions,
+              };
+            }
 
             console.log(
               "--- Initializing Shared Redis Connection (SECONDARY) ---",
@@ -438,14 +442,15 @@ let sharedSecondaryRedisConnection: Redis | null = null;
           inject: [ConfigService],
         }),
       ]),
-    CountryPluginModule,
     FeatureFlagsGlobalModule,
     FeatureFlagsModule,
     HealthModule,
     AuthModule,
     OnboardingModule,
     ProductsModule,
+    PriceListsModule,
     InventoryModule,
+    InventoryMovementsModule,
     ConsumablesModule,
     SuppliesModule,
     UnitConversionsModule,
@@ -488,6 +493,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     PayrollModule,
     PayrollEmployeesModule,
     TipsModule,
+    CommissionsModule,
     ReservationsModule,
     AppointmentsModule,
     ServicePackagesModule,
@@ -526,6 +532,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     ProductCampaignModule,
     AuditLogModule,
     NotificationsModule,
+    NotificationCenterModule,
     SecurityMonitoringModule,
     WarehousesModule,
     OpportunitiesModule,
@@ -538,12 +545,16 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     RemindersModule,
     TenantPaymentConfigModule,
     BinancePayModule,
+    DriversModule,
+    CashRegisterModule,
+    FixedAssetsModule,
+    InvestmentsModule,
+    DataImportModule,
   ],
   controllers: [AppController, TenantController],
   providers: [
     AppService,
     TenantService,
-    // Aplicar ThrottlerGuard globalmente
     {
       provide: APP_GUARD,
       useClass: UserThrottlerGuard,

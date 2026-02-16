@@ -2,54 +2,58 @@ import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
-  Button,
-  TextField,
-  Grid,
-  Typography,
-  Stepper,
-  Step,
-  StepLabel,
-  Paper,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardFooter,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
   TableHead,
+  TableHeader,
   TableRow,
-  Alert,
-  Chip,
-  Box,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  Divider,
-  CircularProgress,
-} from '@mui/material';
+} from '@/components/ui/table';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import {
   CheckCircle,
-  Warning,
-  Error as ErrorIcon,
-  Calculate,
+  AlertTriangle,
+  Calculator,
   Send,
-  Payment,
-  GetApp,
-} from '@mui/icons-material';
-import { toast } from 'react-toastify';
+  CreditCard,
+  Download,
+  Loader2,
+  ChevronLeft,
+  FileText,
+  Trash2,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import {
   calculateIvaDeclaration,
-  fetchIvaDeclarationByPeriod,
-  updateIvaDeclaration,
   fileIvaDeclaration,
   recordIvaDeclarationPayment,
   downloadIvaDeclarationXML,
   validatePurchaseBook,
   validateSalesBook,
+  fetchIvaDeclarations,
+  deleteIvaDeclaration,
 } from '../../lib/api';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { cn } from "@/lib/utils";
 
 const steps = ['Validar Libros', 'Calcular Declaración', 'Revisar', 'Presentar y Pagar'];
 
@@ -58,8 +62,8 @@ const IvaDeclarationWizard = () => {
   const [loading, setLoading] = useState(false);
 
   // Datos del período
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
 
   // Validación
   const [purchasesValidation, setPurchasesValidation] = useState(null);
@@ -87,8 +91,8 @@ const IvaDeclarationWizard = () => {
       setLoading(true);
 
       const [purchasesResult, salesResult] = await Promise.all([
-        validatePurchaseBook(selectedMonth, selectedYear),
-        validateSalesBook(selectedMonth, selectedYear),
+        validatePurchaseBook(parseInt(selectedMonth), parseInt(selectedYear)),
+        validateSalesBook(parseInt(selectedMonth), parseInt(selectedYear)),
       ]);
 
       setPurchasesValidation(purchasesResult);
@@ -97,10 +101,12 @@ const IvaDeclarationWizard = () => {
       const totalErrors = purchasesResult.errors.length + salesResult.errors.length;
 
       if (totalErrors === 0) {
-        toast.success('✅ Libros validados correctamente');
+        toast.success('Libros validados correctamente');
         setActiveStep(1);
       } else {
-        toast.warning(`⚠️ Se encontraron ${totalErrors} errores. Revise antes de continuar.`);
+        // PERMITIR AVANZAR PARA CORREGIR ERRORES VIA SYNC
+        toast.warning(`Se encontraron ${totalErrors} errores. Procediendo al cálculo para intentar corrección automática.`);
+        setActiveStep(1);
       }
     } catch (error) {
       toast.error('Error al validar libros');
@@ -116,8 +122,8 @@ const IvaDeclarationWizard = () => {
       setLoading(true);
 
       const calculatedDeclaration = await calculateIvaDeclaration({
-        month: selectedMonth,
-        year: selectedYear,
+        month: parseInt(selectedMonth),
+        year: parseInt(selectedYear),
         previousCreditBalance: previousCredit,
         autoCalculate: true,
       });
@@ -126,7 +132,7 @@ const IvaDeclarationWizard = () => {
       toast.success('Declaración calculada exitosamente');
       setActiveStep(2);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Error al calcular declaración');
+      toast.error(error.message || 'Error al calcular declaración');
       console.error(error);
     } finally {
       setLoading(false);
@@ -150,7 +156,7 @@ const IvaDeclarationWizard = () => {
       toast.success('Declaración presentada a SENIAT');
       setActiveStep(3);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Error al presentar declaración');
+      toast.error(error.message || 'Error al presentar declaración');
       console.error(error);
     } finally {
       setLoading(false);
@@ -172,7 +178,7 @@ const IvaDeclarationWizard = () => {
       setDeclaration(paid);
       toast.success('Pago registrado exitosamente');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Error al registrar pago');
+      toast.error(error.message || 'Error al registrar pago');
       console.error(error);
     } finally {
       setLoading(false);
@@ -198,489 +204,541 @@ const IvaDeclarationWizard = () => {
     setPurchasesValidation(null);
     setSalesValidation(null);
     setPreviousCredit(0);
+    setPaymentData({
+      paymentDate: format(new Date(), 'yyyy-MM-dd'),
+      paymentReference: '',
+      amountPaid: 0,
+    });
   };
+
+  const StepIndicator = () => (
+    <div className="w-full mb-10 px-2">
+      <div className="flex items-center w-full">
+        {steps.map((label, index) => {
+          const isCompleted = activeStep > index;
+          const isActive = activeStep === index;
+          const isPending = activeStep < index;
+          const isLast = index === steps.length - 1;
+
+          return (
+            <React.Fragment key={index}>
+              {/* Step Circle & Label */}
+              <div className="relative flex flex-col items-center">
+                <div
+                  className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center border-2 text-sm font-bold transition-all duration-300 z-10 bg-background",
+                    isActive && "border-primary bg-primary text-primary-foreground shadow-[0_0_0_4px_rgba(var(--primary),0.2)] scale-110",
+                    isCompleted && "border-primary bg-primary text-primary-foreground",
+                    isPending && "border-muted-foreground/30 text-muted-foreground"
+                  )}
+                >
+                  {isCompleted ? <CheckCircle className="h-5 w-5" /> : index + 1}
+                </div>
+
+                {/* Text Label - Absolute positioned to not affect flex layout of lines */}
+                <div className="absolute top-12 w-32 flex justify-center">
+                  <span className={cn(
+                    "text-xs font-medium text-center transition-colors duration-300",
+                    isActive && "text-primary font-bold",
+                    isCompleted && "text-primary",
+                    isPending && "text-muted-foreground"
+                  )}>
+                    {label}
+                  </span>
+                </div>
+              </div>
+
+              {/* Connecting Line (Progress Bar) */}
+              {!isLast && (
+                <div className="flex-1 h-[2px] mx-2 relative">
+                  {/* Base Line */}
+                  <div className={cn(
+                    "absolute inset-0 transition-colors duration-300",
+                    // If current step is completed (meaning we moved past it), the base line is colored?
+                    // Actually, usually the line fills up as we go. 
+                    // Let's keep base gray, and fill overlay.
+                    "bg-border"
+                  )} />
+
+                  {/* Active Fill Line */}
+                  <div
+                    className={cn(
+                      "absolute inset-0 bg-primary transition-all duration-500 origin-left",
+                      activeStep > index ? "w-full" : "w-0"
+                    )}
+                  />
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
 
   // Renderizar cada step
   const renderStepContent = () => {
     switch (activeStep) {
       case 0:
         return (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Paso 1: Validar Libros Fiscales
-            </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              Antes de calcular la declaración, validaremos la integridad de los libros de compras y ventas.
-            </Typography>
+          <div className="space-y-8">
+            <div className="space-y-6">
+              <div className="grid gap-2">
+                <h3 className="text-lg font-medium">Paso 1: Validar Libros Fiscales</h3>
+                <p className="text-sm text-muted-foreground">
+                  Seleccione el período a declarar. El sistema verificará la integridad de los libros y sincronizará automáticamente las facturas faltantes.
+                </p>
+              </div>
 
-            <Paper elevation={2} sx={{ p: 3, mb: 3, bgcolor: 'primary.light', color: 'white' }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel sx={{ color: 'white' }}>Mes</InputLabel>
-                    <Select
-                      value={selectedMonth}
-                      onChange={(e) => setSelectedMonth(e.target.value)}
-                      sx={{ bgcolor: 'white' }}
-                    >
-                      {monthNames.map((month, index) => (
-                        <MenuItem key={index + 1} value={index + 1}>
-                          {month}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel sx={{ color: 'white' }}>Año</InputLabel>
-                    <Select
-                      value={selectedYear}
-                      onChange={(e) => setSelectedYear(e.target.value)}
-                      sx={{ bgcolor: 'white' }}
-                    >
-                      {[2023, 2024, 2025, 2026].map((year) => (
-                        <MenuItem key={year} value={year}>
-                          {year}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {purchasesValidation && salesValidation && (
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <Alert
-                    severity={purchasesValidation.valid ? 'success' : 'warning'}
-                    icon={purchasesValidation.valid ? <CheckCircle /> : <Warning />}
-                  >
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      Libro de Compras
-                    </Typography>
-                    {purchasesValidation.valid ? (
-                      <Typography variant="body2">Validado correctamente</Typography>
-                    ) : (
-                      <>
-                        <Typography variant="body2">
-                          {purchasesValidation.errors.length} errores encontrados
-                        </Typography>
-                        <ul style={{ marginTop: 8, fontSize: '0.875rem' }}>
-                          {purchasesValidation.errors.slice(0, 3).map((error, i) => (
-                            <li key={i}>{error}</li>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="month">Mes</Label>
+                      <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                        <SelectTrigger id="month">
+                          <SelectValue placeholder="Seleccionar mes" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {monthNames.map((month, index) => (
+                            <SelectItem key={index + 1} value={(index + 1).toString()}>
+                              {month}
+                            </SelectItem>
                           ))}
-                        </ul>
-                      </>
-                    )}
-                  </Alert>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Alert
-                    severity={salesValidation.valid ? 'success' : 'warning'}
-                    icon={salesValidation.valid ? <CheckCircle /> : <Warning />}
-                  >
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      Libro de Ventas
-                    </Typography>
-                    {salesValidation.valid ? (
-                      <Typography variant="body2">Validado correctamente</Typography>
-                    ) : (
-                      <>
-                        <Typography variant="body2">
-                          {salesValidation.errors.length} errores encontrados
-                        </Typography>
-                        <ul style={{ marginTop: 8, fontSize: '0.875rem' }}>
-                          {salesValidation.errors.slice(0, 3).map((error, i) => (
-                            <li key={i}>{error}</li>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="year">Año</Label>
+                      <Select value={selectedYear} onValueChange={setSelectedYear}>
+                        <SelectTrigger id="year">
+                          <SelectValue placeholder="Seleccionar año" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[2023, 2024, 2025, 2026].map((year) => (
+                            <SelectItem key={year} value={year.toString()}>
+                              {year}
+                            </SelectItem>
                           ))}
-                        </ul>
-                      </>
-                    )}
-                  </Alert>
-                </Grid>
-              </Grid>
-            )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-            <Box sx={{ mt: 3, textAlign: 'right' }}>
-              <Button
-                variant="contained"
-                onClick={handleValidateBooks}
-                disabled={loading}
-                startIcon={loading ? <CircularProgress size={20} /> : <CheckCircle />}
-              >
-                Validar Libros
-              </Button>
-            </Box>
-          </Box>
+              {purchasesValidation && salesValidation && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Alert variant={purchasesValidation.valid ? "default" : "destructive"}>
+                    {purchasesValidation.valid ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                    <AlertTitle>Libro de Compras</AlertTitle>
+                    <AlertDescription>
+                      {purchasesValidation.valid ? (
+                        "Validado correctamente"
+                      ) : (
+                        <div className="mt-2">
+                          <p className="font-medium">{purchasesValidation.errors.length} errores encontrados:</p>
+                          <ul className="list-disc list-inside text-xs mt-1">
+                            {purchasesValidation.errors.slice(0, 3).map((error, i) => (
+                              <li key={i}>{error}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+
+                  <Alert variant={salesValidation.valid ? "default" : "destructive"}>
+                    {salesValidation.valid ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                    <AlertTitle>Libro de Ventas</AlertTitle>
+                    <AlertDescription>
+                      {salesValidation.valid ? (
+                        "Validado correctamente"
+                      ) : (
+                        <div className="mt-2">
+                          <p className="font-medium">{salesValidation.errors.length} errores encontrados:</p>
+                          <ul className="list-disc list-inside text-xs mt-1">
+                            {salesValidation.errors.slice(0, 3).map((error, i) => (
+                              <li key={i}>{error}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4">
+                <Button onClick={handleValidateBooks} disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {!loading && <CheckCircle className="mr-2 h-4 w-4" />}
+                  Validar y Sincronizar
+                </Button>
+              </div>
+            </div>
+
+            <Separator className="my-6" />
+
+            {/* Historial de Declaraciones */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">Historial de Declaraciones</h3>
+              <DeclarationsHistory
+                refreshTrigger={loading}
+                onSelect={(decl) => {
+                  setSelectedMonth(decl.month.toString());
+                  setSelectedYear(decl.year.toString());
+                  // Auto-load logic could go here
+                }}
+              />
+            </div>
+          </div>
         );
 
       case 1:
         return (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Paso 2: Calcular Declaración
-            </Typography>
-            <Typography variant="body2" color="textSecondary" paragraph>
-              El sistema calculará automáticamente la declaración desde los libros fiscales validados.
-            </Typography>
+          <div className="space-y-6">
+            <div className="grid gap-2">
+              <h3 className="text-lg font-medium">Paso 2: Calcular Declaración</h3>
+              <p className="text-sm text-muted-foreground">
+                El sistema calculará automáticamente la declaración desde los libros fiscales validados.
+              </p>
+            </div>
 
-            <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-              <Typography variant="subtitle1" gutterBottom>
-                Configuración
-              </Typography>
-              <TextField
-                fullWidth
-                type="number"
-                label="Excedente del período anterior"
-                value={previousCredit}
-                onChange={(e) => setPreviousCredit(parseFloat(e.target.value) || 0)}
-                helperText="Si tiene crédito fiscal del mes anterior, ingréselo aquí"
-                sx={{ mt: 2 }}
-                InputProps={{
-                  startAdornment: <Typography sx={{ mr: 1 }}>Bs.</Typography>,
-                }}
-              />
-            </Paper>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Configuración Inicial</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Label htmlFor="previousCredit">Excedente del período anterior (Crédito Fiscal)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-muted-foreground">Bs.</span>
+                    <Input
+                      id="previousCredit"
+                      type="number"
+                      className="pl-10"
+                      value={previousCredit}
+                      onChange={(e) => setPreviousCredit(parseFloat(e.target.value) || 0)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Si tiene crédito fiscal del mes anterior, ingréselo aquí</p>
+                </div>
+              </CardContent>
+            </Card>
 
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-              <Button onClick={handleBack}>Atrás</Button>
-              <Button
-                variant="contained"
-                onClick={handleCalculate}
-                disabled={loading}
-                startIcon={loading ? <CircularProgress size={20} /> : <Calculate />}
-              >
+            <div className="flex justify-between pt-4">
+              <Button variant="outline" onClick={handleBack} disabled={loading}>
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Atrás
+              </Button>
+              <Button onClick={handleCalculate} disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {!loading && <Calculator className="mr-2 h-4 w-4" />}
                 Calcular Declaración
               </Button>
-            </Box>
-          </Box>
+            </div>
+          </div>
         );
 
       case 2:
         return (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Paso 3: Revisar Declaración
-            </Typography>
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium">Paso 3: Revisar Declaración</h3>
 
             {declaration && (
-              <Grid container spacing={2}>
+              <div className="space-y-6">
                 {/* Resumen General */}
-                <Grid item xs={12}>
-                  <Paper elevation={2} sx={{ p: 2, bgcolor: 'info.light', color: 'white' }}>
-                    <Typography variant="subtitle1" fontWeight="bold">
-                      Declaración {declaration.declarationNumber}
-                    </Typography>
-                    <Typography variant="body2">
-                      Período: {monthNames[declaration.month - 1]} {declaration.year}
-                    </Typography>
-                  </Paper>
-                </Grid>
+                <Card className="bg-muted/50 border-primary/20">
+                  <CardContent className="pt-6">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="text-lg font-bold text-primary">Declaración {declaration.declarationNumber}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Período: {monthNames[declaration.month - 1]} {declaration.year}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="text-base px-3 py-1">
+                        Forma 30
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                {/* Débito Fiscal */}
-                <Grid item xs={12} md={6}>
-                  <Paper elevation={1} sx={{ p: 2 }}>
-                    <Typography variant="subtitle2" color="primary" gutterBottom>
-                      DÉBITO FISCAL (Ventas)
-                    </Typography>
-                    <Table size="small">
-                      <TableBody>
-                        <TableRow>
-                          <TableCell>Base Imponible:</TableCell>
-                          <TableCell align="right">
-                            Bs. {declaration.salesBaseAmount.toFixed(2)}
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>IVA Ventas:</TableCell>
-                          <TableCell align="right">
-                            <Typography fontWeight="bold">
-                              Bs. {declaration.salesIvaAmount.toFixed(2)}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>Operaciones:</TableCell>
-                          <TableCell align="right">{declaration.totalSalesTransactions}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </Paper>
-                </Grid>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Débito Fiscal */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-blue-600">DÉBITO FISCAL (Ventas)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell className="py-2">Base Imponible</TableCell>
+                            <TableCell className="text-right py-2 font-mono">Bs. {declaration.salesBaseAmount.toFixed(2)}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="py-2 font-medium">IVA Ventas</TableCell>
+                            <TableCell className="text-right py-2 font-mono font-bold">Bs. {declaration.salesIvaAmount.toFixed(2)}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="py-2 text-muted-foreground">Operaciones</TableCell>
+                            <TableCell className="text-right py-2">{declaration.totalSalesTransactions}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
 
-                {/* Crédito Fiscal */}
-                <Grid item xs={12} md={6}>
-                  <Paper elevation={1} sx={{ p: 2 }}>
-                    <Typography variant="subtitle2" color="success.main" gutterBottom>
-                      CRÉDITO FISCAL (Compras)
-                    </Typography>
-                    <Table size="small">
-                      <TableBody>
-                        <TableRow>
-                          <TableCell>Base Imponible:</TableCell>
-                          <TableCell align="right">
-                            Bs. {declaration.purchasesBaseAmount.toFixed(2)}
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>IVA Compras:</TableCell>
-                          <TableCell align="right">
-                            <Typography fontWeight="bold">
-                              Bs. {declaration.purchasesIvaAmount.toFixed(2)}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                        <TableRow>
-                          <TableCell>Operaciones:</TableCell>
-                          <TableCell align="right">{declaration.totalPurchasesTransactions}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </Paper>
-                </Grid>
+                  {/* Crédito Fiscal */}
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium text-green-600">CRÉDITO FISCAL (Compras)</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell className="py-2">Base Imponible</TableCell>
+                            <TableCell className="text-right py-2 font-mono">Bs. {declaration.purchasesBaseAmount.toFixed(2)}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="py-2 font-medium">IVA Compras</TableCell>
+                            <TableCell className="text-right py-2 font-mono font-bold">Bs. {declaration.purchasesIvaAmount.toFixed(2)}</TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell className="py-2 text-muted-foreground">Operaciones</TableCell>
+                            <TableCell className="text-right py-2">{declaration.totalPurchasesTransactions}</TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </Card>
+                </div>
 
-                {/* Retenciones */}
-                <Grid item xs={12}>
-                  <Paper elevation={1} sx={{ p: 2 }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Retenciones
-                    </Typography>
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">IVA Retenido por Clientes:</Typography>
-                        <Typography variant="h6">
-                          Bs. {declaration.ivaWithheldOnSales.toFixed(2)}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">Excedente Anterior:</Typography>
-                        <Typography variant="h6">
-                          Bs. {declaration.previousCreditBalance.toFixed(2)}
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                </Grid>
+                {/* Retenciones y Excedentes */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">Retenciones y Créditos Anteriores</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">IVA Retenido por Clientes</p>
+                        <p className="text-xl font-bold font-mono">Bs. {declaration.ivaWithheldOnSales.toFixed(2)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Excedente Período Anterior</p>
+                        <p className="text-xl font-bold font-mono">Bs. {declaration.previousCreditBalance.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 {/* Cálculo Final */}
-                <Grid item xs={12}>
-                  <Paper elevation={3} sx={{ p: 3, bgcolor: 'warning.light' }}>
-                    <Typography variant="h6" gutterBottom>
+                <Card className={cn("border-2", declaration.ivaToPay > 0
+                  ? "border-orange-200 bg-orange-50/50 dark:bg-orange-900/10 dark:border-orange-900/50"
+                  : "border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-900/50"
+                )}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calculator className="h-5 w-5" />
                       CÁLCULO FINAL
-                    </Typography>
-                    <Divider sx={{ my: 2 }} />
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">Total Débito Fiscal:</Typography>
-                        <Typography variant="h6">
-                          Bs. {declaration.totalDebitFiscal.toFixed(2)}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">Total Crédito Aplicable:</Typography>
-                        <Typography variant="h6">
-                          Bs. {declaration.totalCreditToApply.toFixed(2)}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12}>
-                        <Divider />
-                      </Grid>
-                      {declaration.ivaToPay > 0 ? (
-                        <Grid item xs={12}>
-                          <Alert severity="warning" icon={<Payment />}>
-                            <Typography variant="h5" fontWeight="bold">
-                              IVA A PAGAR: Bs. {declaration.ivaToPay.toFixed(2)}
-                            </Typography>
-                          </Alert>
-                        </Grid>
-                      ) : (
-                        <Grid item xs={12}>
-                          <Alert severity="success" icon={<CheckCircle />}>
-                            <Typography variant="h5" fontWeight="bold">
-                              EXCEDENTE A FAVOR: Bs. {declaration.creditBalance.toFixed(2)}
-                            </Typography>
-                          </Alert>
-                        </Grid>
-                      )}
-                    </Grid>
-                  </Paper>
-                </Grid>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between items-center text-sm">
+                      <span>Total Débito Fiscal:</span>
+                      <span className="font-mono">Bs. {declaration.totalDebitFiscal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span>Total Crédito Aplicable:</span>
+                      <span className="font-mono">Bs. {declaration.totalCreditToApply.toFixed(2)}</span>
+                    </div>
+
+                    <Separator />
+
+                    {declaration.ivaToPay > 0 ? (
+                      <div className="flex justify-between items-center text-orange-700 dark:text-orange-400">
+                        <span className="text-lg font-bold">IVA A PAGAR AL TESORO:</span>
+                        <span className="text-2xl font-bold font-mono">Bs. {declaration.ivaToPay.toFixed(2)}</span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-center text-green-700 dark:text-green-400">
+                        <span className="text-lg font-bold">EXCEDENTE (CRÉDITO FISCAL):</span>
+                        <span className="text-2xl font-bold font-mono">Bs. {declaration.creditBalance.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Desglose por Alícuota */}
                 {declaration.rateBreakdown && declaration.rateBreakdown.length > 0 && (
-                  <Grid item xs={12}>
-                    <Paper elevation={1} sx={{ p: 2 }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Desglose por Alícuota
-                      </Typography>
-                      <Table size="small">
-                        <TableHead>
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-medium">Desglose por Alícuota</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
                           <TableRow>
-                            <TableCell>Tasa</TableCell>
-                            <TableCell align="right">Ventas Base</TableCell>
-                            <TableCell align="right">Ventas IVA</TableCell>
-                            <TableCell align="right">Compras Base</TableCell>
-                            <TableCell align="right">Compras IVA</TableCell>
+                            <TableHead>Tasa</TableHead>
+                            <TableHead className="text-right">Ventas Base</TableHead>
+                            <TableHead className="text-right">Ventas IVA</TableHead>
+                            <TableHead className="text-right">Compras Base</TableHead>
+                            <TableHead className="text-right">Compras IVA</TableHead>
                           </TableRow>
-                        </TableHead>
+                        </TableHeader>
                         <TableBody>
                           {declaration.rateBreakdown.map((rate, index) => (
                             <TableRow key={index}>
                               <TableCell>{rate.rate}%</TableCell>
-                              <TableCell align="right">Bs. {rate.salesBase.toFixed(2)}</TableCell>
-                              <TableCell align="right">Bs. {rate.salesIva.toFixed(2)}</TableCell>
-                              <TableCell align="right">Bs. {rate.purchasesBase.toFixed(2)}</TableCell>
-                              <TableCell align="right">Bs. {rate.purchasesIva.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-mono">Bs. {rate.salesBase.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-mono">Bs. {rate.salesIva.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-mono">Bs. {rate.purchasesBase.toFixed(2)}</TableCell>
+                              <TableCell className="text-right font-mono">Bs. {rate.purchasesIva.toFixed(2)}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
-                    </Paper>
-                  </Grid>
+                    </CardContent>
+                  </Card>
                 )}
-              </Grid>
+              </div>
             )}
 
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-              <Button onClick={handleBack}>Atrás</Button>
-              <Button
-                variant="contained"
-                onClick={handleFile}
-                disabled={loading || !declaration}
-                startIcon={loading ? <CircularProgress size={20} /> : <Send />}
-              >
+            <div className="flex justify-between pt-4">
+              <Button variant="outline" onClick={handleBack} disabled={loading}>
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Atrás
+              </Button>
+              <Button onClick={handleFile} disabled={loading || !declaration}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {!loading && <Send className="mr-2 h-4 w-4" />}
                 Presentar a SENIAT
               </Button>
-            </Box>
-          </Box>
+            </div>
+          </div>
         );
 
       case 3:
         return (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Paso 4: Presentar y Pagar
-            </Typography>
+          <div className="space-y-6">
+            <h3 className="text-lg font-medium">Paso 4: Presentar y Pagar</h3>
 
             {declaration && (
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Alert severity="success" icon={<CheckCircle />}>
-                    <Typography variant="subtitle1" fontWeight="bold">
-                      Declaración presentada exitosamente
-                    </Typography>
-                    <Typography variant="body2">
-                      Número: {declaration.declarationNumber}
-                    </Typography>
-                    {declaration.filingDate && (
-                      <Typography variant="body2">
-                        Fecha de presentación: {format(new Date(declaration.filingDate), 'dd/MM/yyyy')}
-                      </Typography>
-                    )}
-                  </Alert>
-                </Grid>
+              <div className="space-y-6">
+                <Alert className="border-green-500 bg-green-50 text-green-900 dark:bg-green-900/20 dark:text-green-100">
+                  <CheckCircle className="h-4 w-4" />
+                  <AlertTitle>Declaración presentada exitosamente</AlertTitle>
+                  <AlertDescription>
+                    <div className="mt-2 space-y-1">
+                      <p>Número de Declaración: <span className="font-mono font-bold">{declaration.declarationNumber}</span></p>
+                      {declaration.filingDate && (
+                        <p>Fecha: {format(new Date(declaration.filingDate), 'dd/MM/yyyy HH:mm')}</p>
+                      )}
+                    </div>
+                  </AlertDescription>
+                </Alert>
 
                 {declaration.xmlContent && (
-                  <Grid item xs={12}>
-                    <Button
-                      variant="outlined"
-                      startIcon={<GetApp />}
-                      onClick={handleDownloadXML}
-                    >
-                      Descargar XML SENIAT
-                    </Button>
-                  </Grid>
+                  <Button variant="outline" onClick={handleDownloadXML} className="w-full sm:w-auto">
+                    <Download className="mr-2 h-4 w-4" />
+                    Descargar XML SENIAT
+                  </Button>
                 )}
 
                 {declaration.ivaToPay > 0 && declaration.status !== 'paid' && (
-                  <Grid item xs={12}>
-                    <Paper elevation={2} sx={{ p: 3 }}>
-                      <Typography variant="subtitle1" gutterBottom>
+                  <Card className="border-orange-200">
+                    <CardHeader>
+                      <CardTitle className="text-orange-700 flex items-center gap-2">
+                        <CreditCard className="h-5 w-5" />
                         Registrar Pago
-                      </Typography>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} md={4}>
-                          <TextField
-                            fullWidth
+                      </CardTitle>
+                      <CardDescription>
+                        Ingrese los datos de la transferencia o pago realizado al tesoro nacional.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="paymentDate">Fecha de Pago</Label>
+                          <Input
+                            id="paymentDate"
                             type="date"
-                            label="Fecha de Pago"
                             value={paymentData.paymentDate}
                             onChange={(e) =>
                               setPaymentData({ ...paymentData, paymentDate: e.target.value })
                             }
-                            InputLabelProps={{ shrink: true }}
                           />
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                          <TextField
-                            fullWidth
-                            label="Referencia de Pago"
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="paymentRef">Referencia</Label>
+                          <Input
+                            id="paymentRef"
                             value={paymentData.paymentReference}
                             onChange={(e) =>
                               setPaymentData({ ...paymentData, paymentReference: e.target.value })
                             }
-                            placeholder="Ej: 123456789"
+                            placeholder="Ej: 12345678"
                           />
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                          <TextField
-                            fullWidth
-                            type="number"
-                            label="Monto Pagado"
-                            value={paymentData.amountPaid || declaration.totalToPay}
-                            onChange={(e) =>
-                              setPaymentData({
-                                ...paymentData,
-                                amountPaid: parseFloat(e.target.value),
-                              })
-                            }
-                            InputProps={{
-                              startAdornment: <Typography sx={{ mr: 1 }}>Bs.</Typography>,
-                            }}
-                          />
-                        </Grid>
-                        <Grid item xs={12}>
-                          <Button
-                            variant="contained"
-                            color="success"
-                            onClick={handleRecordPayment}
-                            disabled={loading}
-                            startIcon={<Payment />}
-                          >
-                            Registrar Pago
-                          </Button>
-                        </Grid>
-                      </Grid>
-                    </Paper>
-                  </Grid>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="amountPaid">Monto Pagado</Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2.5 text-muted-foreground">Bs.</span>
+                            <Input
+                              id="amountPaid"
+                              type="number"
+                              className="pl-10"
+                              value={paymentData.amountPaid || declaration.totalToPay}
+                              onChange={(e) =>
+                                setPaymentData({
+                                  ...paymentData,
+                                  amountPaid: parseFloat(e.target.value),
+                                })
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                    <CardFooter>
+                      <Button
+                        onClick={handleRecordPayment}
+                        disabled={loading}
+                        className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+                      >
+                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Registrar Pago
+                      </Button>
+                    </CardFooter>
+                  </Card>
                 )}
 
                 {declaration.status === 'paid' && (
-                  <Grid item xs={12}>
-                    <Alert severity="success">
-                      <Typography variant="subtitle1" fontWeight="bold">
-                        Pago registrado exitosamente
-                      </Typography>
-                      <Typography variant="body2">
-                        Referencia: {declaration.paymentReference}
-                      </Typography>
-                      <Typography variant="body2">
-                        Fecha: {format(new Date(declaration.paymentDate), 'dd/MM/yyyy')}
-                      </Typography>
-                    </Alert>
-                  </Grid>
+                  <Alert className="border-blue-500 bg-blue-50 text-blue-900 dark:bg-blue-900/20 dark:text-blue-100">
+                    <CheckCircle className="h-4 w-4" />
+                    <AlertTitle>Pago registrado</AlertTitle>
+                    <AlertDescription>
+                      <div className="mt-2 space-y-1">
+                        <p>Referencia: <span className="font-mono">{declaration.paymentReference}</span></p>
+                        <p>Fecha: {format(new Date(declaration.paymentDate), 'dd/MM/yyyy')}</p>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
                 )}
 
-                <Grid item xs={12}>
-                  <Button variant="outlined" onClick={handleReset} fullWidth>
-                    Nueva Declaración
+                <div className="pt-4">
+                  <Button variant="ghost" onClick={handleReset} className="w-full">
+                    Iniciar Nueva Declaración
                   </Button>
-                </Grid>
-              </Grid>
+                </div>
+              </div>
             )}
-          </Box>
+          </div>
         );
 
       default:
@@ -689,27 +747,96 @@ const IvaDeclarationWizard = () => {
   };
 
   return (
-    <Card>
-      <CardContent>
-        <Typography variant="h5" gutterBottom>
-          Declaración de IVA (Forma 30)
-        </Typography>
-        <Typography variant="body2" color="textSecondary" paragraph>
-          Wizard para calcular y presentar la declaración mensual de IVA ante el SENIAT
-        </Typography>
+    <div className="space-y-6 max-w-5xl mx-auto p-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Declaración de IVA</h2>
+          <p className="text-muted-foreground">Forma 30 - Servicio Nacional Integrado de Administración Aduanera y Tributaria</p>
+        </div>
+        <FileText className="h-10 w-10 text-muted-foreground/20" />
+      </div>
 
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
+      <StepIndicator />
 
+      <div className="min-h-[400px]">
         {renderStepContent()}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
+
+
+const DeclarationsHistory = ({ refreshTrigger, onSelect }) => {
+  const [declarations, setDeclarations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchIvaDeclarations(); // Corrected usage
+      setDeclarations(data.data || []);
+    } catch (error) {
+      console.error("Error fetching history", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, [refreshTrigger]);
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("¿Seguro que desea eliminar esta declaración? Esto permitirá recalcular el período.")) return;
+    try {
+      await deleteIvaDeclaration(id);
+      toast.success("Declaración eliminada");
+      fetchHistory();
+    } catch (error) {
+      toast.error("Error al eliminar");
+    }
+  };
+
+  if (loading) return <div className="text-sm text-muted-foreground">Cargando historial...</div>;
+  if (declarations.length === 0) return <div className="text-sm text-muted-foreground italic">No hay declaraciones previas.</div>;
+
+  return (
+    <div className="border rounded-md">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Período</TableHead>
+            <TableHead>Número</TableHead>
+            <TableHead>Estado</TableHead>
+            <TableHead className="text-right">Monto</TableHead>
+            <TableHead className="w-[50px]"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {declarations.map((decl) => (
+            <TableRow key={decl._id}>
+              <TableCell>{decl.month}/{decl.year}</TableCell>
+              <TableCell className="font-mono">{decl.declarationNumber}</TableCell>
+              <TableCell>
+                <Badge variant={decl.status === 'paid' ? 'success' : decl.status === 'filed' ? 'warning' : 'outline'}>
+                  {decl.status === 'calculated' ? 'Borrador' : decl.status}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-right font-mono">
+                {decl.ivaToPay > 0 ? `Bs. ${decl.ivaToPay.toFixed(2)}` : 'Crédito'}
+              </TableCell>
+              <TableCell>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(decl._id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+};
+
 
 export default IvaDeclarationWizard;

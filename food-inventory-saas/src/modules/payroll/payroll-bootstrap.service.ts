@@ -7,12 +7,19 @@ import {
   ChartOfAccountsDocument,
 } from "../../schemas/chart-of-accounts.schema";
 import { PAYROLL_SYSTEM_ACCOUNTS } from "../../config/payroll-system-accounts.config";
+import { COMMISSION_SYSTEM_ACCOUNTS } from "../../config/commission-system-accounts.config";
 import {
   PayrollStructure,
   PayrollStructureDocument,
 } from "../../schemas/payroll-structure.schema";
 import { DEFAULT_PAYROLL_STRUCTURES } from "../payroll-structures/config/default-structures.config";
 import { buildSeedStructurePayload } from "../payroll-structures/utils/structure-seed.util";
+
+// Combina cuentas de payroll y comisiones para bootstrap conjunto
+const ALL_SYSTEM_ACCOUNTS = [
+  ...PAYROLL_SYSTEM_ACCOUNTS,
+  ...COMMISSION_SYSTEM_ACCOUNTS,
+];
 
 @Injectable()
 export class PayrollBootstrapService implements OnModuleInit {
@@ -63,7 +70,8 @@ export class PayrollBootstrapService implements OnModuleInit {
     let created = 0;
     let updated = 0;
 
-    for (const blueprint of PAYROLL_SYSTEM_ACCOUNTS) {
+    // Procesa cuentas de payroll y comisiones
+    for (const blueprint of ALL_SYSTEM_ACCOUNTS) {
       const existing = await this.chartModel
         .findOne({ tenantId, code: blueprint.code })
         .exec();
@@ -85,12 +93,17 @@ export class PayrollBootstrapService implements OnModuleInit {
       if (typeof existing.isEditable === "undefined") {
         updates.isEditable = !blueprint.isSystemAccount;
       }
-      if (blueprint.metadata?.payrollCategory) {
-        const currentCategory = existing.metadata?.payrollCategory;
-        if (currentCategory !== blueprint.metadata.payrollCategory) {
+      // Actualiza metadata de payroll o comisiones
+      if (blueprint.metadata?.payrollCategory || blueprint.metadata?.commissionCategory) {
+        const metadataKey = blueprint.metadata?.payrollCategory
+          ? "payrollCategory"
+          : "commissionCategory";
+        const metadataValue = blueprint.metadata?.payrollCategory || blueprint.metadata?.commissionCategory;
+        const currentValue = existing.metadata?.[metadataKey];
+        if (currentValue !== metadataValue) {
           updates.metadata = {
             ...(existing.metadata || {}),
-            payrollCategory: blueprint.metadata.payrollCategory,
+            ...blueprint.metadata,
           };
         }
       }
@@ -118,7 +131,7 @@ export class PayrollBootstrapService implements OnModuleInit {
 
     if (created > 0 || updated > 0) {
       this.logger.log(
-        `Tenant ${tenant.code || tenant.name || tenantId}: ${created} payroll accounts created, ${updated} updates applied.`,
+        `Tenant ${tenant.code || tenant.name || tenantId}: ${created} payroll/commission accounts created, ${updated} updates applied.`,
       );
     }
 

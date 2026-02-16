@@ -53,9 +53,9 @@ export class CustomerTaxInfoDto {
 
   @ApiProperty({
     description: "Tipo de Identificación",
-    enum: ["V", "E", "J", "G"],
+    enum: ["V", "E", "J", "G", "P", "N"],
   })
-  @IsEnum(["V", "E", "J", "G"])
+  @IsEnum(["V", "E", "J", "G", "P", "N"])
   taxType: string;
 
   @ApiPropertyOptional({ description: "Nombre fiscal o razón social" })
@@ -235,6 +235,11 @@ export class CreateCustomerDto {
   @Type(() => CustomerCreditInfoDto)
   creditInfo?: CustomerCreditInfoDto;
 
+  @ApiPropertyOptional({ description: "ID de la lista de precios por defecto para el cliente" })
+  @IsOptional()
+  @IsMongoId()
+  defaultPriceListId?: string;
+
   @ApiPropertyOptional({ description: "Notas del cliente" })
   @IsOptional()
   @IsString()
@@ -269,18 +274,7 @@ export class UpdateCustomerDto {
     ],
   })
   @IsOptional()
-  @IsEnum([
-    "individual",
-    "business",
-    "supplier",
-    "employee",
-    "admin",
-    "manager",
-    "Repartidor",
-    "Cajero",
-    "Mesonero",
-    "all",
-  ])
+  @IsString()
   customerType?: string;
 
   @ApiPropertyOptional({ description: "Estado del cliente" })
@@ -292,6 +286,11 @@ export class UpdateCustomerDto {
   @IsOptional()
   @IsString()
   tier?: string;
+
+  @ApiPropertyOptional({ description: "ID de la lista de precios por defecto para el cliente" })
+  @IsOptional()
+  @IsMongoId()
+  defaultPriceListId?: string;
 
   @ApiPropertyOptional({
     description: "Direcciones del cliente",
@@ -365,17 +364,7 @@ export class CustomerQueryDto {
     ],
   })
   @IsOptional()
-  @IsEnum([
-    "individual",
-    "business",
-    "supplier",
-    "employee",
-    "admin",
-    "manager",
-    "Repartidor",
-    "Cajero",
-    "Mesonero",
-  ])
+  @IsString()
   customerType?: string;
 
   @ApiPropertyOptional({ description: "Estado del cliente" })

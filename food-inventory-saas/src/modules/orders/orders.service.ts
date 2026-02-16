@@ -15,6 +15,7 @@ import {
   BankAccount,
   BankAccountDocument,
 } from "../../schemas/bank-account.schema";
+import { Table, TableDocument } from "../../schemas/table.schema";
 import {
   CreateOrderDto,
   UpdateOrderDto,
@@ -46,6 +47,8 @@ import { WhapiService } from "../whapi/whapi.service";
 import { InventoryMovementsService } from "../inventory/inventory-movements.service";
 import { MovementType } from "../../dto/inventory-movement.dto";
 import { WhatsAppOrderNotificationsService } from "./whatsapp-order-notifications.service";
+import { TablesService } from "../tables/tables.service";
+import { PriceListsService } from "../price-lists/price-lists.service";
 
 @Injectable()
 export class OrdersService {
@@ -62,6 +65,8 @@ export class OrdersService {
     private bomModel: Model<BillOfMaterialsDocument>,
     @InjectModel(Modifier.name)
     private modifierModel: Model<Modifier>,
+    @InjectModel(Table.name)
+    private tableModel: Model<TableDocument>,
     private readonly inventoryService: InventoryService,
     private readonly accountingService: AccountingService,
     private readonly paymentsService: PaymentsService,
@@ -75,6 +80,8 @@ export class OrdersService {
     private readonly whapiService: WhapiService,
     private readonly inventoryMovementsService: InventoryMovementsService,
     private readonly whatsappOrderNotificationsService: WhatsAppOrderNotificationsService,
+    private readonly tablesService: TablesService,
+    private readonly priceListsService: PriceListsService,
     private readonly eventEmitter: EventEmitter2,
     @InjectConnection() private readonly connection: Connection,
   ) { }
@@ -91,10 +98,19 @@ export class OrdersService {
     if (!tenant) {
       throw new NotFoundException("Tenant not found");
     }
+    const tenantCurrency = tenant.settings?.currency?.primary || "USD";
+    const ccLabel = tenantCurrency === "EUR" ? "EUR" : "USD";
+
+    const foreignMethods = [
+      { id: "efectivo_usd", name: `Efectivo (${ccLabel})`, igtfApplicable: true },
+      { id: "transferencia_usd", name: `Transferencia (${ccLabel})`, igtfApplicable: true },
+      ...(tenantCurrency !== "EUR"
+        ? [{ id: "zelle_usd", name: "Zelle (USD)", igtfApplicable: true }]
+        : []),
+    ];
+
     const baseMethods = [
-      { id: "efectivo_usd", name: "Efectivo (USD)", igtfApplicable: true },
-      { id: "transferencia_usd", name: "Transferencia (USD)", igtfApplicable: true },
-      { id: "zelle_usd", name: "Zelle (USD)", igtfApplicable: true },
+      ...foreignMethods,
       { id: "efectivo_ves", name: "Efectivo (VES)", igtfApplicable: false },
       { id: "transferencia_ves", name: "Transferencia (VES)", igtfApplicable: false },
       { id: "pago_movil_ves", name: "Pago Móvil (VES)", igtfApplicable: false },
@@ -279,6 +295,23 @@ export class OrdersService {
       );
     }
 
+    // ======== PRICE LIST LOGIC ========
+    // Determine which price list to use: order override > customer default > none
+    let effectivePriceListId: string | null = null;
+    if (createOrderDto.priceListId) {
+      effectivePriceListId = createOrderDto.priceListId;
+      // If savePriceListToCustomer is true, update customer's default price list
+      if (createOrderDto.savePriceListToCustomer && customer) {
+        await this.customerModel.findByIdAndUpdate(customer._id, {
+          defaultPriceListId: createOrderDto.priceListId,
+        });
+        this.logger.log(`Updated customer ${customer._id} default price list to ${createOrderDto.priceListId}`);
+      }
+    } else if (customer.defaultPriceListId) {
+      effectivePriceListId = customer.defaultPriceListId.toString();
+      this.logger.log(`Using customer's default price list: ${effectivePriceListId}`);
+    }
+
     // Update customer location if provided in the order and customer doesn't have one or it's different
     if (createOrderDto.customerLocation && customer) {
       const shouldUpdateLocation =
@@ -319,9 +352,33 @@ export class OrdersService {
       let conversionFactor = 1;
       let quantityInBaseUnit = itemDto.quantity;
       let selectedUnit: string | undefined;
+      let priceListOverride: number | null = null;
+
+      // ======== PRICE LIST OVERRIDE ========
+      // If we have an effective price list, try to get custom price for this variant
+      if (effectivePriceListId && variant?.sku) {
+        try {
+          const customPrice = await this.priceListsService.getProductPrice(
+            variant.sku,
+            effectivePriceListId,
+            user.tenantId,
+          );
+          if (customPrice !== null && customPrice > 0) {
+            priceListOverride = customPrice;
+            this.logger.log(`Using price list price for ${variant.sku}: ${customPrice}`);
+          }
+        } catch (error) {
+          this.logger.warn(`Could not get price list price for ${variant.sku}: ${error.message}`);
+        }
+      }
 
       // ======== MULTI-UNIT LOGIC / GET ORIGINAL PRICE ========
-      if (
+      if (priceListOverride !== null) {
+        // Price list takes precedence over everything
+        originalUnitPrice = priceListOverride;
+        costPrice = variant?.costPrice ?? 0;
+        selectedUnit = undefined;
+      } else if (
         product.hasMultipleSellingUnits &&
         itemDto.selectedUnit &&
         product.sellingUnits?.length > 0
@@ -401,6 +458,18 @@ export class OrdersService {
             ? attributesSnapshot
             : undefined,
         attributeSummary,
+        modifiers: itemDto.modifiers
+          ? itemDto.modifiers.map((mod) => ({
+            ...mod,
+            modifierId: new Types.ObjectId(mod.modifierId),
+          }))
+          : [],
+        specialInstructions: itemDto.specialInstructions,
+        removedIngredients: itemDto.removedIngredients
+          ? itemDto.removedIngredients.map((id) => new Types.ObjectId(id))
+          : [],
+        lots: [],
+        addedAt: new Date(),
       } as OrderItem);
 
       subtotal += totalPrice;
@@ -415,6 +484,13 @@ export class OrdersService {
       createOrderDto.deliveryMethod &&
       createOrderDto.deliveryMethod !== "pickup"
     ) {
+      // Default initialization ensuring address is saved
+      shippingInfo = {
+        method: createOrderDto.deliveryMethod,
+        cost: createOrderDto.shippingCost || 0,
+        address: createOrderDto.shippingAddress,
+      };
+
       try {
         const deliveryCostResult =
           await this.deliveryService.calculateDeliveryCost({
@@ -431,20 +507,14 @@ export class OrdersService {
 
         shippingCost = deliveryCostResult.cost || 0;
 
-        if (
-          createOrderDto.deliveryMethod === "delivery" ||
-          createOrderDto.deliveryMethod === "envio_nacional"
-        ) {
-          shippingInfo = {
-            method: createOrderDto.deliveryMethod,
-            cost: shippingCost,
-            distance: deliveryCostResult.distance,
-            estimatedDuration: deliveryCostResult.duration,
-            address: createOrderDto.shippingAddress,
-          };
-        }
+        // Update with calculated values
+        shippingInfo.cost = shippingCost;
+        shippingInfo.distance = deliveryCostResult.distance;
+        shippingInfo.estimatedDuration = deliveryCostResult.duration;
+
       } catch (error) {
         this.logger.warn(`Error calculating delivery cost: ${error.message}`);
+        // Fallback: shippingInfo already has address and default cost
       }
     } else if (createOrderDto.deliveryMethod === "pickup") {
       shippingInfo = {
@@ -564,6 +634,28 @@ export class OrdersService {
       .filter((p) => p.method.includes("_usd"))
       .reduce((sum, p) => sum + p.amount, 0);
     const igtfTotal = foreignCurrencyPaymentAmount * 0.03;
+
+    // ============ IVA WITHHOLDING (Retención de IVA por Contribuyente Especial) ============
+    let ivaWithholdingPercentage = 0;
+    let ivaWithholdingAmount = 0;
+    const customerIsSpecialTaxpayer = createOrderDto.customerIsSpecialTaxpayer || false;
+
+    if (customerIsSpecialTaxpayer && ivaTotal > 0) {
+      // El % de retención depende del tipo de contribuyente del TENANT (vendedor):
+      // - Tenant Ordinario → retención fija del 75%
+      // - Tenant Especial → usa la tasa configurada (75% o 100%) según su designación SENIAT
+      const tenantTaxpayerType = tenant.taxInfo?.taxpayerType || 'ordinario';
+      if (tenantTaxpayerType === 'especial') {
+        ivaWithholdingPercentage = tenant.taxInfo?.specialTaxpayerWithholdingRate || 75;
+      } else {
+        ivaWithholdingPercentage = 75;
+      }
+      ivaWithholdingAmount = ivaTotal * (ivaWithholdingPercentage / 100);
+      this.logger.log(
+        `IVA Withholding: Customer is special taxpayer. Tenant type: ${tenantTaxpayerType}, Rate: ${ivaWithholdingPercentage}%, Withheld: ${ivaWithholdingAmount}`,
+      );
+    }
+
     const totalAmount =
       subtotal +
       ivaTotal +
@@ -572,13 +664,14 @@ export class OrdersService {
       (createOrderDto.discountAmount || 0) -
       totalMarketingDiscount;
 
-    // Calcular totalAmountVes usando la tasa de cambio actual
+    // Calcular totalAmountVes usando la tasa de cambio actual (según moneda del tenant)
+    const tenantCurrency = tenant.settings?.currency?.primary || "USD";
     let totalAmountVes = 0;
     try {
-      const rateData = await this.exchangeRateService.getBCVRate();
+      const rateData = await this.exchangeRateService.getRateForCurrency(tenantCurrency);
       totalAmountVes = totalAmount * rateData.rate;
       this.logger.log(
-        `Calculated totalAmountVes: ${totalAmountVes} (rate: ${rateData.rate})`,
+        `Calculated totalAmountVes: ${totalAmountVes} (${tenantCurrency} rate: ${rateData.rate})`,
       );
     } catch (error) {
       this.logger.warn("Failed to get exchange rate, totalAmountVes will be 0");
@@ -627,7 +720,38 @@ export class OrdersService {
       inventoryReservation: { isReserved: false },
       createdBy: user.id,
       tenantId: user.tenantId,
+
+      // CRITICAL: Mapping Cash Register Session
+      cashSessionId: createOrderDto.cashSessionId ? new Types.ObjectId(createOrderDto.cashSessionId) : undefined,
+      cashRegisterId: createOrderDto.cashRegisterId,
+      // Persist customer data snapshots
+      customerRif: createOrderDto.customerRif,
+      taxType: createOrderDto.taxType,
+      customerPhone: createOrderDto.customerPhone,
+      customerAddress: createOrderDto.customerAddress,
+
+      // IVA Withholding (Retención de IVA)
+      customerIsSpecialTaxpayer,
+      ivaWithholdingPercentage,
+      ivaWithholdingAmount,
     };
+
+    // LINK WAITER FROM TABLE IF APPLICABLE
+    if (createOrderDto.tableId) {
+      try {
+        const table = await this.tableModel.findById(createOrderDto.tableId).select('assignedServerId').lean();
+        if (table?.assignedServerId) {
+          orderData.assignedWaiterId = table.assignedServerId;
+          // Also copy to assignedTo if not explicitly set in DTO
+          if (!createOrderDto.assignedTo) {
+            orderData.assignedTo = table.assignedServerId;
+          }
+          this.logger.log(`Assigned waiter ${table.assignedServerId} from table ${createOrderDto.tableId} to order`);
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to fetch table waiter: ${err.message}`);
+      }
+    }
 
     const shouldAssignEmployee =
       FEATURES.EMPLOYEE_PERFORMANCE_TRACKING && user?.id && user?.tenantId;
@@ -674,6 +798,23 @@ export class OrdersService {
     await this.tenantModel.findByIdAndUpdate(user.tenantId, {
       $inc: { "usage.currentOrders": 1 },
     });
+
+    // ========================================
+    // RESTAURANT: Update Table Status if applicable
+    // ========================================
+    if (createOrderDto.tableId) {
+      try {
+        await this.tableModel.findByIdAndUpdate(createOrderDto.tableId, {
+          status: 'occupied',
+          currentOrderId: savedOrder._id,
+          seatedAt: new Date(), // Reset seated time or keep original? Usually reset on new order or seat.
+          // Assuming seating happens before ordering, we might just want to link the order.
+        });
+        this.logger.log(`Table ${createOrderDto.tableId} linked to order ${savedOrder.orderNumber}`);
+      } catch (tableError) {
+        this.logger.error(`Failed to update table ${createOrderDto.tableId}: ${tableError.message}`);
+      }
+    }
 
     // ========================================
     // MARKETING: Track coupon and promotion usage
@@ -726,6 +867,10 @@ export class OrdersService {
     this.eventEmitter.emit("order.created", {
       orderId: savedOrder._id.toString(),
       tenantId: user.tenantId,
+      orderNumber: savedOrder.orderNumber,
+      customerName: savedOrder.customerName,
+      totalAmount: savedOrder.totalAmount,
+      source: createOrderDto.channel || "pos",
       items: savedOrder.items.map((item) => ({
         productId: item.productId.toString(),
         quantity: item.quantityInBaseUnit ?? item.quantity,
@@ -744,7 +889,7 @@ export class OrdersService {
             amount: p.amount,
             method: p.method,
             date: p.date.toISOString(),
-            currency: p.method.includes("_usd") ? "USD" : "VES",
+            currency: p.method.includes("_usd") ? tenantCurrency : "VES",
             reference: p.reference,
           };
           return this.paymentsService.create(paymentDto, user);
@@ -752,26 +897,13 @@ export class OrdersService {
       );
     }
 
-    // Ejecutar contabilidad de forma asíncrona (no bloquear la respuesta)
-    setImmediate(async () => {
-      try {
-        await this.accountingService.createJournalEntryForSale(
-          savedOrder,
-          user.tenantId,
-        );
-        await this.accountingService.createJournalEntryForCOGS(
-          savedOrder,
-          user.tenantId,
-        );
-      } catch (accountingError) {
-        this.logger.error(
-          `Error en la contabilidad automática para la orden ${savedOrder.orderNumber}`,
-          accountingError.stack,
-        );
-      }
+    // Los asientos contables se generan SOLO desde la factura emitida
+    // (billing.document.issued → BillingAccountingListener)
+    // para evitar duplicidad y usar los montos VES ya calculados en la factura.
 
-      // Record transaction history if order is PAID (venta = pago)
-      if (savedOrder.paymentStatus === "paid") {
+    // Record transaction history if order is PAID (venta = pago)
+    if (savedOrder.paymentStatus === "paid") {
+      setImmediate(async () => {
         try {
           await this.transactionHistoryService.recordCustomerTransaction(
             savedOrder._id.toString(),
@@ -786,8 +918,8 @@ export class OrdersService {
             transactionError.stack,
           );
         }
-      }
-    });
+      });
+    }
 
     this.logger.log(`AutoReserve Check: ${createOrderDto.autoReserve}`);
 
@@ -1042,6 +1174,7 @@ export class OrdersService {
         finalPrice: item.quantity * item.unitPrice,
         lots: [],
         modifiers: [],
+        removedIngredients: [],
         discountAmount: 0,
         discountPercentage: 0,
         status: "pending",
@@ -1090,6 +1223,8 @@ export class OrdersService {
       orderNumber,
       customerId: customer._id,
       customerName: dto.customerName,
+      customerRif: (dto as any).customerRif,
+      taxType: (dto as any).taxType,
       customerEmail: dto.customerEmail,
       customerPhone: dto.customerPhone,
       items: orderItems,
@@ -1399,7 +1534,17 @@ export class OrdersService {
     return this.orderModel
       .findOne({ _id: id, tenantId })
       .populate("payments")
+      .populate("customerId", "name taxInfo") // Populate customer to get RIF/TaxID
       .populate("assignedTo", "firstName lastName email")
+      .populate({
+        path: "assignedWaiterId",
+        select: "firstName lastName customerId",
+        populate: {
+          path: "customerId",
+          select: "_id name"
+        }
+      }) // Nested populate for tips section
+      .populate("tableId", "tableNumber name") // Populate table info for frontend context
       .populate("items.productId", "name sku ivaApplicable") // Fix: Populate productId, not product
       .exec();
   }
@@ -1427,12 +1572,156 @@ export class OrdersService {
     const order = await this.orderModel.findById(id);
     if (!order) throw new NotFoundException("Orden no encontrada");
     const previousStatus = order.status || "";
-    const updatedOrder = await this.orderModel.findByIdAndUpdate(
-      id,
-      { ...updateOrderDto, updatedBy: user.id },
-      { new: true },
-    );
 
+    // ========================================
+    // SMART ITEM ARRAY MERGING FOR POS WORKFLOWS
+    // ========================================
+    let processedItems = order.items; // Default: keep existing items
+
+    if (updateOrderDto.items && updateOrderDto.items.length > 0) {
+      // Build a processed items array
+      const newProcessedItems: any[] = [];
+
+      for (const itemDto of updateOrderDto.items) {
+        // Check if this item already exists (has _id from frontend)
+        const existingItem = order.items.find(
+          (oi: any) => oi._id && oi._id.toString() === (itemDto as any)._id
+        );
+
+        if (existingItem) {
+          // UPDATE existing item (preserve metadata, update quantity/modifiers if changed)
+          const existingItemObj: any = (existingItem as any).toObject ? (existingItem as any).toObject() : existingItem;
+          newProcessedItems.push({
+            ...existingItemObj,
+            quantity: itemDto.quantity,
+            modifiers: itemDto.modifiers || existingItemObj.modifiers,
+            specialInstructions: itemDto.specialInstructions || existingItemObj.specialInstructions,
+            removedIngredients: itemDto.removedIngredients || existingItemObj.removedIngredients,
+            // Keep existing metadata
+            _id: (existingItem as any)._id,
+            status: (itemDto as any).status || existingItemObj.status,
+            addedAt: (itemDto as any).addedAt || existingItemObj.addedAt,
+          });
+        } else {
+          // NEW item - process it fully
+          const product = await this.productModel
+            .findById(itemDto.productId)
+            .session(null);
+          if (!product) {
+            this.logger.warn(
+              `Product ${itemDto.productId} not found for new item in order ${order.orderNumber}`
+            );
+            continue;
+          }
+
+          const variant = this.resolveVariant(product, itemDto);
+          if (!variant) {
+            this.logger.warn(
+              `Variant not found for product ${product.sku} in order ${order.orderNumber}`
+            );
+            continue;
+          }
+
+          const attributes = this.buildOrderItemAttributes(product, variant, itemDto);
+          const attributeSummary = this.buildAttributeSummary(attributes);
+
+          // Calculate pricing for new item
+          let unitPrice = variant.basePrice || 0;
+          let conversionFactor = 1;
+          let quantityInBaseUnit = itemDto.quantity;
+
+          if (itemDto.selectedUnit && product.sellingUnits?.length > 0) {
+            const selectedUnitDef = product.sellingUnits.find(
+              (u) => u.abbreviation === itemDto.selectedUnit
+            );
+            if (selectedUnitDef) {
+              unitPrice = selectedUnitDef.pricePerUnit || unitPrice;
+              conversionFactor = selectedUnitDef.conversionFactor || 1;
+              quantityInBaseUnit = itemDto.quantity * conversionFactor;
+            }
+          }
+
+          const modifierAdjustment = (itemDto.modifiers || []).reduce(
+            (sum, mod) => sum + (mod.priceAdjustment || 0) * (mod.quantity || 1),
+            0
+          );
+          const finalUnitPrice = unitPrice + modifierAdjustment;
+          const totalPrice = finalUnitPrice * itemDto.quantity;
+          const ivaAmount = (itemDto.ivaApplicable ?? product.ivaApplicable)
+            ? totalPrice * 0.16
+            : 0;
+          const igtfAmount = 0;
+          const finalPrice = totalPrice + ivaAmount + igtfAmount;
+
+          const inventoryRecord = await this.inventoryService.findByProductSku(
+            variant.sku,
+            user.tenantId
+          );
+          const costPrice = inventoryRecord?.averageCostPrice || 0;
+
+          newProcessedItems.push({
+            productId: new Types.ObjectId(itemDto.productId),
+            productSku: variant.sku,
+            productName: product.name,
+            variantId: variant._id ? new Types.ObjectId(variant._id) : undefined,
+            variantSku: variant.sku,
+            attributes,
+            attributeSummary,
+            quantity: itemDto.quantity,
+            selectedUnit: itemDto.selectedUnit,
+            conversionFactor,
+            quantityInBaseUnit,
+            unitPrice,
+            totalPrice,
+            costPrice,
+            modifiers: itemDto.modifiers || [],
+            specialInstructions: itemDto.specialInstructions,
+            removedIngredients: itemDto.removedIngredients?.map(
+              (id) => new Types.ObjectId(id)
+            ) || [],
+            ivaAmount,
+            igtfAmount,
+            finalPrice,
+            status: "sent_to_kitchen", // New items should be visible in kitchen
+            addedAt: new Date(),
+          });
+        }
+      }
+
+      processedItems = newProcessedItems as any;
+    }
+
+    // ========================================
+    // BUILD UPDATE PAYLOAD
+    // ========================================
+    const updatePayload: any = {
+      ...updateOrderDto,
+      items: processedItems,
+      updatedBy: user.id,
+    };
+
+    // Ensure denormalized customer fields are preserved
+    if (updateOrderDto.customerRif !== undefined) {
+      updatePayload.customerRif = updateOrderDto.customerRif;
+    }
+    if (updateOrderDto.taxType !== undefined) {
+      updatePayload.taxType = updateOrderDto.taxType;
+    }
+    if (updateOrderDto.customerPhone !== undefined) {
+      updatePayload.customerPhone = updateOrderDto.customerPhone;
+    }
+    if (updateOrderDto.customerAddress !== undefined) {
+      updatePayload.customerAddress = updateOrderDto.customerAddress;
+    }
+
+    const updatedOrder = await this.orderModel
+      .findByIdAndUpdate(id, updatePayload, { new: true })
+      .populate("customerId", "name taxInfo")
+      .populate("items.productId", "name sku type");
+
+    // ========================================
+    // POST-UPDATE INVENTORY MOVEMENTS
+    // ========================================
     const fulfillmentStatuses = ["shipped", "delivered"];
     const movedToFulfillment =
       updatedOrder &&
@@ -1482,6 +1771,18 @@ export class OrdersService {
           }
         });
       }
+
+
+    }
+
+    // Emit update event (e.g. for Kitchen Display sync)
+    if (updatedOrder) {
+      this.eventEmitter.emit("order.updated", {
+        orderId: updatedOrder._id,
+        tenantId: user.tenantId,
+        status: updatedOrder.status,
+        items: updatedOrder.items,
+      });
     }
 
     return updatedOrder;
@@ -1581,6 +1882,8 @@ export class OrdersService {
     if (!order) {
       throw new NotFoundException("Orden no encontrada");
     }
+    const tenantForCurrency = await this.tenantModel.findById(user.tenantId).select('settings.currency').lean() as any;
+    const tenantCurrency = tenantForCurrency?.settings?.currency?.primary || "USD";
     const existingOutMovements = await this.inventoryMovementsService.hasOutMovementsForOrder(
       order._id.toString(),
       user.tenantId,
@@ -1626,9 +1929,15 @@ export class OrdersService {
             amountVes: vesAmount,
             exchangeRate: rate,
             method: p.method,
-            currency: p.currency || "USD",
+            currency: p.currency || tenantCurrency,
             reference: p.reference || "",
             bankAccountId: p.bankAccountId,
+            // Nuevos campos para tracking de vuelto / cash tender
+            // Asegurar que pasen si existen en el DTO de entrada (BulkRegisterPaymentItemDto)
+            amountTendered: (p as any).amountTendered,
+            changeGiven: (p as any).changeGiven,
+            changeGivenBreakdown: (p as any).changeGivenBreakdown,
+
             customerId: order.customerId
               ? order.customerId.toString()
               : undefined,
@@ -1673,7 +1982,7 @@ export class OrdersService {
         amount: paymentDoc.amount,
         amountVes: paymentDoc.amountVes,
         exchangeRate: paymentDoc.exchangeRate,
-        currency: paymentDoc.currency || "USD",
+        currency: paymentDoc.currency || tenantCurrency,
         reference: paymentDoc.reference || "",
         date: paymentDoc.date,
         isConfirmed: paymentDoc.status === "confirmed",
@@ -1681,6 +1990,10 @@ export class OrdersService {
         confirmedAt: paymentDoc.confirmedAt,
         confirmedMethod: paymentDoc.status === "confirmed" ? paymentDoc.method : undefined,
         igtf: igtf,
+        // Map new fields to Order snapshot as well
+        amountTendered: paymentDoc.amountTendered,
+        changeGiven: paymentDoc.changeGiven,
+        changeGivenBreakdown: paymentDoc.changeGivenBreakdown
       };
     });
 
@@ -1754,6 +2067,99 @@ export class OrdersService {
       this.logger.log(
         `Order ${order.orderNumber} fully paid. Triggering ingredient deduction...`,
       );
+
+      // CRITICAL: Reload order after update to get tableId for cleanup
+      const freshOrder = await this.orderModel.findById(orderId).select('tableId deliveryMethod orderNumber').lean();
+
+      // Auto-clean table if applicable (Safety Net for Payment)
+      if (freshOrder?.tableId) {
+        setImmediate(async () => {
+          try {
+            // Robust conversion to string ID with validation
+            let tableIdStr: string;
+
+            if (freshOrder.tableId instanceof Types.ObjectId) {
+              tableIdStr = freshOrder.tableId.toString();
+            } else if (typeof freshOrder.tableId === 'string') {
+              tableIdStr = freshOrder.tableId;
+            } else if (freshOrder.tableId && typeof freshOrder.tableId === 'object' && '_id' in freshOrder.tableId) {
+              // Handle populated tableId object
+              tableIdStr = (freshOrder.tableId as any)._id.toString();
+            } else {
+              tableIdStr = String(freshOrder.tableId || '');
+            }
+
+            // Validate the converted ID
+            if (!tableIdStr || tableIdStr === 'null' || tableIdStr === 'undefined' || tableIdStr === '[object Object]') {
+              this.logger.warn(
+                `[TABLE CLEANUP] Invalid tableId for order ${order.orderNumber}. ` +
+                `Raw value: ${JSON.stringify(freshOrder.tableId)}, Converted: "${tableIdStr}"`
+              );
+              return;
+            }
+
+            this.logger.log(
+              `[TABLE CLEANUP] Attempting to clear table ${tableIdStr} for order ${order.orderNumber} (${(freshOrder as any).deliveryMethod || 'unknown'})`
+            );
+
+            await this.tablesService.clearTable(tableIdStr, user.tenantId);
+
+            this.logger.log(
+              `✅ [TABLE CLEANUP] Successfully auto-cleaned table ${tableIdStr} after payment for order ${order.orderNumber}`
+            );
+          } catch (err) {
+            this.logger.error(
+              `❌ [TABLE CLEANUP] Failed to auto-clean table for order ${order.orderNumber}: ${err.message}`,
+              err.stack
+            );
+          }
+        });
+      }
+
+      // Auto-clean table if applicable (Safety Net for Payment)
+      if (order.tableId) {
+        setImmediate(async () => {
+          try {
+            // Robust conversion to string ID with validation
+            let tableIdStr: string;
+
+            if (order.tableId instanceof Types.ObjectId) {
+              tableIdStr = order.tableId.toString();
+            } else if (typeof order.tableId === 'string') {
+              tableIdStr = order.tableId;
+            } else if (order.tableId && typeof order.tableId === 'object' && '_id' in order.tableId) {
+              // Handle populated tableId object
+              tableIdStr = (order.tableId as any)._id.toString();
+            } else {
+              tableIdStr = String(order.tableId || '');
+            }
+
+            // Validate the converted ID
+            if (!tableIdStr || tableIdStr === 'null' || tableIdStr === 'undefined' || tableIdStr === '[object Object]') {
+              this.logger.warn(
+                `[TABLE CLEANUP] Invalid tableId for order ${order.orderNumber}. ` +
+                `Raw value: ${JSON.stringify(order.tableId)}, Converted: "${tableIdStr}"`
+              );
+              return;
+            }
+
+            this.logger.log(
+              `[TABLE CLEANUP] Attempting to clear table ${tableIdStr} for order ${order.orderNumber} (${(order as any).deliveryMethod})`
+            );
+
+            await this.tablesService.clearTable(tableIdStr, user.tenantId);
+
+            this.logger.log(
+              `✅ [TABLE CLEANUP] Successfully auto-cleaned table ${tableIdStr} after payment for order ${order.orderNumber}`
+            );
+          } catch (err) {
+            this.logger.error(
+              `❌ [TABLE CLEANUP] Failed to auto-clean table for order ${order.orderNumber}: ${err.message}`,
+              err.stack
+            );
+          }
+        });
+      }
       // Ejecutar en background para no bloquear la respuesta
       setImmediate(async () => {
         try {
@@ -1763,6 +2169,18 @@ export class OrdersService {
             `Background ingredient deduction failed for order ${order.orderNumber}: ${error.message}`,
           );
         }
+      });
+
+      // Emit order.paid event for notification center
+      this.eventEmitter.emit("order.paid", {
+        orderId: order._id.toString(),
+        orderNumber: order.orderNumber,
+        customerId: order.customerId?.toString(),
+        customerName: order.customerName,
+        totalAmount: updatedTotalAmount,
+        paidAmount: totalPaidUSD,
+        tenantId: user.tenantId,
+        source: order.channel || "pos",
       });
     }
 
@@ -2303,6 +2721,20 @@ export class OrdersService {
 
         // 4. Deducir cada ingrediente del inventario
         for (const ingredient of flatIngredients) {
+          // CHECK: Si el ingrediente está en la lista de removidos del item, no deducirlo
+          if (
+            item.removedIngredients &&
+            item.removedIngredients.some(
+              (removedId) =>
+                removedId.toString() === ingredient.productId.toString(),
+            )
+          ) {
+            this.logger.log(
+              `[Backflush] Ingredient ${ingredient.name} (${ingredient.sku}) skipped (removed by customer).`,
+            );
+            continue;
+          }
+
           try {
             // Buscar el inventario del ingrediente - primero por productId (más confiable), luego por SKU
             let inventory = await this.inventoryService.findByProductId(
@@ -2374,17 +2806,29 @@ export class OrdersService {
     const order = await this.orderModel.findOne({
       _id: id,
       tenantId: user.tenantId,
-    });
+    }).select('+tableId'); // CRITICAL: Explicitly include tableId for cleanup logic
 
     if (!order) {
       throw new NotFoundException("Orden no encontrada");
     }
 
     // Validate order is fully paid
+    // For delivery notes: backend totalAmount includes IVA, but the customer only pays subtotal + shipping
+    // so paymentStatus may be 'partial' even though the effective amount is fully covered
     if (order.paymentStatus !== 'paid') {
-      throw new BadRequestException(
-        'La orden debe estar completamente pagada antes de completarla'
-      );
+      if (order.billingDocumentType === 'delivery_note') {
+        const effectiveTotal = (order.subtotal || 0) + (order.shippingCost || 0);
+        const paidAmount = order.paidAmount || 0;
+        if (paidAmount < effectiveTotal - 0.01) {
+          throw new BadRequestException(
+            'La orden debe estar completamente pagada antes de completarla'
+          );
+        }
+      } else {
+        throw new BadRequestException(
+          'La orden debe estar completamente pagada antes de completarla'
+        );
+      }
     }
 
     // Validate order has billing document (invoice)
@@ -2430,6 +2874,55 @@ export class OrdersService {
     if (order.fulfillmentStatus === 'delivered') {
       order.fulfillmentDate = new Date();
       (order as any).deliveredAt = new Date();
+    }
+
+    // ===============================================
+    // AUTO-CLEAN TABLE LOGIC
+    // ===============================================
+    if (order.tableId) {
+      setImmediate(async () => {
+        try {
+          // Robust conversion to string ID with validation (same as registerPayments)
+          let tableIdStr: string;
+
+          if (order.tableId instanceof Types.ObjectId) {
+            tableIdStr = order.tableId.toString();
+          } else if (typeof order.tableId === 'string') {
+            tableIdStr = order.tableId;
+          } else if (order.tableId && typeof order.tableId === 'object' && '_id' in order.tableId) {
+            // Handle populated tableId object
+            tableIdStr = (order.tableId as any)._id.toString();
+          } else {
+            tableIdStr = String(order.tableId || '');
+          }
+
+          // Validate the converted ID
+          if (!tableIdStr || tableIdStr === 'null' || tableIdStr === 'undefined' || tableIdStr === '[object Object]') {
+            this.logger.warn(
+              `[TABLE CLEANUP - Complete] Invalid tableId for order ${order.orderNumber}. ` +
+              `Raw value: ${JSON.stringify(order.tableId)}, Converted: "${tableIdStr}"`
+            );
+            return;
+          }
+
+          this.logger.log(
+            `[TABLE CLEANUP - Complete] Attempting to clear table ${tableIdStr} for order ${order.orderNumber}`
+          );
+
+          await this.tablesService.clearTable(tableIdStr, user.tenantId);
+
+          this.logger.log(
+            `✅ [TABLE CLEANUP - Complete] Successfully auto-cleaned table ${tableIdStr} for order ${order.orderNumber}`
+          );
+        } catch (err) {
+          this.logger.error(
+            `❌ [TABLE CLEANUP - Complete] Failed to auto-clean table for order ${order.orderNumber}: ${err.message}`,
+            err.stack
+          );
+        }
+      });
+    } else {
+      this.logger.log(`[TABLE CLEANUP - Complete] No tableId found for order ${order.orderNumber}, skipping table cleanup`);
     }
 
 

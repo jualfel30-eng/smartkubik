@@ -37,10 +37,31 @@ export class ShippingAddressDto {
   @IsNotEmpty()
   state: string;
 
-  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   zipCode?: string;
+}
+
+export class AppliedModifierDto {
+  @ApiProperty({ description: "ID del modificador" })
+  @IsMongoId()
+  modifierId: string;
+
+  @ApiProperty({ description: "Nombre del modificador" })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
+
+  @ApiPropertyOptional({ description: "Ajuste de precio", default: 0 })
+  @IsOptional()
+  @IsNumber()
+  priceAdjustment?: number = 0;
+
+  @ApiPropertyOptional({ description: "Cantidad", default: 1 })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  quantity?: number = 1;
 }
 
 export class CreateOrderItemDto {
@@ -85,10 +106,46 @@ export class CreateOrderItemDto {
   @IsObject()
   attributes?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: "Override system VAT calculation" })
-  @IsOptional()
   @IsBoolean()
   ivaApplicable?: boolean;
+
+  @ApiPropertyOptional({ description: "Modificadores aplicados" })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AppliedModifierDto)
+  modifiers?: AppliedModifierDto[];
+
+  @ApiPropertyOptional({ description: "Instrucciones especiales" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  specialInstructions?: string;
+
+  @ApiPropertyOptional({
+    description: "IDs de ingredientes removidos de la receta (para no deducirlos)",
+    type: [String]
+  })
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({ each: true })
+  removedIngredients?: string[];
+
+  @ApiPropertyOptional({ description: "ID del item (para actualizaciones)" })
+  @IsOptional()
+  @IsMongoId()
+  _id?: string;
+
+  @ApiPropertyOptional({ description: "Fecha de agregado (para actualizaciones)" })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  addedAt?: Date;
+
+  @ApiPropertyOptional({ description: "Estado (para actualizaciones)" })
+  @IsOptional()
+  @IsString()
+  status?: string;
 }
 
 export class RegisterPaymentDto {
@@ -140,9 +197,7 @@ export class RegisterPaymentDto {
   @IsNumber()
   igtf?: number;
 
-  @ApiPropertyOptional({
-    description: "ID de la cuenta bancaria (para pagos confirmados)",
-  })
+  @ApiPropertyOptional({ description: "ID de la cuenta bancaria (para pagos confirmados)" })
   @IsOptional()
   @IsMongoId()
   bankAccountId?: string;
@@ -151,6 +206,22 @@ export class RegisterPaymentDto {
   @IsOptional()
   @IsBoolean()
   isConfirmed?: boolean;
+
+  // New fields for cash tender tracking
+  @ApiPropertyOptional({ description: "Monto entregado por el cliente" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  amountTendered?: number;
+
+  @ApiPropertyOptional({ description: "Vuelto entregado" })
+  @IsOptional()
+  @IsNumber()
+  changeGiven?: number;
+
+  @ApiPropertyOptional({ description: "Desglose del vuelto" })
+  @IsOptional()
+  changeGivenBreakdown?: any;
 }
 
 export class CreateOrderDto {
@@ -172,10 +243,15 @@ export class CreateOrderDto {
   @SanitizeString()
   customerRif?: string;
 
-  @ApiPropertyOptional({ description: "Tipo de documento fiscal (V, E, J, G)" })
+  @ApiPropertyOptional({ description: "Tipo de documento fiscal (V, E, J, G, P, N)" })
   @IsOptional()
-  @IsEnum(["V", "E", "J", "G"])
+  @IsEnum(["V", "E", "J", "G", "P", "N"])
   taxType?: string;
+
+  @ApiPropertyOptional({ description: "Cliente es Contribuyente Especial (retiene IVA)" })
+  @IsOptional()
+  @IsBoolean()
+  customerIsSpecialTaxpayer?: boolean;
 
   @ApiPropertyOptional({ description: "Dirección del cliente (para creación)" })
   @IsOptional()
@@ -189,6 +265,14 @@ export class CreateOrderDto {
   @SanitizeString()
   customerPhone?: string;
 
+  @ApiPropertyOptional({
+    description: "ID del empleado asignado a la orden",
+    example: "60d0fe4f5311236168a109ca",
+  })
+  @IsOptional()
+  @IsMongoId()
+  assignedTo?: string;
+
   @ApiProperty({ description: "Items de la orden", type: [CreateOrderItemDto] })
   @IsArray()
   @ArrayMinSize(1)
@@ -200,7 +284,7 @@ export class CreateOrderDto {
     description: "Método de entrega (pickup, delivery, envio_nacional)",
   })
   @IsOptional()
-  @IsEnum(["pickup", "delivery", "envio_nacional"])
+  @IsEnum(["pickup", "delivery", "envio_nacional", "store"])
   deliveryMethod?: string;
 
   @ApiPropertyOptional({ description: "Dirección de envío para la orden" })
@@ -302,6 +386,39 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => RegisterPaymentDto)
   payments?: RegisterPaymentDto[];
+
+  @ApiPropertyOptional({ description: "ID de la mesa (si es restaurante)" })
+  @IsOptional()
+  @IsMongoId()
+  tableId?: string;
+
+  // ============================================
+  // INTEGRACIÓN CON CAJA REGISTRADORA
+  // ============================================
+
+  @ApiPropertyOptional({ description: "ID de la sesión de caja activa" })
+  @IsOptional()
+  @IsMongoId()
+  cashSessionId?: string;
+
+  @ApiPropertyOptional({ description: "Nombre/ID de la caja física" })
+  @IsOptional()
+  @IsString()
+  cashRegisterId?: string;
+
+  // ============================================
+  // LISTAS DE PRECIOS
+  // ============================================
+
+  @ApiPropertyOptional({ description: "ID de la lista de precios a aplicar (sobrescribe la lista del cliente si está presente)" })
+  @IsOptional()
+  @IsMongoId()
+  priceListId?: string;
+
+  @ApiPropertyOptional({ description: "Guardar la lista de precios seleccionada en el perfil del cliente", default: false })
+  @IsOptional()
+  @IsBoolean()
+  savePriceListToCustomer?: boolean = false;
 }
 
 export class UpdateOrderDto {
@@ -355,6 +472,88 @@ export class UpdateOrderDto {
   @IsString()
   @SanitizeText()
   internalNotes?: string;
+
+  // ========================================
+  // POS WORKFLOW FIELDS (for table orders)
+  // ========================================
+
+  @ApiPropertyOptional({ description: "RIF o C.I. del cliente" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  customerRif?: string;
+
+  @ApiPropertyOptional({ description: "Tipo de documento fiscal (V, E, J, G, P, N)" })
+  @IsOptional()
+  @IsEnum(["V", "E", "J", "G", "P", "N"])
+  taxType?: string;
+
+  @ApiPropertyOptional({ description: "Cliente es Contribuyente Especial (retiene IVA)" })
+  @IsOptional()
+  @IsBoolean()
+  customerIsSpecialTaxpayer?: boolean;
+
+  @ApiPropertyOptional({ description: "Teléfono del cliente" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  customerPhone?: string;
+
+  @ApiPropertyOptional({ description: "Dirección del cliente" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  customerAddress?: string;
+
+  @ApiPropertyOptional({ description: "Items de la orden", type: [CreateOrderItemDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderItemDto)
+  items?: CreateOrderItemDto[];
+
+  @ApiPropertyOptional({ description: "Subtotal de la orden (sin impuestos)" })
+  @IsOptional()
+  @IsNumber()
+  subtotal?: number;
+
+  @ApiPropertyOptional({ description: "Monto total de IVA" })
+  @IsOptional()
+  @IsNumber()
+  ivaTotal?: number;
+
+  @ApiPropertyOptional({ description: "Monto total de IGTF" })
+  @IsOptional()
+  @IsNumber()
+  igtfTotal?: number;
+
+  @ApiPropertyOptional({ description: "Costo de envío" })
+  @IsOptional()
+  @IsNumber()
+  shippingCost?: number;
+
+  @ApiPropertyOptional({ description: "Monto total final" })
+  @IsOptional()
+  @IsNumber()
+  totalAmount?: number;
+
+  @ApiPropertyOptional({ description: "Porcentaje de descuento general" })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  generalDiscountPercentage?: number;
+
+  @ApiPropertyOptional({ description: "Razón del descuento general" })
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  generalDiscountReason?: string;
+
+  @ApiPropertyOptional({ description: "ID de la mesa (restaurantes)" })
+  @IsOptional()
+  @IsMongoId()
+  tableId?: string;
 }
 
 export class OrderPaymentDto {

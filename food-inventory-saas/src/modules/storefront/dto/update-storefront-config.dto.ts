@@ -38,19 +38,19 @@ export class UpdateThemeConfigDto {
   secondaryColor?: string;
 
   @ApiPropertyOptional({
-    description: "URL del logo",
-    example: "https://cdn.example.com/logo.png",
+    description: "Logo en base64 o URL",
+    example: "data:image/webp;base64,...",
   })
   @IsOptional()
-  @IsUrl({}, { message: "El logo debe ser una URL válida" })
+  @IsString()
   logo?: string;
 
   @ApiPropertyOptional({
-    description: "URL del favicon",
-    example: "https://cdn.example.com/favicon.ico",
+    description: "Favicon en base64 o URL",
+    example: "data:image/png;base64,...",
   })
   @IsOptional()
-  @IsUrl({}, { message: "El favicon debe ser una URL válida" })
+  @IsString()
   favicon?: string;
 }
 
@@ -158,7 +158,7 @@ export class UpdateAddressDto {
   })
   @IsOptional()
   @IsString()
-  zipCode?: string;
+  postalCode?: string;
 
   @ApiPropertyOptional({
     description: "País",
@@ -275,12 +275,12 @@ export class UpdateStorefrontConfigDto {
 
   @ApiPropertyOptional({
     description: "Tipo de plantilla del storefront",
-    enum: ["ecommerce", "services"],
+    enum: ["ecommerce", "services", "premium"],
     example: "ecommerce",
   })
   @IsOptional()
-  @IsEnum(["ecommerce", "services"], {
-    message: "El tipo de plantilla debe ser 'ecommerce' o 'services'",
+  @IsEnum(["ecommerce", "services", "premium"], {
+    message: "El tipo de plantilla debe ser 'ecommerce', 'services' o 'premium'",
   })
   templateType?: string;
 

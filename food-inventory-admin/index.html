@@ -6,11 +6,21 @@
     <link rel="icon" type="image/png" href="/favicon-smartkubik.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SmartKubik - SaaS Todo en Uno</title>
+    <!-- Preload critical assets -->
+    <!-- Preload critical assets -->
+
+    <!-- Font preconnects -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Fonts with display=swap for non-blocking load -->
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&family=Rubik:wght@300;400;500;600;700;800;900&display=swap"
-        rel="stylesheet" />
+        rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@700;800&family=Rubik:wght@300;400;500;600;700;800;900&display=swap"
+            rel="stylesheet" />
+    </noscript>
     <script>
         // Set dark mode by default before page loads to prevent flash
         if (!localStorage.getItem('vite-ui-theme')) {

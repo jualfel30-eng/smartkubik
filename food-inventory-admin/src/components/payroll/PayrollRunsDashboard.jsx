@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth.jsx";
 import { fetchApi } from "@/lib/api";
-import { useCountryPlugin } from "@/country-plugins/CountryPluginContext";
+import { useExchangeRate } from "@/hooks/useExchangeRate";
 import { HRNavigation } from '@/components/payroll/HRNavigation.jsx';
 import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
@@ -261,10 +261,6 @@ const KpiCard = ({ label, value, currency }) => (
 
 const PayrollRunsDashboard = () => {
   const { tenant, hasPermission } = useAuth();
-  const plugin = useCountryPlugin();
-  const transactionTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
-  const defaultIgtfRate = transactionTax ? transactionTax.rate / 100 : 0.03;
-
   const location = useLocation();
   const navigate = useNavigate();
   const payrollEnabled = Boolean(tenant?.enabledModules?.payroll);
@@ -275,6 +271,7 @@ const PayrollRunsDashboard = () => {
     ? hasPermission("payroll_employees_write")
     : false;
   const currency = tenant?.currency || "USD";
+  const { rate: bcvRate, loading: loadingBcvRate } = useExchangeRate();
 
   const [runs, setRuns] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
@@ -296,8 +293,9 @@ const PayrollRunsDashboard = () => {
   const [payMethod, setPayMethod] = useState({
     method: "transfer",
     currency: "USD",
+    reference: "",
     igtf: false,
-    igtfRate: defaultIgtfRate,
+    igtfRate: 0.03,
   });
   const [bankAccountId, setBankAccountId] = useState("");
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -849,6 +847,31 @@ const PayrollRunsDashboard = () => {
     }
   };
 
+  const [approvingRun, setApprovingRun] = useState(false);
+
+  const handleApproveRun = async () => {
+    if (!selectedRun?._id) return;
+    if (!canWritePayroll) {
+      toast.error("No tienes permisos para aprobar nóminas");
+      return;
+    }
+    setApprovingRun(true);
+    try {
+      await fetchApi(`/payroll/runs/${selectedRun._id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "approved" }),
+      });
+      toast.success("Nómina aprobada");
+      loadRuns();
+      const detail = await fetchApi(`/payroll/runs/${selectedRun._id}`);
+      setSelectedRun(detail?.data || detail || selectedRun);
+    } catch (error) {
+      toast.error(error.message || "No se pudo aprobar la nómina");
+    } finally {
+      setApprovingRun(false);
+    }
+  };
+
   const handlePayRun = async () => {
     if (!selectedRun?._id) return;
     if (selectedRun.status !== "approved") {
@@ -879,14 +902,20 @@ const PayrollRunsDashboard = () => {
       toast.error("El método no está permitido para esta cuenta");
       return;
     }
+    if (payMethod.currency === "VES" && !bcvRate) {
+      toast.error("No se pudo obtener la tasa BCV para pagar en VES");
+      return;
+    }
     setPaying(true);
     try {
       const payload = {
         method: payMethod.method,
         currency: payMethod.currency,
         bankAccountId: bankAccountId || undefined,
+        reference: payMethod.reference,
         applyIgtf: payMethod.igtf,
         igtfRate: payMethod.igtfRate,
+        exchangeRate: payMethod.currency === "VES" ? bcvRate : undefined,
       };
       await fetchApi(`/payroll/runs/${selectedRun._id}/pay`, {
         method: "POST",
@@ -3642,7 +3671,7 @@ const PayrollRunsDashboard = () => {
       </Dialog>
 
       <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Pagar nómina</DialogTitle>
             <DialogDescription>
@@ -3651,19 +3680,43 @@ const PayrollRunsDashboard = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="grid gap-2 md:grid-cols-3">
               <div>
                 <Label>Método</Label>
-                <Input
+                <Select
                   value={payMethod.method}
-                  onChange={(e) =>
+                  onValueChange={(value) =>
                     setPayMethod((prev) => ({
                       ...prev,
-                      method: e.target.value,
+                      method: value,
                     }))
                   }
                   disabled={paying}
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona método" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(selectedBankAccount?.acceptedPaymentMethods?.length
+                      ? selectedBankAccount.acceptedPaymentMethods
+                      : ["transfer", "pago-movil", "zelle", "cash", "other"]
+                    ).map((method) => (
+                      <SelectItem key={method} value={method}>
+                        {method === "transfer"
+                          ? "Transferencia"
+                          : method === "pago-movil"
+                            ? "Pago Móvil"
+                            : method === "zelle"
+                              ? "Zelle"
+                              : method === "cash"
+                                ? "Efectivo"
+                                : method === "other"
+                                  ? "Otro"
+                                  : method}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Moneda</Label>
@@ -3683,30 +3736,7 @@ const PayrollRunsDashboard = () => {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="grid gap-2 md:grid-cols-2">
-              <div className="col-span-1">
-                <Label>Cuenta bancaria</Label>
-                <Select
-                  value={bankAccountId}
-                  onValueChange={(value) => setBankAccountId(value)}
-                  disabled={paying}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona cuenta" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bankAccounts.map((account) => (
-                      <SelectItem key={account._id} value={account._id}>
-                        {account.bankName || "Banco"} ·{" "}
-                        {account.accountNumber || account.alias || ""} ·{" "}
-                        {account.currency}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-1">
+              <div>
                 <Label>IGTF</Label>
                 <div className="flex items-center gap-2">
                   <Switch
@@ -3731,6 +3761,43 @@ const PayrollRunsDashboard = () => {
                   />
                   <span className="text-xs text-muted-foreground">tasa</span>
                 </div>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <div>
+                <Label>Cuenta bancaria</Label>
+                <Select
+                  value={bankAccountId}
+                  onValueChange={(value) => setBankAccountId(value)}
+                  disabled={paying}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona cuenta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {bankAccounts.map((account) => (
+                      <SelectItem key={account._id} value={account._id}>
+                        {account.bankName || "Banco"} ·{" "}
+                        {account.accountNumber || account.alias || ""} ·{" "}
+                        {account.currency}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Referencia</Label>
+                <Input
+                  value={payMethod.reference}
+                  onChange={(e) =>
+                    setPayMethod((prev) => ({
+                      ...prev,
+                      reference: e.target.value,
+                    }))
+                  }
+                  disabled={paying}
+                  placeholder="N° de referencia"
+                />
               </div>
             </div>
             <div className="rounded-md border p-3 text-sm text-muted-foreground space-y-1">
@@ -3759,6 +3826,36 @@ const PayrollRunsDashboard = () => {
                   currency,
                 )}
               </div>
+              {payMethod.currency === "VES" && (
+                <div className="rounded-md border border-blue-200 bg-blue-50 p-2 dark:border-blue-800 dark:bg-blue-950 space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span>Tasa BCV:</span>
+                    <span className="font-medium">
+                      {loadingBcvRate
+                        ? "Cargando..."
+                        : bcvRate
+                          ? `Bs. ${bcvRate.toFixed(2)} / USD`
+                          : "No disponible"}
+                    </span>
+                  </div>
+                  {bcvRate && (
+                    <div className="flex justify-between text-sm font-semibold text-blue-700 dark:text-blue-300">
+                      <span>Total en Bs.:</span>
+                      <span>
+                        Bs.{" "}
+                        {(
+                          (selectedRun?.netPay || 0) *
+                          (payMethod.igtf ? 1 + payMethod.igtfRate : 1) *
+                          bcvRate
+                        ).toLocaleString("es-VE", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
               {selectedBankAccount ? (
                 <div>
                   Cuenta: {selectedBankAccount.bankName} ·{" "}
@@ -3843,7 +3940,7 @@ const PayrollRunsDashboard = () => {
               </div>
             </div>
           </DrawerHeader>
-          <div className="grid gap-4 p-4">
+          <div className="grid gap-4 p-4 overflow-y-auto flex-1">
             {detailLoading ? (
               <div className="flex h-48 items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -3999,6 +4096,36 @@ const PayrollRunsDashboard = () => {
                             currency,
                           )}
                         </div>
+                        {payMethod.currency === "VES" && (
+                          <div className="rounded border border-blue-200 bg-blue-50 p-1.5 dark:border-blue-800 dark:bg-blue-950 space-y-0.5">
+                            <div className="flex justify-between">
+                              <span>Tasa BCV:</span>
+                              <span className="font-medium">
+                                {loadingBcvRate
+                                  ? "Cargando..."
+                                  : bcvRate
+                                    ? `Bs. ${bcvRate.toFixed(2)}`
+                                    : "No disponible"}
+                              </span>
+                            </div>
+                            {bcvRate && (
+                              <div className="flex justify-between font-semibold text-blue-700 dark:text-blue-300">
+                                <span>Total Bs.:</span>
+                                <span>
+                                  Bs.{" "}
+                                  {(
+                                    (selectedRun.netPay || 0) *
+                                    (payMethod.igtf ? 1 + payMethod.igtfRate : 1) *
+                                    bcvRate
+                                  ).toLocaleString("es-VE", {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {selectedBankAccount ? (
                           <div>
                             Cuenta: {selectedBankAccount.bankName} ·{" "}
@@ -4011,6 +4138,21 @@ const PayrollRunsDashboard = () => {
                         )}
                       </div>
                       <div className="flex flex-wrap gap-2">
+                        {selectedRun.status === "calculated" && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={handleApproveRun}
+                            disabled={approvingRun || !canWritePayroll}
+                          >
+                            {approvingRun ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <ShieldCheck className="mr-2 h-4 w-4" />
+                            )}
+                            Aprobar nómina
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           onClick={() => setPayDialogOpen(true)}

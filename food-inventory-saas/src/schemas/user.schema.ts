@@ -70,6 +70,37 @@ export class User {
 
   @Prop({ type: Types.ObjectId, ref: "User" })
   createdBy?: Types.ObjectId;
+
+  /**
+   * Preferencias de notificaciones del usuario
+   */
+  @Prop({
+    type: Object,
+    default: () => ({
+      enabled: true,
+      categories: {
+        sales: { inApp: true, email: true, whatsapp: false },
+        inventory: { inApp: true, email: true, whatsapp: false },
+        hr: { inApp: true, email: false, whatsapp: false },
+        finance: { inApp: true, email: true, whatsapp: false },
+        marketing: { inApp: true, email: false, whatsapp: false },
+        system: { inApp: true, email: false, whatsapp: false },
+      },
+      soundEnabled: true,
+    }),
+  })
+  notificationPreferences?: {
+    enabled: boolean;
+    categories: {
+      sales: { inApp: boolean; email: boolean; whatsapp: boolean };
+      inventory: { inApp: boolean; email: boolean; whatsapp: boolean };
+      hr: { inApp: boolean; email: boolean; whatsapp: boolean };
+      finance: { inApp: boolean; email: boolean; whatsapp: boolean };
+      marketing: { inApp: boolean; email: boolean; whatsapp: boolean };
+      system: { inApp: boolean; email: boolean; whatsapp: boolean };
+    };
+    soundEnabled: boolean;
+  };
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -88,6 +88,8 @@ const WasteTrackingWidget = () => {
     },
   });
 
+  const [availableUnits, setAvailableUnits] = useState([]);
+
   const fetchEntries = useCallback(async () => {
     setLoading(true);
     try {
@@ -120,10 +122,17 @@ const WasteTrackingWidget = () => {
 
   const fetchProducts = useCallback(async () => {
     try {
-      const data = await getProducts();
-      setProducts(data?.data || []);
+      // Fetch all products without active filter to debug visibility
+      const data = await getProducts({ limit: 1000 });
+      const productList = Array.isArray(data) ? data : (data?.data || []);
+      setProducts(productList);
+
+      if (productList.length === 0) {
+        console.warn('No products found via API (filters removed)');
+      }
     } catch (error) {
       console.error('Error loading products:', error);
+      toast.error('Error al cargar productos del inventario');
     }
   }, []);
 
@@ -142,12 +151,35 @@ const WasteTrackingWidget = () => {
 
   const handleCreateEntry = async () => {
     try {
+      // Find the selected unit to get conversion factor
+      const selectedUnitInfo = availableUnits.find(u => u.name === formData.unit);
+      const conversionFactor = selectedUnitInfo?.conversionFactor || 1;
+
+      // Calculate quantity in base units for accurate inventory deduction
+      const baseQuantity = formData.quantity * conversionFactor;
+
+      // We will send the BASE QUANTITY to ensure inventory is deducted correctly.
+      // We also verify if we should send the base Unit name or keep the original. 
+      // To ensure consistency with the backend inventory deduction which relies on base quantity, 
+      // we send baseQuantity and the baseUnit name.
+      // We add a note about original entry.
+
+      const product = products.find(p => p._id === formData.productId);
+      const baseUnit = product?.unitOfMeasure || 'unidad';
+
+      const originalNote = selectedUnitInfo?.conversionFactor > 1
+        ? ` (Registrado como: ${formData.quantity} ${formData.unit})`
+        : '';
+
       // Clean environmental factors
       const cleanedData = {
         ...formData,
+        quantity: baseQuantity, // Send converted quantity
+        unit: baseUnit,        // Send base unit
+        notes: (formData.notes || '') + originalNote,
         environmentalFactors: formData.environmentalFactors.temperature ||
-                             formData.environmentalFactors.humidity ||
-                             formData.environmentalFactors.storageCondition
+          formData.environmentalFactors.humidity ||
+          formData.environmentalFactors.storageCondition
           ? formData.environmentalFactors
           : undefined,
       };
@@ -165,25 +197,55 @@ const WasteTrackingWidget = () => {
 
   const handleUpdateEntry = async () => {
     try {
-      await updateWasteEntry(showEditDialog._id, formData);
-      toast.success('Entrada actualizada');
+      if (!showEditDialog) return;
+
+      // Find the selected unit to get conversion factor
+      const selectedUnitInfo = availableUnits.find(u => u.name === formData.unit);
+      const conversionFactor = selectedUnitInfo?.conversionFactor || 1;
+
+      // Calculate quantity in base units for accurate inventory deduction
+      const baseQuantity = formData.quantity * conversionFactor;
+
+      const product = products.find(p => p._id === formData.productId);
+      const baseUnit = product?.unitOfMeasure || 'unidad';
+
+      const originalNote = selectedUnitInfo?.conversionFactor > 1
+        ? ` (Registrado como: ${formData.quantity} ${formData.unit})`
+        : '';
+
+      const cleanedData = {
+        ...formData,
+        quantity: baseQuantity, // Send converted quantity
+        unit: baseUnit,        // Send base unit
+        notes: (formData.notes || '') + originalNote,
+        environmentalFactors: formData.environmentalFactors.temperature ||
+          formData.environmentalFactors.humidity ||
+          formData.environmentalFactors.storageCondition
+          ? formData.environmentalFactors
+          : undefined,
+      };
+
+      await updateWasteEntry(showEditDialog._id, cleanedData);
+      toast.success('Entrada de desperdicio actualizada');
       setShowEditDialog(null);
       resetForm();
       fetchEntries();
+      if (activeTab === 'analytics') fetchAnalytics();
     } catch (error) {
       toast.error('Error al actualizar entrada', { description: error.message });
     }
   };
 
   const handleDeleteEntry = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar esta entrada?')) return;
-
-    try {
-      await deleteWasteEntry(id);
-      toast.success('Entrada eliminada');
-      fetchEntries();
-    } catch (error) {
-      toast.error('Error al eliminar entrada', { description: error.message });
+    if (window.confirm('¿Estás seguro de que quieres eliminar esta entrada de desperdicio?')) {
+      try {
+        await deleteWasteEntry(id);
+        toast.success('Entrada de desperdicio eliminada');
+        fetchEntries();
+        if (activeTab === 'analytics') fetchAnalytics();
+      } catch (error) {
+        toast.error('Error al eliminar entrada', { description: error.message });
+      }
     }
   };
 
@@ -203,7 +265,9 @@ const WasteTrackingWidget = () => {
         storageCondition: '',
       },
     });
+    setAvailableUnits([]);
   };
+
 
   const openEditDialog = (entry) => {
     setFormData({
@@ -714,10 +778,39 @@ const WasteTrackingWidget = () => {
               <Label>Producto *</Label>
               <Select value={formData.productId} onValueChange={(val) => {
                 const product = products.find(p => p._id === val);
+
+                // Prepare units list
+                const units = [];
+                if (product) {
+                  // If product has distinct selling units, use ONLY those (as requested)
+                  // Otherwise, fall back to base unitOfMeasure
+
+                  if (product.sellingUnits && product.sellingUnits.length > 0) {
+                    // Populate exclusively from sellingUnits
+                    product.sellingUnits.forEach(u => {
+                      if (u.isActive !== false) {
+                        units.push({
+                          name: u.name,
+                          conversionFactor: u.conversionFactor,
+                          isBase: false
+                        });
+                      }
+                    });
+                  } else {
+                    // Fallback to base unit only if no selling units defined
+                    if (product.unitOfMeasure) {
+                      units.push({ name: product.unitOfMeasure, conversionFactor: 1, isBase: true });
+                    } else {
+                      units.push({ name: 'unidad', conversionFactor: 1, isBase: true }); // Fallback
+                    }
+                  }
+                }
+                setAvailableUnits(units);
+
                 setFormData({
                   ...formData,
                   productId: val,
-                  unit: product?.baseUnit || '',
+                  unit: units.length > 0 ? units[0].name : '', // Default to first unit (base)
                 });
               }}>
                 <SelectTrigger>
@@ -746,11 +839,29 @@ const WasteTrackingWidget = () => {
               </div>
               <div>
                 <Label>Unidad *</Label>
-                <Input
-                  value={formData.unit}
-                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  placeholder="kg, L, unidad..."
-                />
+                {availableUnits.length > 0 ? (
+                  <Select
+                    value={formData.unit}
+                    onValueChange={(val) => setFormData({ ...formData, unit: val })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Unidad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableUnits.map((u, idx) => (
+                        <SelectItem key={idx} value={u.name}>
+                          {u.name} {u.conversionFactor > 1 && `(x${u.conversionFactor})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Select disabled>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccione producto..." />
+                    </SelectTrigger>
+                  </Select>
+                )}
               </div>
             </div>
 

@@ -14,6 +14,7 @@ import {
   ArrayMinSize,
   IsNotEmpty,
   IsEnum,
+  Matches,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
@@ -51,6 +52,12 @@ class PurchaseOrderItemDto {
   @IsNumber()
   @IsPositive()
   costPrice: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  discount?: number; // Percentage discount (0-100)
 
   @IsOptional()
   @IsString()
@@ -126,6 +133,10 @@ export class CreatePurchaseOrderDto {
   @ValidateIf((o) => !o.supplierId)
   @IsString()
   @SanitizeString()
+  @Matches(
+    /^[VEJGPN]-?\d{7,9}(-\d)?$/,
+    { message: 'RIF debe tener formato válido: V/E (cédula o RIF), J (RIF jurídico), G, P, N' }
+  )
   newSupplierRif?: string;
 
   @ValidateIf((o) => !o.supplierId)
@@ -159,4 +170,11 @@ export class CreatePurchaseOrderDto {
   @ValidateNested()
   @Type(() => PaymentTermsDto)
   paymentTerms: PaymentTermsDto;
+}
+
+export class ReceivePurchaseOrderDto {
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  receivedBy?: string;
 }

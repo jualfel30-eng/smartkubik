@@ -81,6 +81,10 @@ import { CreateSpecialPayrollRunDto } from "./dto/create-special-payroll-run.dto
 import { SpecialPayrollRunFiltersDto } from "./dto/special-payroll-run-filters.dto";
 import { PayrollWebhooksService } from "../payroll-webhooks/payroll-webhooks.service";
 import { TipsService } from "../tips/tips.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
+import { CommissionService } from "../commissions/services/commission.service";
+import { BonusService } from "../commissions/services/bonus.service";
+import { ExchangeRateService } from "../exchange-rate/exchange-rate.service";
 
 type LeanEmployeeProfile = EmployeeProfile & {
   _id: Types.ObjectId;
@@ -164,7 +168,11 @@ export class PayrollRunsService {
     private readonly payrollEngine: PayrollEngineService,
     private readonly webhooksService: PayrollWebhooksService,
     private readonly tipsService: TipsService,
-  ) {}
+    private readonly eventEmitter: EventEmitter2,
+    private readonly commissionService: CommissionService,
+    private readonly bonusService: BonusService,
+    private readonly exchangeRateService: ExchangeRateService,
+  ) { }
 
   private toObjectId(id: string | Types.ObjectId) {
     if (id instanceof Types.ObjectId) return id;
@@ -218,6 +226,18 @@ export class PayrollRunsService {
           status: "approved",
         },
       );
+
+      // Emit event for notification center - payroll pending payment
+      this.eventEmitter.emit("payroll.run.pending", {
+        runId: run._id.toString(),
+        label: run.label,
+        periodStart: run.periodStart,
+        periodEnd: run.periodEnd,
+        totalEmployees: run.totalEmployees,
+        netPay: run.netPay,
+        currency: (run as any).currency,
+        tenantId,
+      });
     } else if (nextStatus === "paid") {
       const before = { status: current };
       run.status = "paid";
@@ -249,6 +269,18 @@ export class PayrollRunsService {
         },
         employees: run.totalEmployees,
         status: "paid",
+      });
+
+      // Emit event for notification center - payroll completed
+      this.eventEmitter.emit("payroll.run.completed", {
+        runId: run._id.toString(),
+        label: run.label,
+        periodStart: run.periodStart,
+        periodEnd: run.periodEnd,
+        totalEmployees: run.totalEmployees,
+        netPay: run.netPay,
+        currency: (run as any).currency,
+        tenantId,
       });
     } else {
       run.status = nextStatus;
@@ -295,23 +327,49 @@ export class PayrollRunsService {
     const applyIgtf = Boolean(dto.applyIgtf);
     const igtfRate = dto.igtfRate ?? 0.03;
 
+    // Auto-fetch BCV rate for VES payments
+    let exchangeRate = dto.exchangeRate;
+    if (dto.currency === "VES" && !exchangeRate) {
+      try {
+        const rateData = await this.exchangeRateService.getBCVRate();
+        exchangeRate = rateData.rate;
+        this.logger.log(
+          `Payroll VES payment: BCV rate ${exchangeRate} (source: ${rateData.source})`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          "Failed to get BCV rate for VES payroll payment",
+          error,
+        );
+        throw new BadRequestException(
+          "No se pudo obtener la tasa BCV para calcular el pago en VES.",
+        );
+      }
+    }
+
     for (const payable of payablesMeta) {
       if (!payable.payableId) {
         continue;
       }
-      const baseAmount = payable.netPay || run.netPay || 0;
+      const baseAmountUSD = payable.netPay || run.netPay || 0;
       const igtfAmount =
         applyIgtf && dto.currency === "USD"
-          ? parseFloat((baseAmount * igtfRate).toFixed(2))
+          ? parseFloat((baseAmountUSD * igtfRate).toFixed(2))
           : 0;
-      const totalAmount = baseAmount + igtfAmount;
+      const totalAmountUSD = baseAmountUSD + igtfAmount;
+
+      const isVes = dto.currency === "VES";
+      const amountVes = isVes && exchangeRate
+        ? parseFloat((totalAmountUSD * exchangeRate).toFixed(2))
+        : undefined;
+
       const paymentDto: CreatePaymentDto = {
         paymentType: "payable",
         payableId: payable.payableId,
         date: paymentDate.toISOString(),
-        amount: totalAmount,
-        amountVes: dto.currency === "VES" ? totalAmount : undefined,
-        exchangeRate: dto.exchangeRate as any,
+        amount: totalAmountUSD,
+        amountVes,
+        exchangeRate: exchangeRate as any,
         method: dto.method,
         currency: dto.currency,
         reference: dto.reference,
@@ -326,6 +384,8 @@ export class PayrollRunsService {
         paymentId: (payment as any)?._id?.toString?.(),
         payableId: payable.payableId,
         amount: payment.amount,
+        amountVes: amountVes || undefined,
+        exchangeRate: exchangeRate || undefined,
         igtf: igtfAmount,
         method: payment.method,
         currency: payment.currency,
@@ -349,6 +409,9 @@ export class PayrollRunsService {
     };
     await run.save();
 
+    // Marcar comisiones y bonos como pagados
+    await this.markCommissionsAndBonusesAsPaid(run, tenantId);
+
     await this.notifyPayrollPayment(run, paymentsMeta, tenantId);
 
     await this.recordAudit({
@@ -362,6 +425,85 @@ export class PayrollRunsService {
     });
 
     return run.toObject();
+  }
+
+  /**
+   * Marcar comisiones y bonos incluidos en la nómina como pagados
+   */
+  private async markCommissionsAndBonusesAsPaid(
+    run: PayrollRunDocument,
+    tenantId: string,
+  ): Promise<void> {
+    const runId = run._id.toString();
+
+    // Obtener IDs de empleados en la nómina
+    const employeeIds = (run.lines || [])
+      .map((line) => line.employeeId?.toString())
+      .filter(Boolean) as string[];
+
+    if (employeeIds.length === 0) return;
+
+    // Buscar comisiones aprobadas para estos empleados en el período
+    const periodStart = run.periodStart;
+    const periodEnd = run.periodEnd;
+
+    // Marcar comisiones como pagadas
+    let totalCommissionsMarked = 0;
+    for (const employeeId of employeeIds) {
+      try {
+        const result = await this.commissionService.getApprovedCommissions(
+          employeeId,
+          periodStart,
+          periodEnd,
+          tenantId,
+        );
+
+        if (result.recordIds.length > 0) {
+          const markedCount = await this.commissionService.markAsPaid(
+            result.recordIds,
+            runId,
+            tenantId,
+          );
+          totalCommissionsMarked += markedCount;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to mark commissions as paid for employee ${employeeId}: ${error.message}`,
+        );
+      }
+    }
+
+    // Marcar bonos como pagados
+    let totalBonusesMarked = 0;
+    for (const employeeId of employeeIds) {
+      try {
+        const result = await this.bonusService.getApprovedBonuses(
+          employeeId,
+          periodStart,
+          periodEnd,
+          tenantId,
+        );
+
+        if (result.bonusIds.length > 0) {
+          const periodLabel = run.label || `${run.periodStart?.toISOString()} - ${run.periodEnd?.toISOString()}`;
+          const markedCount = await this.bonusService.markAsPaid(
+            result.bonusIds,
+            runId,
+            periodLabel,
+            tenantId,
+          );
+          totalBonusesMarked += markedCount;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Failed to mark bonuses as paid for employee ${employeeId}: ${error.message}`,
+        );
+      }
+    }
+
+    this.logger.log(
+      `Marked ${totalCommissionsMarked} commissions and ${totalBonusesMarked} bonuses as paid for payroll run ${runId}`,
+    );
   }
 
   private async notifyPayrollPayment(
@@ -436,11 +578,11 @@ export class PayrollRunsService {
           html,
           attachments: payslips
             ? [
-                {
-                  filename: payslips.filename,
-                  content: payslips.buffer,
-                },
-              ]
+              {
+                filename: payslips.filename,
+                content: payslips.buffer,
+              },
+            ]
             : undefined,
         });
       }
@@ -898,13 +1040,13 @@ export class PayrollRunsService {
     const structureObjectIds = structures.map((structure) => structure._id);
     const rules = structureObjectIds.length
       ? await this.ruleModel
-          .find({
-            structureId: { $in: structureObjectIds },
-            tenantId: tenantObjectId,
-            isActive: true,
-          })
-          .sort({ priority: 1 })
-          .lean()
+        .find({
+          structureId: { $in: structureObjectIds },
+          tenantId: tenantObjectId,
+          isActive: true,
+        })
+        .sort({ priority: 1 })
+        .lean()
       : [];
 
     const structureMap = new Map<string, LeanPayrollStructure>();
@@ -948,6 +1090,67 @@ export class PayrollRunsService {
       // Continuar sin propinas si hay error
     }
 
+    // Obtener comisiones aprobadas del período para cada empleado
+    const employeeCommissionsMap = new Map<string, number>();
+    try {
+      const commissionsReport =
+        await this.commissionService.getAllApprovedCommissionsForPayroll(
+          periodStart,
+          periodEnd,
+          tenantId,
+        );
+
+      // Mapear comisiones por employeeId
+      if (commissionsReport && Array.isArray(commissionsReport)) {
+        commissionsReport.forEach((empComm: any) => {
+          if (empComm.employeeId && empComm.totalCommissions > 0) {
+            employeeCommissionsMap.set(
+              empComm.employeeId,
+              empComm.totalCommissions,
+            );
+          }
+        });
+      }
+
+      this.logger.log(
+        `Loaded commissions for ${employeeCommissionsMap.size} employees in payroll period`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to load commissions for payroll period: ${error.message}`,
+      );
+      // Continuar sin comisiones si hay error
+    }
+
+    // Obtener bonos aprobados del período para cada empleado
+    const employeeBonusesMap = new Map<string, number>();
+    try {
+      const bonusesReport =
+        await this.bonusService.getAllApprovedBonusesForPayroll(
+          periodStart,
+          periodEnd,
+          tenantId,
+        );
+
+      // Mapear bonos por employeeId
+      if (bonusesReport && Array.isArray(bonusesReport)) {
+        bonusesReport.forEach((empBonus: any) => {
+          if (empBonus.employeeId && empBonus.totalBonuses > 0) {
+            employeeBonusesMap.set(empBonus.employeeId, empBonus.totalBonuses);
+          }
+        });
+      }
+
+      this.logger.log(
+        `Loaded bonuses for ${employeeBonusesMap.size} employees in payroll period`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to load bonuses for payroll period: ${error.message}`,
+      );
+      // Continuar sin bonos si hay error
+    }
+
     const computations = this.computeRunEntries(
       employees,
       activeContractMap,
@@ -958,6 +1161,8 @@ export class PayrollRunsService {
       conceptById,
       structures,
       employeeTipsMap,
+      employeeCommissionsMap,
+      employeeBonusesMap,
     );
 
     const structureSummary = this.buildStructureSummary(
@@ -1016,10 +1221,10 @@ export class PayrollRunsService {
 
     const run = reuseRunId
       ? await this.runModel.findOneAndUpdate(
-          { _id: this.toObjectId(reuseRunId) },
-          { $set: runPayload },
-          { new: true },
-        )
+        { _id: this.toObjectId(reuseRunId) },
+        { $set: runPayload },
+        { new: true },
+      )
       : await this.runModel.create(runPayload);
 
     if (!run) {
@@ -1300,11 +1505,11 @@ export class PayrollRunsService {
     );
     const conceptDocs = conceptCodes.length
       ? await this.conceptModel
-          .find({
-            tenantId: this.toObjectId(tenantId),
-            code: { $in: conceptCodes },
-          })
-          .lean<LeanPayrollConcept[]>()
+        .find({
+          tenantId: this.toObjectId(tenantId),
+          code: { $in: conceptCodes },
+        })
+        .lean<LeanPayrollConcept[]>()
       : [];
     const conceptMap = new Map(conceptDocs.map((c) => [c.code, c]));
 
@@ -1391,16 +1596,16 @@ export class PayrollRunsService {
       if (concept.conceptType === "earning") {
         if (bonusCodes.includes(code)) {
           debit = dto.bonusDebit || "5207";
-          credit = dto.bonusCredit || "2103";
+          credit = dto.bonusCredit || "2110";
         } else if (severanceCodes.includes(code)) {
           debit = dto.severanceDebit || "5205";
           credit = dto.severanceCredit || "2104";
         } else if (earningsCodes.length === 0 || earningsCodes.includes(code)) {
           debit = dto.earningsDebit || "5201";
-          credit = dto.earningsCredit || "2103";
+          credit = dto.earningsCredit || "2110";
         }
       } else if (concept.conceptType === "deduction") {
-        debit = dto.deductionsDebit || "2103";
+        debit = dto.deductionsDebit || "2110";
         credit = dto.deductionsCredit || "2102";
       } else if (concept.conceptType === "employer") {
         debit = dto.employerDebit || "5206";
@@ -1562,6 +1767,8 @@ export class PayrollRunsService {
     conceptById: Map<string, LeanPayrollConcept>,
     allStructures: LeanPayrollStructure[],
     employeeTipsMap: Map<string, number>,
+    employeeCommissionsMap: Map<string, number> = new Map(),
+    employeeBonusesMap: Map<string, number> = new Map(),
   ): PayrollComputationResult {
     const entries: PayrollRun["entries"] = [];
     let grossPay = 0;
@@ -1765,6 +1972,123 @@ export class PayrollRunsService {
       }
     });
 
+    // Incluir comisiones aprobadas del período como earnings
+    employees.forEach((employee) => {
+      const employeeId = employee._id.toString();
+      const commissionsAmount = employeeCommissionsMap.get(employeeId);
+
+      if (commissionsAmount && commissionsAmount > 0) {
+        const contract = contracts.get(employeeId);
+        const customer = customerMap.get(
+          (employee as any).customerId?.toString?.() || "",
+        );
+        const employeeName =
+          customer?.name ||
+          customer?.companyName ||
+          employee.position ||
+          "Empleado";
+
+        // Buscar o crear concepto de comisiones
+        let commissionsConcept =
+          conceptByCode.get("COMMISSION") || conceptByCode.get("COMISIONES");
+
+        if (!commissionsConcept) {
+          commissionsConcept = {
+            tenantId: employee.tenantId,
+            code: "COMMISSION",
+            name: "Comisiones sobre Ventas",
+            conceptType: "earning",
+            calculation: { method: "fixed_amount" },
+            isActive: true,
+            metadata: {
+              category: "variable",
+              isTaxable: true,
+              appliesToAllEmployees: false,
+            },
+          };
+        }
+
+        const resolvedCommissionsConcept = commissionsConcept;
+
+        entries.push({
+          employeeId: employee._id,
+          contractId: contract?._id,
+          employeeName,
+          department: employee.department,
+          conceptCode: resolvedCommissionsConcept.code,
+          conceptName: resolvedCommissionsConcept.name || "Comisiones",
+          conceptType: (resolvedCommissionsConcept.conceptType ||
+            "earning") as any,
+          amount: commissionsAmount,
+          breakdown: {
+            source: "commissions",
+            calculationType: "fixed",
+            baseAmount: commissionsAmount,
+          },
+        });
+
+        grossPay += commissionsAmount;
+      }
+    });
+
+    // Incluir bonos aprobados del período como earnings
+    employees.forEach((employee) => {
+      const employeeId = employee._id.toString();
+      const bonusesAmount = employeeBonusesMap.get(employeeId);
+
+      if (bonusesAmount && bonusesAmount > 0) {
+        const contract = contracts.get(employeeId);
+        const customer = customerMap.get(
+          (employee as any).customerId?.toString?.() || "",
+        );
+        const employeeName =
+          customer?.name ||
+          customer?.companyName ||
+          employee.position ||
+          "Empleado";
+
+        // Buscar o crear concepto de bonos
+        let bonusConcept =
+          conceptByCode.get("GOAL_BONUS") || conceptByCode.get("BONOS");
+
+        if (!bonusConcept) {
+          bonusConcept = {
+            tenantId: employee.tenantId,
+            code: "GOAL_BONUS",
+            name: "Bonos por Metas",
+            conceptType: "earning",
+            calculation: { method: "fixed_amount" },
+            isActive: true,
+            metadata: {
+              category: "variable",
+              isTaxable: true,
+              appliesToAllEmployees: false,
+            },
+          };
+        }
+
+        const resolvedBonusConcept = bonusConcept;
+
+        entries.push({
+          employeeId: employee._id,
+          contractId: contract?._id,
+          employeeName,
+          department: employee.department,
+          conceptCode: resolvedBonusConcept.code,
+          conceptName: resolvedBonusConcept.name || "Bonos",
+          conceptType: (resolvedBonusConcept.conceptType || "earning") as any,
+          amount: bonusesAmount,
+          breakdown: {
+            source: "bonuses",
+            calculationType: "fixed",
+            baseAmount: bonusesAmount,
+          },
+        });
+
+        grossPay += bonusesAmount;
+      }
+    });
+
     return {
       entries,
       grossPay,
@@ -1787,9 +2111,8 @@ export class PayrollRunsService {
     });
 
     entries.forEach((entry) => {
-      const key = `${entry.employeeId?.toString?.() || "n/a"}:${
-        entry.contractId?.toString?.() || "n/a"
-      }`;
+      const key = `${entry.employeeId?.toString?.() || "n/a"}:${entry.contractId?.toString?.() || "n/a"
+        }`;
       if (!linesMap.has(key)) {
         const meta = metadataMap.get(key);
         linesMap.set(key, {
@@ -1929,10 +2252,25 @@ export class PayrollRunsService {
 
     const missingAccounts: string[] = [];
     entries.forEach((entry) => {
-      const concept = conceptMap.get(entry.conceptCode);
+      let concept = conceptMap.get(entry.conceptCode);
+
+      // Si el concepto no existe en la BD (ej. BASE_PAY generado internamente),
+      // crear uno virtual para resolver cuentas por defecto
       if (!concept) {
-        missingAccounts.push(entry.conceptCode || "concepto_sin_codigo");
-        return;
+        const virtualConcept = {
+          code: entry.conceptCode || "concepto_sin_codigo",
+          conceptType: entry.conceptType || "earning",
+        } as LeanPayrollConcept;
+        const fallback = this.getDefaultAccountsForConcept(virtualConcept);
+        if (fallback.debit && fallback.credit) {
+          (virtualConcept as any).debitAccountId = fallback.debit;
+          (virtualConcept as any).creditAccountId = fallback.credit;
+          conceptMap.set(virtualConcept.code, virtualConcept);
+          concept = virtualConcept;
+        } else {
+          missingAccounts.push(entry.conceptCode || "concepto_sin_codigo");
+          return;
+        }
       }
 
       // Si falta mapeo, calcula cuentas por defecto según tipo/código
@@ -1972,7 +2310,7 @@ export class PayrollRunsService {
       prestacionesGasto: "5205",
       seguridadSocialGasto: "5206",
       bonos: "5207",
-      sueldosPorPagar: "2103",
+      sueldosPorPagar: "2110",
       prestacionesPorPagar: "2104",
       ssAportesPorPagar: "2105",
       faovParoPorPagar: "2106",
@@ -2084,9 +2422,8 @@ export class PayrollRunsService {
         legacyEmployees += 1;
         return;
       }
-      const key = `${calculation.structureId}:${
-        calculation.structureVersion ?? "latest"
-      }`;
+      const key = `${calculation.structureId}:${calculation.structureVersion ?? "latest"
+        }`;
       if (!summaryMap.has(key)) {
         const structure = structureMap.get(calculation.structureId);
         summaryMap.set(key, {
@@ -2226,15 +2563,15 @@ export class PayrollRunsService {
       compensationType: contract?.compensationType,
       benefitsTotal: Array.isArray(contract?.benefits)
         ? contract!.benefits.reduce(
-            (sum, benefit) => sum + (benefit.amount || 0),
-            0,
-          )
+          (sum, benefit) => sum + (benefit.amount || 0),
+          0,
+        )
         : 0,
       deductionsTotal: Array.isArray(contract?.deductions)
         ? contract!.deductions.reduce(
-            (sum, deduction) => sum + (deduction.amount || 0),
-            0,
-          )
+          (sum, deduction) => sum + (deduction.amount || 0),
+          0,
+        )
         : 0,
       scheduleHours: schedule?.hoursPerWeek || 0,
     };
@@ -2311,13 +2648,13 @@ export class PayrollRunsService {
     const account = await this.chartModel
       .findOne({
         tenantId,
-        $or: [{ "metadata.payrollCategory": "net_pay" }, { code: "2103" }],
+        $or: [{ "metadata.payrollCategory": "net_pay" }, { code: "2110" }],
       })
       .select(["_id"])
       .lean();
     if (!account?._id) {
       throw new BadRequestException(
-        "No se encontró la cuenta de sueldos por pagar (2103) para generar el payable de nómina.",
+        "No se encontró la cuenta de sueldos por pagar (2110) para generar el payable de nómina.",
       );
     }
     return account._id.toString();
@@ -2509,10 +2846,10 @@ export class PayrollRunsService {
       return { debit: "5205", credit: "2104" };
     }
     if (type === "vacation_bonus") {
-      return { debit: "5201", credit: "2103" };
+      return { debit: "5201", credit: "2110" };
     }
     // bonus / thirteenth
-    return { debit: "5207", credit: "2103" };
+    return { debit: "5207", credit: "2110" };
   }
 
   private async createPayableForSpecialRun(
@@ -2563,9 +2900,9 @@ export class PayrollRunsService {
     }
     const payableResponse = run.metadata?.payableId
       ? {
-          payableId: run.metadata.payableId,
-          number: run.metadata.payableNumber,
-        }
+        payableId: run.metadata.payableId,
+        number: run.metadata.payableNumber,
+      }
       : await this.createPayableForSpecialRun(run, tenantId, userId);
     const paymentDto: CreatePaymentDto = {
       paymentType: "payable",
@@ -2589,9 +2926,9 @@ export class PayrollRunsService {
       amountVes:
         (dto.currency || run.metadata?.currency || "USD") === "VES"
           ? (run.netPay || 0) +
-            (dto.applyIgtf && dto.igtfRate
-              ? (run.netPay || 0) * dto.igtfRate
-              : 0)
+          (dto.applyIgtf && dto.igtfRate
+            ? (run.netPay || 0) * dto.igtfRate
+            : 0)
           : undefined,
     };
     const payment = await this.paymentsService.create(paymentDto, {

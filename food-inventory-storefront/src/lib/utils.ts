@@ -35,6 +35,7 @@ export function isValidUrl(url: string): boolean {
  */
 export function getImageUrl(url: string | undefined, placeholder: string = '/placeholder-product.svg'): string {
   if (!url) return placeholder;
+  if (url.startsWith('data:')) return url;
   if (isValidUrl(url)) return url;
 
   // Soportar rutas relativas de uploads (ej: /uploads/xyz.jpg)

@@ -2,45 +2,53 @@ import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
-  Button,
-  TextField,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
   TableHead,
+  TableHeader,
   TableRow,
-  Chip,
-  IconButton,
-  Grid,
-  Typography,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
-  TablePagination,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Alert,
-  Box,
-  Paper,
-} from '@mui/material';
+} from '@/components/ui/table';
 import {
-  Add,
-  Edit,
-  Delete,
-  FileDownload,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import {
   CheckCircle,
-  Cancel,
-  Summarize,
-  QrCode2,
-  Description,
-} from '@mui/icons-material';
-import { toast } from 'react-toastify';
+  AlertTriangle,
+  FileText,
+  Download,
+  Trash2,
+  XCircle,
+  Search,
+  BookOpen,
+  Filter,
+  RefreshCw,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import {
   fetchSalesBook,
-  fetchSalesBookByPeriod,
   validateSalesBook,
   exportSalesBookToTXT,
   getSalesBookSummary,
@@ -48,13 +56,15 @@ import {
   deleteSalesBookEntry,
 } from '../../lib/api';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const IvaSalesBook = ({ customers }) => {
   const [entries, setEntries] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+
   const [openSummaryDialog, setOpenSummaryDialog] = useState(false);
   const [openAnnulDialog, setOpenAnnulDialog] = useState(false);
   const [annullingEntry, setAnnullingEntry] = useState(null);
@@ -66,11 +76,16 @@ const IvaSalesBook = ({ customers }) => {
   // Filtros
   const [filters, setFilters] = useState({
     status: 'all',
-    customerId: '',
-    isElectronic: '',
+    customerId: 'all',
+    isElectronic: 'all',
     page: 1,
     limit: 50,
   });
+
+  const monthNames = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
 
   useEffect(() => {
     loadEntries();
@@ -80,12 +95,16 @@ const IvaSalesBook = ({ customers }) => {
     try {
       setLoading(true);
       const cleanFilters = {
-        month: selectedMonth,
-        year: selectedYear,
+        month: parseInt(selectedMonth),
+        year: parseInt(selectedYear),
         ...Object.fromEntries(
           Object.entries(filters).filter(([_, v]) => v !== '' && v !== 'all')
         ),
       };
+
+      // Fix for customerId filter
+      if (filters.customerId === 'all') delete cleanFilters.customerId;
+
       const response = await fetchSalesBook(cleanFilters);
       setEntries(response.data);
       setTotal(response.total);
@@ -100,13 +119,13 @@ const IvaSalesBook = ({ customers }) => {
   const handleValidate = async () => {
     try {
       setLoading(true);
-      const result = await validateSalesBook(selectedMonth, selectedYear);
+      const result = await validateSalesBook(parseInt(selectedMonth), parseInt(selectedYear));
 
       if (result.valid) {
-        toast.success('✅ Libro de ventas validado correctamente');
+        toast.success('Libro de ventas validado correctamente');
         setValidationErrors([]);
       } else {
-        toast.warning(`⚠️ Se encontraron ${result.errors.length} errores`);
+        toast.warning(`Se encontraron ${result.errors.length} errores`);
         setValidationErrors(result.errors);
       }
       setShowValidation(true);
@@ -121,7 +140,7 @@ const IvaSalesBook = ({ customers }) => {
   const handleExportTXT = async () => {
     try {
       setLoading(true);
-      await exportSalesBookToTXT(selectedMonth, selectedYear);
+      await exportSalesBookToTXT(parseInt(selectedMonth), parseInt(selectedYear));
       toast.success('Archivo TXT descargado exitosamente');
     } catch (error) {
       toast.error('Error al exportar TXT');
@@ -134,7 +153,7 @@ const IvaSalesBook = ({ customers }) => {
   const handleShowSummary = async () => {
     try {
       setLoading(true);
-      const summaryData = await getSalesBookSummary(selectedMonth, selectedYear);
+      const summaryData = await getSalesBookSummary(parseInt(selectedMonth), parseInt(selectedYear));
       setSummary(summaryData);
       setOpenSummaryDialog(true);
     } catch (error) {
@@ -183,451 +202,396 @@ const IvaSalesBook = ({ customers }) => {
     setFilters({ ...filters, [name]: value, page: 1 });
   };
 
-  const handlePageChange = (event, newPage) => {
-    setFilters({ ...filters, page: newPage + 1 });
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'confirmed':
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Confirmada</Badge>;
+      case 'exported':
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Exportada</Badge>;
+      case 'annulled':
+        return <Badge variant="destructive">Anulada</Badge>;
+      default:
+        return <Badge variant="secondary">Borrador</Badge>;
+    }
   };
-
-  const getStatusColor = (status) => {
-    const colors = {
-      draft: 'default',
-      confirmed: 'success',
-      exported: 'primary',
-      annulled: 'error',
-    };
-    return colors[status] || 'default';
-  };
-
-  const getStatusLabel = (status) => {
-    const labels = {
-      draft: 'Borrador',
-      confirmed: 'Confirmada',
-      exported: 'Exportada',
-      annulled: 'Anulada',
-    };
-    return labels[status] || status;
-  };
-
-  const monthNames = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-  ];
 
   return (
-    <Card>
-      <CardContent>
-        <Grid container spacing={2} alignItems="center" sx={{ mb: 3 }}>
-          <Grid item xs={12} md={6}>
-            <Typography variant="h5">Libro de Ventas</Typography>
-            <Typography variant="caption" color="textSecondary">
-              Registro de operaciones de venta con IVA (SENIAT)
-            </Typography>
-          </Grid>
-          <Grid item xs={12} md={6} sx={{ textAlign: 'right' }}>
-            <Button
-              variant="outlined"
-              startIcon={<CheckCircle />}
-              onClick={handleValidate}
-              disabled={loading}
-              sx={{ mr: 1 }}
-            >
-              Validar
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Summarize />}
-              onClick={handleShowSummary}
-              disabled={loading}
-              sx={{ mr: 1 }}
-            >
-              Resumen
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<FileDownload />}
-              onClick={handleExportTXT}
-              disabled={loading}
-            >
-              Exportar TXT
-            </Button>
-          </Grid>
-        </Grid>
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <BookOpen className="h-6 w-6" />
+            Libro de Ventas
+          </h2>
+          <p className="text-muted-foreground">
+            Registro y control de operaciones de venta con IVA (SENIAT)
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleValidate} disabled={loading}>
+            <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+            Validar
+          </Button>
+          <Button variant="outline" onClick={handleShowSummary} disabled={loading}>
+            <FileText className="mr-2 h-4 w-4 text-blue-600" />
+            Resumen
+          </Button>
+          <Button onClick={handleExportTXT} disabled={loading}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar TXT
+          </Button>
+        </div>
+      </div>
 
-        {/* Selector de Período */}
-        <Paper elevation={2} sx={{ p: 2, mb: 3, bgcolor: 'success.light', color: 'white' }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth>
-                <InputLabel sx={{ color: 'white' }}>Mes</InputLabel>
-                <Select
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  sx={{ bgcolor: 'white' }}
-                >
+      {/* Filtros Principales */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base font-medium flex items-center gap-2">
+            <Filter className="h-4 w-4" />
+            Filtros del Período
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label>Mes</Label>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
                   {monthNames.map((month, index) => (
-                    <MenuItem key={index + 1} value={index + 1}>
+                    <SelectItem key={index + 1} value={(index + 1).toString()}>
                       {month}
-                    </MenuItem>
+                    </SelectItem>
                   ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth>
-                <InputLabel sx={{ color: 'white' }}>Año</InputLabel>
-                <Select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
-                  sx={{ bgcolor: 'white' }}
-                >
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Año</Label>
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
                   {[2023, 2024, 2025, 2026].map((year) => (
-                    <MenuItem key={year} value={year}>
+                    <SelectItem key={year} value={year.toString()}>
                       {year}
-                    </MenuItem>
+                    </SelectItem>
                   ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" sx={{ color: 'white' }}>
-                Período: {monthNames[selectedMonth - 1]} {selectedYear}
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'white', opacity: 0.9 }}>
-                {total} {total === 1 ? 'factura' : 'facturas'} emitidas
-              </Typography>
-            </Grid>
-          </Grid>
-        </Paper>
-
-        {/* Validación */}
-        {showValidation && validationErrors.length > 0 && (
-          <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setShowValidation(false)}>
-            <Typography variant="subtitle2" fontWeight="bold">
-              Se encontraron {validationErrors.length} errores:
-            </Typography>
-            <ul style={{ marginTop: 8, marginBottom: 0 }}>
-              {validationErrors.slice(0, 5).map((error, index) => (
-                <li key={index}>
-                  <Typography variant="body2">{error}</Typography>
-                </li>
-              ))}
-            </ul>
-            {validationErrors.length > 5 && (
-              <Typography variant="caption">
-                ... y {validationErrors.length - 5} errores más
-              </Typography>
-            )}
-          </Alert>
-        )}
-
-        {/* Filtros */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel>Estado</InputLabel>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Estado</Label>
               <Select
                 value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
+                onValueChange={(val) => handleFilterChange('status', val)}
               >
-                <MenuItem value="all">Todos</MenuItem>
-                <MenuItem value="draft">Borradores</MenuItem>
-                <MenuItem value="confirmed">Confirmadas</MenuItem>
-                <MenuItem value="exported">Exportadas</MenuItem>
-                <MenuItem value="annulled">Anuladas</MenuItem>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="draft">Borradores</SelectItem>
+                  <SelectItem value="confirmed">Confirmadas</SelectItem>
+                  <SelectItem value="exported">Exportadas</SelectItem>
+                  <SelectItem value="annulled">Anuladas</SelectItem>
+                </SelectContent>
               </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel>Cliente</InputLabel>
+            </div>
+            <div className="space-y-2">
+              <Label>Cliente</Label>
               <Select
                 value={filters.customerId}
-                onChange={(e) => handleFilterChange('customerId', e.target.value)}
+                onValueChange={(val) => handleFilterChange('customerId', val)}
               >
-                <MenuItem value="">Todos</MenuItem>
-                {customers?.map((customer) => (
-                  <MenuItem key={customer._id} value={customer._id}>
-                    {customer.name}
-                  </MenuItem>
-                ))}
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {customers?.map((customer) => (
+                    <SelectItem key={customer._id} value={customer._id}>
+                      {customer.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
-            </FormControl>
-          </Grid>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel>Tipo Factura</InputLabel>
-              <Select
-                value={filters.isElectronic}
-                onChange={(e) => handleFilterChange('isElectronic', e.target.value)}
+      {/* Alertas de Validación */}
+      {showValidation && validationErrors.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Errores de Validación Detectados</AlertTitle>
+          <AlertDescription>
+            <ul className="list-disc pl-4 mt-2 space-y-1 text-sm">
+              {validationErrors.slice(0, 5).map((error, index) => (
+                <li key={index}>{error}</li>
+              ))}
+              {validationErrors.length > 5 && (
+                <li>... y {validationErrors.length - 5} errores más</li>
+              )}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Tabla de Facturas */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Cliente / RIF</TableHead>
+                  <TableHead>Factura</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Base Imp.</TableHead>
+                  <TableHead className="text-right">IVA</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="h-24 text-center">
+                      <RefreshCw className="h-5 w-5 animate-spin mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : entries.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                      No se encontraron facturas para este período.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  entries.map((entry) => (
+                    <TableRow key={entry._id} className={entry.status === 'annulled' ? 'bg-muted/50' : ''}>
+                      <TableCell>
+                        {format(new Date(entry.operationDate), 'dd/MM/yyyy')}
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{entry.customerName}</div>
+                        <div className="text-xs text-muted-foreground">{entry.customerRif}</div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-mono font-bold">{entry.invoiceNumber}</div>
+                        <div className="text-xs text-muted-foreground">Ref: {entry.invoiceControlNumber || 'S/N'}</div>
+                      </TableCell>
+                      <TableCell>
+                        {entry.isElectronic ? (
+                          <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">Electrónica</Badge>
+                        ) : (
+                          <Badge variant="outline">Física</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {entry.baseAmount.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        <div className="flex flex-col items-end">
+                          <span>{entry.ivaAmount.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
+                          <span className="text-[10px] text-muted-foreground">{entry.ivaRate}%</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-bold">
+                        {entry.totalAmount.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell>
+                        {getStatusBadge(entry.status)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          {entry.status === 'confirmed' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenAnnulDialog(entry)}
+                              title="Anular"
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {(entry.status === 'draft' || entry.status === 'confirmed') && !entry.exportedToSENIAT && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(entry._id)}
+                              title="Eliminar"
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="p-4 border-t bg-muted/20 flex justify-between items-center text-sm text-muted-foreground">
+            <div>Total: <strong>{total}</strong> facturas</div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFilters(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                disabled={filters.page === 1}
               >
-                <MenuItem value="">Todas</MenuItem>
-                <MenuItem value="true">Electrónicas</MenuItem>
-                <MenuItem value="false">Físicas</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-
-        {/* Tabla */}
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>Fecha</TableCell>
-              <TableCell>Cliente</TableCell>
-              <TableCell>RIF</TableCell>
-              <TableCell>Factura</TableCell>
-              <TableCell>Tipo</TableCell>
-              <TableCell align="right">Base Imp.</TableCell>
-              <TableCell align="right">IVA</TableCell>
-              <TableCell align="right">Total</TableCell>
-              <TableCell>Estado</TableCell>
-              <TableCell>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {entries.map((entry) => (
-              <TableRow
-                key={entry._id}
-                hover
-                sx={{
-                  bgcolor: entry.status === 'annulled' ? 'action.disabledBackground' : 'inherit',
-                }}
+                Anterior
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
+                disabled={entries.length < filters.limit}
               >
-                <TableCell>
-                  {format(new Date(entry.operationDate), 'dd/MM/yyyy')}
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">{entry.customerName}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="caption">{entry.customerRif}</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" fontWeight="bold">
-                    {entry.invoiceNumber}
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {entry.invoiceControlNumber}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  {entry.isElectronic ? (
-                    <Chip
-                      icon={<QrCode2 />}
-                      label="Electrónica"
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    />
-                  ) : (
-                    <Chip
-                      icon={<Description />}
-                      label="Física"
-                      size="small"
-                      variant="outlined"
-                    />
-                  )}
-                </TableCell>
-                <TableCell align="right">
-                  Bs. {entry.baseAmount.toFixed(2)}
-                </TableCell>
-                <TableCell align="right">
-                  Bs. {entry.ivaAmount.toFixed(2)}
-                  <Chip
-                    label={`${entry.ivaRate}%`}
-                    size="small"
-                    sx={{ ml: 0.5 }}
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2" fontWeight="bold">
-                    Bs. {entry.totalAmount.toFixed(2)}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={getStatusLabel(entry.status)}
-                    color={getStatusColor(entry.status)}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  {entry.status === 'confirmed' && (
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleOpenAnnulDialog(entry)}
-                      title="Anular factura"
-                    >
-                      <Cancel fontSize="small" />
-                    </IconButton>
-                  )}
-                  {(entry.status === 'draft' || entry.status === 'confirmed') &&
-                    !entry.exportedToSENIAT && (
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleDelete(entry._id)}
-                        title="Eliminar"
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                Siguiente
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        {entries.length === 0 && !loading && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            No hay facturas para el período seleccionado
-          </Alert>
-        )}
+      {/* Dialog Anular */}
+      <Dialog open={openAnnulDialog} onOpenChange={setOpenAnnulDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Anular Factura</DialogTitle>
+            <DialogDescription>
+              Esta acción marcará la factura como anulada en el libro de ventas. No se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
 
-        <TablePagination
-          component="div"
-          count={total}
-          page={filters.page - 1}
-          onPageChange={handlePageChange}
-          rowsPerPage={filters.limit}
-          rowsPerPageOptions={[50]}
-        />
+          {annullingEntry && (
+            <div className="p-3 bg-muted rounded-md text-sm space-y-1 mb-4">
+              <div><strong>Factura:</strong> {annullingEntry.invoiceNumber}</div>
+              <div><strong>Cliente:</strong> {annullingEntry.customerName}</div>
+              <div><strong>Monto:</strong> Bs. {annullingEntry.totalAmount.toFixed(2)}</div>
+            </div>
+          )}
 
-        {/* Dialog Anular */}
-        <Dialog open={openAnnulDialog} onClose={() => setOpenAnnulDialog(false)}>
-          <DialogTitle>Anular Factura</DialogTitle>
-          <DialogContent>
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              Esta acción marcará la factura como anulada en el libro de ventas.
-            </Alert>
-            {annullingEntry && (
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                <strong>Factura:</strong> {annullingEntry.invoiceNumber}
-                <br />
-                <strong>Cliente:</strong> {annullingEntry.customerName}
-                <br />
-                <strong>Monto:</strong> Bs. {annullingEntry.totalAmount.toFixed(2)}
-              </Typography>
-            )}
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              label="Razón de Anulación *"
+          <div className="space-y-2">
+            <Label>Razón de Anulación</Label>
+            <Input
+              placeholder="Explique el motivo..."
               value={annulmentReason}
               onChange={(e) => setAnnulmentReason(e.target.value)}
-              placeholder="Explique por qué se anula esta factura..."
             />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenAnnulDialog(false)}>Cancelar</Button>
-            <Button onClick={handleAnnul} variant="contained" color="error">
-              Anular Factura
-            </Button>
-          </DialogActions>
-        </Dialog>
+          </div>
 
-        {/* Dialog Resumen */}
-        <Dialog open={openSummaryDialog} onClose={() => setOpenSummaryDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle>
-            Resumen Libro de Ventas - {monthNames[selectedMonth - 1]} {selectedYear}
-          </DialogTitle>
-          <DialogContent>
-            {summary && (
-              <Grid container spacing={2}>
-                {/* Totales generales */}
-                <Grid item xs={12}>
-                  <Paper elevation={2} sx={{ p: 2, bgcolor: 'success.light', color: 'white' }}>
-                    <Typography variant="h6">Totales Generales</Typography>
-                    <Grid container spacing={2} sx={{ mt: 1 }}>
-                      <Grid item xs={6} md={2}>
-                        <Typography variant="caption">Facturas</Typography>
-                        <Typography variant="h6">{summary.totalEntries}</Typography>
-                      </Grid>
-                      <Grid item xs={6} md={2}>
-                        <Typography variant="caption">Electrónicas</Typography>
-                        <Typography variant="h6">{summary.electronicInvoices}</Typography>
-                      </Grid>
-                      <Grid item xs={6} md={2}>
-                        <Typography variant="caption">Físicas</Typography>
-                        <Typography variant="h6">{summary.physicalInvoices}</Typography>
-                      </Grid>
-                      <Grid item xs={6} md={3}>
-                        <Typography variant="caption">Base Imponible</Typography>
-                        <Typography variant="h6">Bs. {summary.totalBaseAmount.toFixed(2)}</Typography>
-                      </Grid>
-                      <Grid item xs={6} md={3}>
-                        <Typography variant="caption">IVA Total</Typography>
-                        <Typography variant="h6">Bs. {summary.totalIvaAmount.toFixed(2)}</Typography>
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                </Grid>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenAnnulDialog(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleAnnul}>Anular Factura</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-                {/* Por cliente */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-                    Por Cliente (Top 10)
-                  </Typography>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Cliente</TableCell>
-                        <TableCell>RIF</TableCell>
-                        <TableCell align="right">Facturas</TableCell>
-                        <TableCell align="right">Total IVA</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {summary.byCustomer.slice(0, 10).map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{item.customerName}</TableCell>
-                          <TableCell>{item.customerRif}</TableCell>
-                          <TableCell align="right">{item.count}</TableCell>
-                          <TableCell align="right">Bs. {item.totalIva.toFixed(2)}</TableCell>
+      {/* Dialog Resumen */}
+      <Dialog open={openSummaryDialog} onOpenChange={setOpenSummaryDialog}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Resumen Libro de Ventas</DialogTitle>
+            <DialogDescription>
+              {monthNames[parseInt(selectedMonth) - 1]} {selectedYear}
+            </DialogDescription>
+          </DialogHeader>
+
+          {summary && (
+            <div className="grid gap-6 py-4">
+              {/* Totales Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card className="bg-primary/5 border-primary/20">
+                  <CardHeader className="p-4 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Facturas</CardTitle></CardHeader>
+                  <CardContent className="p-4 pt-0 text-2xl font-bold">{summary.totalEntries}</CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="p-4 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Base Imponible</CardTitle></CardHeader>
+                  <CardContent className="p-4 pt-0 text-lg font-bold">Bs. {summary.totalBaseAmount.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="p-4 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total IVA</CardTitle></CardHeader>
+                  <CardContent className="p-4 pt-0 text-lg font-bold text-primary">Bs. {summary.totalIvaAmount.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="p-4 pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Ventas</CardTitle></CardHeader>
+                  <CardContent className="p-4 pt-0 text-lg font-bold">Bs. {summary.totalAmount?.toLocaleString('es-VE', { minimumFractionDigits: 2 }) || '0,00'}</CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Por Tasa de IVA */}
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm">Desglose por Tasa</h4>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Tasa</TableHead>
+                          <TableHead className="text-right">Base</TableHead>
+                          <TableHead className="text-right">IVA</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Grid>
+                      </TableHeader>
+                      <TableBody>
+                        {summary.byIvaRate.map((item, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell>{item.ivaRate}%</TableCell>
+                            <TableCell className="text-right">{item.totalBase.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</TableCell>
+                            <TableCell className="text-right font-medium">{item.totalIva.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
 
-                {/* Por tasa de IVA */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-                    Por Tasa de IVA
-                  </Typography>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Tasa</TableCell>
-                        <TableCell align="right">Facturas</TableCell>
-                        <TableCell align="right">Base Imponible</TableCell>
-                        <TableCell align="right">IVA</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {summary.byIvaRate.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{item.ivaRate}%</TableCell>
-                          <TableCell align="right">{item.count}</TableCell>
-                          <TableCell align="right">Bs. {item.totalBase.toFixed(2)}</TableCell>
-                          <TableCell align="right">Bs. {item.totalIva.toFixed(2)}</TableCell>
+                {/* Top Clientes */}
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-sm">Top Clientes</h4>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead className="text-right">IVA</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </Grid>
-              </Grid>
-            )}
-          </DialogContent>
-          <DialogActions>
+                      </TableHeader>
+                      <TableBody>
+                        {summary.byCustomer.slice(0, 5).map((item, idx) => (
+                          <TableRow key={idx}>
+                            <TableCell>
+                              <div className="font-medium text-xs truncate max-w-[150px]">{item.customerName}</div>
+                              <div className="text-[10px] text-muted-foreground">{item.customerRif}</div>
+                            </TableCell>
+                            <TableCell className="text-right text-xs">{item.totalIva.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
             <Button onClick={() => setOpenSummaryDialog(false)}>Cerrar</Button>
-          </DialogActions>
-        </Dialog>
-      </CardContent>
-    </Card>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 

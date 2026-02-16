@@ -41,6 +41,7 @@ import { IvaDeclaration, IvaDeclarationSchema } from "../../schemas/iva-declarat
 import { IslrWithholding, IslrWithholdingSchema } from "../../schemas/islr-withholding.schema";
 import { AccountingPeriod, AccountingPeriodSchema } from "../../schemas/accounting-period.schema";
 import { RecurringEntry, RecurringEntrySchema } from "../../schemas/recurring-entry.schema";
+import { Payment, PaymentSchema } from "../../schemas/payment.schema";
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { RecurringEntry, RecurringEntrySchema } from "../../schemas/recurring-en
       { name: IslrWithholding.name, schema: IslrWithholdingSchema },
       { name: AccountingPeriod.name, schema: AccountingPeriodSchema },
       { name: RecurringEntry.name, schema: RecurringEntrySchema },
+      { name: Payment.name, schema: PaymentSchema },
     ]),
   ],
   controllers: [
@@ -95,4 +97,4 @@ import { RecurringEntry, RecurringEntrySchema } from "../../schemas/recurring-en
     RecurringEntryService,
   ],
 })
-export class AccountingModule {}
+export class AccountingModule { }

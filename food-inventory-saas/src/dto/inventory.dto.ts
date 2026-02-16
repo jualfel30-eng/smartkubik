@@ -181,6 +181,16 @@ export class CreateInventoryDto {
   @ValidateNested({ each: true })
   @Type(() => InventoryAttributeCombinationDto)
   attributeCombinations?: InventoryAttributeCombinationDto[];
+
+  @ApiPropertyOptional({ description: "Nombre de quien recibió el inventario" })
+  @IsOptional()
+  @IsString()
+  receivedBy?: string;
+
+  @ApiPropertyOptional({ description: "Notas sobre la recepción" })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
 export class InventoryMovementDto {
@@ -234,6 +244,16 @@ export class InventoryMovementDto {
   @IsOptional()
   @IsDateString()
   expirationDate?: string;
+
+  @ApiPropertyOptional({ description: "Nombre de quien recibió el inventario" })
+  @IsOptional()
+  @IsString()
+  receivedBy?: string;
+
+  @ApiPropertyOptional({ description: "Notas sobre el movimiento" })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
 export class ReserveInventoryDto {
@@ -343,7 +363,7 @@ export class InventoryQueryDto {
   @Transform(({ value }) => parseInt(value))
   @IsNumber()
   @Min(1)
-  @Max(100)
+  @Max(10000)
   limit?: number = 20;
 
   @ApiPropertyOptional({ description: "Término de búsqueda (SKU o nombre)" })
@@ -383,11 +403,11 @@ export class InventoryQueryDto {
 
   @ApiPropertyOptional({
     description: "Ordenar por",
-    enum: ["productName", "availableQuantity", "lastUpdated"],
+    enum: ["productName", "availableQuantity", "updatedAt"],
   })
   @IsOptional()
-  @IsEnum(["productName", "availableQuantity", "lastUpdated"])
-  sortBy?: string = "lastUpdated";
+  @IsEnum(["productName", "availableQuantity", "updatedAt"])
+  sortBy?: string = "updatedAt";
 
   @ApiPropertyOptional({ description: "Orden", enum: ["asc", "desc"] })
   @IsOptional()
@@ -417,7 +437,7 @@ export class InventoryMovementQueryDto {
   @Transform(({ value }) => parseInt(value))
   @IsNumber()
   @Min(1)
-  @Max(100)
+  @Max(10000)
   limit?: number = 20;
 
   @ApiPropertyOptional({ description: "ID del inventario" })

@@ -8,13 +8,25 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
  * Lee la configuración del tenant y permite actualizarla
  */
 const useTenantViewPreferences = () => {
-  const [preferences, setPreferences] = useState({
-    productViewType: 'search', // 'search' | 'grid' | 'list'
-    gridColumns: 3,
-    showProductImages: true,
-    showProductDescription: false,
-    enableCategoryFilter: true,
+  // Initialize from localStorage for instant result
+  const [preferences, setPreferences] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tenant_view_prefs');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn('Failed to parse view prefs', e);
+    }
+    return {
+      productViewType: 'search', // 'search' | 'grid' | 'list'
+      gridColumns: 3,
+      showProductImages: true,
+      showProductDescription: false,
+      enableCategoryFilter: true,
+    };
   });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -32,7 +44,7 @@ const useTenantViewPreferences = () => {
     return null;
   }, []);
 
-  // Cargar preferencias del tenant
+  // Cargar preferencias del tenant (Sync with Backend)
   const loadPreferences = useCallback(async () => {
     const tenantId = getTenantId();
     if (!tenantId) {
@@ -49,17 +61,29 @@ const useTenantViewPreferences = () => {
 
       const tenantSettings = response.data?.data?.orders || {};
 
-      setPreferences({
-        productViewType: tenantSettings.productViewType || 'search',
+      // Get current local preference to compare
+      let localPrefs = {};
+      try {
+        const local = localStorage.getItem('tenant_view_prefs');
+        if (local) localPrefs = JSON.parse(local);
+      } catch (e) { }
+
+      const newPrefs = {
+        productViewType: localPrefs.productViewType || tenantSettings.productViewType || 'search',
         gridColumns: tenantSettings.gridColumns || 3,
         showProductImages: tenantSettings.showProductImages !== false,
         showProductDescription: tenantSettings.showProductDescription || false,
         enableCategoryFilter: tenantSettings.enableCategoryFilter !== false,
-      });
+      };
+
+      setPreferences(newPrefs);
+      // Sync backend source of truth to local storage
+      localStorage.setItem('tenant_view_prefs', JSON.stringify(newPrefs));
 
       setError(null);
     } catch (err) {
       console.error('Error loading tenant preferences:', err);
+      // On error, we rely on the initial localStorage value, so we don't break UI
       setError(err.message);
     } finally {
       setLoading(false);
@@ -72,6 +96,13 @@ const useTenantViewPreferences = () => {
     if (!tenantId) {
       throw new Error('No tenant ID found');
     }
+
+    // 1. Optimistic Update (Instant)
+    setPreferences(prev => {
+      const next = { ...prev, ...newPreferences };
+      localStorage.setItem('tenant_view_prefs', JSON.stringify(next));
+      return next;
+    });
 
     try {
       const token = localStorage.getItem('accessToken');
@@ -101,16 +132,12 @@ const useTenantViewPreferences = () => {
         }
       );
 
-      setPreferences(prev => ({
-        ...prev,
-        ...newPreferences
-      }));
-
       setError(null);
       return true;
     } catch (err) {
       console.error('Error updating tenant preferences:', err);
       setError(err.message);
+      // Start silent rollback or just warn? For UX, we usually keep the optimistic state unless critical
       throw err;
     }
   }, [getTenantId]);

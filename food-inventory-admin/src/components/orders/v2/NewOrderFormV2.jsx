@@ -9,19 +9,29 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip.jsx';
 import { Combobox } from '@/components/ui/combobox.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
-import { Plus, Trash2, Percent, Scan, ShoppingCart, List } from 'lucide-react';
+import { Plus, Trash2, Percent, Scan, ShoppingCart, List, RotateCcw, Tag } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { fetchApi } from '@/lib/api.js';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 import { venezuelaData } from '@/lib/venezuela-data.js';
 import { SearchableSelect } from './custom/SearchableSelect';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
+import { getCurrencyConfig } from '@/lib/currency-config';
+import { useOrderDraft } from '@/hooks/useOrderDraft';
 import ModifierSelector from '@/components/restaurant/ModifierSelector.jsx';
+import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
 import { useAuth } from '@/hooks/use-auth.jsx';
+import { useCashRegister } from '@/contexts/CashRegisterContext';
 import { toast } from 'sonner';
+import { usePriceLists } from '@/hooks/usePriceLists';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group.jsx';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
+import { RecipeCustomizerDialog } from './RecipeCustomizerDialog.jsx';
+import { ChefHat, ShieldCheck } from 'lucide-react';
+import { Switch } from '@/components/ui/switch.jsx';
+import { Badge } from '@/components/ui/badge.jsx';
 import ProductGridView from './ProductGridView';
 import ProductSearchView from './ProductSearchView';
 import ProductListView from './ProductListView';
@@ -34,11 +44,13 @@ const initialOrderState = {
   customerName: '',
   customerRif: '',
   taxType: 'V',
+  customerIsSpecialTaxpayer: false,
   customerPhone: '',
   customerAddress: '',
   items: [],
   deliveryMethod: 'pickup',
   notes: '',
+  assignedTo: '', // Employee who attended the order
   customerLocation: null,
   useExistingLocation: true,
   shippingAddress: {
@@ -46,6 +58,8 @@ const initialOrderState = {
     city: 'Valencia',
     street: '',
   },
+  priceListId: '',
+  savePriceListToCustomer: false,
 };
 
 const formatDecimalString = (value, decimals = 3) => {
@@ -57,20 +71,185 @@ const formatDecimalString = (value, decimals = 3) => {
 };
 
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 
-export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
-  const plugin = useCountryPlugin();
-  const taxRate = (plugin.taxEngine.getDefaultTaxes()[0]?.rate ?? 16) / 100;
-
+export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCustomer = null, existingOrder = null, onOrderUpdated = null, initialTableId = null, initialWaiterId = null }) {
   const { crmData: customers } = useCrmContext();
   const [activeTab, setActiveTab] = useState('products');
+  const [activeOrder, setActiveOrder] = useState(existingOrder || null);
+  const [isEditMode, setIsEditMode] = useState(!!existingOrder);
+
+  useEffect(() => {
+    if (existingOrder) {
+      setActiveOrder(existingOrder);
+      setIsEditMode(true);
+    }
+  }, [existingOrder]);
+
+  // Ref to prevent useEffect race condition when updating orders
+  const previousOrderId = useRef(null);
+
+
+  // Efecto para inicializar mesa (si se pasa)
+  useEffect(() => {
+    if (initialTableId && !existingOrder) {
+      setSelectedTable(initialTableId);
+    }
+  }, [initialTableId, existingOrder]);
+
+  // Efecto para inicializar mesero asignado (si se pasa desde la mesa)
+  useEffect(() => {
+    if (initialWaiterId && !existingOrder) {
+      setNewOrder(prev => ({
+        ...prev,
+        assignedTo: initialWaiterId
+      }));
+    }
+  }, [initialWaiterId, existingOrder]);
+
+  // Efecto para inicializar con cliente (si se pasa)
+  useEffect(() => {
+    if (initialCustomer && !existingOrder) {
+      const addr = initialCustomer.address || '';
+      setNewOrder(prev => ({
+        ...prev,
+        customerId: initialCustomer.customerId,
+        customerName: initialCustomer.name,
+        customerPhone: initialCustomer.phone,
+        customerRif: initialCustomer.taxId || prev.customerRif,
+        taxType: initialCustomer.taxType || prev.taxType,
+        customerEmail: initialCustomer.email || prev.customerEmail,
+        customerAddress: addr || initialCustomer.customerAddress || prev.customerAddress,
+        customerLocation: initialCustomer.location || prev.customerLocation,
+        // Set delivery method to delivery if we have an address and it's from WhatsApp
+        deliveryMethod: (isEmbedded && (addr || initialCustomer.customerAddress)) ? 'delivery' : prev.deliveryMethod,
+      }));
+      setCustomerNameInput(initialCustomer.name || '');
+      if (initialCustomer.taxId) {
+        setCustomerRifInput(initialCustomer.taxId);
+      }
+    }
+  }, [initialCustomer, existingOrder]);
+
+  // Efecto para cargar orden existente
+  useEffect(() => {
+    // Modified: Allow reloading if activeOrder changes (even if ID is same) to support updates (e.g. sending to kitchen)
+    if (activeOrder) {
+      console.log('Loading existing order into form:', activeOrder);
+      setIsEditMode(true);
+      previousOrderId.current = activeOrder._id;
+
+      const itemsMapped = activeOrder.items.map(item => ({
+        productId: item.productId._id || item.productId, // Handle both populated and unpopulated
+        productName: item.productName || item.product?.name,
+        name: item.productName || item.product?.name,
+        variantId: item.variantId,
+        variantSku: item.variantSku,
+        sku: item.productSku,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        isSoldByWeight: false,
+        selectedUnit: item.selectedUnit,
+        modifiers: item.modifiers || [],
+        specialInstructions: item.specialInstructions,
+        removedIngredients: item.removedIngredients || [],
+        ivaApplicable: true,
+        discountPercentage: item.discountPercentage || 0,
+        discountAmount: item.discountAmount || 0,
+        discountReason: item.discountReason,
+        productType: item.productType || 'standard',
+        hasMultipleSellingUnits: !!item.selectedUnit,
+        _id: item._id, // Critical for updates
+        status: item.status || 'pending',
+        addedAt: item.addedAt,
+        promotionInfo: {
+          discountPercentage: 0,
+          originalPrice: item.unitPrice
+        }
+      }));
+
+      setNewOrder({
+        customerId: activeOrder.customer?._id || activeOrder.customerId || '',
+        customerName: activeOrder.customerName || '',
+        customerRif: activeOrder.customerRif || activeOrder.customer?.taxInfo?.taxId || '',
+        taxType: activeOrder.taxType || (activeOrder.customerRif ? activeOrder.customerRif.charAt(0) : 'V'),
+        customerPhone: activeOrder.customerPhone || '',
+        customerAddress: activeOrder.customerAddress || (activeOrder.shippingAddress?.street ? activeOrder.shippingAddress.street : ''),
+        items: itemsMapped,
+        deliveryMethod: activeOrder.fulfillmentType === 'delivery_local' ? 'delivery'
+          : activeOrder.fulfillmentType === 'delivery_national' ? 'envio_nacional'
+            : activeOrder.fulfillmentType === 'pickup' ? 'pickup'
+              : activeOrder.fulfillmentType === 'store' ? 'store'
+                : 'pickup', // Default/fallback
+        notes: activeOrder.notes || '',
+        shippingAddress: activeOrder.shipping?.address || {
+          state: 'Carabobo',
+          city: 'Valencia',
+          street: '',
+        },
+        generalDiscountPercentage: activeOrder.generalDiscountPercentage || 0,
+        generalDiscountReason: activeOrder.generalDiscountReason || '',
+        customerLocation: activeOrder.shipping?.address?.coordinates ? {
+          lat: activeOrder.shipping.address.coordinates.lat,
+          lng: activeOrder.shipping.address.coordinates.lng,
+          formattedAddress: activeOrder.shipping.address.street
+        } : null,
+        useExistingLocation: true,
+        assignedTo: activeOrder.assignedTo?._id || activeOrder.assignedTo || '',
+      });
+
+      // CRITICAL: Restore table selection so updates don't lose the table association
+      if (activeOrder.tableId) {
+        setSelectedTable(activeOrder.tableId._id || activeOrder.tableId); // Handle object or string
+      } else {
+        setSelectedTable('none');
+      }
+
+      // Update auxiliary inputs that drive UI
+      const rifValue = activeOrder.customerRif || activeOrder.customer?.taxInfo?.taxId;
+      setCustomerNameInput(activeOrder.customerName || '');
+
+      if (rifValue) {
+        const parts = rifValue.split('-');
+        if (parts.length > 1) {
+          setCustomerRifInput(parts[1]);
+        } else {
+          setCustomerRifInput(rifValue);
+        }
+      }
+
+      if (activeOrder.tableId) {
+        setSelectedTable(activeOrder.tableId);
+      }
+    }
+  }, [activeOrder]);
+
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const shouldRenderMobileLayout = isEmbedded || !isDesktop;
 
-  const { rate: bcvRate, loading: loadingRate, error: rateError } = useExchangeRate();
+  const { rate: bcvRate, loading: loadingRate, error: rateError, tenantCurrency } = useExchangeRate();
+  const cc = getCurrencyConfig(tenantCurrency);
   const { tenant, hasPermission } = useAuth();
+  const { sessionId, registerId } = useCashRegister();
   const canApplyDiscounts = hasPermission('orders_apply_discounts');
+  const { priceLists, loadPriceLists } = usePriceLists();
+
+  // Load active price lists
+  useEffect(() => {
+    loadPriceLists(true); // Only active lists
+  }, [loadPriceLists]);
+
+  // Determine context for draft key
+  const draftContext = useMemo(() => {
+    if (initialTableId) return `table_${initialTableId}`;
+    if (isEmbedded) return 'whatsapp';
+    return 'pos';
+  }, [initialTableId, isEmbedded]);
+
+  const { saveDraft, loadDraft, clearDraft, hasDraft } = useOrderDraft(tenant?.id, draftContext);
+
+  const [showDraftDialog, setShowDraftDialog] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState(null);
+
   const { preferences, loading: loadingPreferences, setViewType } = useTenantViewPreferences();
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -81,6 +260,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
   const [pendingProductConfig, setPendingProductConfig] = useState(null);
   const [tables, setTables] = useState([]);
   const [selectedTable, setSelectedTable] = useState('none');
+  const [employees, setEmployees] = useState([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
 
   // Estados separados para los inputs de búsqueda
   const [customerNameInput, setCustomerNameInput] = useState('');
@@ -94,6 +275,14 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
   const [calculatingShipping, setCalculatingShipping] = useState(false);
   const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
 
+  // Shipping Provider State
+  const [shippingProviders, setShippingProviders] = useState([]);
+  const [selectedProvider, setSelectedProvider] = useState(null);
+  const [availableStates, setAvailableStates] = useState([]);
+  const [availableCities, setAvailableCities] = useState([]);
+  const [availableAgencies, setAvailableAgencies] = useState([]);
+  const [selectedAgency, setSelectedAgency] = useState(null);
+
   // Estados para descuentos
   const [showItemDiscountDialog, setShowItemDiscountDialog] = useState(false);
   const [selectedItemForDiscount, setSelectedItemForDiscount] = useState(null);
@@ -102,8 +291,167 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
   const [showGeneralDiscountDialog, setShowGeneralDiscountDialog] = useState(false);
   const [generalDiscountPercentage, setGeneralDiscountPercentage] = useState(0);
   const [generalDiscountReason, setGeneralDiscountReason] = useState('');
+
+  // Customization state
+  const [showRecipeCustomizer, setShowRecipeCustomizer] = useState(false);
+  const [customizerItem, setCustomizerItem] = useState(null);
+
+  // Payment Drawer State
+  const [isProcessingDrawerOpen, setIsProcessingDrawerOpen] = useState(false);
+  const [processingOrderData, setProcessingOrderData] = useState(null);
+
   const [customerSearchResults, setCustomerSearchResults] = useState([]);
   const customerSearchTimeout = useRef(null);
+
+  // Auto-lookup customer by phone when entered manually (POS or WhatsApp fallback)
+  useEffect(() => {
+    // Evitar error si newOrder aún no está definido (aunque aquí debería estarlo)
+    if (!newOrder) return;
+
+    const phone = newOrder.customerPhone;
+
+    // Solo buscar si:
+    // 1. Hay un teléfono de al menos 8 dígitos
+    // 2. NO estamos editando una orden existente
+    // 3. NO tenemos ya un customerId asignado (para no sobrescribir selecciones manuales)
+    if (!phone || phone.length < 8 || existingOrder || (newOrder.customerId && newOrder.customerId !== '')) {
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await fetchApi(`/customers?search=${encodeURIComponent(phone)}&limit=1`);
+        const customers = response?.data || [];
+
+        if (customers.length > 0) {
+          const customer = customers[0];
+
+          // Extraer RIF y tipo
+          const fullRif = customer.taxInfo?.taxId || '';
+          let taxType = customer.taxInfo?.taxType || 'V';
+          let rifNumber = fullRif;
+
+          if (fullRif.includes('-')) {
+            const parts = fullRif.split('-');
+            taxType = parts[0];
+            rifNumber = parts.slice(1).join('-');
+          }
+
+          // Obtener dirección (más robusto: chequear addresses array y primaryLocation)
+          const address = customer.primaryLocation?.address ||
+            (customer.addresses && customer.addresses.length > 0 ? customer.addresses[0].street : '');
+
+          setNewOrder(prev => ({
+            ...prev,
+            customerId: customer._id,
+            customerName: customer.name,
+            customerRif: rifNumber,
+            taxType: taxType,
+            customerIsSpecialTaxpayer: customer.taxInfo?.isRetentionAgent || false,
+            customerAddress: address || prev.customerAddress,
+            customerEmail: customer.email || prev.customerEmail,
+            customerLocation: customer.primaryLocation || null,
+            // Si encontramos dirección, ponemos delivery por defecto (especialmente útil para WhatsApp)
+            deliveryMethod: address ? 'delivery' : prev.deliveryMethod,
+          }));
+
+          setCustomerNameInput(customer.name);
+          setCustomerRifInput(rifNumber);
+          toast.success(`Cliente encontrado: ${customer.name}`);
+        }
+      } catch (error) {
+        console.error('Error in phone auto-lookup:', error);
+      }
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [newOrder.customerPhone, existingOrder, newOrder.customerId]);
+
+  // Fetch Shipping Providers on mount
+  useEffect(() => {
+    const loadProviders = async () => {
+      try {
+        const response = await fetchApi('/shipping-providers');
+        if (response && (response.data || Array.isArray(response))) {
+          setShippingProviders(response.data || response);
+        }
+      } catch (error) {
+        console.error('Error fetching shipping providers:', error);
+      }
+    };
+    loadProviders();
+  }, []);
+
+  // Update available states when provider changes
+  useEffect(() => {
+    if (selectedProvider) {
+      setAvailableStates(selectedProvider.regions || []);
+      // Reset dependent selections if they don't match (logic handled in UI handlers usually, but good to clear here if needed)
+    } else {
+      setAvailableStates([]);
+    }
+  }, [selectedProvider]);
+
+  // ========== DRAFT FUNCTIONALITY ==========
+
+  // Check for draft on mount
+  useEffect(() => {
+    if (!existingOrder && !initialCustomer && hasDraft()) {
+      const draft = loadDraft();
+      if (draft) {
+        setPendingDraft(draft);
+        setShowDraftDialog(true);
+      }
+    }
+  }, [existingOrder, initialCustomer, hasDraft, loadDraft]);
+
+  // Auto-save draft (debounced)
+  useEffect(() => {
+    if (existingOrder) return; // Don't save drafts when editing existing orders
+
+    const timeoutId = setTimeout(() => {
+      // Only save if there's meaningful data
+      if (newOrder.items.length > 0 || newOrder.customerName || newOrder.customerRif) {
+        saveDraft(newOrder);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [newOrder, existingOrder, saveDraft]);
+
+  // Draft handling functions
+  const handleLoadDraft = () => {
+    if (pendingDraft) {
+      setNewOrder(pendingDraft);
+      setShowDraftDialog(false);
+      toast.success('Borrador cargado');
+    }
+  };
+
+  const handleDiscardDraft = () => {
+    clearDraft();
+    setShowDraftDialog(false);
+    setPendingDraft(null);
+    toast.info('Borrador descartado');
+  };
+
+  const handleClearCurrentDraft = () => {
+    clearDraft();
+    setNewOrder(initialOrderState);
+    toast.info('Orden reiniciada');
+  };
+
+  // Listen for clear-order-form event from parent component
+  useEffect(() => {
+    const handleClearEvent = () => {
+      handleClearCurrentDraft();
+    };
+
+    document.addEventListener('clear-order-form', handleClearEvent);
+    return () => document.removeEventListener('clear-order-form', handleClearEvent);
+  }, []);
+
+  // ========== END DRAFT FUNCTIONALITY ==========
   const barcodeInputRef = useRef(null);
   const lastScannedRef = useRef({ code: '', at: 0 });
   const restaurantEnabled = Boolean(
@@ -138,7 +486,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
   // Calculate shipping cost when delivery method, location, or order amount changes
   useEffect(() => {
     const calculateShipping = async () => {
-      if (newOrder.deliveryMethod === 'pickup') {
+      if (newOrder.deliveryMethod === 'pickup' || newOrder.deliveryMethod === 'store') {
         setShippingCost(0);
         return;
       }
@@ -160,7 +508,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
           return sum + (getItemFinalUnitPrice(item) * quantity);
         }, 0);
         const iva = newOrder.items.reduce((sum, item) =>
-          item.ivaApplicable ? sum + (getItemFinalUnitPrice(item) * getItemQuantityValue(item) * taxRate) : sum, 0);
+          item.ivaApplicable ? sum + (getItemFinalUnitPrice(item) * getItemQuantityValue(item) * 0.16) : sum, 0);
         const orderAmount = subtotal + iva;
 
         const payload = {
@@ -350,7 +698,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
       }
     };
     loadProducts();
-  }, [tenant, restaurantEnabled]); // Added dependencies to re-run if tenant loads late
+  }, [tenant?.id, restaurantEnabled]); // Added dependencies to re-run if tenant loads late
 
 
   const loadAvailableTables = useCallback(async () => {
@@ -379,6 +727,24 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
     }
     loadAvailableTables();
   }, [restaurantEnabled, loadAvailableTables]);
+
+  // Load employees for order assignment
+  useEffect(() => {
+    const loadEmployees = async () => {
+      try {
+        setLoadingEmployees(true);
+        const response = await fetchApi('/payroll/employees?status=active');
+        const employeeList = response.data || response || [];
+        setEmployees(employeeList);
+      } catch (error) {
+        console.error('Error loading employees:', error);
+        setEmployees([]);
+      } finally {
+        setLoadingEmployees(false);
+      }
+    };
+    loadEmployees();
+  }, []);
 
   // --- NUEVOS MANEJADORES DE ESTADO --- 
 
@@ -463,14 +829,16 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
           customerName: customer.name,
           customerRif: rifNumber,
           taxType: taxType,
+          customerIsSpecialTaxpayer: customer.taxInfo?.isRetentionAgent || false,
           customerPhone: phone,
           customerAddress: address,
           customerLocation: customer.primaryLocation || null,
-          useExistingLocation: !!customer.primaryLocation
+          useExistingLocation: !!customer.primaryLocation,
+          priceListId: customer.defaultPriceListId || '',
         }));
       }
     } else {
-      setNewOrder(prev => ({ ...prev, customerName: '', customerId: '', customerLocation: null, useExistingLocation: false }));
+      setNewOrder(prev => ({ ...prev, customerName: '', customerId: '', customerIsSpecialTaxpayer: false, customerLocation: null, useExistingLocation: false }));
     }
   };
 
@@ -506,14 +874,16 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
           customerName: customer.name,
           customerRif: rifNumber,
           taxType: taxType,
+          customerIsSpecialTaxpayer: customer.taxInfo?.isRetentionAgent || false,
           customerPhone: phone,
           customerAddress: address,
           customerLocation: customer.primaryLocation || null,
-          useExistingLocation: !!customer.primaryLocation
+          useExistingLocation: !!customer.primaryLocation,
+          priceListId: customer.defaultPriceListId || '',
         }));
       }
     } else {
-      setNewOrder(prev => ({ ...prev, customerRif: '', customerId: '', customerLocation: null, useExistingLocation: false }));
+      setNewOrder(prev => ({ ...prev, customerRif: '', customerId: '', customerIsSpecialTaxpayer: false, customerLocation: null, useExistingLocation: false }));
     }
   };
 
@@ -580,11 +950,18 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
       initialQuantity,
       promotionInfo,
       originalVariantPrice,
+      wholesaleAvailable,
+      wholesalePrice,
+      wholesaleMinQuantity,
     } = config;
 
     const finalUnitPrice = baseUnitPrice + priceAdjustment;
 
     setNewOrder(prev => {
+      // Determine if wholesale should be auto-applied based on quantity
+      const shouldUseWholesale = wholesaleAvailable && initialQuantity >= wholesaleMinQuantity;
+      const effectivePrice = shouldUseWholesale ? wholesalePrice : baseUnitPrice;
+
       const newItem = {
         productId: product._id,
         name: product.name,
@@ -593,7 +970,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         variantSku: variant.sku,
         quantity: initialQuantity,
         unitPrice: baseUnitPrice,
-        finalPrice: finalUnitPrice,
+        finalPrice: effectivePrice + priceAdjustment,
         modifiers,
         specialInstructions,
         ivaApplicable: product.ivaApplicable,
@@ -607,6 +984,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         quantityEntryMode: product.isSoldByWeight ? 'quantity' : 'quantity',
         amountInput: '',
         baseVariantPrice: originalVariantPrice,
+        // Wholesale pricing fields
+        wholesaleAvailable: wholesaleAvailable || false,
+        wholesalePrice: wholesalePrice || null,
+        wholesaleMinQuantity: wholesaleMinQuantity || null,
+        useWholesalePrice: shouldUseWholesale,
       };
 
       const items = [...prev.items];
@@ -682,6 +1064,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         }
       }
 
+      // Check if wholesale pricing is available
+      const wholesaleAvailable = product.pricingRules?.wholesaleEnabled === true && variant.wholesalePrice > 0;
+      const wholesalePrice = wholesaleAvailable ? variant.wholesalePrice : null;
+      const wholesaleMinQuantity = wholesaleAvailable ? (product.pricingRules?.wholesaleMinQuantity || 1) : null;
+
       const config = {
         product,
         variant,
@@ -691,6 +1078,9 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         initialQuantity,
         promotionInfo,
         originalVariantPrice: variant.basePrice || 0,
+        wholesaleAvailable,
+        wholesalePrice,
+        wholesaleMinQuantity,
       };
 
       setPendingProductConfig(config);
@@ -744,6 +1134,42 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
     setProductSearchInput('');
     handleModifierClose();
   };
+
+  // Toggle wholesale pricing for an item
+  const toggleWholesalePrice = useCallback((itemIndex) => {
+    setNewOrder(prev => {
+      const items = [...prev.items];
+      const item = items[itemIndex];
+
+      if (!item || !item.wholesaleAvailable) return prev;
+
+      // Check if quantity meets minimum requirement
+      const quantity = parseFloat(item.quantity) || 0;
+      const canUseWholesale = quantity >= item.wholesaleMinQuantity;
+
+      if (!canUseWholesale && !item.useWholesalePrice) {
+        // Trying to enable wholesale but quantity is too low
+        alert(`Se requiere una cantidad mínima de ${item.wholesaleMinQuantity} para aplicar precio mayorista.`);
+        return prev;
+      }
+
+      // Toggle wholesale
+      const newUseWholesale = !item.useWholesalePrice;
+      const basePrice = newUseWholesale ? item.wholesalePrice : item.unitPrice;
+
+      // Recalculate finalPrice considering modifiers
+      const modifierAdjustment = calculateModifierAdjustment(item);
+      const newFinalPrice = basePrice + modifierAdjustment;
+
+      items[itemIndex] = {
+        ...item,
+        useWholesalePrice: newUseWholesale,
+        finalPrice: newFinalPrice,
+      };
+
+      return { ...prev, items };
+    });
+  }, []);
 
   const findProductByBarcode = useCallback(
     (code) => {
@@ -872,6 +1298,20 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         ...item,
         quantity: sanitizedValue,
       };
+
+      // Auto-apply wholesale pricing if quantity meets minimum
+      if (item.wholesaleAvailable) {
+        const quantityNumeric = parseFloat(sanitizedValue) || 0;
+        const shouldUseWholesale = quantityNumeric >= item.wholesaleMinQuantity;
+
+        if (shouldUseWholesale !== item.useWholesalePrice) {
+          // Wholesale status changed due to quantity
+          nextItem.useWholesalePrice = shouldUseWholesale;
+          const basePrice = shouldUseWholesale ? item.wholesalePrice : item.unitPrice;
+          const modifierAdjustment = calculateModifierAdjustment(item);
+          nextItem.finalPrice = basePrice + modifierAdjustment;
+        }
+      }
 
       if (item.isSoldByWeight && item.quantityEntryMode === 'amount') {
         const price = getItemFinalUnitPrice(nextItem);
@@ -1071,6 +1511,32 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
     toast.success('Descuento aplicado correctamente');
   };
 
+  // Funciones para personalizar recetas
+  const handleOpenCustomizer = (item) => {
+    setCustomizerItem(item);
+    setShowRecipeCustomizer(true);
+  };
+
+  const handleConfirmCustomization = (removedIngredients) => {
+    if (!customizerItem) return;
+
+    console.log('[DEBUG] Confirming customization with removedIngredients:', removedIngredients);
+    setNewOrder(prev => {
+      const updatedItems = prev.items.map(item => {
+        if (item === customizerItem) {
+          console.log('[DEBUG] Updating item with removedIngredients:', removedIngredients);
+          return { ...item, removedIngredients };
+        }
+        return item;
+      });
+      console.log('[DEBUG] New items state:', updatedItems);
+      return { ...prev, items: updatedItems };
+    });
+    setShowRecipeCustomizer(false);
+    setCustomizerItem(null);
+    toast.success('Ingredientes actualizados');
+  };
+
   // Funciones para manejar descuento general a la orden
   const handleOpenGeneralDiscount = () => {
     setGeneralDiscountPercentage(newOrder.generalDiscountPercentage || 0);
@@ -1101,7 +1567,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
     toast.success('Descuento general aplicado correctamente');
   };
 
-  const handleCreateOrder = async () => {
+  const handleCreateOrder = async (options = { autoWizard: true, reset: true }) => {
     if (newOrder.items.length === 0) {
       alert('Agrega al menos un producto a la orden.');
       return;
@@ -1118,34 +1584,59 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
     }
 
     const payload = {
-      customerId: newOrder.customerId || undefined,
       customerName: newOrder.customerName,
-      customerRif: newOrder.customerRif,
-      taxType: newOrder.taxType,
-      customerAddress: newOrder.customerAddress,
-      customerPhone: newOrder.customerPhone,
-      items: newOrder.items.map(item => ({
-        productId: item.productId,
-        variantId: item.variantId,
-        variantSku: item.variantSku,
-        quantity: item.isSoldByWeight
-          ? parseFloat(item.quantity) || 0
-          : parseInt(item.quantity, 10) || 0,
-        ...(item.selectedUnit && { selectedUnit: item.selectedUnit }),
-        modifiers: item.modifiers || [],
-        specialInstructions: item.specialInstructions,
-        unitPrice: item.unitPrice,
-        finalPrice: getItemFinalUnitPrice(item),
-        ivaApplicable: item.ivaApplicable,
-        ...(item.discountPercentage && {
-          discountPercentage: item.discountPercentage,
-          discountAmount: item.discountAmount,
-          discountReason: item.discountReason,
-        }),
-      })),
+      source: 'pos',
+      items: newOrder.items.map(item => {
+        // Extract productId correctly (handle both populated object and direct ID)
+        const productIdValue = typeof item.productId === 'object' && item.productId?._id
+          ? item.productId._id
+          : item.productId;
+
+        // Ensure quantity is number
+        return {
+          productId: productIdValue,
+          productName: item.productName,
+          quantity: item.isSoldByWeight
+            ? parseFloat(item.quantity) || 0
+            : parseInt(item.quantity, 10) || 0,
+          ...(item.selectedUnit && { selectedUnit: item.selectedUnit }),
+          modifiers: item.modifiers || [],
+          specialInstructions: item.specialInstructions,
+          removedIngredients: item.removedIngredients || [],
+          unitPrice: item.unitPrice,
+          finalPrice: getItemFinalUnitPrice(item),
+          ivaApplicable: item.ivaApplicable,
+          ...(item.discountPercentage && {
+            discountPercentage: item.discountPercentage,
+            discountAmount: item.discountAmount,
+            discountReason: item.discountReason,
+          }),
+          // Pass back preserved metadata so backend doesn't treat as new
+          ...(item._id && { _id: item._id }),
+          ...(item.status && { status: item.status }),
+          ...(item.addedAt && { addedAt: item.addedAt }),
+        };
+      }),
       notes: newOrder.notes,
       deliveryMethod: newOrder.deliveryMethod,
-      shippingAddress: (newOrder.deliveryMethod === 'delivery' || newOrder.deliveryMethod === 'envio_nacional') && newOrder.shippingAddress.street ? newOrder.shippingAddress : undefined,
+      shippingAddress: (newOrder.deliveryMethod === 'delivery' || newOrder.deliveryMethod === 'envio_nacional')
+        ? (newOrder.customerLocation
+          ? {
+            street: newOrder.customerLocation.formattedAddress || newOrder.customerLocation.address || newOrder.customerLocation.manualAddress || "Ubicación Seleccionada",
+            city: newOrder.shippingAddress?.city || 'Valencia',
+            state: newOrder.shippingAddress?.state || 'Carabobo',
+            coordinates: newOrder.customerLocation.coordinates
+          }
+
+          : (newOrder.shippingAddress?.street ? newOrder.shippingAddress : undefined)
+        )
+        : undefined,
+      courierCompany: selectedProvider ? selectedProvider.name : undefined,
+      shippingAddressInfo: selectedAgency ? {
+        agencyCode: selectedAgency.code,
+        agencyName: selectedAgency.name,
+        provider: selectedProvider.name
+      } : undefined,
       ...(restaurantEnabled && selectedTable !== 'none' && { tableId: selectedTable }),
       subtotal: totals.subtotal,
       ivaTotal: totals.iva,
@@ -1156,21 +1647,251 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
         generalDiscountPercentage: newOrder.generalDiscountPercentage,
         generalDiscountReason: newOrder.generalDiscountReason,
       }),
+      // Critical: Send customer data for persistence during creation
+      customerId: newOrder.customerId || undefined,
+      customerRif: newOrder.customerRif,
+      taxType: newOrder.taxType,
+      customerIsSpecialTaxpayer: newOrder.customerIsSpecialTaxpayer || false,
+      customerPhone: newOrder.customerPhone,
+      customerEmail: newOrder.customerEmail,
+      customerAddress: newOrder.customerAddress,
+      // Cash Register Integration
+      cashSessionId: sessionId,
+      cashRegisterId: registerId,
+      // Price Lists Integration
+      ...(newOrder.priceListId && { priceListId: newOrder.priceListId }),
+      savePriceListToCustomer: newOrder.savePriceListToCustomer || false,
     };
     try {
-      const response = await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
-      const createdOrder = response.data || response;
-      setNewOrder(initialOrderState);
-      setCustomerNameInput('');
-      setCustomerRifInput('');
-      setProductSearchInput('');
-      setSelectedTable('none');
-      if (onOrderCreated) {
-        onOrderCreated(createdOrder);
+      let response;
+      let orderData;
+
+      if (isEditMode && activeOrder) {
+        // UPDATE MODE
+        const updatePayload = {
+          items: payload.items,
+          customerRif: payload.customerRif,        // PRESERVE CUSTOMER DATA
+          taxType: payload.taxType,
+          customerIsSpecialTaxpayer: payload.customerIsSpecialTaxpayer,
+          customerPhone: payload.customerPhone,
+          customerEmail: payload.customerEmail, // Added email to update payload
+          customerAddress: payload.customerAddress,
+          subtotal: payload.subtotal,
+          ivaTotal: payload.ivaTotal,
+          igtfTotal: payload.igtfTotal,
+          shippingCost: payload.shippingCost,
+          totalAmount: payload.totalAmount,
+          generalDiscountPercentage: payload.generalDiscountPercentage,
+          generalDiscountReason: payload.generalDiscountReason,
+          notes: payload.notes,
+          tableId: payload.tableId,
+        };
+
+        response = await fetchApi(`/orders/${activeOrder._id}`, { method: 'PATCH', body: JSON.stringify(updatePayload) });
+        orderData = response.data || response;
+        toast.success('Orden actualizada correctamente');
+
+        if (onOrderUpdated) {
+          onOrderUpdated(orderData);
+        }
+      } else {
+        // CREATE MODE
+        response = await fetchApi('/orders', { method: 'POST', body: JSON.stringify(payload) });
+        orderData = response.data || response;
+        toast.success('Orden creada correctamente');
+
+        // FIXED: Only call onOrderCreated (triggering parent modal) if autoWizard is TRUE
+        // If we are just sending to kitchen (autoWizard: false), we stay in form.
+        if (onOrderCreated && options.autoWizard) {
+          onOrderCreated(orderData, options.autoWizard);
+        }
       }
+
+      // Reset form if creating new, but maybe keep open if editing? 
+      // User specific flow: "Send to Kitchen" usually means "Save and Close" or "Save and Keep Open".
+      // Let's reset for now or follow callback interaction.
+      // Reset form if creating new AND reset option is true
+      if (!isEditMode && options.reset !== false) {
+        setNewOrder(initialOrderState);
+        setCustomerNameInput('');
+        setCustomerRifInput('');
+        setProductSearchInput('');
+        setSelectedTable('none');
+      }
+
+      return orderData; // Return data for chaining
     } catch (error) {
-      console.error('Error creating order:', error);
-      alert(`Error al crear la orden: ${error.message}`);
+      console.error('Error processing order:', error);
+      alert(`Error al procesar la orden: ${error.message}`);
+      return null;
+    }
+  };
+
+  // Función específica para "Enviar a Cocina" (Guardar/actualizar Y enviar items nuevos a cocina)
+  const handleSendToKitchen = async () => {
+    // Primero guarda/actualiza la orden - PERO NO ABRE WIZARD (autoWizard: false)
+    // IMPORTANT: reset: false to keep form open and allow adding more items
+    const savedOrder = await handleCreateOrder({ autoWizard: false, reset: false });
+
+    if (savedOrder && savedOrder._id) {
+      // Switch to Edit Mode immediately for smooth flow
+      setActiveOrder(savedOrder);
+      setIsEditMode(true);
+      // NOTE: Removed previousOrderId.current update here to allow useEffect to re-hydrate/merge items correctly
+
+      try {
+        // Check for items that should be sent to kitchen logic
+        // Only send items that have 'sendToKitchen' flag (will be filtered by backend, but we can prevent empty call)
+
+        // Luego envía los items nuevos a cocina manualmente
+        await fetchApi('/kitchen-display/send-new-items', {
+          method: 'POST',
+          body: JSON.stringify({ orderId: savedOrder._id }),
+        });
+        toast.success('Items enviados a cocina');
+      } catch (error) {
+        console.error('Error sending to kitchen:', error);
+        toast.warning('Orden guardada pero hubo un problema enviando a cocina');
+      }
+    }
+  };
+
+  // Función para enviar un solo item a cocina Y persistirlo en la orden
+  const handleSendSingleItemToKitchen = async (item) => {
+    if (!isEditMode || !activeOrder) {
+      toast.error('Debe existir una orden para enviar items individuales');
+      return;
+    }
+
+    try {
+      // Step 1: Persist ALL current items (including the new one) via PATCH
+      const productIdValue = typeof item.productId === 'object' && item.productId?._id
+        ? item.productId._id
+        : item.productId;
+
+      const updatePayload = {
+        items: newOrder.items.map(i => {
+          const itemProductId = typeof i.productId === 'object' && i.productId?._id
+            ? i.productId._id
+            : i.productId;
+
+          return {
+            productId: itemProductId,
+            productName: i.productName,
+            quantity: i.isSoldByWeight
+              ? parseFloat(i.quantity) || 0
+              : parseInt(i.quantity, 10) || 0,
+            ...(i.selectedUnit && { selectedUnit: i.selectedUnit }),
+            modifiers: i.modifiers || [],
+            specialInstructions: i.specialInstructions,
+            removedIngredients: i.removedIngredients || [],
+            unitPrice: i.unitPrice,
+            finalPrice: getItemFinalUnitPrice(i),
+            ivaApplicable: i.ivaApplicable,
+            ...(i.discountPercentage && {
+              discountPercentage: i.discountPercentage,
+              discountAmount: i.discountAmount,
+              discountReason: i.discountReason,
+            }),
+            ...(i._id && { _id: i._id }),
+            ...(i.status && { status: i.status }),
+            ...(i.addedAt && { addedAt: i.addedAt }),
+          };
+        }),
+        customerRif: newOrder.customerRif,
+        taxType: newOrder.taxType,
+        customerIsSpecialTaxpayer: newOrder.customerIsSpecialTaxpayer || false,
+        customerPhone: newOrder.customerPhone,
+        customerEmail: newOrder.customerEmail,
+        customerAddress: newOrder.customerAddress,
+        subtotal: totals.subtotal,
+        ivaTotal: totals.iva,
+        igtfTotal: totals.igtf,
+        shippingCost: totals.shipping,
+        totalAmount: totals.total,
+        generalDiscountPercentage: newOrder.generalDiscountPercentage,
+        generalDiscountReason: newOrder.generalDiscountReason,
+        notes: newOrder.notes,
+        ...(restaurantEnabled && selectedTable !== 'none' && { tableId: selectedTable }),
+      };
+
+      const response = await fetchApi(`/orders/${activeOrder._id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updatePayload),
+      });
+
+      const updatedOrder = response.data || response;
+
+      // Step 2: Find the newly persisted item (it will have _id now)
+      const persistedItem = updatedOrder.items.find(i => {
+        const iProductId = typeof i.productId === 'object' && i.productId?._id
+          ? i.productId._id
+          : i.productId;
+
+        return (
+          iProductId === productIdValue &&
+          i.quantity === (item.isSoldByWeight ? parseFloat(item.quantity) : parseInt(item.quantity, 10)) &&
+          i.specialInstructions === item.specialInstructions &&
+          // Compare modifiers
+          JSON.stringify(i.modifiers || []) === JSON.stringify(item.modifiers || [])
+        );
+      });
+
+      if (!persistedItem || !persistedItem._id) {
+        throw new Error('No se pudo encontrar el item persistido');
+      }
+
+      // Step 3: Send to kitchen using the real _id
+      await fetchApi('/kitchen-display/send-single-item', {
+        method: 'POST',
+        body: JSON.stringify({
+          orderId: updatedOrder._id,
+          itemId: persistedItem._id,
+          productName: item.name || item.productName,
+          quantity: persistedItem.quantity,
+          modifiers: (persistedItem.modifiers || []).map(m => m.name || m),
+          specialInstructions: persistedItem.specialInstructions,
+        }),
+      });
+
+      // Step 4: Update local state with the updated order
+      setActiveOrder(updatedOrder);
+      setNewOrder({
+        ...newOrder,
+        items: updatedOrder.items.map(i => ({
+          ...i,
+          productId: typeof i.productId === 'object' ? i.productId._id : i.productId,
+          name: i.productName,
+        })),
+      });
+
+      // Step 5: Notify parent if callback exists
+      if (onOrderUpdated) {
+        onOrderUpdated(updatedOrder);
+      }
+
+      toast.success(`"${item.name || item.productName}" enviado a cocina y agregado a la cuenta`);
+    } catch (error) {
+      console.error('Error sending single item to kitchen:', error);
+      toast.error('Error al enviar item a cocina');
+    }
+  };
+
+  const handlePayOrder = async () => {
+    // Guardar y abrir wizard (autoWizard: true)
+    const savedOrder = await handleCreateOrder({ autoWizard: true });
+    if (savedOrder) {
+      // Clear draft after successful order creation
+      clearDraft();
+
+      // Si estamos en modo edición (mesas) y damos "Pagar/Cerrar",
+      // forzamos la llamada a onOrderCreated para que el padre abra el Wizard de Pagos inmediatamente
+      if (isEditMode && onOrderCreated) {
+        onOrderCreated(savedOrder, true);
+      } else {
+        setProcessingOrderData(savedOrder);
+        setIsProcessingDrawerOpen(true);
+      }
     }
   };
 
@@ -1226,7 +1947,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
     const iva = newOrder.items.reduce((sum, item) => {
       if (!item.ivaApplicable) return sum;
       const quantity = getItemQuantityValue(item);
-      return sum + (getItemFinalUnitPrice(item) * quantity * taxRate);
+      return sum + (getItemFinalUnitPrice(item) * quantity * 0.16);
     }, 0);
 
     // Aplicar descuento al IVA también
@@ -1235,7 +1956,23 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
     // IGTF will be calculated at payment confirmation time based on selected method
     const igtf = 0;
 
+    // IVA Withholding (Retención de IVA por Contribuyente Especial)
+    let ivaWithholdingPercentage = 0;
+    let ivaWithholdingAmount = 0;
+    if (newOrder.customerIsSpecialTaxpayer && ivaAfterDiscount > 0) {
+      const tenantTaxpayerType = tenant?.taxInfo?.taxpayerType || 'ordinario';
+      if (tenantTaxpayerType === 'especial') {
+        // Contribuyente Especial usa su tasa configurada (75% o 100%)
+        ivaWithholdingPercentage = tenant?.taxInfo?.specialTaxpayerWithholdingRate || 75;
+      } else {
+        // Contribuyente Ordinario siempre retiene 75%
+        ivaWithholdingPercentage = 75;
+      }
+      ivaWithholdingAmount = ivaAfterDiscount * (ivaWithholdingPercentage / 100);
+    }
+
     const total = subtotalAfterDiscount + ivaAfterDiscount + igtf + shippingCost;
+    const totalWithWithholding = total - ivaWithholdingAmount; // Lo que realmente cobramos
     return {
       subtotal,
       subtotalAfterDiscount,
@@ -1244,9 +1981,12 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
       ivaAfterDiscount,
       igtf,
       shipping: shippingCost,
-      total
+      ivaWithholdingPercentage,
+      ivaWithholdingAmount,
+      total,
+      totalWithWithholding,
     };
-  }, [newOrder.items, newOrder.generalDiscountPercentage, shippingCost]);
+  }, [newOrder.items, newOrder.generalDiscountPercentage, newOrder.customerIsSpecialTaxpayer, shippingCost, tenant]);
 
   const isCreateDisabled = newOrder.items.length === 0 || !newOrder.customerName || !newOrder.customerRif;
 
@@ -1264,14 +2004,14 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
           const itemTotal = quantity * unitPrice;
 
           return (
-            <div key={`${item.productId}-${index}`} className="flex justify-between items-start text-sm border-b pb-2">
+            <div key={item._id || `${item.productId}-${index}`} className="flex justify-between items-start text-sm border-b pb-2">
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{item.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {quantity} x ${unitPrice.toFixed(2)}
+                  {quantity} x {cc.symbol}{unitPrice.toFixed(2)}
                 </p>
               </div>
-              <p className="font-semibold ml-2">${itemTotal.toFixed(2)}</p>
+              <p className="font-semibold ml-2">{cc.symbol}{itemTotal.toFixed(2)}</p>
             </div>
           );
         })}
@@ -1300,12 +2040,13 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
               <TableHead>Precio Unit.</TableHead>
               <TableHead>Total</TableHead>
               {canApplyDiscounts && <TableHead className="w-28 text-center">Descuentos</TableHead>}
+              {isEditMode && existingOrder && tenant?.vertical === 'FOOD_SERVICE' && <TableHead className="w-24 text-center">Cocina</TableHead>}
               <TableHead className="w-20 text-center">Borrar</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {newOrder.items.map(item => (
-              <TableRow key={item.productId}>
+            {newOrder.items.map((item, index) => (
+              <TableRow key={item._id || `${item.productId}-${index}`}>
                 <TableCell>
                   <TooltipProvider>
                     <Tooltip delayDuration={300}>
@@ -1334,6 +2075,27 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                   {item.hasMultipleSellingUnits && (
                     <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">Multi-unidad</div>
                   )}
+
+                  {/* BOTÓN PERSONALIZAR (Solo si es restaurante/comida y no es supply) */}
+                  {restaurantEnabled && !['supply', 'raw_material'].includes(item.productType) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1 mt-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                      onClick={() => handleOpenCustomizer(item)}
+                      title="Personalizar Ingredientes"
+                    >
+                      <ChefHat className="h-3 w-3 mr-1" />
+                      <span className="text-[10px]">Personalizar</span>
+                    </Button>
+                  )}
+
+                  {item.removedIngredients && item.removedIngredients.length > 0 && (
+                    <div className="text-xs text-red-500 mt-1 font-medium">
+                      ❌ Sin: {item.removedIngredients.length} ingrediente(s)
+                    </div>
+                  )}
+
                   {item.modifiers && item.modifiers.length > 0 && (
                     <div className="text-xs text-muted-foreground mt-2 space-y-1">
                       {item.modifiers.map((mod, index) => {
@@ -1343,7 +2105,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                             <span>• {mod.name}{mod.quantity > 1 ? ` x${mod.quantity}` : ''}</span>
                             {adjustment !== 0 && (
                               <span>
-                                ({adjustment > 0 ? '+' : ''}${adjustment.toFixed(2)})
+                                ({adjustment > 0 ? '+' : ''}{cc.symbol}{adjustment.toFixed(2)})
                               </span>
                             )}
                           </div>
@@ -1354,6 +2116,25 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                   {item.specialInstructions && (
                     <div className="text-xs text-orange-600 dark:text-orange-300 italic mt-2">
                       ⚠ {item.specialInstructions}
+                    </div>
+                  )}
+
+                  {/* Wholesale Price Badge & Toggle */}
+                  {item.wholesaleAvailable && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <Badge
+                        variant={item.useWholesalePrice ? "default" : "secondary"}
+                        className="text-[10px] cursor-pointer hover:opacity-80"
+                        onClick={() => toggleWholesalePrice(index)}
+                      >
+                        <Tag className="h-3 w-3 mr-1" />
+                        {item.useWholesalePrice ? `Mayor: ${cc.symbol}${item.wholesalePrice}` : `Mayor disponible`}
+                      </Badge>
+                      {!item.useWholesalePrice && (
+                        <span className="text-[9px] text-muted-foreground">
+                          (min: {item.wholesaleMinQuantity})
+                        </span>
+                      )}
                     </div>
                   )}
                 </TableCell>
@@ -1371,7 +2152,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                           Peso
                         </ToggleGroupItem>
                         <ToggleGroupItem value="amount" aria-label="Ingresar por monto">
-                          $
+                          {cc.symbol}
                         </ToggleGroupItem>
                       </ToggleGroup>
                     )}
@@ -1386,7 +2167,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                             placeholder="Monto"
                             className="w-24 h-8 text-center"
                           />
-                          <span className="ml-2 text-xs text-muted-foreground">USD</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{cc.label}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
                           ≈ {formatDecimalString(getItemQuantityValue(item))}{' '}
@@ -1442,10 +2223,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm line-through text-muted-foreground">
-                          ${item.promotionInfo.originalPrice.toFixed(2)}
+                          {cc.symbol}{item.promotionInfo.originalPrice.toFixed(2)}
                         </span>
                         <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                          ${getItemFinalUnitPrice(item).toFixed(2)}
+                          {cc.symbol}{getItemFinalUnitPrice(item).toFixed(2)}
                         </span>
                       </div>
                       <div className="text-xs text-green-600 dark:text-green-400">
@@ -1454,17 +2235,17 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                     </div>
                   ) : (
                     <>
-                      ${getItemFinalUnitPrice(item).toFixed(2)}
+                      {cc.symbol}{getItemFinalUnitPrice(item).toFixed(2)}
                       {item.modifiers && item.modifiers.length > 0 && (
                         <div className="text-xs text-muted-foreground">
-                          Base: ${(Number(item.unitPrice) || 0).toFixed(2)}
+                          Base: {cc.symbol}{(Number(item.unitPrice) || 0).toFixed(2)}
                         </div>
                       )}
                     </>
                   )}
                 </TableCell>
                 <TableCell>
-                  ${(getItemFinalUnitPrice(item) * getItemQuantityValue(item)).toFixed(2)}
+                  {cc.symbol}{(getItemFinalUnitPrice(item) * getItemQuantityValue(item)).toFixed(2)}
                   {!canApplyDiscounts && item.discountPercentage > 0 && (
                     <div className="text-xs text-green-600 dark:text-green-400 font-semibold mt-1">
                       Descuento: -{item.discountPercentage}%
@@ -1491,6 +2272,22 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                     </div>
                   </TableCell>
                 )}
+                {isEditMode && existingOrder && tenant?.vertical === 'FOOD_SERVICE' && (
+                  <TableCell className="text-center">
+                    {!item._id ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSendSingleItemToKitchen(item)}
+                        className="text-xs h-7 px-2"
+                      >
+                        📨 Enviar
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-green-600">✓ En cocina</span>
+                    )}
+                  </TableCell>
+                )}
                 <TableCell className="text-center">
                   <Button variant="ghost" size="icon" onClick={() => removeProductFromOrder(item.productId)}>
                     <Trash2 className="h-4 w-4 text-red-500" />
@@ -1508,6 +2305,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
   const renderDeliveryContent = () => {
     if (newOrder.deliveryMethod === 'pickup') {
       return <p className="text-sm">Retiro en tienda</p>;
+    }
+
+    if (newOrder.deliveryMethod === 'store') {
+      return <p className="text-sm">Venta en Tienda</p>;
     }
 
     if (newOrder.deliveryMethod === 'delivery') {
@@ -1530,6 +2331,34 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
 
   return (
     <>
+      {/* Draft confirmation dialog */}
+      <AlertDialog open={showDraftDialog} onOpenChange={setShowDraftDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Borrador encontrado</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-muted-foreground text-sm">
+                Tienes una orden sin terminar. ¿Deseas continuar donde lo dejaste?
+                {pendingDraft && (
+                  <div className="mt-2 text-sm space-y-1">
+                    <p>• {pendingDraft.items?.length || 0} items</p>
+                    {pendingDraft.customerName && <p>• Cliente: {pendingDraft.customerName}</p>}
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDiscardDraft}>
+              Descartar
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleLoadDraft}>
+              Continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {supportsModifiers && showModifierSelector && pendingProductConfig && (
         <ModifierSelector
           product={{
@@ -1638,6 +2467,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
               <div className="space-y-4 border rounded-lg p-3 bg-card/50">
                 <Label className="text-sm font-semibold">Cliente</Label>
                 <div className="space-y-3">
+                  {/* Tax Type + RIF + Customer Name in same row */}
                   <div className="flex gap-2">
                     <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
                       <SelectTrigger className="w-[65px] h-9">
@@ -1648,9 +2478,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                         <SelectItem value="E">E</SelectItem>
                         <SelectItem value="J">J</SelectItem>
                         <SelectItem value="G">G</SelectItem>
+                        <SelectItem value="P">P</SelectItem>
+                        <SelectItem value="N">N</SelectItem>
                       </SelectContent>
                     </Select>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <SearchableSelect
                         options={rifOptions}
                         onSelection={handleCustomerRifSelection}
@@ -1662,17 +2494,61 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                         customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
                       />
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <SearchableSelect
+                        options={customerOptions}
+                        onSelection={handleCustomerNameSelection}
+                        onInputChange={handleCustomerNameInputChange}
+                        inputValue={customerNameInput}
+                        value={getCustomerNameValue()}
+                        placeholder="Nombre..."
+                        isLoading={isSearchingCustomers}
+                        customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  {/* NUEVOS CAMPOS DE CONTACTO PARA MÓVIL/EMBEDDED */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      value={newOrder.customerPhone || ''}
+                      onChange={(e) => handleFieldChange('customerPhone', e.target.value)}
+                      placeholder="Teléfono"
+                      className="h-9 text-sm"
+                    />
+                    <Input
+                      type="email"
+                      value={newOrder.customerEmail || ''}
+                      onChange={(e) => handleFieldChange('customerEmail', e.target.value)}
+                      placeholder="Email"
+                      className="h-9 text-sm"
+                    />
                   </div>
                   <SearchableSelect
-                    options={customerOptions}
-                    onSelection={handleCustomerNameSelection}
-                    onInputChange={handleCustomerNameInputChange}
-                    inputValue={customerNameInput}
-                    value={getCustomerNameValue()}
-                    placeholder="Nombre del cliente..."
-                    isLoading={isSearchingCustomers}
+                    options={addressOptions}
+                    onSelection={handleCustomerAddressSelection}
+                    value={getCustomerAddressValue()}
+                    placeholder="Dirección..."
+                    isCreatable={true}
+                    onInputChange={(val) => {
+                      if (val && val !== newOrder.customerAddress) {
+                        handleFieldChange('customerAddress', val);
+                      }
+                    }}
                     customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
                   />
+                  {/* Contribuyente Especial - Mobile */}
+                  <div className="flex items-center justify-between rounded-md border p-2">
+                    <div className="flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+                      <span className="text-xs font-medium">Contribuyente Especial</span>
+                    </div>
+                    <Switch
+                      checked={newOrder.customerIsSpecialTaxpayer || false}
+                      onCheckedChange={(checked) => handleFieldChange('customerIsSpecialTaxpayer', checked)}
+                      className="scale-90"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1693,7 +2569,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                 calculatingShipping={calculatingShipping}
                 bcvRate={bcvRate}
                 loadingRate={loadingRate}
-                onCreateOrder={handleCreateOrder}
+                onCreateOrder={handlePayOrder}
                 isCreateDisabled={isCreateDisabled}
                 notes={newOrder.notes}
                 onNotesChange={(value) => handleFieldChange('notes', value)}
@@ -1702,6 +2578,9 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                 onOpenGeneralDiscount={canApplyDiscounts ? handleOpenGeneralDiscount : undefined}
                 canApplyDiscounts={canApplyDiscounts}
                 isEmbedded={true}
+                onSendToKitchen={tenant?.vertical === 'FOOD_SERVICE' ? handleSendToKitchen : undefined}
+                isEditMode={isEditMode}
+                tenantCurrency={tenantCurrency}
               />
             </TabsContent>
           </Tabs>
@@ -1824,6 +2703,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                         <SelectItem value="E">E</SelectItem>
                         <SelectItem value="J">J</SelectItem>
                         <SelectItem value="G">G</SelectItem>
+                        <SelectItem value="P">P</SelectItem>
+                        <SelectItem value="N">N</SelectItem>
                       </SelectContent>
                     </Select>
                     <div className="flex-grow">
@@ -1864,15 +2745,115 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="customerAddress">Dirección</Label>
-                  <SearchableSelect
-                    options={addressOptions}
-                    onSelection={handleCustomerAddressSelection}
-                    value={getCustomerAddressValue()}
-                    placeholder="Escriba la dirección..."
-                    isCreatable={true}
+                  <Label htmlFor="customerEmail">Correo Electrónico</Label>
+                  <Input
+                    id="customerEmail"
+                    type="email"
+                    value={newOrder.customerEmail || ''}
+                    onChange={(e) => handleFieldChange('customerEmail', e.target.value)}
+                    placeholder="cliente@ejemplo.com"
                   />
                 </div>
+              </div>
+              {/* Price List Selector */}
+              <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
+                <div className="space-y-2">
+                  <Label htmlFor="priceListId" className="text-sm font-medium flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Lista de Precios
+                  </Label>
+                  <Select
+                    value={newOrder.priceListId || ''}
+                    onValueChange={(value) => handleFieldChange('priceListId', value)}
+                  >
+                    <SelectTrigger id="priceListId">
+                      <SelectValue placeholder="Precio regular (sin lista específica)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Sin lista específica</SelectItem>
+                      {priceLists.map((pl) => (
+                        <SelectItem key={pl._id} value={pl._id}>
+                          {pl.name} - {pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type === 'promotional' ? 'Promocional' : pl.type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {newOrder.priceListId ? 'Se aplicarán precios personalizados de esta lista' : 'Se usarán los precios base del producto'}
+                  </p>
+                </div>
+                {newOrder.priceListId && newOrder.customerId && (
+                  <div className="flex items-center space-x-2 pt-2 border-t">
+                    <Switch
+                      id="savePriceList"
+                      checked={newOrder.savePriceListToCustomer || false}
+                      onCheckedChange={(checked) => handleFieldChange('savePriceListToCustomer', checked)}
+                    />
+                    <Label htmlFor="savePriceList" className="text-xs cursor-pointer">
+                      Guardar esta lista como predeterminada para {newOrder.customerName}
+                    </Label>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="customerAddress">Dirección</Label>
+                <SearchableSelect
+                  options={addressOptions}
+                  onSelection={handleCustomerAddressSelection}
+                  value={getCustomerAddressValue()}
+                  placeholder="Escriba la dirección o seleccione..."
+                  isCreatable={true}
+                  onInputChange={(val) => {
+                    // Update address directly as user types if it's text input
+                    if (val && val !== newOrder.customerAddress) {
+                      handleFieldChange('customerAddress', val);
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Contribuyente Especial Toggle */}
+              <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-amber-600" />
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Contribuyente Especial</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {newOrder.customerIsSpecialTaxpayer
+                        ? `Retiene ${totals.ivaWithholdingPercentage}% del IVA`
+                        : 'El cliente retiene IVA al pagar'}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={newOrder.customerIsSpecialTaxpayer || false}
+                  onCheckedChange={(checked) => handleFieldChange('customerIsSpecialTaxpayer', checked)}
+                />
+              </div>
+
+              {/* Employee Selector */}
+              <div className="space-y-2">
+                <Label htmlFor="assignedTo">Atendido Por</Label>
+                <Select
+                  value={newOrder.assignedTo || 'unassigned'}
+                  onValueChange={(value) => handleFieldChange('assignedTo', value === 'unassigned' ? '' : value)}
+                  disabled={loadingEmployees}
+                >
+                  <SelectTrigger id="assignedTo">
+                    <SelectValue placeholder={loadingEmployees ? "Cargando empleados..." : "Seleccione empleado..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Sin asignar</SelectItem>
+                    {employees.map((emp) => (
+                      <SelectItem key={emp._id} value={emp._id}>
+                        {emp.customer?.name || emp.name || 'Sin Nombre'} {emp.position ? `- ${emp.position}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Empleado responsable de atender esta orden
+                </p>
               </div>
             </div>
 
@@ -1935,35 +2916,118 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
             {/* Shipping Address - if envio_nacional */}
             {newOrder.deliveryMethod === 'envio_nacional' && (
               <div className="p-4 border rounded-lg space-y-4 bg-card">
-                <Label className="text-base font-semibold">Dirección de Entrega Nacional</Label>
+                <Label className="text-base font-semibold">Datos de Envío Nacional</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Provider Selection */}
                   <div className="space-y-2">
-                    <Label>Dirección</Label>
+                    <Label>Empresa de Encomiendas</Label>
+                    <Select
+                      value={selectedProvider ? selectedProvider.code : ''}
+                      onValueChange={(val) => {
+                        const provider = shippingProviders.find(p => p.code === val);
+                        setSelectedProvider(provider);
+                        setAvailableStates(provider?.regions || []);
+                        setAvailableCities([]);
+                        setAvailableAgencies([]);
+                        setSelectedAgency(null);
+                        handleAddressChange('street', ''); // Clear address
+                        handleAddressChange('state', '');
+                        handleAddressChange('city', '');
+                      }}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Seleccione empresa..." /></SelectTrigger>
+                      <SelectContent>
+                        {shippingProviders.map(p => (
+                          <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* State Selection */}
+                  <div className="space-y-2">
+                    <Label>Estado</Label>
+                    <Select
+                      value={newOrder.shippingAddress.state}
+                      onValueChange={(val) => {
+                        handleAddressChange('state', val);
+                        const region = availableStates.find(r => r.state === val);
+                        setAvailableCities(region ? region.cities : []);
+                        setAvailableAgencies([]);
+                        handleAddressChange('city', '');
+                      }}
+                      disabled={!selectedProvider}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Seleccione estado..." /></SelectTrigger>
+                      <SelectContent>
+                        {availableStates.map(r => (
+                          <SelectItem key={r.state} value={r.state}>{r.state}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* City Selection */}
+                  <div className="space-y-2">
+                    <Label>Ciudad</Label>
+                    <Select
+                      value={newOrder.shippingAddress.city}
+                      onValueChange={(val) => {
+                        handleAddressChange('city', val);
+                        const city = availableCities.find(c => c.name === val);
+                        setAvailableAgencies(city ? city.agencies : []);
+                        setSelectedAgency(null);
+                        // Reset address if it was an agency address? Maybe not to persist manual edits if needed.
+                      }}
+                      disabled={!newOrder.shippingAddress.state}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Seleccione ciudad..." /></SelectTrigger>
+                      <SelectContent>
+                        {availableCities.map(c => (
+                          <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Agency Selection */}
+                  <div className="space-y-2">
+                    <Label>Agencia de Destino</Label>
+                    <Select
+                      value={selectedAgency ? selectedAgency.code : 'manual'}
+                      onValueChange={(val) => {
+                        if (val === 'manual') {
+                          setSelectedAgency(null);
+                          handleAddressChange('street', '');
+                          return;
+                        }
+                        const agency = availableAgencies.find(a => a.code === val);
+                        setSelectedAgency(agency);
+                        if (agency) {
+                          handleAddressChange('street', `${agency.name} - ${agency.address} (${agency.code})`);
+                        }
+                      }}
+                      disabled={!newOrder.shippingAddress.city}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Seleccione agencia..." /></SelectTrigger>
+                      <SelectContent>
+                        {availableAgencies.map(a => (
+                          <SelectItem key={a.code} value={a.code}>{a.name}</SelectItem>
+                        ))}
+                        <SelectItem value="manual">Ingresar manualmente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Full Address Display/Edit */}
+                  <div className="col-span-1 md:col-span-2 space-y-2">
+                    <Label>Dirección Completa (Agencia)</Label>
                     <Textarea
                       value={newOrder.shippingAddress.street}
                       onChange={(e) => handleAddressChange('street', e.target.value)}
-                      placeholder="Ej: Av. Bolívar, Edificio ABC, Piso 1, Apto 1A"
+                      placeholder="Dirección de la agencia seleccionada..."
+                      rows={2}
                     />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Estado</Label>
-                      <Select value={newOrder.shippingAddress.state} onValueChange={(v) => handleAddressChange('state', v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {venezuelaData.map(e => <SelectItem key={e.estado} value={e.estado}>{e.estado}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Municipio / Ciudad</Label>
-                      <Select value={newOrder.shippingAddress.city} onValueChange={(v) => handleAddressChange('city', v)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {municipios.map((m, index) => <SelectItem key={`${m}-${index}`} value={m}>{m}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -2011,7 +3075,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
               calculatingShipping={calculatingShipping}
               bcvRate={bcvRate}
               loadingRate={loadingRate}
-              onCreateOrder={handleCreateOrder}
+              onCreateOrder={handlePayOrder}
               isCreateDisabled={isCreateDisabled}
               notes={newOrder.notes}
               onNotesChange={(value) => handleFieldChange('notes', value)}
@@ -2019,6 +3083,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
               generalDiscountPercentage={newOrder.generalDiscountPercentage}
               onOpenGeneralDiscount={canApplyDiscounts ? handleOpenGeneralDiscount : undefined}
               canApplyDiscounts={canApplyDiscounts}
+              // Only pass onSendToKitchen if it's a restaurant, enabling the 2-button layout
+              onSendToKitchen={tenant?.vertical === 'FOOD_SERVICE' ? handleSendToKitchen : undefined}
+              isEditMode={isEditMode}
+              tenantCurrency={tenantCurrency}
             />
           </div>
         </div>
@@ -2047,7 +3115,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                 <div className="space-y-2">
                   <Label>Precio Original</Label>
                   <div className="text-lg font-semibold">
-                    ${selectedItemForDiscount.unitPrice?.toFixed(2) || '0.00'}
+                    {cc.symbol}{selectedItemForDiscount.unitPrice?.toFixed(2) || '0.00'}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -2079,10 +3147,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                   <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
                     <div className="text-sm text-muted-foreground">Nuevo Precio</div>
                     <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                      ${((selectedItemForDiscount.unitPrice || 0) * (1 - itemDiscountPercentage / 100)).toFixed(2)}
+                      {cc.symbol}{((selectedItemForDiscount.unitPrice || 0) * (1 - itemDiscountPercentage / 100)).toFixed(2)}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Ahorro: ${((selectedItemForDiscount.unitPrice || 0) * itemDiscountPercentage / 100).toFixed(2)}
+                      Ahorro: {cc.symbol}{((selectedItemForDiscount.unitPrice || 0) * itemDiscountPercentage / 100).toFixed(2)}
                     </div>
                   </div>
                 )}
@@ -2113,7 +3181,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
             <div className="space-y-2">
               <Label>Subtotal Actual</Label>
               <div className="text-lg font-semibold">
-                ${totals.subtotal.toFixed(2)}
+                {cc.symbol}{totals.subtotal.toFixed(2)}
               </div>
             </div>
             <div className="space-y-2">
@@ -2147,13 +3215,13 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Descuento:</span>
                   <span className="font-semibold text-green-600 dark:text-green-400">
-                    -${((totals.subtotal * generalDiscountPercentage) / 100).toFixed(2)}
+                    -{cc.symbol}{((totals.subtotal * generalDiscountPercentage) / 100).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Nuevo Subtotal:</span>
                   <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                    ${(totals.subtotal * (1 - generalDiscountPercentage / 100)).toFixed(2)}
+                    {cc.symbol}{(totals.subtotal * (1 - generalDiscountPercentage / 100)).toFixed(2)}
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-2">
@@ -2172,6 +3240,30 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Dialog para personalizar receta */}
+      <RecipeCustomizerDialog
+        open={showRecipeCustomizer}
+        onOpenChange={setShowRecipeCustomizer}
+        product={customizerItem}
+        initialRemovedIngredients={customizerItem?.removedIngredients || []}
+        onConfirm={handleConfirmCustomization}
+      />
+
+      {/* Payment Processing Drawer */}
+      {processingOrderData && (
+        <OrderProcessingDrawer
+          open={isProcessingDrawerOpen}
+          onOpenChange={setIsProcessingDrawerOpen}
+          order={processingOrderData}
+          fullScreen={false}
+          onOrderUpdated={(updated) => {
+            // If order updated in drawer (e.g. paid), update local state or notify parent
+            if (onOrderUpdated) onOrderUpdated(updated);
+            // Optionally close drawer if status is final? 
+            // OrderProcessingDrawer handles its own flow.
+          }}
+        />
+      )}
     </>
   );
 }

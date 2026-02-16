@@ -26,6 +26,31 @@ import {
 import { Service, ServiceSchema } from "../../schemas/service.schema";
 import { Resource, ResourceSchema } from "../../schemas/resource.schema";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
+import {
+  ChartOfAccounts,
+  ChartOfAccountsSchema,
+} from "../../schemas/chart-of-accounts.schema";
+import {
+  JournalEntry,
+  JournalEntrySchema,
+} from "../../schemas/journal-entry.schema";
+import {
+  PayrollRun,
+  PayrollRunSchema,
+} from "../../schemas/payroll-run.schema";
+import {
+  FixedAsset,
+  FixedAssetSchema,
+} from "../../schemas/fixed-asset.schema";
+import {
+  Investment,
+  InvestmentSchema,
+} from "../../schemas/investment.schema";
+import { Payment, PaymentSchema } from "../../schemas/payment.schema";
+import {
+  SavedAnalyticsView,
+  SavedAnalyticsViewSchema,
+} from "../../schemas/saved-analytics-view.schema";
 import { MenuEngineeringModule } from "../menu-engineering/menu-engineering.module";
 
 @Module({
@@ -46,6 +71,13 @@ import { MenuEngineeringModule } from "../menu-engineering/menu-engineering.modu
       { name: Service.name, schema: ServiceSchema },
       { name: Resource.name, schema: ResourceSchema },
       { name: Customer.name, schema: CustomerSchema },
+      { name: ChartOfAccounts.name, schema: ChartOfAccountsSchema },
+      { name: JournalEntry.name, schema: JournalEntrySchema },
+      { name: PayrollRun.name, schema: PayrollRunSchema },
+      { name: FixedAsset.name, schema: FixedAssetSchema },
+      { name: Investment.name, schema: InvestmentSchema },
+      { name: Payment.name, schema: PaymentSchema },
+      { name: SavedAnalyticsView.name, schema: SavedAnalyticsViewSchema },
     ]),
   ],
   controllers: [AnalyticsController],

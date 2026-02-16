@@ -6,6 +6,11 @@ export const getApiBaseUrl = () => {
   if (typeof window === 'undefined') {
     return 'https://api.smartkubik.com';
   }
+
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
   const devHostnames = ['localhost', '127.0.0.1'];
   return devHostnames.includes(window.location.hostname)
     ? 'http://localhost:3000'
@@ -32,9 +37,16 @@ export const fetchApi = async (url, options = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const baseUrl = getApiBaseUrl();
+  let baseUrl = getApiBaseUrl();
+  // Remove trailing slash if present
+  if (baseUrl.endsWith('/')) {
+    baseUrl = baseUrl.slice(0, -1);
+  }
 
-  const response = await fetch(`${baseUrl}/api/v1${url}`, {
+  // Check if baseUrl already includes /api/v1
+  const apiPath = baseUrl.endsWith('/api/v1') ? '' : '/api/v1';
+
+  const response = await fetch(`${baseUrl}${apiPath}${url}`, {
     ...options,
     headers,
   });
@@ -1600,6 +1612,25 @@ export const fileIvaDeclaration = (id, data) => {
   });
 };
 
+// ============ PRODUCTS API ============
+
+export const getProducts = (params = {}) => {
+  const queryParams = new URLSearchParams();
+
+  Object.keys(params).forEach(key => {
+    if (params[key] !== undefined && params[key] !== null) {
+      queryParams.append(key, params[key]);
+    }
+  });
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/products${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getProduct = (id) => {
+  return fetchApi(`/products/${id}`);
+};
+
 // ============ BILL OF MATERIALS (RECIPES) API ============
 
 export const getBillOfMaterials = (params = {}) => {
@@ -1735,6 +1766,19 @@ export const downloadSeniatXML = async (documentId) => {
   }
 
   return response.blob();
+};
+
+// List billing documents with filters
+export const listBillingDocuments = (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.startDate) params.append('startDate', filters.startDate);
+  if (filters.endDate) params.append('endDate', filters.endDate);
+  if (filters.status) params.append('status', filters.status);
+  if (filters.documentType) params.append('documentType', filters.documentType);
+
+  return fetchApi(`/billing/documents?${params.toString()}`, {
+    method: 'GET',
+  });
 };
 
 // Get electronic invoice statistics
@@ -2027,6 +2071,231 @@ export const deleteRecurringEntry = (id) => {
   });
 };
 
+// ============ COMMISSIONS MODULE API ============
+
+// Commission Plans
+export const getCommissionPlans = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.isActive !== undefined) queryParams.append('isActive', params.isActive);
+  if (params.type) queryParams.append('type', params.type);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/commissions/plans${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getCommissionPlan = (id) => {
+  return fetchApi(`/commissions/plans/${id}`);
+};
+
+export const createCommissionPlan = (planData) => {
+  return fetchApi('/commissions/plans', {
+    method: 'POST',
+    body: JSON.stringify(planData),
+  });
+};
+
+export const updateCommissionPlan = (id, planData) => {
+  return fetchApi(`/commissions/plans/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(planData),
+  });
+};
+
+export const deleteCommissionPlan = (id) => {
+  return fetchApi(`/commissions/plans/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// Commission Records
+export const getCommissionRecords = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.employeeId) queryParams.append('employeeId', params.employeeId);
+  if (params.status) queryParams.append('status', params.status);
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/commissions/records${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getCommissionRecord = (id) => {
+  return fetchApi(`/commissions/records/${id}`);
+};
+
+export const approveCommission = (id) => {
+  return fetchApi(`/commissions/records/${id}/approve`, {
+    method: 'PATCH',
+  });
+};
+
+export const rejectCommission = (id, reason) => {
+  return fetchApi(`/commissions/records/${id}/reject`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  });
+};
+
+export const bulkApproveCommissions = (recordIds) => {
+  return fetchApi('/commissions/records/bulk-approve', {
+    method: 'POST',
+    body: JSON.stringify({ recordIds }),
+  });
+};
+
+export const getEmployeeCommissionsSummary = (employeeId, params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/commissions/employees/${employeeId}/summary${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getCommissionsReport = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.groupBy) queryParams.append('groupBy', params.groupBy);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/commissions/reports/summary${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getPendingCommissions = () => {
+  return fetchApi('/commissions/records/pending');
+};
+
+// ============ GOALS MODULE API ============
+
+export const getGoals = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.employeeId) queryParams.append('employeeId', params.employeeId);
+  if (params.status) queryParams.append('status', params.status);
+  if (params.type) queryParams.append('type', params.type);
+  if (params.period) queryParams.append('period', params.period);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/goals${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getGoal = (id) => {
+  return fetchApi(`/goals/${id}`);
+};
+
+export const createGoal = (goalData) => {
+  return fetchApi('/goals', {
+    method: 'POST',
+    body: JSON.stringify(goalData),
+  });
+};
+
+export const updateGoal = (id, goalData) => {
+  return fetchApi(`/goals/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(goalData),
+  });
+};
+
+export const deleteGoal = (id) => {
+  return fetchApi(`/goals/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const getGoalProgress = (id) => {
+  return fetchApi(`/goals/${id}/progress`);
+};
+
+export const updateGoalProgress = (id, amount) => {
+  return fetchApi(`/goals/${id}/progress`, {
+    method: 'PATCH',
+    body: JSON.stringify({ amount }),
+  });
+};
+
+export const getActiveGoals = () => {
+  return fetchApi('/goals/active');
+};
+
+export const getGoalsDashboard = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.period) queryParams.append('period', params.period);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/goals/dashboard${queryString ? `?${queryString}` : ''}`);
+};
+
+// ============ BONUSES MODULE API ============
+
+export const getBonuses = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.employeeId) queryParams.append('employeeId', params.employeeId);
+  if (params.status) queryParams.append('status', params.status);
+  if (params.type) queryParams.append('type', params.type);
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+  if (params.page) queryParams.append('page', params.page);
+  if (params.limit) queryParams.append('limit', params.limit);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/bonuses${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getBonus = (id) => {
+  return fetchApi(`/bonuses/${id}`);
+};
+
+export const createBonus = (bonusData) => {
+  return fetchApi('/bonuses', {
+    method: 'POST',
+    body: JSON.stringify(bonusData),
+  });
+};
+
+export const updateBonus = (id, bonusData) => {
+  return fetchApi(`/bonuses/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(bonusData),
+  });
+};
+
+export const deleteBonus = (id) => {
+  return fetchApi(`/bonuses/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+export const approveBonus = (id) => {
+  return fetchApi(`/bonuses/${id}/approve`, {
+    method: 'PATCH',
+  });
+};
+
+export const rejectBonus = (id, reason) => {
+  return fetchApi(`/bonuses/${id}/reject`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  });
+};
+
+export const getPendingBonuses = () => {
+  return fetchApi('/bonuses/pending');
+};
+
+export const getBonusesSummary = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.startDate) queryParams.append('startDate', params.startDate);
+  if (params.endDate) queryParams.append('endDate', params.endDate);
+
+  const queryString = queryParams.toString();
+  return fetchApi(`/bonuses/summary${queryString ? `?${queryString}` : ''}`);
+};
+
 // Generic API client for axios-like usage
 export const api = {
   get: (url, config = {}) => fetchApi(url, { ...config, method: 'GET' }),
@@ -2047,3 +2316,182 @@ export const api = {
   }),
   delete: (url, config = {}) => fetchApi(url, { ...config, method: 'DELETE' }),
 };
+
+// ============ FIXED ASSETS MODULE API ============
+
+export const fetchFixedAssets = () => {
+  return fetchApi('/fixed-assets');
+};
+
+export const fetchFixedAsset = (id) => {
+  return fetchApi(`/fixed-assets/${id}`);
+};
+
+export const fetchFixedAssetsSummary = () => {
+  return fetchApi('/fixed-assets/summary');
+};
+
+export const createFixedAsset = (data) => {
+  return fetchApi('/fixed-assets', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateFixedAsset = (id, data) => {
+  return fetchApi(`/fixed-assets/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteFixedAsset = (id) => {
+  return fetchApi(`/fixed-assets/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// ============ INVESTMENTS MODULE API ============
+
+export const fetchInvestments = () => {
+  return fetchApi('/investments');
+};
+
+export const fetchInvestment = (id) => {
+  return fetchApi(`/investments/${id}`);
+};
+
+export const fetchInvestmentsSummary = () => {
+  return fetchApi('/investments/summary');
+};
+
+export const createInvestment = (data) => {
+  return fetchApi('/investments', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateInvestment = (id, data) => {
+  return fetchApi(`/investments/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteInvestment = (id) => {
+  return fetchApi(`/investments/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// ==================== Data Import API ====================
+
+export const uploadImportFile = (formData) => {
+  return fetchApi('/data-import/upload', {
+    method: 'POST',
+    body: formData,
+  });
+};
+
+export const getImportFieldDefinitions = (entityType) => {
+  return fetchApi(`/data-import/field-definitions/${entityType}`);
+};
+
+export const getImportPresets = (entityType) => {
+  return fetchApi(`/data-import/presets/${entityType}`);
+};
+
+export const downloadImportTemplate = async (entityType, preset) => {
+  const url = preset
+    ? `/data-import/templates/${entityType}/${preset}`
+    : `/data-import/templates/${entityType}`;
+
+  const token = localStorage.getItem('accessToken');
+  const baseUrl = import.meta.env.VITE_API_URL || '';
+  const fullUrl = `${baseUrl}/api/v1${url}`;
+
+  const response = await fetch(fullUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) throw new Error('Error al descargar plantilla');
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  a.download = `plantilla_${entityType}${preset ? `_${preset}` : ''}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+};
+
+export const updateImportMapping = (jobId, columnMapping, options = {}) => {
+  return fetchApi(`/data-import/${jobId}/mapping`, {
+    method: 'PATCH',
+    body: JSON.stringify({ columnMapping, ...options }),
+  });
+};
+
+export const validateImportJob = (jobId) => {
+  return fetchApi(`/data-import/${jobId}/validate`, {
+    method: 'POST',
+  });
+};
+
+export const executeImportJob = (jobId) => {
+  return fetchApi(`/data-import/${jobId}/execute`, {
+    method: 'POST',
+  });
+};
+
+export const getImportJob = (jobId) => {
+  return fetchApi(`/data-import/history/${jobId}`);
+};
+
+export const getImportErrors = (jobId) => {
+  return fetchApi(`/data-import/history/${jobId}/errors`);
+};
+
+export const downloadImportErrors = async (jobId) => {
+  const token = localStorage.getItem('accessToken');
+  const baseUrl = import.meta.env.VITE_API_URL || '';
+  const fullUrl = `${baseUrl}/api/v1/data-import/history/${jobId}/errors?format=xlsx`;
+
+  const response = await fetch(fullUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) throw new Error('Error al descargar reporte de errores');
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  a.download = `errores_importacion_${jobId}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(downloadUrl);
+};
+
+export const getImportHistory = (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  return fetchApi(`/data-import/history${queryString ? `?${queryString}` : ''}`);
+};
+
+export const rollbackImport = (jobId) => {
+  return fetchApi(`/data-import/${jobId}/rollback`, {
+    method: 'DELETE',
+  });
+};
+
+export const deleteImportJob = (jobId) => {
+  return fetchApi(`/data-import/${jobId}`, {
+    method: 'DELETE',
+  });
+};
+
+// ==================== IVA Declaration API ====================

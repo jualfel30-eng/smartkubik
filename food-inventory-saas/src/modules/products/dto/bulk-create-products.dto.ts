@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsNumber,
   IsOptional,
+  IsEnum,
   ValidateNested,
   IsObject,
 } from "class-validator";
@@ -54,6 +55,11 @@ export class BulkProductDto {
 
   @IsString()
   @IsOptional()
+  @IsEnum(["days", "months", "years"])
+  shelfLifeUnit?: string;
+
+  @IsString()
+  @IsOptional()
   storageTemperature?: string;
 
   @IsBoolean()
@@ -85,6 +91,10 @@ export class BulkProductDto {
 
   @IsNumber()
   variantCostPrice: number;
+
+  @IsNumber()
+  @IsOptional()
+  variantWholesalePrice?: number;
 
   @IsString()
   @IsOptional()

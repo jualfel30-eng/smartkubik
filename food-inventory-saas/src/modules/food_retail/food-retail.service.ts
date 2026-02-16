@@ -545,7 +545,7 @@ export class FoodRetailInventoryService implements IInventoryService {
       nearExpiration,
       expired,
       minAvailable,
-      sortBy = "lastUpdated",
+      sortBy = "updatedAt",
       sortOrder = "desc",
     } = query;
     const filter: any = { tenantId: tenantId };

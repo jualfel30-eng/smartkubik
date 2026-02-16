@@ -238,10 +238,15 @@ export class Customer {
     totalDeposits?: number;
     depositCount?: number;
     lastDepositDate?: Date;
+    averageRating?: number; // Average supplier rating (1-5)
+    totalRatings?: number; // Total number of rated orders
   };
 
   @Prop({ type: String })
   tier: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'PriceList' })
+  defaultPriceListId?: Types.ObjectId;
 
   @Prop({ type: Number, default: 0 })
   loyaltyScore?: number;
@@ -388,6 +393,13 @@ export class Customer {
   @Prop({ type: Boolean, default: false })
   hasStorefrontAccount: boolean; // Whether customer has a storefront account
 
+  // ── Data Import tracking ──
+  @Prop({ type: Types.ObjectId, ref: "ImportJob" })
+  importJobId?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  importedAt?: Date;
+
   // Timestamps (automatically added by Mongoose with timestamps: true)
   createdAt?: Date;
   updatedAt?: Date;
@@ -409,6 +421,7 @@ CustomerSchema.index({ "metrics.totalSpent": -1, tenantId: 1 });
 CustomerSchema.index({ assignedTo: 1, tenantId: 1 });
 CustomerSchema.index({ nextFollowUpDate: 1, tenantId: 1 });
 CustomerSchema.index({ "metrics.engagementScore": -1, tenantId: 1 });
+CustomerSchema.index({ defaultPriceListId: 1, tenantId: 1 });
 
 // WhatsApp indexes
 CustomerSchema.index({ whatsappNumber: 1, tenantId: 1 });

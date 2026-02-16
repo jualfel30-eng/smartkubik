@@ -23,7 +23,7 @@ import {
 } from "../../dto/accounting.dto";
 import { Order, OrderDocument } from "../../schemas/order.schema"; // <-- FIXED
 import { PurchaseOrderDocument } from "../../schemas/purchase-order.schema";
-import { PaymentDocument } from "../../schemas/payment.schema";
+import { Payment, PaymentDocument } from "../../schemas/payment.schema";
 import { Payable, PayableDocument } from "../../schemas/payable.schema";
 import { PayrollConcept } from "../../schemas/payroll-concept.schema";
 import { PayrollRunDocument } from "../../schemas/payroll-run.schema";
@@ -45,7 +45,8 @@ export class AccountingService {
     @InjectModel(Payable.name) private payableModel: Model<PayableDocument>,
     @InjectModel(BillingDocument.name)
     private billingModel: Model<BillingDocumentDocument>,
-  ) {}
+    @InjectModel(Payment.name) private paymentModel: Model<PaymentDocument>,
+  ) { }
 
   private async generateNextCode(
     type: string,
@@ -341,17 +342,17 @@ export class AccountingService {
     const shippingIncomeAcc =
       order.shippingCost > 0
         ? await this.findOrCreateAccount(
-            { code: "4102", name: "Ingresos por Envío", type: "Ingreso" },
-            tenantId,
-          )
+          { code: "4102", name: "Ingresos por Envío", type: "Ingreso" },
+          tenantId,
+        )
         : null;
 
     const salesDiscountAcc =
       order.discountAmount > 0
         ? await this.findOrCreateAccount(
-            { code: "4103", name: "Descuentos sobre Venta", type: "Ingreso" }, // Contra-revenue
-            tenantId,
-          )
+          { code: "4103", name: "Descuentos sobre Venta", type: "Ingreso" }, // Contra-revenue
+          tenantId,
+        )
         : null;
 
     // 2. Build the journal entry lines
@@ -406,7 +407,7 @@ export class AccountingService {
       });
     }
 
-    // 3. Create and save the journal entry
+    // 4. Create and save the journal entry
     const entryDto: CreateJournalEntryDto = {
       date: new Date().toISOString(),
       description: `Asiento automático por venta de orden ${order.orderNumber}`,
@@ -540,19 +541,19 @@ export class AccountingService {
       credit: number;
       description: string;
     }[] = [
-      {
-        accountId: cogsAcc._id.toString(),
-        debit: totalCost,
-        credit: 0,
-        description: `Costo de venta para la orden ${order.orderNumber}`,
-      },
-      {
-        accountId: inventoryAcc._id.toString(),
-        debit: 0,
-        credit: totalCost,
-        description: `Disminución de inventario por orden ${order.orderNumber}`,
-      },
-    ];
+        {
+          accountId: cogsAcc._id.toString(),
+          debit: totalCost,
+          credit: 0,
+          description: `Costo de venta para la orden ${order.orderNumber}`,
+        },
+        {
+          accountId: inventoryAcc._id.toString(),
+          debit: 0,
+          credit: totalCost,
+          description: `Disminución de inventario por orden ${order.orderNumber}`,
+        },
+      ];
 
     const entryDto: CreateJournalEntryDto = {
       date: new Date().toISOString(),
@@ -608,19 +609,19 @@ export class AccountingService {
       credit: number;
       description: string;
     }[] = [
-      {
-        accountId: inventoryAccount._id.toString(),
-        debit: purchaseOrder.totalAmount,
-        credit: 0,
-        description: `Compra según orden ${purchaseOrder.poNumber}`,
-      },
-      {
-        accountId: accountsPayableAcc._id.toString(),
-        debit: 0,
-        credit: purchaseOrder.totalAmount,
-        description: `Cuentas por pagar por orden ${purchaseOrder.poNumber}`,
-      },
-    ];
+        {
+          accountId: inventoryAccount._id.toString(),
+          debit: purchaseOrder.totalAmount,
+          credit: 0,
+          description: `Compra según orden ${purchaseOrder.poNumber}`,
+        },
+        {
+          accountId: accountsPayableAcc._id.toString(),
+          debit: 0,
+          credit: purchaseOrder.totalAmount,
+          description: `Cuentas por pagar por orden ${purchaseOrder.poNumber}`,
+        },
+      ];
 
     const entryDto: CreateJournalEntryDto = {
       date: moment
@@ -749,21 +750,22 @@ export class AccountingService {
       credit: number;
       description: string;
     }[] = [
-      {
-        accountId: cashOrBankAcc._id.toString(),
-        debit: payment.amount,
-        credit: 0,
-        description: `Cobro de orden ${order.orderNumber}`,
-      },
-      {
-        accountId: accountsReceivableAcc._id.toString(),
-        debit: 0,
-        credit: payment.amount,
-        description: `Cancelación de Cuentas por Cobrar por orden ${order.orderNumber}`,
-      },
-    ];
+        {
+          accountId: cashOrBankAcc._id.toString(),
+          debit: payment.amount,
+          credit: 0,
+          description: `Cobro de orden ${order.orderNumber}`,
+        },
+        {
+          accountId: accountsReceivableAcc._id.toString(),
+          debit: 0,
+          credit: payment.amount,
+          description: `Cancelación de Cuentas por Cobrar por orden ${order.orderNumber}`,
+        },
+      ];
 
     if (igtfAmount > 0) {
+      // IGTF ya se calcula sobre el monto en VES
       const igtfExpenseAccount = await this.findOrCreateAccount(
         {
           code: "599",
@@ -1211,8 +1213,37 @@ export class AccountingService {
       }
     }
 
-    // Step 4: Calculate totals and return
+    // Step 4: Calculate totals
     const netCashFlow = totalCashInflow - totalCashOutflow;
+
+    // Step 5: Get Inflow Breakdown by Payment Method (from Operational Data)
+    // We use the Payments collection because Journal Entries often lack specific method metadata (or it's buried in description)
+    const paymentBreakdown = await this.paymentModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantObjectId,
+          date: { $gte: from, $lte: to },
+          status: "confirmed", // Only confirmed payments
+          paymentType: "sale", // Only sales inflows (ignore payables/outflows for now)
+        },
+      },
+      {
+        $group: {
+          _id: "$method", // Group by method (zelle, cash, etc.)
+          total: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { total: -1 } }, // Highest amounts first
+    ]);
+
+    // Format breakdown for frontend
+    const inflowBreakdown = paymentBreakdown.map((p) => ({
+      method: p._id || "Otros",
+      total: p.total,
+      count: p.count,
+      percentage: totalCashInflow > 0 ? (p.total / totalCashInflow) * 100 : 0
+    }));
 
     return {
       period: { from, to },
@@ -1220,6 +1251,7 @@ export class AccountingService {
         total: totalCashInflow,
         details: cashInflows,
       },
+      inflowBreakdown, // <--- New Field
       cashOutflows: {
         total: totalCashOutflow,
         details: cashOutflows,
@@ -1246,19 +1278,19 @@ export class AccountingService {
       credit: number;
       description: string;
     }[] = [
-      {
-        accountId: accountsPayableAcc._id.toString(),
-        debit: payment.amount,
-        credit: 0,
-        description: `Pago de Cta por Pagar ${payable.payableNumber}`,
-      },
-      {
-        accountId: cashOrBankAcc._id.toString(),
-        debit: 0,
-        credit: payment.amount,
-        description: `Salida de dinero por pago de ${payable.payableNumber}`,
-      },
-    ];
+        {
+          accountId: accountsPayableAcc._id.toString(),
+          debit: payment.amount,
+          credit: 0,
+          description: `Pago de Cta por Pagar ${payable.payableNumber}`,
+        },
+        {
+          accountId: cashOrBankAcc._id.toString(),
+          debit: 0,
+          credit: payment.amount,
+          description: `Salida de dinero por pago de ${payable.payableNumber}`,
+        },
+      ];
 
     const entryDto: CreateJournalEntryDto = {
       date: new Date(payment.date).toISOString(),
@@ -1498,5 +1530,52 @@ export class AccountingService {
         totalPages: Math.ceil(ledgerEntries.length / limit),
       },
     };
+  }
+
+  async createJournalEntryForWaste(
+    wasteEntry: any,
+    tenantId: string,
+  ): Promise<JournalEntryDocument | null> {
+    if (!wasteEntry.totalCost || wasteEntry.totalCost <= 0) {
+      return null;
+    }
+
+    this.logger.log(
+      `Creating automatic journal entry for waste ${wasteEntry._id}`,
+    );
+
+    const inventoryAcc = await this.findOrCreateAccount(
+      { code: "1103", name: "Inventario", type: "Activo" },
+      tenantId,
+    );
+
+    const wasteExpenseAcc = await this.findOrCreateAccount(
+      { code: "5103", name: "Pérdida por Merma/Desperdicio", type: "Gasto" },
+      tenantId,
+    );
+
+    const lines = [
+      {
+        accountId: wasteExpenseAcc._id.toString(),
+        debit: wasteEntry.totalCost,
+        credit: 0,
+        description: `Pérdida por merma: ${wasteEntry.productName} (${wasteEntry.reason})`,
+      },
+      {
+        accountId: inventoryAcc._id.toString(),
+        debit: 0,
+        credit: wasteEntry.totalCost,
+        description: `Reducción de inventario por merma ${wasteEntry._id}`,
+      },
+    ];
+
+    return this.createJournalEntry(
+      {
+        date: wasteEntry.wasteDate ? new Date(wasteEntry.wasteDate).toISOString() : new Date().toISOString(),
+        description: `Asiento automático por merma de ${wasteEntry.productName}`,
+        lines,
+      } as any,
+      tenantId,
+    );
   }
 }

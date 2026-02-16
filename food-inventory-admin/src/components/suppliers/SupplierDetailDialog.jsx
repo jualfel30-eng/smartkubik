@@ -90,7 +90,7 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
 
             // Load Strategic Data
             loadLinkedProducts(supplier._id || supplier.id);
-            loadPurchaseHistory(supplier._id || supplier.id);
+            loadPurchaseHistory(supplier);
         } else {
             setFormData(initialFormState);
             setLinkedProducts([]);
@@ -111,10 +111,20 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
         }
     };
 
-    const loadPurchaseHistory = async (supplierId) => {
+    const loadPurchaseHistory = async (supplierData) => {
         try {
+            // TACTIC: Send the raw Supplier ID and let the Backend's Smart Resolution handle the rest.
+            // This prevents the frontend from aborting if it can't find a customerId locally.
+            const targetId = supplierData._id || supplierData.id;
+
+            if (!targetId) {
+                console.error("Critical: No Supplier ID found", supplierData);
+                return;
+            }
+
+            console.log("Fetching history for:", targetId);
             setLoadingHistory(true);
-            const response = await fetchApi(`/purchases?supplierId=${supplierId}`);
+            const response = await fetchApi(`/purchases?supplierId=${targetId}`);
             setPurchaseHistory(response.data || []);
         } catch (error) {
             console.error('Error loading purchase history:', error);
@@ -276,6 +286,26 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
                     <DialogTitle>{supplier ? 'Hub Estratégico de Proveedor' : 'Nuevo Proveedor'}</DialogTitle>
                     <DialogDescription>
                         {supplier ? `Gestiona la relación comercial con ${supplier.name}.` : 'Complete la información para registrar un nuevo proveedor.'}
+                        {supplier && supplier.metrics?.averageRating > 0 && (
+                            <div className="flex items-center mt-1 space-x-1">
+                                <span className="text-sm font-medium">Calificación Promedio:</span>
+                                <div className="flex">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <svg
+                                            key={star}
+                                            className={`w-4 h-4 ${star <= Math.round(supplier.metrics.averageRating) ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                            xmlns="http://www.w3.org/2000/svg"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                        </svg>
+                                    ))}
+                                </div>
+                                <span className="text-xs text-muted-foreground">({supplier.metrics.totalRatings || 0} calificaciones)</span>
+                            </div>
+                        )}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -516,13 +546,14 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
                                                 <TableHead>Fecha</TableHead>
                                                 <TableHead>Monto</TableHead>
                                                 <TableHead>Estado</TableHead>
+                                                <TableHead>Calificación</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {loadingHistory ? (
-                                                <TableRow><TableCell colSpan={4} className="text-center py-8">Cargando historial...</TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={5} className="text-center py-8">Cargando historial...</TableCell></TableRow>
                                             ) : purchaseHistory.length === 0 ? (
-                                                <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No hay órdenes registradas.</TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No hay órdenes registradas.</TableCell></TableRow>
                                             ) : (
                                                 purchaseHistory.map(po => (
                                                     <TableRow key={po._id}>
@@ -533,6 +564,26 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
                                                             <Badge variant={po.status === 'received' ? 'success' : po.status === 'pending' ? 'secondary' : 'default'}>
                                                                 {po.status === 'received' ? 'Recibido' : po.status === 'pending' ? 'Pendiente' : po.status}
                                                             </Badge>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {po.rating ? (
+                                                                <div className="flex" title={`${po.rating} estrellas`}>
+                                                                    {[1, 2, 3, 4, 5].map((star) => (
+                                                                        <svg
+                                                                            key={star}
+                                                                            className={`w-3 h-3 ${star <= po.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'}`}
+                                                                            fill="none"
+                                                                            stroke="currentColor"
+                                                                            viewBox="0 0 24 24"
+                                                                            xmlns="http://www.w3.org/2000/svg"
+                                                                        >
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                                                        </svg>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-muted-foreground text-xs">-</span>
+                                                            )}
                                                         </TableCell>
                                                     </TableRow>
                                                 ))

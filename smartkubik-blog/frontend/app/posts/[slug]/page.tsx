@@ -160,9 +160,38 @@ export default async function PostPage(props: Props) {
 
   const primaryTag = post?.tags?.[0]?.title || null;
 
+  // Filter out AI Metadata blocks (Range Filtering)
+  let isAiMetadata = false;
+  const filteredBody = post.body?.filter((block: any) => {
+    if (block._type === 'block' && block.children) {
+      const text = block.children.map((child: any) => child.text).join('').toUpperCase();
+
+      // Start of metadata block
+      if (text.includes('AI METADATA') && !text.includes('END AI METADATA')) {
+        console.log('Filtering AI Metadata Start:', text);
+        isAiMetadata = true;
+        return false;
+      }
+
+      // End of metadata block
+      if (text.includes('END AI METADATA')) {
+        console.log('Filtering AI Metadata End:', text);
+        isAiMetadata = false;
+        return false;
+      }
+    }
+
+    // If we are currently inside an AI metadata block, filter it out
+    if (isAiMetadata) {
+      // Optional: Log hidden content? Too verbose.
+      return false;
+    }
+    return true;
+  }) || [];
+
   // CTA positioning logic
-  const cta25Percent = post.body.length > 4;
-  const cta50Percent = post.body.length > 8;
+  const cta25Percent = filteredBody.length > 4;
+  const cta50Percent = filteredBody.length > 8;
 
   return (
     <>
@@ -196,7 +225,7 @@ export default async function PostPage(props: Props) {
         <div className="grid grid-cols-1 lg:grid-cols-[375px_1fr_300px] gap-8 mt-6">
           {/* Left Sidebar / Table of Contents */}
           <aside className="hidden lg:block sticky top-20 h-[calc(100vh-80px)] overflow-y-auto">
-            <TableOfContents content={post.body} />
+            <TableOfContents content={filteredBody} />
           </aside>
 
           {/* Main Content Area */}
@@ -224,11 +253,11 @@ export default async function PostPage(props: Props) {
             </div>
 
             <div className="prose dark:prose-invert max-w-none">
-              {post.body.map((block: any, index: number) => (
+              {filteredBody.map((block: any, index: number) => (
                 <Fragment key={block._key || index}>
                   <PortableText value={[block]} components={PortableTextComponents} />
                   {/* In-line CTAs */}
-                  {cta25Percent && index === Math.floor(post.body.length * 0.25) && (
+                  {cta25Percent && index === Math.floor(filteredBody.length * 0.25) && (
                     <div className="my-8">
                       <CtaBox
                         title="Checklist: Organiza tu inventario en 30 días"
@@ -238,7 +267,7 @@ export default async function PostPage(props: Props) {
                       />
                     </div>
                   )}
-                  {cta50Percent && index === Math.floor(post.body.length * 0.5) && (
+                  {cta50Percent && index === Math.floor(filteredBody.length * 0.5) && (
                     <div className="my-8">
                       <CtaBox
                         title="Mira Smartkubik en acción"

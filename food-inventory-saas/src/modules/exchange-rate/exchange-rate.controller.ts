@@ -17,7 +17,15 @@ export class ExchangeRateController {
 
   @Get("bcv")
   async getBCVRate(): Promise<any> {
-    return this.exchangeRateService.getBCVRate();
+    const rates = await this.exchangeRateService.getBCVRates();
+    // Dual response: backward-compatible top-level fields (USD) + both currencies
+    return {
+      rate: rates.usd.rate,
+      lastUpdate: rates.usd.lastUpdate,
+      source: rates.usd.source,
+      usd: rates.usd,
+      eur: rates.eur,
+    };
   }
 
   @Get("current")

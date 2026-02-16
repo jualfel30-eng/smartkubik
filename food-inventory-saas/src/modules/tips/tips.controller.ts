@@ -25,10 +25,13 @@ import {
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
+import { ModuleAccessGuard } from "../../guards/module-access.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
+import { RequireModule } from "../../decorators/require-module.decorator";
 
 @Controller("tips")
-@UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, ModuleAccessGuard, PermissionsGuard)
+@RequireModule("tips")
 export class TipsController {
   constructor(private readonly tipsService: TipsService) {}
 

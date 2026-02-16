@@ -56,6 +56,7 @@ export function ProductCard({ product, domain, onAddToCart, isDarkMode = false }
             alt={product.name}
             width={400}
             height={400}
+            unoptimized
             className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
           />
         </div>

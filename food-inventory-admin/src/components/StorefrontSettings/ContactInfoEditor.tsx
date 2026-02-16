@@ -11,7 +11,22 @@ export function ContactInfoEditor({ config, onUpdate, saving }: ContactInfoEdito
   const [contactInfo, setContactInfo] = useState(config.contactInfo);
 
   const handleSave = async () => {
-    const result = await onUpdate({ contactInfo });
+    // Limpiar strings vacíos para que las validaciones del backend no fallen
+    const cleaned: any = {
+      email: contactInfo.email?.trim() || undefined,
+      phone: contactInfo.phone?.trim() || undefined,
+    };
+    // Solo enviar address si tiene al menos un campo con valor
+    if (contactInfo.address) {
+      const addr: Record<string, string | undefined> = {};
+      for (const [key, value] of Object.entries(contactInfo.address)) {
+        addr[key] = (value as string)?.trim() || undefined;
+      }
+      if (Object.values(addr).some(v => v)) {
+        cleaned.address = addr;
+      }
+    }
+    const result = await onUpdate({ contactInfo: cleaned });
     if (result.success) {
       alert('✅ Información de contacto actualizada correctamente');
     }

@@ -38,7 +38,7 @@ import { Public } from "../decorators/public.decorator";
 @ApiTags("auth")
 @Controller("auth")
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Public()
   @Post("login")
@@ -287,11 +287,6 @@ export class AuthController {
     }
   }
 
-  @Get("me")
-  @UseGuards(JwtAuthGuard, TenantGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: "Obtener información del usuario actual" })
-  @ApiResponse({ status: 200, description: "Usuario obtenido exitosamente" })
   async getMe(@Request() req) {
     try {
       const profile = await this.authService.getProfile(req.user.id);
@@ -299,6 +294,27 @@ export class AuthController {
     } catch (error) {
       throw new HttpException(
         error.message || "Error al obtener usuario",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get("memberships")
+  @UseGuards(JwtAuthGuard, TenantGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Obtener membresías del usuario actual" })
+  @ApiResponse({ status: 200, description: "Membresías obtenidas exitosamente" })
+  async getMemberships(@Request() req) {
+    try {
+      const memberships = await this.authService.getMemberships(req.user.id);
+      return {
+        success: true,
+        message: "Membresías obtenidas exitosamente",
+        data: memberships,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al obtener membresías",
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

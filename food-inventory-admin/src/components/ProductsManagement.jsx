@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu.jsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu.jsx';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
@@ -17,14 +17,24 @@ import { Switch } from '@/components/ui/switch.jsx';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip.jsx';
 import InlineEditableCell from './inline-edit/InlineEditableCell';
 import ProductVariantsPopover from './inline-edit/ProductVariantsPopover';
+import { ExportOptionsDialog } from './ExportOptionsDialog';
 import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
+import { useAuth } from '@/hooks/use-auth.jsx';
 import { useConsumables } from '@/hooks/useConsumables';
 import { useSupplies } from '@/hooks/useSupplies';
 import { UnitTypeFields } from './UnitTypes';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
 import { CONSUMABLE_TYPES, SUPPLY_CATEGORIES } from '@/types/consumables';
+import { TagInput } from '@/components/ui/tag-input.jsx';
+import { ShelfLabelWizard } from './inventory/ShelfLabelWizard';
+import { PricingStrategySelector } from '@/components/PricingStrategySelector.jsx';
+import { ProductPriceListManager } from '@/components/ProductPriceListManager.jsx';
+import { PriceListsManager } from '@/components/PriceListsManager.jsx';
+import { VolumeDiscountsManager } from '@/components/VolumeDiscountsManager.jsx';
+import { LocationPricingManager } from '@/components/LocationPricingManager.jsx';
+import { usePricingCalculator } from '@/hooks/usePricingCalculator';
 import {
   Plus,
   Search,
@@ -40,7 +50,10 @@ import {
   Wrench,
   Scan,
   ArrowRightLeft,
-  Factory
+  Factory,
+  Camera,
+  Loader2,
+  Printer
 } from 'lucide-react';
 
 const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
@@ -127,58 +140,7 @@ const compressAndConvertImage = (file) => {
 };
 
 // Tag Input Component for categories/subcategories
-const TagInput = ({ value = [], onChange, placeholder, id, helpText }) => {
-  const [inputValue, setInputValue] = useState('');
-
-  const handleKeyDown = (e) => {
-    if (e.key === ',' || e.key === 'Enter') {
-      e.preventDefault();
-      const tag = inputValue.trim();
-      if (tag && !value.includes(tag)) {
-        onChange([...value, tag]);
-        setInputValue('');
-      }
-    } else if (e.key === 'Backspace' && !inputValue && value.length > 0) {
-      // Remove last tag when backspace is pressed on empty input
-      onChange(value.slice(0, -1));
-    }
-  };
-
-  const removeTag = (tagToRemove) => {
-    onChange(value.filter(tag => tag !== tagToRemove));
-  };
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px] bg-background">
-        {value.map((tag, index) => (
-          <Badge key={index} variant="secondary" className="flex items-center gap-1 px-2 py-1">
-            {tag}
-            <button
-              type="button"
-              onClick={() => removeTag(tag)}
-              className="hover:bg-muted rounded-full p-0.5"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </Badge>
-        ))}
-        <input
-          id={id}
-          type="text"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={value.length === 0 ? placeholder : ''}
-          className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
-        />
-      </div>
-      {helpText && (
-        <p className="text-xs text-muted-foreground">{helpText}</p>
-      )}
-    </div>
-  );
-};
+// TagInput imported from '@/components/ui/tag-input.jsx'
 
 const createVariantTemplate = (options = {}) => {
   const { name = '', unit = 'unidad' } = options;
@@ -189,7 +151,14 @@ const createVariantTemplate = (options = {}) => {
     unit,
     unitSize: 1,
     basePrice: 0,
+    wholesalePrice: 0,
     costPrice: 0,
+    pricingStrategy: {
+      mode: 'manual',
+      autoCalculate: false,
+      markupPercentage: 30,
+      marginPercentage: 25,
+    },
     images: [],
     attributes: {},
   };
@@ -330,6 +299,14 @@ const sanitizeSellingUnitsForPayload = (units = []) =>
       };
     });
 
+const SHELF_LIFE_MULTIPLIERS = { days: 1, months: 30, years: 365 };
+const shelfLifeValueToDays = (value, unit) => Math.round((Number(value) || 0) * (SHELF_LIFE_MULTIPLIERS[unit] || 1));
+const shelfLifeDaysToValue = (days, unit) => {
+  const d = Number(days) || 0;
+  const m = SHELF_LIFE_MULTIPLIERS[unit] || 1;
+  return m === 1 ? d : Math.round((d / m) * 100) / 100;
+};
+
 const initialNewProductState = {
   productType: 'simple', // 'simple', 'consumable', 'supply'
   sku: '',
@@ -341,7 +318,10 @@ const initialNewProductState = {
   description: '',
   ingredients: '',
   isPerishable: false,
+  sendToKitchen: true, // Default to true for restaurant products
   shelfLifeDays: 0,
+  shelfLifeUnit: 'days',
+  shelfLifeValue: 0,
   storageTemperature: 'ambiente',
   ivaApplicable: true,
   taxCategory: 'general',
@@ -396,6 +376,8 @@ const initialNewProductState = {
     maximumDiscount: 0.5,
     bulkDiscountEnabled: false,
     bulkDiscountRules: [],
+    wholesaleEnabled: false,
+    wholesaleMinQuantity: 1,
   },
   hasActivePromotion: false,
   promotion: {
@@ -429,9 +411,25 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState(initialNewProductState);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [visibleColumns, setVisibleColumns] = useState({
+    sku: true,
+    name: true,
+    category: true,
+    price: true,
+    cost: true,
+    wholesalePrice: false,
+    variants: true,
+    promotion: true,
+    status: true,
+    actions: true
+  });
   const [additionalVariants, setAdditionalVariants] = useState([]);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
   const [barcodeCaptureTarget, setBarcodeCaptureTarget] = useState(null);
+  const [isLabelScanning, setIsLabelScanning] = useState(false);
+  const [labelScanResult, setLabelScanResult] = useState(null);
+  const labelFileRef = useRef(null);
+  const [isLabelWizardOpen, setIsLabelWizardOpen] = useState(false);
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -446,6 +444,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   // Estados para preview de imágenes
   const [isImagePreviewOpen, setIsImagePreviewOpen] = useState(false);
   const [previewImageSrc, setPreviewImageSrc] = useState('');
+
+  // Estados para exportación
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState('xlsx'); // 'xlsx' or 'csv'
 
   const verticalConfig = useVerticalConfig();
   const { createConsumableConfig } = useConsumables();
@@ -529,15 +531,19 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   );
   const hasDynamicTemplateColumns = dynamicAttributeLabels.length > 0;
 
+  const { tenant } = useAuth();
+
+  // Get vertical directly from tenant (more reliable than verticalConfig)
+  const tenantVertical = tenant?.vertical || tenant?.verticalProfile?.key || verticalConfig?.baseVertical;
+
   const isNonFoodRetailVertical = useMemo(() => {
-    if (!verticalConfig) {
-      return false;
-    }
-    const baseVertical = verticalConfig.baseVertical;
-    const allowsWeight = verticalConfig.allowsWeight;
-    return baseVertical === 'RETAIL' && allowsWeight === false;
+    // For retail verticals, hide food-specific fields ONLY if they are not using the food-service profile
+    // This allows Supermarkets (Retail vertical + Food Service profile) to see food fields
+    return verticalConfig?.key !== 'food-service';
   }, [verticalConfig]);
+
   const supportsVariants = verticalConfig?.supportsVariants !== false;
+  const isRestaurant = tenantVertical === 'FOOD_SERVICE';
 
   const ingredientLabel = isNonFoodRetailVertical ? 'Composición' : 'Ingredientes';
 
@@ -879,7 +885,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         const parsed = parseFloat(value);
         nextValue = Number.isNaN(parsed) ? 0 : parsed;
       }
-      if (field === 'costPrice' || field === 'basePrice') {
+      if (field === 'costPrice' || field === 'basePrice' || field === 'wholesalePrice') {
         const parsed = parseFloat(value);
         nextValue = Number.isNaN(parsed) ? 0 : parsed;
       }
@@ -960,7 +966,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           nextValue = Number.isNaN(parsed) ? '' : parsed;
         }
       }
-      if (field === 'basePrice' || field === 'costPrice') {
+      if (field === 'basePrice' || field === 'costPrice' || field === 'wholesalePrice') {
         if (value === '' || value === null || value === undefined) {
           nextValue = '';
         } else {
@@ -1064,6 +1070,75 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     return Object.keys(result).length > 0 ? result : undefined;
   };
 
+  const handleScanLabel = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    if (files.length > 3) {
+      toast.error('Máximo 3 imágenes permitidas');
+      if (labelFileRef.current) labelFileRef.current.value = '';
+      return;
+    }
+
+    setIsLabelScanning(true);
+    setLabelScanResult(null);
+
+    try {
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('images', files[i]);
+      }
+
+      const response = await fetchApi('/products/scan-label', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.success && response.data) {
+        const d = response.data;
+
+        setNewProduct(prev => ({
+          ...prev,
+          name: d.name || prev.name,
+          brand: d.brand || prev.brand,
+          description: d.description || prev.description,
+          ingredients: d.ingredients || prev.ingredients,
+          origin: d.origin || prev.origin,
+          isPerishable: d.isPerishable ?? prev.isPerishable,
+          shelfLifeDays: d.shelfLifeDays || prev.shelfLifeDays,
+          shelfLifeValue: d.shelfLifeDays || prev.shelfLifeValue,
+          storageTemperature: d.storageTemperature || prev.storageTemperature,
+          unitOfMeasure: d.unitOfMeasure || prev.unitOfMeasure,
+          category: d.matchedCategory ? [d.matchedCategory] : (d.category ? [d.category] : prev.category),
+          subcategory: d.matchedSubcategory ? [d.matchedSubcategory] : (d.subcategory ? [d.subcategory] : prev.subcategory),
+        }));
+
+        setLabelScanResult({
+          confidence: d.overallConfidence,
+          categoryMatched: !!d.matchedCategory,
+          suggestedCategory: d.category,
+          allergens: d.allergens || [],
+          attributes: d.attributes || {},
+        });
+
+        const pct = Math.round(d.overallConfidence * 100);
+        toast.success(`Etiqueta escaneada con ${pct}% de confianza`);
+      } else {
+        toast.error('No se pudo escanear la etiqueta');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Error al escanear la etiqueta');
+    } finally {
+      setIsLabelScanning(false);
+      if (labelFileRef.current) labelFileRef.current.value = '';
+    }
+  };
+
+  const handleClearLabelScan = () => {
+    setLabelScanResult(null);
+    setNewProduct(initialNewProductState);
+    toast.info('Escaneo descartado. Formulario restaurado.');
+  };
+
   const handleAddProduct = async () => {
     const productAttributesPayload = serializeAttributes(
       newProduct.attributes,
@@ -1093,6 +1168,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         unitSize: Number(variant.unitSize) || 1,
         costPrice: Number(variant.costPrice) || 0,
         basePrice: Number(variant.basePrice) || 0,
+        wholesalePrice: Number(variant.wholesalePrice) || undefined,
         images: Array.isArray(variant.images) ? variant.images : [],
       };
 
@@ -1129,6 +1205,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         bulkDiscountRules: newProduct.pricingRules?.bulkDiscountEnabled
           ? (newProduct.pricingRules?.bulkDiscountRules || [])
           : [],
+        wholesaleEnabled: newProduct.pricingRules?.wholesaleEnabled || false,
+        wholesaleMinQuantity: newProduct.pricingRules?.wholesaleMinQuantity || 1,
       },
       igtfExempt: false,
       hasMultipleSellingUnits: newProduct.hasMultipleSellingUnits,
@@ -1144,8 +1222,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       }),
     };
 
+    delete payload.shelfLifeValue;
     if (!payload.isPerishable) {
       delete payload.shelfLifeDays;
+      delete payload.shelfLifeUnit;
       delete payload.storageTemperature;
     }
 
@@ -1256,6 +1336,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         unitSize: Number(variant.unitSize) || 1,
         costPrice: Number(variant.costPrice) || 0,
         basePrice: Number(variant.basePrice) || 0,
+        wholesalePrice: Number(variant.wholesalePrice) || undefined,
         images: Array.isArray(variant.images) ? variant.images : [],
       };
       if (sanitizedAttributes !== undefined) {
@@ -1293,6 +1374,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       ivaApplicable: editingProduct.ivaApplicable,
       isPerishable: editingProduct.isPerishable,
       shelfLifeDays: editingProduct.shelfLifeDays,
+      shelfLifeUnit: editingProduct.isPerishable ? (editingProduct.shelfLifeUnit || 'days') : undefined,
       storageTemperature: editingProduct.isPerishable ? (editingProduct.storageTemperature || 'ambiente') : undefined,
       pricingRules: {
         ...(editingProduct.pricingRules || {}),
@@ -1300,6 +1382,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         bulkDiscountRules: editingProduct.pricingRules?.bulkDiscountEnabled
           ? (editingProduct.pricingRules?.bulkDiscountRules || [])
           : [],
+        wholesaleEnabled: editingProduct.pricingRules?.wholesaleEnabled || false,
+        wholesaleMinQuantity: editingProduct.pricingRules?.wholesaleMinQuantity || 1,
       },
       hasActivePromotion: editingProduct.hasActivePromotion || false,
       ...(editingProduct.hasActivePromotion && editingProduct.promotion && {
@@ -1309,6 +1393,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         }
       }),
       variants: sanitizedVariants,
+      sendToKitchen: editingProduct.sendToKitchen, // CRITICAL: Ensure this is saved
     };
 
     if (productAttributesPayload !== undefined) {
@@ -1345,7 +1430,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       alert(`Error al actualizar el producto: ${err.message}`);
 
       // Optionally reload to ensure consistency
-      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, productTypeFilter);
+      // Optionally reload to ensure consistency
+      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, defaultProductType);
     }
   };
 
@@ -1373,7 +1459,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       updatedProduct.variants[variantIndex][field] = Number(value);
     } else {
       // Updating root field or simple product logic
-      if (field === 'category') {
+      if (field === 'name' || field === 'sku') {
+        updatedProduct[field] = value;
+      } else if (field === 'category') {
         // Handle category array (split by comma for tag-like behavior)
         if (typeof value === 'string') {
           const splitCategories = value.split(',').map(c => {
@@ -1411,9 +1499,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     // Construct payload - essential to send variants array if variants changed
     const payload = {
       category: updatedProduct.category,
-      variants: updatedProduct.variants // This sends ALL variants
+      variants: updatedProduct.variants, // This sends ALL variants
+      name: updatedProduct.name,
+      sku: updatedProduct.sku
     };
-
     toast.success('Actualizado', {
       action: {
         label: 'Deshacer',
@@ -1580,6 +1669,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       "ingredients",
       "isPerishable",
       "shelfLifeDays",
+      "shelfLifeUnit",
       "storageTemperature",
       "ivaApplicable",
       "taxCategory",
@@ -1594,6 +1684,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       "variantUnitSize",
       "variantBasePrice",
       "variantCostPrice",
+      "variantWholesalePrice",
       "image1",
       "image2",
       "image3",
@@ -1632,6 +1723,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           ingredients: "Arroz",
           isPerishable: false,
           shelfLifeDays: 365,
+          shelfLifeUnit: "years",
           storageTemperature: "ambiente",
           ivaApplicable: true,
           taxCategory: "general",
@@ -1646,6 +1738,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           variantUnitSize: 1,
           variantBasePrice: 1.5,
           variantCostPrice: 0.8,
+          variantWholesalePrice: 1.35,
           image1: "https://example.com/arroz.jpg",
         },
       ),
@@ -1661,6 +1754,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         ingredients: "Leche de vaca",
         isPerishable: true,
         shelfLifeDays: 15,
+        shelfLifeUnit: "days",
         storageTemperature: "refrigerado",
         ivaApplicable: true,
         taxCategory: "general",
@@ -1675,6 +1769,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         variantUnitSize: 1,
         variantBasePrice: 2.2,
         variantCostPrice: 1.5,
+        variantWholesalePrice: 2.0,
         image1: "https://example.com/leche.jpg",
       }),
     ];
@@ -1745,6 +1840,34 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       const variantAttributesPayload = {};
       const normalizedRow = { ...row };
 
+      // Helper function to convert string to boolean
+      const parseBoolean = (value) => {
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string') {
+          const lower = value.toLowerCase().trim();
+          return lower === 'true' || lower === '1' || lower === 'yes' || lower === 'sí';
+        }
+        return Boolean(value);
+      };
+
+      // Helper function to convert string to array
+      const parseArray = (value) => {
+        if (Array.isArray(value)) return value;
+        if (!value || String(value).trim() === '') return [];
+        if (typeof value === 'string') {
+          // Split by comma and trim each element
+          return value.split(',').map(item => item.trim()).filter(item => item !== '');
+        }
+        return [String(value)];
+      };
+
+      // Helper function to parse number
+      const parseNumber = (value) => {
+        if (typeof value === 'number') return value;
+        const parsed = parseFloat(value);
+        return isNaN(parsed) ? undefined : parsed;
+      };
+
       Object.entries(row).forEach(([key, value]) => {
         if (key.startsWith('productAttr_')) {
           const attrKey = key.replace('productAttr_', '').trim();
@@ -1763,6 +1886,36 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         }
       });
 
+      // Transform category and subcategory to arrays
+      if (normalizedRow.category) {
+        normalizedRow.category = parseArray(normalizedRow.category);
+      }
+      if (normalizedRow.subcategory) {
+        normalizedRow.subcategory = parseArray(normalizedRow.subcategory);
+      }
+
+      // Transform boolean fields
+      if (normalizedRow.isSoldByWeight !== undefined) {
+        normalizedRow.isSoldByWeight = parseBoolean(normalizedRow.isSoldByWeight);
+      }
+      if (normalizedRow.isPerishable !== undefined) {
+        normalizedRow.isPerishable = parseBoolean(normalizedRow.isPerishable);
+      }
+      if (normalizedRow.ivaApplicable !== undefined) {
+        normalizedRow.ivaApplicable = parseBoolean(normalizedRow.ivaApplicable);
+      }
+
+      // Transform numeric fields
+      const numericFields = [
+        'variantUnitSize', 'variantBasePrice', 'variantCostPrice', 'variantWholesalePrice',
+        'shelfLifeDays', 'minimumStock', 'maximumStock', 'reorderPoint', 'reorderQuantity'
+      ];
+      numericFields.forEach(field => {
+        if (normalizedRow[field] !== undefined && normalizedRow[field] !== null && normalizedRow[field] !== '') {
+          normalizedRow[field] = parseNumber(normalizedRow[field]);
+        }
+      });
+
       if (Object.keys(productAttributesPayload).length > 0) {
         normalizedRow.productAttributes = productAttributesPayload;
       }
@@ -1777,6 +1930,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       products: normalizedProducts,
     };
 
+    // Debug: Log the payload being sent
+    console.log('📦 Sending bulk import payload:', JSON.stringify(payload, null, 2));
+
     try {
       await fetchApi('/products/bulk', {
         method: 'POST',
@@ -1785,102 +1941,154 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
       setIsPreviewDialogOpen(false);
       alert(`${payload.products.length} productos importados exitosamente.`);
-      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, productTypeFilter); // Recargar la lista de productos
+      loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, defaultProductType); // Recargar la lista de productos
 
     } catch (error) {
-      alert(`Error al importar los productos: ${error.message}`);
+      console.error("Bulk import failed:", error);
+      console.error("Error details:", error.message, error.stack);
+      // Show more detailed error to user
+      alert(`Error al importar productos: ${error.message || 'Error desconocido'}`);
+      throw error; // Let dialog handle it
     }
   };
 
-  const handleExportExcel = () => {
-    const dataToExport = filteredProducts.map((p) => {
-      const variant = p.variants?.[0] || {};
-      const row = {
-        SKU: p.sku,
-        Nombre: p.name,
-        Categoría: p.category,
-        Subcategoría: p.subcategory,
-        Marca: p.brand,
-        Descripción: p.description,
-        'Vendible por Peso': p.isSoldByWeight ? 'Sí' : 'No',
-        'Unidad de Medida': p.unitOfMeasure,
-        'Variante Nombre': variant?.name,
-        'Variante SKU': variant?.sku,
-        'Variante Precio Costo': variant?.costPrice,
-        'Variante Precio Venta': variant?.basePrice,
-      };
-
-      productAttributeColumns.forEach(({ descriptor }) => {
-        const headerLabel = descriptor.label
-          ? `Atributo Producto (${descriptor.key}) - ${descriptor.label}`
-          : `Atributo Producto (${descriptor.key})`;
-        row[headerLabel] = (p.attributes && p.attributes[descriptor.key]) ?? '';
-      });
-
-      variantAttributeColumns.forEach(({ descriptor }) => {
-        const headerLabel = descriptor.label
-          ? `Atributo Variante (${descriptor.key}) - ${descriptor.label}`
-          : `Atributo Variante (${descriptor.key})`;
-        const variantAttrs =
-          (variant && variant.attributes) || {};
-        row[headerLabel] = variantAttrs[descriptor.key] ?? '';
-      });
-
-      return row;
-    });
-
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Productos");
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    saveAs(new Blob([wbout], { type: 'application/octet-stream' }), 'productos.xlsx');
+  const openExportDialog = (format) => {
+    setExportFormat(format);
+    setIsExportDialogOpen(true);
   };
 
-  const handleExportCsv = () => {
-    const dataToExport = filteredProducts.map((p) => {
-      const variant = p.variants?.[0] || {};
-      const row = {
-        SKU: p.sku,
-        Nombre: p.name,
-        Categoría: p.category,
-        Subcategoría: p.subcategory,
-        Marca: p.brand,
-        Descripción: p.description,
-        'Vendible por Peso': p.isSoldByWeight ? 'Sí' : 'No',
-        'Unidad de Medida': p.unitOfMeasure,
-        'Variante Nombre': variant?.name,
-        'Variante SKU': variant?.sku,
-        'Variante Precio Costo': variant?.costPrice,
-        'Variante Precio Venta': variant?.basePrice,
-      };
+  const getExportColumns = () => {
+    const baseColumns = [
+      { key: 'sku', label: 'SKU', defaultChecked: true },
+      { key: 'name', label: 'Nombre', defaultChecked: true },
+      { key: 'category', label: 'Categoría', defaultChecked: true },
+      { key: 'subcategory', label: 'Subcategoría', defaultChecked: true },
+      { key: 'brand', label: 'Marca', defaultChecked: true },
+      { key: 'description', label: 'Descripción', defaultChecked: false },
+      { key: 'isSoldByWeight', label: 'Vendible por Peso', defaultChecked: false },
+      { key: 'unitOfMeasure', label: 'Unidad de Medida', defaultChecked: true },
+      { key: 'variantName', label: 'Variante Nombre', defaultChecked: true },
+      { key: 'variantSku', label: 'Variante SKU', defaultChecked: true },
+      { key: 'variantCost', label: 'Variante Costo', defaultChecked: true },
+      { key: 'variantPrice', label: 'Variante Precio', defaultChecked: true },
+      { key: 'variantWholesalePrice', label: 'Variante P. Mayor', defaultChecked: false },
+    ];
 
-      productAttributeColumns.forEach(({ descriptor }) => {
-        const headerLabel = descriptor.label
-          ? `Atributo Producto (${descriptor.key}) - ${descriptor.label}`
-          : `Atributo Producto (${descriptor.key})`;
-        row[headerLabel] = (p.attributes && p.attributes[descriptor.key]) ?? '';
-      });
+    const pAttrs = productAttributeColumns.map(({ descriptor }) => ({
+      key: `pAttr_${descriptor.key}`,
+      label: `Attr: ${descriptor.label || descriptor.key}`,
+      defaultChecked: false
+    }));
 
-      variantAttributeColumns.forEach(({ descriptor }) => {
-        const headerLabel = descriptor.label
-          ? `Atributo Variante (${descriptor.key}) - ${descriptor.label}`
-          : `Atributo Variante (${descriptor.key})`;
-        const variantAttrs =
-          (variant && variant.attributes) || {};
-        row[headerLabel] = variantAttrs[descriptor.key] ?? '';
-      });
+    const vAttrs = variantAttributeColumns.map(({ descriptor }) => ({
+      key: `vAttr_${descriptor.key}`,
+      label: `Attr Var: ${descriptor.label || descriptor.key}`,
+      defaultChecked: false
+    }));
 
-      return row;
-    });
-
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const csv = XLSX.utils.sheet_to_csv(ws);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    saveAs(blob, 'productos.csv');
+    return [...baseColumns, ...pAttrs, ...vAttrs];
   };
 
-  if (loading) return <div>Cargando productos...</div>;
-  if (error) return <div className="text-red-600">Error: {error}</div>;
+  const handleConfirmExport = async (selectedColumnKeys) => {
+    try {
+      // 1. Fetch ALL data matching current filters (using high limit)
+      const params = new URLSearchParams({
+        page: '1',
+        limit: '10000', // Backend now supports up to 10000
+      });
+
+      if (statusFilter === 'active') {
+        params.set('isActive', 'true');
+      } else if (statusFilter === 'inactive') {
+        params.set('isActive', 'false');
+      } else {
+        params.set('includeInactive', 'true');
+      }
+
+      if (searchTerm.trim()) {
+        params.set('search', searchTerm.trim());
+      }
+
+      if (filterCategory && filterCategory !== 'all') {
+        params.set('category', filterCategory);
+      }
+
+      params.set('productType', defaultProductType);
+
+      const response = await fetchApi(`/products?${params.toString()}`);
+      const allProducts = response.data || [];
+
+      if (allProducts.length === 0) {
+        toast.warning("No hay datos para exportar con los filtros actuales.");
+        return;
+      }
+
+      // 2. Process data based on selected columns
+      const processedData = allProducts.map(p => {
+        const variantsToExport = (p.variants && p.variants.length > 0) ? p.variants : [{}];
+        const pRows = [];
+
+        variantsToExport.forEach(v => {
+          const row = {};
+
+          if (selectedColumnKeys.includes('sku')) row['SKU'] = p.sku;
+          if (selectedColumnKeys.includes('name')) row['Nombre'] = p.name;
+          if (selectedColumnKeys.includes('category')) row['Categoría'] = Array.isArray(p.category) ? p.category.join(', ') : p.category;
+          if (selectedColumnKeys.includes('subcategory')) row['Subcategoría'] = Array.isArray(p.subcategory) ? p.subcategory.join(', ') : p.subcategory;
+          if (selectedColumnKeys.includes('brand')) row['Marca'] = p.brand;
+          if (selectedColumnKeys.includes('description')) row['Descripción'] = p.description;
+          if (selectedColumnKeys.includes('isSoldByWeight')) row['Vendible por Peso'] = p.isSoldByWeight ? 'Sí' : 'No';
+          if (selectedColumnKeys.includes('unitOfMeasure')) row['Unidad de Medida'] = p.unitOfMeasure;
+          if (selectedColumnKeys.includes('variantName')) row['Variante Nombre'] = v.name || '';
+          if (selectedColumnKeys.includes('variantSku')) row['Variante SKU'] = v.sku || '';
+          if (selectedColumnKeys.includes('variantCost')) row['Variante Costo'] = v.costPrice || 0;
+          if (selectedColumnKeys.includes('variantPrice')) row['Variante Precio'] = v.basePrice || 0;
+          if (selectedColumnKeys.includes('variantWholesalePrice')) row['Variante P. Mayor'] = v.wholesalePrice || 0;
+
+          // Attributes
+          productAttributeColumns.forEach(({ descriptor }) => {
+            const key = `pAttr_${descriptor.key}`;
+            if (selectedColumnKeys.includes(key)) {
+              row[`Attr: ${descriptor.label}`] = (p.attributes && p.attributes[descriptor.key]) ?? '';
+            }
+          });
+
+          variantAttributeColumns.forEach(({ descriptor }) => {
+            const key = `vAttr_${descriptor.key}`;
+            if (selectedColumnKeys.includes(key)) {
+              const vAttrs = v.attributes || {};
+              row[`Attr Var: ${descriptor.label}`] = vAttrs[descriptor.key] ?? '';
+            }
+          });
+
+          pRows.push(row);
+        });
+
+        return pRows;
+      }).flat();
+
+      // 3. Generate File
+      const ws = XLSX.utils.json_to_sheet(processedData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Productos");
+
+      if (exportFormat === 'csv') {
+        const csv = XLSX.utils.sheet_to_csv(ws);
+        saveAs(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `productos_${new Date().toISOString().slice(0, 10)}.csv`);
+      } else {
+        XLSX.writeFile(wb, `productos_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      }
+
+      toast.success(`Exportación completada: ${processedData.length} filas.`);
+
+    } catch (error) {
+      console.error("Export failed", error);
+      throw error;
+    }
+  };
+
+  if (loading && products.length === 0 && !searchTerm && filterCategory === 'all') return <div>Cargando productos...</div>;
+  if (error && products.length === 0) return <div className="text-red-600">Error: {error}</div>;
 
   return (
     <div className="space-y-6">
@@ -1916,15 +2124,30 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         </DropdownMenu>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
+            <Button variant="outline">Columnas</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Alternar columnas</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuCheckboxItem checked={visibleColumns.sku} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, sku: checked }))}>SKU</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.name} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, name: checked }))}>Producto</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.category} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, category: checked }))}>Categoría</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.price} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, price: checked }))}>Precio</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.cost} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, cost: checked }))}>Costo</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.wholesalePrice} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, wholesalePrice: checked }))}>P. Mayor</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.variants} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, variants: checked }))}>Variantes</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.promotion} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, promotion: checked }))}>Promoción</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.status} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, status: checked }))}>Estado</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.actions} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, actions: checked }))}>Acciones</DropdownMenuCheckboxItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button variant="outline">Exportar</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem onSelect={handleExportExcel}>
-              Exportar como Excel (.xlsx)
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={handleExportCsv}>
-              Exportar como CSV (.csv)
-            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => openExportDialog('xlsx')}>Exportar a Excel (.xlsx)</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => openExportDialog('csv')}>Exportar a CSV (.csv)</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <input
@@ -1934,14 +2157,74 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           accept=".xlsx, .xls"
           onChange={handleBulkUpload}
         />
+        <Button variant="secondary" onClick={() => setIsLabelWizardOpen(true)}>
+          <Printer className="h-4 w-4 mr-2" /> Imprimir Etiquetas
+        </Button>
+        <PriceListsManager />
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button id="add-product-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><Plus className="h-5 w-5 mr-2" /> Agregar Producto</Button>
           </DialogTrigger>
           <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
             <DialogHeader className="px-6 pt-6">
-              <DialogTitle>Agregar Nuevo Producto</DialogTitle>
-              <DialogDescription>Completa la información para crear un nuevo producto en el catálogo.</DialogDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle>Agregar Nuevo Producto</DialogTitle>
+                  <DialogDescription>Completa la información para crear un nuevo producto en el catálogo.</DialogDescription>
+                </div>
+                <div className="flex-shrink-0">
+                  <input
+                    type="file"
+                    ref={labelFileRef}
+                    accept="image/jpeg,image/png,image/webp,image/heic"
+                    multiple
+                    className="hidden"
+                    onChange={handleScanLabel}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isLabelScanning}
+                    onClick={() => labelFileRef.current?.click()}
+                  >
+                    {isLabelScanning ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Escaneando...</>
+                    ) : (
+                      <><Camera className="h-4 w-4 mr-2" /> Escanear Etiqueta</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+              {labelScanResult && (
+                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md text-sm">
+                  <div className="flex items-center gap-2 font-medium text-blue-800 dark:text-blue-200">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="flex-1">Etiqueta escaneada — {Math.round(labelScanResult.confidence * 100)}% confianza</span>
+                    <button
+                      type="button"
+                      onClick={handleClearLabelScan}
+                      className="p-1 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                      title="Descartar escaneo"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="mt-1 text-blue-600 dark:text-blue-300 space-y-0.5">
+                    {labelScanResult.categoryMatched ? (
+                      <p>✓ Categoría encontrada en tu catálogo</p>
+                    ) : labelScanResult.suggestedCategory ? (
+                      <p>⚠ Categoría sugerida: "{labelScanResult.suggestedCategory}" (nueva)</p>
+                    ) : null}
+                    {labelScanResult.allergens.length > 0 && (
+                      <p>⚠ Alérgenos detectados: {labelScanResult.allergens.join(', ')}</p>
+                    )}
+                    {Object.keys(labelScanResult.attributes).length > 0 && (
+                      <p>ℹ {Object.keys(labelScanResult.attributes).length} dato(s) adicional(es) extraído(s)</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </DialogHeader>
 
             {/* Product Type Selector */}
@@ -2173,15 +2456,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     placeholder={getDynamicPlaceholder('description', newProduct.productType)}
                   />
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="ingredients">{ingredientLabel}</Label>
-                  <Textarea
-                    id="ingredients"
-                    value={newProduct.ingredients}
-                    onChange={(e) => setNewProduct({ ...newProduct, ingredients: e.target.value })}
-                    placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
-                  />
-                </div>
+                {!isNonFoodRetailVertical && (
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="ingredients">{ingredientLabel}</Label>
+                    <Textarea
+                      id="ingredients"
+                      value={newProduct.ingredients}
+                      onChange={(e) => setNewProduct({ ...newProduct, ingredients: e.target.value })}
+                      placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
+                    />
+                  </div>
+                )}
                 {productAttributes.length > 0 && (
                   <div className="col-span-2 border-t pt-4 mt-4">
                     <div className="flex items-center justify-between mb-4">
@@ -2220,6 +2505,20 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       }
                     />
                     <Label htmlFor="isPerishable">Es Perecedero</Label>
+                  </div>
+                )}
+
+                {/* Send to Kitchen Toggle (Restaurant Only) */}
+                {isRestaurant && (
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Switch
+                      id="sendToKitchen"
+                      checked={newProduct.sendToKitchen !== false}
+                      onCheckedChange={(checked) =>
+                        setNewProduct({ ...newProduct, sendToKitchen: checked })
+                      }
+                    />
+                    <Label htmlFor="sendToKitchen">Enviar a Cocina / Comanda</Label>
                   </div>
                 )}
                 {verticalConfig?.allowsWeight && (
@@ -2269,15 +2568,39 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 {!isNonFoodRetailVertical && newProduct.isPerishable && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="shelfLifeDays">Vida Útil (días)</Label>
-                      <NumberInput
-                        id="shelfLifeDays"
-                        value={newProduct.shelfLifeDays ?? ''}
-                        onValueChange={(val) => setNewProduct({ ...newProduct, shelfLifeDays: val })}
-                        step={1}
-                        min={0}
-                        placeholder="Días de vida útil"
-                      />
+                      <Label htmlFor="shelfLifeValue">Vida Útil</Label>
+                      <div className="flex gap-2">
+                        <NumberInput
+                          id="shelfLifeValue"
+                          className="flex-1"
+                          value={newProduct.shelfLifeValue ?? ''}
+                          onValueChange={(val) => setNewProduct({
+                            ...newProduct,
+                            shelfLifeValue: val,
+                            shelfLifeDays: shelfLifeValueToDays(val, newProduct.shelfLifeUnit),
+                          })}
+                          step={1}
+                          min={0}
+                          placeholder="Cantidad"
+                        />
+                        <Select
+                          value={newProduct.shelfLifeUnit || 'days'}
+                          onValueChange={(unit) => setNewProduct({
+                            ...newProduct,
+                            shelfLifeUnit: unit,
+                            shelfLifeDays: shelfLifeValueToDays(newProduct.shelfLifeValue, unit),
+                          })}
+                        >
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="days">Días</SelectItem>
+                            <SelectItem value="months">Meses</SelectItem>
+                            <SelectItem value="years">Años</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="storageTemperature">Temperatura de Almacenamiento</Label>
@@ -2467,6 +2790,60 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 </div>
               )}
 
+              {/* Precio Mayorista solo para mercancía */}
+              {newProduct.productType === 'simple' && showSalesFields && (
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium">Precio Mayorista</h4>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="wholesaleEnabled"
+                        checked={newProduct.pricingRules?.wholesaleEnabled || false}
+                        onCheckedChange={(checked) =>
+                          setNewProduct({
+                            ...newProduct,
+                            pricingRules: {
+                              ...newProduct.pricingRules,
+                              wholesaleEnabled: checked,
+                            }
+                          })
+                        }
+                      />
+                      <Label htmlFor="wholesaleEnabled">Activar Precio Mayorista</Label>
+                    </div>
+                  </div>
+
+                  {newProduct.pricingRules?.wholesaleEnabled && (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Define un precio fijo para ventas al mayor. El precio mayorista de cada variante se configura junto a su precio de venta.
+                      </p>
+                      <div className="max-w-xs space-y-2">
+                        <Label>Cantidad Mínima para Precio Mayorista</Label>
+                        <NumberInput
+                          value={newProduct.pricingRules?.wholesaleMinQuantity ?? 1}
+                          onValueChange={(val) =>
+                            setNewProduct({
+                              ...newProduct,
+                              pricingRules: {
+                                ...newProduct.pricingRules,
+                                wholesaleMinQuantity: val,
+                              }
+                            })
+                          }
+                          step={1}
+                          min={1}
+                          placeholder="Ej: 10"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          A partir de esta cantidad se aplica automáticamente el precio mayorista. El vendedor también puede aplicarlo manualmente.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Promociones solo para mercancía */}
               {newProduct.productType === 'simple' && showSalesFields && (
                 <div className="col-span-2 border-t pt-4 mt-4">
@@ -2639,7 +3016,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
               )}
 
               {/* Unidades múltiples para mercancía y materias primas (comida) */}
-              {!isNonFoodRetailVertical && (newProduct.productType === 'simple' || newProduct.productType === 'raw_material') && (
+              {(newProduct.productType === 'simple' || newProduct.productType === 'raw_material') && (
                 <div className="col-span-2 border-t pt-4 mt-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex-1">
@@ -3053,7 +3430,15 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   {/* Precio de Venta solo para mercancía */}
                   {newProduct.productType === 'simple' && showSalesFields && (
                     <div className="space-y-2">
-                      <Label htmlFor="variantBasePrice">Precio de Venta ($)</Label>
+                      <Label htmlFor="variantBasePrice">
+                        Precio de Venta ($)
+                        {newProduct.variant.pricingStrategy?.mode !== 'manual' &&
+                          newProduct.variant.pricingStrategy?.autoCalculate && (
+                            <Badge variant="secondary" className="ml-2 text-xs">
+                              Auto-calculado
+                            </Badge>
+                          )}
+                      </Label>
                       <NumberInput
                         id="variantBasePrice"
                         value={newProduct.variant.basePrice ?? ''}
@@ -3063,10 +3448,54 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         step={0.01}
                         min={0}
                         placeholder="Precio venta"
+                        disabled={
+                          newProduct.variant.pricingStrategy?.mode !== 'manual' &&
+                          newProduct.variant.pricingStrategy?.autoCalculate
+                        }
+                      />
+                    </div>
+                  )}
+                  {/* Precio Mayorista solo si está habilitado */}
+                  {newProduct.productType === 'simple' && showSalesFields && newProduct.pricingRules?.wholesaleEnabled && (
+                    <div className="space-y-2">
+                      <Label htmlFor="variantWholesalePrice">Precio Mayorista ($)</Label>
+                      <NumberInput
+                        id="variantWholesalePrice"
+                        value={newProduct.variant.wholesalePrice ?? ''}
+                        onValueChange={(val) =>
+                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, wholesalePrice: val } })
+                        }
+                        step={0.01}
+                        min={0}
+                        placeholder="Precio mayorista"
                       />
                     </div>
                   )}
                 </div>
+
+                {/* Pricing Strategy Selector - Solo para productos simples con ventas */}
+                {newProduct.productType === 'simple' && showSalesFields && (
+                  <div className="mt-6">
+                    <PricingStrategySelector
+                      strategy={newProduct.variant.pricingStrategy}
+                      costPrice={newProduct.variant.costPrice || 0}
+                      basePrice={newProduct.variant.basePrice || 0}
+                      onStrategyChange={(strategy) =>
+                        setNewProduct({
+                          ...newProduct,
+                          variant: { ...newProduct.variant, pricingStrategy: strategy },
+                        })
+                      }
+                      onPriceChange={(price) =>
+                        setNewProduct({
+                          ...newProduct,
+                          variant: { ...newProduct.variant, basePrice: price },
+                        })
+                      }
+                    />
+                  </div>
+                )}
+
                 {variantAttributes.length > 0 && (
                   <div className="border-t pt-4 mt-4">
                     <h5 className="text-base font-medium mb-4">Atributos de la Variante</h5>
@@ -3200,17 +3629,58 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                           </div>
                           {showSalesFields && (
                             <div className="space-y-2">
-                              <Label>Precio venta ($)</Label>
+                              <Label>
+                                Precio venta ($)
+                                {variant.pricingStrategy?.mode !== 'manual' &&
+                                  variant.pricingStrategy?.autoCalculate && (
+                                    <Badge variant="secondary" className="ml-2 text-xs">
+                                      Auto-calculado
+                                    </Badge>
+                                  )}
+                              </Label>
                               <NumberInput
                                 value={variant.basePrice ?? ''}
                                 onValueChange={(val) => updateAdditionalVariantField(index, 'basePrice', val)}
                                 step={0.01}
                                 min={0}
                                 placeholder="Precio venta"
+                                disabled={
+                                  variant.pricingStrategy?.mode !== 'manual' &&
+                                  variant.pricingStrategy?.autoCalculate
+                                }
+                              />
+                            </div>
+                          )}
+                          {showSalesFields && newProduct.pricingRules?.wholesaleEnabled && (
+                            <div className="space-y-2">
+                              <Label>Precio mayorista ($)</Label>
+                              <NumberInput
+                                value={variant.wholesalePrice ?? ''}
+                                onValueChange={(val) => updateAdditionalVariantField(index, 'wholesalePrice', val)}
+                                step={0.01}
+                                min={0}
+                                placeholder="Precio mayorista"
                               />
                             </div>
                           )}
                         </div>
+
+                        {/* Pricing Strategy Selector para variante adicional */}
+                        {showSalesFields && (
+                          <div className="mt-4">
+                            <PricingStrategySelector
+                              strategy={variant.pricingStrategy}
+                              costPrice={variant.costPrice || 0}
+                              basePrice={variant.basePrice || 0}
+                              onStrategyChange={(strategy) =>
+                                updateAdditionalVariantField(index, 'pricingStrategy', strategy)
+                              }
+                              onPriceChange={(price) =>
+                                updateAdditionalVariantField(index, 'basePrice', price)
+                              }
+                            />
+                          </div>
+                        )}
                         {variantAttributes.length > 0 && (
                           <div className="border-t pt-4 mt-4">
                             <h6 className="text-sm font-medium mb-3">Atributos específicos</h6>
@@ -3563,43 +4033,61 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
               </SelectContent>
             </Select>
           </div>
-          <div className="rounded-md border">
+          <div className="rounded-md border relative">
+            {loading && <div className="absolute inset-0 bg-background/60 z-10 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Producto</TableHead>
-                  <TableHead>Categoría</TableHead>
-                  {showSalesFields && <TableHead className="text-right">Precio Venta</TableHead>}
-                  <TableHead className="text-right">Costo</TableHead>
-                  <TableHead>Variantes</TableHead>
-                  {showSalesFields && <TableHead>Promoción</TableHead>}
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Acciones</TableHead>
+                  {visibleColumns.sku && <TableHead>SKU</TableHead>}
+                  {visibleColumns.name && <TableHead>Producto</TableHead>}
+                  {visibleColumns.category && <TableHead>Categoría</TableHead>}
+                  {showSalesFields && visibleColumns.price && <TableHead className="text-right">Precio Venta</TableHead>}
+                  {visibleColumns.cost && <TableHead className="text-right">Costo</TableHead>}
+                  {showSalesFields && visibleColumns.wholesalePrice && <TableHead className="text-right">P. Mayor</TableHead>}
+                  {visibleColumns.variants && <TableHead>Variantes</TableHead>}
+                  {showSalesFields && visibleColumns.promotion && <TableHead>Promoción</TableHead>}
+                  {visibleColumns.status && <TableHead>Estado</TableHead>}
+                  {visibleColumns.actions && <TableHead>Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredProducts.map(product => (
                   <TableRow key={product._id}>
-                    <TableCell className="font-mono">{product.sku}</TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-1 w-[200px]">
-                        <span className="font-medium text-slate-800 dark:text-slate-100 truncate" title={product.name}>
-                          {product.name}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-mono sm:hidden">{product.brand}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <InlineEditableCell
-                        value={Array.isArray(product.category) ? product.category.join(', ') : (product.category || '')}
-                        type="text"
-                        suggestions={categories}
-                        onSave={(val) => handleInlineUpdate(product._id, 'category', val)}
-                        className="w-[120px] text-xs text-slate-500 font-medium dark:text-slate-400"
-                      />
-                    </TableCell>
-                    {showSalesFields && (
+                    {visibleColumns.sku && (
+                      <TableCell>
+                        <InlineEditableCell
+                          value={product.sku}
+                          type="text"
+                          onSave={(val) => handleInlineUpdate(product._id, 'sku', val)}
+                          className="font-mono text-sm"
+                        />
+                      </TableCell>
+                    )}
+                    {visibleColumns.name && (
+                      <TableCell>
+                        <div className="flex flex-col gap-1 w-[200px]">
+                          <InlineEditableCell
+                            value={product.name}
+                            type="text"
+                            onSave={(val) => handleInlineUpdate(product._id, 'name', val)}
+                            className="font-medium text-slate-800 dark:text-slate-100 truncate"
+                          />
+                          <span className="text-[10px] text-slate-400 font-mono sm:hidden">{product.brand}</span>
+                        </div>
+                      </TableCell>
+                    )}
+                    {visibleColumns.category && (
+                      <TableCell>
+                        <InlineEditableCell
+                          value={Array.isArray(product.category) ? product.category.join(', ') : (product.category || '')}
+                          type="text"
+                          suggestions={categories}
+                          onSave={(val) => handleInlineUpdate(product._id, 'category', val)}
+                          className="w-[120px] text-xs text-slate-500 font-medium dark:text-slate-400"
+                        />
+                      </TableCell>
+                    )}
+                    {showSalesFields && visibleColumns.price && (
                       <TableCell className="text-right">
                         {product.variants?.length > 1 ? (
                           <ProductVariantsPopover
@@ -3621,29 +4109,53 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         )}
                       </TableCell>
                     )}
-                    <TableCell className="text-right">
-                      {/* Costo Inline - Reuse Popover logic if multiple variants or simple inline */}
-                      {product.variants?.length > 1 ? (
-                        <ProductVariantsPopover
-                          variants={product.variants}
-                          onUpdateVariant={(idx, field, val) => handleInlineUpdate(product._id, field, val, idx)}
-                        >
-                          <div className="text-muted-foreground cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
-                            ${(product.variants[0]?.costPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            <span className="text-[10px] text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
-                          </div>
-                        </ProductVariantsPopover>
-                      ) : (
-                        <InlineEditableCell
-                          value={product.variants?.[0]?.costPrice || 0}
-                          type="currency"
-                          onSave={(val) => handleInlineUpdate(product._id, 'costPrice', val)}
-                          className="justify-end text-muted-foreground"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>{product.variants.length}</TableCell>
-                    {showSalesFields && (
+                    {visibleColumns.cost && (
+                      <TableCell className="text-right">
+                        {/* Costo Inline - Reuse Popover logic if multiple variants or simple inline */}
+                        {product.variants?.length > 1 ? (
+                          <ProductVariantsPopover
+                            variants={product.variants}
+                            onUpdateVariant={(idx, field, val) => handleInlineUpdate(product._id, field, val, idx)}
+                          >
+                            <div className="text-muted-foreground cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
+                              ${(product.variants[0]?.costPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              <span className="text-[10px] text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
+                            </div>
+                          </ProductVariantsPopover>
+                        ) : (
+                          <InlineEditableCell
+                            value={product.variants?.[0]?.costPrice || 0}
+                            type="currency"
+                            onSave={(val) => handleInlineUpdate(product._id, 'costPrice', val)}
+                            className="justify-end text-muted-foreground"
+                          />
+                        )}
+                      </TableCell>
+                    )}
+                    {showSalesFields && visibleColumns.wholesalePrice && (
+                      <TableCell className="text-right">
+                        {product.variants?.length > 1 ? (
+                          <ProductVariantsPopover
+                            variants={product.variants}
+                            onUpdateVariant={(idx, field, val) => handleInlineUpdate(product._id, field, val, idx)}
+                          >
+                            <div className="text-blue-600 dark:text-blue-400 cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
+                              {product.variants[0]?.wholesalePrice ? `$${(product.variants[0].wholesalePrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}
+                              <span className="text-[10px] text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
+                            </div>
+                          </ProductVariantsPopover>
+                        ) : (
+                          <InlineEditableCell
+                            value={product.variants?.[0]?.wholesalePrice || 0}
+                            type="currency"
+                            onSave={(val) => handleInlineUpdate(product._id, 'wholesalePrice', val)}
+                            className="justify-end text-blue-600 dark:text-blue-400"
+                          />
+                        )}
+                      </TableCell>
+                    )}
+                    {visibleColumns.variants && <TableCell>{product.variants.length}</TableCell>}
+                    {showSalesFields && visibleColumns.promotion && (
                       <TableCell>
                         {product.hasActivePromotion && product.promotion?.isActive ? (
                           <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
@@ -3654,89 +4166,112 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         )}
                       </TableCell>
                     )}
-                    <TableCell>
-                      {product.isActive ?
-                        <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Activo</Badge> :
-                        <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Inactivo</Badge>}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => {
-                          const productToEdit = JSON.parse(JSON.stringify(product));
-                          if (!productToEdit.variants || productToEdit.variants.length === 0) {
-                            productToEdit.variants = [{
-                              name: 'Estándar',
-                              basePrice: 0,
-                              costPrice: 0,
-                              attributes: {},
-                            }];
-                          } else {
-                            productToEdit.variants = productToEdit.variants.map((variant) => ({
-                              ...variant,
-                              attributes: variant.attributes || {},
-                            }));
-                          }
-                          if (!productToEdit.attributes) {
-                            productToEdit.attributes = {};
-                          }
-                          // Ensure top-level origin is copied to attributes for display
-                          if (productToEdit.origin && !productToEdit.attributes.origin) {
-                            productToEdit.attributes.origin = productToEdit.origin;
-                          }
-                          if (!productToEdit.inventoryConfig) { // Defensive check
-                            productToEdit.inventoryConfig = { minimumStock: 10, maximumStock: 100, reorderPoint: 20, reorderQuantity: 50, trackLots: true, trackExpiration: true, fefoEnabled: true };
-                          }
-                          if (productToEdit.isSoldByWeight === undefined) {
-                            productToEdit.isSoldByWeight = false;
-                          }
-                          if (productToEdit.unitOfMeasure === undefined) {
-                            productToEdit.unitOfMeasure = 'unidad';
-                          }
-                          if (productToEdit.hasMultipleSellingUnits === undefined) {
-                            productToEdit.hasMultipleSellingUnits = false;
-                          }
-                          if (!productToEdit.sellingUnits) {
-                            productToEdit.sellingUnits = [];
-                          }
-                          // Fix: Map legacy attributes.storageCondition to native storageTemperature if missing
-                          if (!productToEdit.storageTemperature && productToEdit.attributes?.storageCondition) {
-                            const map = { 'Ambiente': 'ambiente', 'Refrigerado': 'refrigerado', 'Congelado': 'congelado' };
-                            productToEdit.storageTemperature = map[productToEdit.attributes.storageCondition] || productToEdit.attributes.storageCondition.toLowerCase();
-                          }
-                          productToEdit.sellingUnits = productToEdit.sellingUnits.map((unit) => {
-                            // Calculate inverted factor for display (e.g. 1 / 0.05 = 20)
-                            const factor = unit?.conversionFactor;
-
-                            // If conversionFactorInput exists (draft), use it. 
-                            // Otherwise, calculate from factor: 1/factor
-                            let conversionSource = unit?.conversionFactorInput || '';
-                            if (!conversionSource && factor) {
-                              conversionSource = parseFloat((1 / factor).toFixed(4)).toString();
+                    {visibleColumns.status && (
+                      <TableCell>
+                        {product.isActive ?
+                          <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Activo</Badge> :
+                          <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Inactivo</Badge>}
+                      </TableCell>
+                    )}
+                    {visibleColumns.actions && (
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => {
+                            const productToEdit = JSON.parse(JSON.stringify(product));
+                            if (!productToEdit.variants || productToEdit.variants.length === 0) {
+                              productToEdit.variants = [{
+                                name: 'Estándar',
+                                basePrice: 0,
+                                costPrice: 0,
+                                attributes: {},
+                              }];
+                            } else {
+                              productToEdit.variants = productToEdit.variants.map((variant) => ({
+                                ...variant,
+                                attributes: variant.attributes || {},
+                              }));
                             }
+                            if (!productToEdit.attributes) {
+                              productToEdit.attributes = {};
+                            }
+                            // Ensure top-level origin is copied to attributes for display
+                            if (productToEdit.origin && !productToEdit.attributes.origin) {
+                              productToEdit.attributes.origin = productToEdit.origin;
+                            }
+                            if (!productToEdit.inventoryConfig) { // Defensive check
+                              productToEdit.inventoryConfig = { minimumStock: 10, maximumStock: 100, reorderPoint: 20, reorderQuantity: 50, trackLots: true, trackExpiration: true, fefoEnabled: true };
+                            }
+                            if (productToEdit.isSoldByWeight === undefined) {
+                              productToEdit.isSoldByWeight = false;
+                            }
+                            if (productToEdit.unitOfMeasure === undefined) {
+                              productToEdit.unitOfMeasure = 'unidad';
+                            }
+                            if (productToEdit.hasMultipleSellingUnits === undefined) {
+                              productToEdit.hasMultipleSellingUnits = false;
+                            }
+                            if (!productToEdit.sellingUnits) {
+                              productToEdit.sellingUnits = [];
+                            }
+                            // Initialize pricingRules fields if missing (for legacy products)
+                            if (!productToEdit.pricingRules) {
+                              productToEdit.pricingRules = {};
+                            }
+                            if (productToEdit.pricingRules.wholesaleEnabled === undefined) {
+                              productToEdit.pricingRules.wholesaleEnabled = false;
+                            }
+                            if (productToEdit.pricingRules.wholesaleMinQuantity === undefined) {
+                              productToEdit.pricingRules.wholesaleMinQuantity = 1;
+                            }
+                            if (productToEdit.pricingRules.bulkDiscountEnabled === undefined) {
+                              productToEdit.pricingRules.bulkDiscountEnabled = false;
+                            }
+                            if (!productToEdit.pricingRules.bulkDiscountRules) {
+                              productToEdit.pricingRules.bulkDiscountRules = [];
+                            }
+                            // Fix: Map legacy attributes.storageCondition to native storageTemperature if missing
+                            if (!productToEdit.storageTemperature && productToEdit.attributes?.storageCondition) {
+                              const map = { 'Ambiente': 'ambiente', 'Refrigerado': 'refrigerado', 'Congelado': 'congelado' };
+                              productToEdit.storageTemperature = map[productToEdit.attributes.storageCondition] || productToEdit.attributes.storageCondition.toLowerCase();
+                            }
+                            productToEdit.sellingUnits = productToEdit.sellingUnits.map((unit) => {
+                              // Calculate inverted factor for display (e.g. 1 / 0.05 = 20)
+                              const factor = unit?.conversionFactor;
 
-                            const priceSource =
-                              unit?.pricePerUnitInput ?? unit?.pricePerUnit ?? '';
-                            const costSource =
-                              unit?.costPerUnitInput ?? unit?.costPerUnit ?? '';
-                            return {
-                              ...unit,
-                              conversionFactorInput: normalizeDecimalInput(conversionSource),
-                              // Keep original factor internally
-                              conversionFactor: factor,
-                              pricePerUnitInput: normalizeDecimalInput(priceSource),
-                              pricePerUnit: parseDecimalInput(priceSource),
-                              costPerUnitInput: normalizeDecimalInput(costSource),
-                              costPerUnit: parseDecimalInput(costSource),
-                            };
-                          });
-                          productToEdit.category = normalizeStringList(productToEdit.category);
-                          productToEdit.subcategory = normalizeStringList(productToEdit.subcategory);
-                          setEditingProduct(productToEdit);
-                          setIsEditDialogOpen(true);
-                        }}><Edit className="h-4 w-4" /></Button>
-                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteProduct(product._id)}><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </TableCell>
+                              // If conversionFactorInput exists (draft), use it. 
+                              // Otherwise, calculate from factor: 1/factor
+                              let conversionSource = unit?.conversionFactorInput || '';
+                              if (!conversionSource && factor) {
+                                conversionSource = parseFloat((1 / factor).toFixed(4)).toString();
+                              }
+
+                              const priceSource =
+                                unit?.pricePerUnitInput ?? unit?.pricePerUnit ?? '';
+                              const costSource =
+                                unit?.costPerUnitInput ?? unit?.costPerUnit ?? '';
+                              return {
+                                ...unit,
+                                conversionFactorInput: normalizeDecimalInput(conversionSource),
+                                // Keep original factor internally
+                                conversionFactor: factor,
+                                pricePerUnitInput: normalizeDecimalInput(priceSource),
+                                pricePerUnit: parseDecimalInput(priceSource),
+                                costPerUnitInput: normalizeDecimalInput(costSource),
+                                costPerUnit: parseDecimalInput(costSource),
+                              };
+                            });
+                            productToEdit.category = normalizeStringList(productToEdit.category);
+                            productToEdit.subcategory = normalizeStringList(productToEdit.subcategory);
+                            const unit = productToEdit.shelfLifeUnit || 'days';
+                            productToEdit.shelfLifeUnit = unit;
+                            productToEdit.shelfLifeValue = shelfLifeDaysToValue(productToEdit.shelfLifeDays, unit);
+                            setEditingProduct(productToEdit);
+                            setIsEditDialogOpen(true);
+                          }}><Edit className="h-4 w-4" /></Button>
+                          <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteProduct(product._id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -3857,15 +4392,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   <Label htmlFor="edit-description">Descripción</Label>
                   <Textarea id="edit-description" value={editingProduct.description} onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} />
                 </div>
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="edit-ingredients">{ingredientLabel}</Label>
-                  <Textarea
-                    id="edit-ingredients"
-                    value={editingProduct.ingredients}
-                    onChange={(e) => setEditingProduct({ ...editingProduct, ingredients: e.target.value })}
-                    placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
-                  />
-                </div>
+                {!isNonFoodRetailVertical && (
+                  <div className="col-span-2 space-y-2">
+                    <Label htmlFor="edit-ingredients">{ingredientLabel}</Label>
+                    <Textarea
+                      id="edit-ingredients"
+                      value={editingProduct.ingredients}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, ingredients: e.target.value })}
+                      placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
+                    />
+                  </div>
+                )}
                 {productAttributes.length > 0 && (
                   <div className="col-span-2 border-t pt-4 mt-4">
                     <div className="flex items-center justify-between mb-4">
@@ -3928,6 +4465,20 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   </div>
                 )}
 
+                {/* Edit Send to Kitchen (Restaurant Only) */}
+                {isRestaurant && (
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Switch
+                      id="edit-sendToKitchen"
+                      checked={editingProduct.sendToKitchen !== false}
+                      onCheckedChange={(checked) =>
+                        setEditingProduct({ ...editingProduct, sendToKitchen: checked })
+                      }
+                    />
+                    <Label htmlFor="edit-sendToKitchen">Enviar a Cocina / Comanda</Label>
+                  </div>
+                )}
+
                 {!isNonFoodRetailVertical && (
                   <div className="space-y-2">
                     <Label htmlFor="edit-unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
@@ -3957,18 +4508,40 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 {!isNonFoodRetailVertical && editingProduct.isPerishable && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="edit-shelfLifeDays">Vida Útil (días)</Label>
-                      <Input
-                        id="edit-shelfLifeDays"
-                        type="number"
-                        value={editingProduct.shelfLifeDays || 0}
-                        onChange={(e) =>
-                          setEditingProduct({
+                      <Label htmlFor="edit-shelfLifeValue">Vida Útil</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="edit-shelfLifeValue"
+                          type="number"
+                          className="flex-1"
+                          value={editingProduct.shelfLifeValue ?? 0}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value) || 0;
+                            setEditingProduct({
+                              ...editingProduct,
+                              shelfLifeValue: val,
+                              shelfLifeDays: shelfLifeValueToDays(val, editingProduct.shelfLifeUnit || 'days'),
+                            });
+                          }}
+                        />
+                        <Select
+                          value={editingProduct.shelfLifeUnit || 'days'}
+                          onValueChange={(unit) => setEditingProduct({
                             ...editingProduct,
-                            shelfLifeDays: parseInt(e.target.value) || 0
-                          })
-                        }
-                      />
+                            shelfLifeUnit: unit,
+                            shelfLifeDays: shelfLifeValueToDays(editingProduct.shelfLifeValue, unit),
+                          })}
+                        >
+                          <SelectTrigger className="w-[120px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="days">Días</SelectItem>
+                            <SelectItem value="months">Meses</SelectItem>
+                            <SelectItem value="years">Años</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="edit-storageTemperature">Temperatura de Almacenamiento</Label>
@@ -4139,6 +4712,59 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       >
                         + Agregar Regla de Descuento
                       </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Sección de Precio Mayorista en Edit */}
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium">Precio Mayorista</h4>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="edit-wholesaleEnabled"
+                        checked={editingProduct.pricingRules?.wholesaleEnabled || false}
+                        onCheckedChange={(checked) =>
+                          setEditingProduct({
+                            ...editingProduct,
+                            pricingRules: {
+                              ...editingProduct.pricingRules,
+                              wholesaleEnabled: checked,
+                            }
+                          })
+                        }
+                      />
+                      <Label htmlFor="edit-wholesaleEnabled">Activar Precio Mayorista</Label>
+                    </div>
+                  </div>
+
+                  {editingProduct.pricingRules?.wholesaleEnabled && (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Define un precio fijo para ventas al mayor. El precio mayorista de cada variante se configura en la sección de variantes.
+                      </p>
+                      <div className="max-w-xs space-y-2">
+                        <Label>Cantidad Mínima para Precio Mayorista</Label>
+                        <Input
+                          type="number"
+                          value={editingProduct.pricingRules?.wholesaleMinQuantity ?? 1}
+                          onChange={(e) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              pricingRules: {
+                                ...editingProduct.pricingRules,
+                                wholesaleMinQuantity: parseInt(e.target.value) || 1,
+                              }
+                            })
+                          }
+                          min={1}
+                          step={1}
+                          placeholder="Ej: 10"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          A partir de esta cantidad se aplica automáticamente el precio mayorista. El vendedor también puede aplicarlo manualmente.
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -4760,15 +5386,102 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Precio venta ($)</Label>
+                          <Label>
+                            Precio venta ($)
+                            {variant.pricingStrategy?.mode !== 'manual' &&
+                              variant.pricingStrategy?.autoCalculate && (
+                                <Badge variant="secondary" className="ml-2 text-xs">
+                                  Auto-calculado
+                                </Badge>
+                              )}
+                          </Label>
                           <Input
                             type="number"
                             value={variant.basePrice ?? ''}
                             onChange={(e) => handleEditVariantFieldChange(index, 'basePrice', e.target.value)}
                             placeholder="0.00"
+                            disabled={
+                              variant.pricingStrategy?.mode !== 'manual' &&
+                              variant.pricingStrategy?.autoCalculate
+                            }
                           />
                         </div>
+                        {editingProduct?.pricingRules?.wholesaleEnabled && (
+                          <div className="space-y-2">
+                            <Label>Precio mayorista ($)</Label>
+                            <Input
+                              type="number"
+                              value={variant.wholesalePrice ?? ''}
+                              onChange={(e) => handleEditVariantFieldChange(index, 'wholesalePrice', e.target.value)}
+                              placeholder="0.00"
+                            />
+                          </div>
+                        )}
                       </div>
+
+                      {/* Pricing Strategy Selector para edición */}
+                      {showSalesFields && (
+                        <div className="mt-4">
+                          <PricingStrategySelector
+                            strategy={variant.pricingStrategy || {
+                              mode: 'manual',
+                              autoCalculate: false,
+                              markupPercentage: 30,
+                              marginPercentage: 25,
+                            }}
+                            costPrice={variant.costPrice || 0}
+                            basePrice={variant.basePrice || 0}
+                            onStrategyChange={(strategy) =>
+                              handleEditVariantFieldChange(index, 'pricingStrategy', strategy)
+                            }
+                            onPriceChange={(price) =>
+                              handleEditVariantFieldChange(index, 'basePrice', price)
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {/* Price Lists Manager para edición */}
+                      {showSalesFields && editingProduct?._id && variant.sku && (
+                        <div className="mt-4">
+                          <ProductPriceListManager
+                            productId={editingProduct._id}
+                            variantSku={variant.sku}
+                            basePrice={variant.basePrice || 0}
+                            customPrices={variant.customPrices || []}
+                            onChange={(customPrices) =>
+                              handleEditVariantFieldChange(index, 'customPrices', customPrices)
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {/* Volume Discounts Manager para edición */}
+                      {showSalesFields && variant.sku && (
+                        <div className="mt-4">
+                          <VolumeDiscountsManager
+                            basePrice={variant.basePrice || 0}
+                            volumeDiscounts={variant.volumeDiscounts || []}
+                            onChange={(volumeDiscounts) =>
+                              handleEditVariantFieldChange(index, 'volumeDiscounts', volumeDiscounts)
+                            }
+                          />
+                        </div>
+                      )}
+
+                      {/* Location Pricing Manager para edición */}
+                      {showSalesFields && variant.sku && (
+                        <div className="mt-4">
+                          <LocationPricingManager
+                            basePrice={variant.basePrice || 0}
+                            locationPricing={variant.locationPricing || []}
+                            locations={[]}
+                            onChange={(locationPricing) =>
+                              handleEditVariantFieldChange(index, 'locationPricing', locationPricing)
+                            }
+                          />
+                        </div>
+                      )}
 
                       {variantAttributes.length > 0 && (
                         <div className="border-t pt-4 mt-4">
@@ -4907,6 +5620,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           </div>
         </DialogContent>
       </Dialog>
+      <ExportOptionsDialog
+        open={isExportDialogOpen}
+        onClose={() => setIsExportDialogOpen(false)}
+        onExport={handleConfirmExport}
+        columns={getExportColumns()}
+        title={exportFormat === 'xlsx' ? "Exportar a Excel" : "Exportar a CSV"}
+      />
+      <ShelfLabelWizard
+        isOpen={isLabelWizardOpen}
+        onClose={() => setIsLabelWizardOpen(false)}
+      />
     </div >
   );
 }

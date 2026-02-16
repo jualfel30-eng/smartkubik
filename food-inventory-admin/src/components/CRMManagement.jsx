@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useCRM } from '@/hooks/use-crm.js';
 import { useAuth } from '@/hooks/use-auth';
+import { usePriceLists } from '@/hooks/usePriceLists';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 import EmployeeDetailDrawer from '@/components/payroll/EmployeeDetailDrawer.jsx';
 import { CustomerDetailDialog } from '@/components/CustomerDetailDialog.jsx';
@@ -106,7 +107,8 @@ const initialNewContactState = {
   notes: '',
   taxType: 'V',
   taxId: '',
-  primaryLocation: null
+  primaryLocation: null,
+  defaultPriceListId: ''
 };
 
 function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
@@ -160,6 +162,12 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     updateOpportunityStage,
     deleteOpportunityStage,
   } = useCRM();
+
+  const { priceLists, loadPriceLists } = usePriceLists();
+
+  useEffect(() => {
+    loadPriceLists(true); // Solo listas activas
+  }, [loadPriceLists]);
 
   const initialTabRaw = forceEmployeeTab ? 'employee' : searchParams.get('tab') || 'all';
   const initialTab = hideEmployeeTab && initialTabRaw === 'employee' ? 'all' : initialTabRaw;
@@ -515,9 +523,18 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     if (committedSearch) {
       filters.search = committedSearch;
     }
-    if (filterType !== 'all' && filterType !== 'pipeline' && filterType !== 'settings' && filterType !== 'employee') {
-      filters.customerType = filterType;
+
+    // Map filterType to correct customerType filter
+    if (filterType === 'individual') {
+      // "Clientes" tab should show business AND individual (exclude suppliers/employees)
+      filters.customerType = 'business,individual';
+    } else if (filterType === 'supplier') {
+      filters.customerType = 'supplier';
+    } else if (filterType === 'employee') {
+      filters.customerType = 'employee';
     }
+    // 'all', 'pipeline', 'settings' show everything, no customerType filter needed
+
     return filters;
   }, [committedSearch, filterType]);
   const employeeFilters = useMemo(
@@ -1424,6 +1441,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       taxId: contact.taxInfo?.taxId || '',
       taxType: contact.taxInfo?.taxType || 'V',
       primaryLocation: contact.primaryLocation || null,
+      defaultPriceListId: contact.defaultPriceListId || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -1446,6 +1464,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       contacts: contactsPayload,
       notes: newContact.notes,
       primaryLocation: newContact.primaryLocation,
+      defaultPriceListId: newContact.defaultPriceListId || undefined,
     };
 
     const shouldEnsureEmployee = payload.customerType === 'employee';
@@ -1548,6 +1567,13 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     const newLocation = editingFormState.primaryLocation;
     if (JSON.stringify(oldLocation) !== JSON.stringify(newLocation)) {
       changedFields.primaryLocation = newLocation;
+    }
+
+    // Compara defaultPriceListId
+    const oldPriceListId = originalContact.defaultPriceListId || '';
+    const newPriceListId = editingFormState.defaultPriceListId || '';
+    if (oldPriceListId !== newPriceListId) {
+      changedFields.defaultPriceListId = newPriceListId || undefined;
     }
 
     const oldTaxType = originalContact.taxInfo?.taxType || 'V';
@@ -1924,129 +1950,150 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>Agregar nuevo contacto</DialogTitle>
-                        <DialogDescription>
-                          Completa los detalles para registrar un nuevo contacto en el sistema.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="grid grid-cols-2 gap-4 py-4">
-                        <div className="space-y-2">
-                          <Label>Nombre</Label>
-                          <Input value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Tipo de Contacto</Label>
-                          <Select
-                            value={newContact.customerType}
-                            onValueChange={(value) => setNewContact({ ...newContact, customerType: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="business">Cliente</SelectItem>
-                              <SelectItem value="supplier">Proveedor</SelectItem>
-                              <SelectItem value="employee">Empleado</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="manager">Gestor</SelectItem>
-                              <SelectItem value="Repartidor">Repartidor</SelectItem>
-                              <SelectItem value="Cajero">Cajero</SelectItem>
-                              <SelectItem value="Mesonero">Mesonero</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Empresa</Label>
-                          <Input
-                            value={newContact.companyName}
-                            onChange={(e) => setNewContact({ ...newContact, companyName: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Email</Label>
-                          <Input
-                            type="email"
-                            value={newContact.email}
-                            onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Teléfono</Label>
-                          <Input
-                            value={newContact.phone}
-                            onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
-                          />
-                        </div>
-                        <div className="col-span-2 space-y-2">
-                          <Label>Dirección</Label>
-                          <Input
-                            value={newContact.address}
-                            onChange={(e) => setNewContact({ ...newContact, address: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Ciudad</Label>
-                          <Input
-                            value={newContact.city}
-                            onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Estado</Label>
-                          <Input
-                            value={newContact.state}
-                            onChange={(e) => setNewContact({ ...newContact, state: e.target.value })}
-                          />
-                        </div>
-                        <div className="col-span-2 space-y-2">
-                          <Label>Identificación Fiscal</Label>
-                          <div className="flex gap-2">
+                        <DialogHeader>
+                          <DialogTitle>Agregar nuevo contacto</DialogTitle>
+                          <DialogDescription>
+                            Completa los detalles para registrar un nuevo contacto en el sistema.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid grid-cols-2 gap-4 py-4">
+                          <div className="space-y-2">
+                            <Label>Nombre</Label>
+                            <Input value={newContact.name} onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Tipo de Contacto</Label>
                             <Select
-                              value={newContact.taxType}
-                              onValueChange={(value) => setNewContact({ ...newContact, taxType: value })}
+                              value={newContact.customerType}
+                              onValueChange={(value) => setNewContact({ ...newContact, customerType: value })}
                             >
-                              <SelectTrigger className="w-[100px]">
+                              <SelectTrigger>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="V">V</SelectItem>
-                                <SelectItem value="E">E</SelectItem>
-                                <SelectItem value="J">J</SelectItem>
-                                <SelectItem value="G">G</SelectItem>
+                                <SelectItem value="business">Cliente</SelectItem>
+                                <SelectItem value="supplier">Proveedor</SelectItem>
+                                <SelectItem value="employee">Empleado</SelectItem>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="manager">Gestor</SelectItem>
+                                <SelectItem value="Repartidor">Repartidor</SelectItem>
+                                <SelectItem value="Cajero">Cajero</SelectItem>
+                                <SelectItem value="Mesonero">Mesonero</SelectItem>
                               </SelectContent>
                             </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Empresa</Label>
                             <Input
-                              value={newContact.taxId}
-                              onChange={(e) => setNewContact({ ...newContact, taxId: e.target.value })}
+                              value={newContact.companyName}
+                              onChange={(e) => setNewContact({ ...newContact, companyName: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Email</Label>
+                            <Input
+                              type="email"
+                              value={newContact.email}
+                              onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Teléfono</Label>
+                            <Input
+                              value={newContact.phone}
+                              onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+                            />
+                          </div>
+                          <div className="col-span-2 space-y-2">
+                            <Label>Dirección</Label>
+                            <Input
+                              value={newContact.address}
+                              onChange={(e) => setNewContact({ ...newContact, address: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Ciudad</Label>
+                            <Input
+                              value={newContact.city}
+                              onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Estado</Label>
+                            <Input
+                              value={newContact.state}
+                              onChange={(e) => setNewContact({ ...newContact, state: e.target.value })}
+                            />
+                          </div>
+                          <div className="col-span-2 space-y-2">
+                            <Label>Identificación Fiscal</Label>
+                            <div className="flex gap-2">
+                              <Select
+                                value={newContact.taxType}
+                                onValueChange={(value) => setNewContact({ ...newContact, taxType: value })}
+                              >
+                                <SelectTrigger className="w-[100px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="V">V</SelectItem>
+                                  <SelectItem value="E">E</SelectItem>
+                                  <SelectItem value="J">J</SelectItem>
+                                  <SelectItem value="G">G</SelectItem>
+                                  <SelectItem value="P">P</SelectItem>
+                                  <SelectItem value="N">N</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                value={newContact.taxId}
+                                onChange={(e) => setNewContact({ ...newContact, taxId: e.target.value })}
+                              />
+                            </div>
+                          </div>
+                          <div className="col-span-2 space-y-2">
+                            <LocationPicker
+                              label="Ubicación del Cliente"
+                              value={newContact.primaryLocation}
+                              onChange={(location) => setNewContact({ ...newContact, primaryLocation: location })}
+                            />
+                          </div>
+                          <div className="col-span-2 space-y-2">
+                            <Label>Lista de Precios (Opcional)</Label>
+                            <Select
+                              value={newContact.defaultPriceListId}
+                              onValueChange={(value) => setNewContact({ ...newContact, defaultPriceListId: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sin lista de precios específica (usar precios base)" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">Sin lista específica</SelectItem>
+                                {priceLists.map((pl) => (
+                                  <SelectItem key={pl._id} value={pl._id}>
+                                    {pl.name} ({pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="col-span-2 space-y-2">
+                            <Label>Notas</Label>
+                            <Textarea
+                              value={newContact.notes}
+                              onChange={(e) => setNewContact({ ...newContact, notes: e.target.value })}
                             />
                           </div>
                         </div>
-                        <div className="col-span-2 space-y-2">
-                          <LocationPicker
-                            label="Ubicación del Cliente"
-                            value={newContact.primaryLocation}
-                            onChange={(location) => setNewContact({ ...newContact, primaryLocation: location })}
-                          />
-                        </div>
-                        <div className="col-span-2 space-y-2">
-                          <Label>Notas</Label>
-                          <Textarea
-                            value={newContact.notes}
-                            onChange={(e) => setNewContact({ ...newContact, notes: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                          Cancelar
-                        </Button>
-                        <Button onClick={handleAddContact}>
-                          Agregar contacto
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                            Cancelar
+                          </Button>
+                          <Button onClick={handleAddContact}>
+                            Agregar contacto
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   )}
                 </div>
               </div>
@@ -2753,6 +2800,25 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                       value={editingFormState.primaryLocation}
                       onChange={(location) => setEditingFormState({ ...editingFormState, primaryLocation: location })}
                     />
+                  </div>
+                  <div className="col-span-2 space-y-2">
+                    <Label>Lista de Precios (Opcional)</Label>
+                    <Select
+                      value={editingFormState.defaultPriceListId || ''}
+                      onValueChange={(value) => setEditingFormState({ ...editingFormState, defaultPriceListId: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sin lista de precios específica (usar precios base)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Sin lista específica</SelectItem>
+                        {priceLists.map((pl) => (
+                          <SelectItem key={pl._id} value={pl._id}>
+                            {pl.name} ({pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="col-span-2 space-y-2"><Label>Notas</Label><Textarea value={editingFormState.notes} onChange={(e) => setEditingFormState({ ...editingFormState, notes: e.target.value })} /></div>
                 </div>

@@ -13,26 +13,49 @@ import {
 
 const ACCOUNT_TYPES = ["Ingreso", "Gasto", "Activo", "Pasivo", "Patrimonio"];
 
+const COST_BEHAVIORS = [
+  { value: "fixed", label: "Fijo" },
+  { value: "variable", label: "Variable" },
+  { value: "mixed", label: "Mixto" },
+];
+
+const LIQUIDITY_CLASSES = [
+  { value: "current", label: "Circulante" },
+  { value: "non_current", label: "No circulante" },
+];
+
+const TYPES_WITH_COST_BEHAVIOR = ["Gasto"];
+const TYPES_WITH_LIQUIDITY = ["Activo", "Pasivo"];
+
 export function ChartOfAccountForm({ onSubmit, onCancel, initialData }) {
   const [name, setName] = useState("");
   const [type, setType] = useState("");
   const [description, setDescription] = useState("");
+  const [costBehavior, setCostBehavior] = useState("");
+  const [liquidityClass, setLiquidityClass] = useState("");
 
   useEffect(() => {
     if (initialData) {
       setName(initialData.name || "");
       setType(initialData.type || "");
       setDescription(initialData.description || "");
+      setCostBehavior(initialData.costBehavior || "");
+      setLiquidityClass(initialData.liquidityClass || "");
     } else {
       setName("");
       setType("");
       setDescription("");
+      setCostBehavior("");
+      setLiquidityClass("");
     }
   }, [initialData]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit({ name, type, description });
+    const data = { name, type, description };
+    if (costBehavior) data.costBehavior = costBehavior;
+    if (liquidityClass) data.liquidityClass = liquidityClass;
+    onSubmit(data);
   };
 
   return (
@@ -62,6 +85,48 @@ export function ChartOfAccountForm({ onSubmit, onCancel, initialData }) {
           </SelectContent>
         </Select>
       </div>
+      {TYPES_WITH_COST_BEHAVIOR.includes(type) && (
+        <div className="space-y-2">
+          <Label htmlFor="costBehavior">Comportamiento de Costo</Label>
+          <Select value={costBehavior} onValueChange={setCostBehavior}>
+            <SelectTrigger id="costBehavior">
+              <SelectValue placeholder="Clasificar costo (opcional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {COST_BEHAVIORS.map((cb) => (
+                <SelectItem key={cb.value} value={cb.value}>
+                  {cb.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">
+            Fijo: no cambia con el volumen (alquiler, seguros). Variable: cambia con ventas (materia prima). Mixto: ambos.
+          </p>
+        </div>
+      )}
+
+      {TYPES_WITH_LIQUIDITY.includes(type) && (
+        <div className="space-y-2">
+          <Label htmlFor="liquidityClass">Clasificacion de Liquidez</Label>
+          <Select value={liquidityClass} onValueChange={setLiquidityClass}>
+            <SelectTrigger id="liquidityClass">
+              <SelectValue placeholder="Clasificar liquidez (opcional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {LIQUIDITY_CLASSES.map((lc) => (
+                <SelectItem key={lc.value} value={lc.value}>
+                  {lc.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">
+            Circulante: convertible en efectivo en menos de 1 ano. No circulante: a largo plazo.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="description">Descripción</Label>
         <Input

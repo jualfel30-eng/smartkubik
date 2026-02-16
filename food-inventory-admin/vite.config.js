@@ -31,9 +31,44 @@ export default defineConfig({
     ]
   },
   build: {
+    // Enable source maps for debugging but optimize for production
+    sourcemap: false,
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 1000,
+    // Enable minification
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
+      },
+      output: {
+        // Manual chunk splitting for better caching
+        manualChunks: {
+          // React core
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // UI libraries
+          'ui-vendor': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-toast',
+            '@radix-ui/react-popover',
+          ],
+          // Icons - separate chunk
+          'icons': ['lucide-react'],
+          // Heavy libraries
+          'xlsx-vendor': ['xlsx'],
+          'pdf-vendor': ['jspdf', 'jspdf-autotable'],
+          // Charts
+          'charts-vendor': ['recharts'],
+        },
       },
     },
   }

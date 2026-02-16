@@ -1,54 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  Button,
-  Typography,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Alert,
-  Box,
-  CircularProgress,
-  Chip,
-  Divider,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-} from '@mui/material';
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  FileText,
+  QrCode,
+  Download,
+  Loader2,
+  RefreshCw,
+  Shield,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import {
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Warning as WarningIcon,
-  Description as DescriptionIcon,
-  QrCode as QrCodeIcon,
-  Download as DownloadIcon,
-} from '@mui/icons-material';
-import { alpha } from '@mui/material/styles';
-import { toast } from 'react-toastify';
-import { validateDocumentForSENIAT, generateSeniatXML, downloadSeniatXML } from '../../lib/api';
+  validateDocumentForSENIAT,
+  generateSeniatXML,
+  downloadSeniatXML,
+} from '../../lib/api';
 
-const SeniatValidation = ({ documentId, document, onValidationComplete }) => {
+const SeniatValidation = ({ documentId, document: doc, onValidationComplete }) => {
   const [loading, setLoading] = useState(false);
   const [validationResults, setValidationResults] = useState(null);
   const [xmlGenerated, setXmlGenerated] = useState(false);
   const [xmlData, setXmlData] = useState(null);
-  const [qrDialogOpen, setQrDialogOpen] = useState(false);
 
   useEffect(() => {
-    // Check if XML already generated
-    if (document?.seniat?.xmlGenerated) {
+    if (doc?.seniat?.xmlGenerated) {
       setXmlGenerated(true);
       setXmlData({
-        qrCode: document.seniat.qrCode,
-        verificationUrl: document.seniat.verificationUrl,
-        xmlHash: document.seniat.xmlHash,
+        qrCode: doc.seniat.qrCode,
+        verificationUrl: doc.seniat.verificationUrl,
+        xmlHash: doc.seniat.xmlHash,
       });
     }
-  }, [document]);
+  }, [doc]);
 
   const handleValidate = async () => {
     setLoading(true);
@@ -57,12 +45,12 @@ const SeniatValidation = ({ documentId, document, onValidationComplete }) => {
       setValidationResults(result);
 
       if (result.valid) {
-        toast.success('✅ Documento válido para SENIAT');
+        toast.success('Documento válido para SENIAT');
         if (onValidationComplete) {
           onValidationComplete(result);
         }
       } else {
-        toast.error(`❌ Validación fallida: ${result.errors.length} errores encontrados`);
+        toast.error(`Validación fallida: ${result.errors.length} error(es)`);
       }
     } catch (error) {
       console.error('Error validating document:', error);
@@ -87,7 +75,7 @@ const SeniatValidation = ({ documentId, document, onValidationComplete }) => {
         verificationUrl: result.verificationUrl,
         xmlHash: result.xmlHash,
       });
-      toast.success('✅ XML SENIAT generado correctamente');
+      toast.success('XML SENIAT generado correctamente');
     } catch (error) {
       console.error('Error generating XML:', error);
       toast.error(error.message || 'Error al generar XML SENIAT');
@@ -100,13 +88,13 @@ const SeniatValidation = ({ documentId, document, onValidationComplete }) => {
     try {
       const blob = await downloadSeniatXML(documentId);
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = window.document.createElement('a');
       a.href = url;
-      a.download = `factura-${document?.documentNumber || documentId}.xml`;
-      document.body.appendChild(a);
+      a.download = `factura-${doc?.documentNumber || documentId}.xml`;
+      window.document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      a.remove();
       toast.success('XML descargado correctamente');
     } catch (error) {
       console.error('Error downloading XML:', error);
@@ -114,244 +102,157 @@ const SeniatValidation = ({ documentId, document, onValidationComplete }) => {
     }
   };
 
-  const getStatusIcon = (isValid, hasWarnings) => {
-    if (isValid && !hasWarnings) {
-      return <CheckCircleIcon color="success" />;
-    }
-    if (isValid && hasWarnings) {
-      return <WarningIcon color="warning" />;
-    }
-    return <ErrorIcon color="error" />;
-  };
-
   return (
-    <Card>
-      <CardHeader
-        title="Validación SENIAT"
-        subheader="Validar factura para facturación electrónica"
-      />
-      <CardContent>
-        {/* Status Info */}
-        {document && (
-          <Box mb={2}>
-            <Typography variant="body2" color="textSecondary">
-              Documento: <strong>{document.documentNumber}</strong>
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              Estado: <Chip label={document.status} size="small" color="primary" />
-            </Typography>
-            {document.controlNumber && (
-              <Typography variant="body2" color="textSecondary" mt={1}>
-                Número de Control: <strong>{document.controlNumber}</strong>
-              </Typography>
-            )}
-          </Box>
-        )}
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Validation Button */}
-        {!validationResults && (
-          <Box mb={2}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleValidate}
-              disabled={loading}
-              fullWidth
-              startIcon={loading ? <CircularProgress size={20} /> : <CheckCircleIcon />}
-            >
-              {loading ? 'Validando...' : 'Validar para SENIAT'}
-            </Button>
-          </Box>
-        )}
-
-        {/* Validation Results */}
-        {validationResults && (
-          <Box mb={2}>
-            <Alert
-              severity={validationResults.valid ? 'success' : 'error'}
-              icon={getStatusIcon(
-                validationResults.valid,
-                validationResults.warnings?.length > 0
-              )}
-            >
-              <Typography variant="subtitle2">
-                {validationResults.valid
-                  ? 'Documento válido para facturación electrónica'
-                  : 'Documento tiene errores de validación'}
-              </Typography>
-            </Alert>
-
-            {/* Errors */}
-            {validationResults.errors && validationResults.errors.length > 0 && (
-              <Box mt={2}>
-                <Typography variant="subtitle2" color="error" gutterBottom>
-                  Errores ({validationResults.errors.length}):
-                </Typography>
-                <List dense>
-                  {validationResults.errors.map((error, index) => (
-                    <ListItem key={index}>
-                      <ListItemIcon>
-                        <ErrorIcon color="error" fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={error}
-                        primaryTypographyProps={{ variant: 'body2' }}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </Box>
-            )}
-
-            {/* Warnings */}
-            {validationResults.warnings && validationResults.warnings.length > 0 && (
-              <Box mt={2}>
-                <Typography variant="subtitle2" color="warning.main" gutterBottom>
-                  Advertencias ({validationResults.warnings.length}):
-                </Typography>
-                <List dense>
-                  {validationResults.warnings.map((warning, index) => (
-                    <ListItem key={index}>
-                      <ListItemIcon>
-                        <WarningIcon color="warning" fontSize="small" />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={warning}
-                        primaryTypographyProps={{ variant: 'body2' }}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </Box>
-            )}
-
-            {/* Actions after validation */}
-            <Box mt={3} display="flex" gap={1}>
-              <Button
-                variant="outlined"
-                onClick={handleValidate}
-                disabled={loading}
-                size="small"
-              >
-                Validar nuevamente
-              </Button>
-              {validationResults.valid && !xmlGenerated && (
-                <Button
-                  variant="contained"
-                  color="success"
-                  onClick={handleGenerateXML}
-                  disabled={loading}
-                  startIcon={loading ? <CircularProgress size={20} /> : <DescriptionIcon />}
-                  size="small"
-                >
-                  Generar XML
-                </Button>
-              )}
-            </Box>
-          </Box>
-        )}
-
-        {/* XML Generated Section */}
-        {xmlGenerated && xmlData && (
-          <>
-            <Divider sx={{ my: 2 }} />
-            <Alert severity="success" sx={{ mb: 2 }}>
-              <Typography variant="subtitle2">
-                XML SENIAT Generado
-              </Typography>
-            </Alert>
-
-            <Box display="flex" flexDirection="column" gap={1}>
-              <Button
-                variant="outlined"
-                startIcon={<QrCodeIcon />}
-                onClick={() => setQrDialogOpen(true)}
-                size="small"
-                fullWidth
-              >
-                Ver Código QR
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={handleDownloadXML}
-                size="small"
-                fullWidth
-              >
-                Descargar XML
-              </Button>
-            </Box>
-
-            {xmlData.xmlHash && (
-              <Box mt={2}>
-                <Typography variant="caption" color="textSecondary">
-                  Hash SHA-256:
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontFamily: 'monospace',
-                    fontSize: '0.7rem',
-                    wordBreak: 'break-all',
-                    bgcolor: (theme) =>
-                      theme.palette.mode === 'dark'
-                        ? alpha(theme.palette.primary.main, 0.12)
-                        : theme.palette.grey[100],
-                    p: 1,
-                    borderRadius: 1,
-                  }}
-                >
-                  {xmlData.xmlHash}
-                </Typography>
-              </Box>
-            )}
-          </>
-        )}
-      </CardContent>
-
-      {/* QR Code Dialog */}
-      <Dialog open={qrDialogOpen} onClose={() => setQrDialogOpen(false)} maxWidth="sm">
-        <DialogTitle>Código QR de Verificación</DialogTitle>
-        <DialogContent>
-          {xmlData?.qrCode && (
-            <Box display="flex" flexDirection="column" alignItems="center" gap={2}>
-              <img
-                src={xmlData.qrCode}
-                alt="QR Code"
-                style={{ maxWidth: '100%', height: 'auto' }}
-              />
-              {xmlData.verificationUrl && (
-                <Box textAlign="center">
-                  <Typography variant="caption" color="textSecondary" gutterBottom>
-                    URL de Verificación:
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      wordBreak: 'break-all',
-                      mt: 1,
-                      p: 1,
-                      bgcolor: (theme) =>
-                        theme.palette.mode === 'dark'
-                          ? alpha(theme.palette.primary.main, 0.12)
-                          : theme.palette.grey[100],
-                      borderRadius: 1,
-                    }}
-                  >
-                    {xmlData.verificationUrl}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
+    <div className="space-y-4">
+      {/* Document Info */}
+      {doc && (
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <div>
+            <span className="text-muted-foreground">Documento:</span>{' '}
+            <span className="font-semibold">{doc.documentNumber}</span>
+          </div>
+          <Badge variant={doc.status === 'issued' ? 'default' : 'secondary'}>
+            {doc.status === 'draft'
+              ? 'Borrador'
+              : doc.status === 'issued'
+                ? 'Emitida'
+                : doc.status === 'sent'
+                  ? 'Enviada'
+                  : doc.status}
+          </Badge>
+          {doc.controlNumber && (
+            <div>
+              <span className="text-muted-foreground">Control:</span>{' '}
+              <span className="font-mono text-xs">{doc.controlNumber}</span>
+            </div>
           )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQrDialogOpen(false)}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
-    </Card>
+        </div>
+      )}
+
+      <Separator />
+
+      {/* Validate Button */}
+      {!validationResults && (
+        <Button onClick={handleValidate} disabled={loading} className="w-full">
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Validando...
+            </>
+          ) : (
+            <>
+              <Shield className="mr-2 h-4 w-4" />
+              Validar para SENIAT
+            </>
+          )}
+        </Button>
+      )}
+
+      {/* Validation Results */}
+      {validationResults && (
+        <div className="space-y-3">
+          <Alert variant={validationResults.valid ? 'default' : 'destructive'}>
+            {validationResults.valid ? (
+              <CheckCircle className="h-4 w-4" />
+            ) : (
+              <XCircle className="h-4 w-4" />
+            )}
+            <AlertTitle>
+              {validationResults.valid
+                ? 'Documento válido'
+                : 'Errores de validación'}
+            </AlertTitle>
+            <AlertDescription>
+              {validationResults.valid
+                ? 'El documento cumple con los requisitos de facturación electrónica SENIAT.'
+                : `Se encontraron ${validationResults.errors.length} error(es) que deben corregirse.`}
+            </AlertDescription>
+          </Alert>
+
+          {/* Errors List */}
+          {validationResults.errors?.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-destructive">
+                Errores ({validationResults.errors.length})
+              </p>
+              <ul className="space-y-1">
+                {validationResults.errors.map((error, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Warnings List */}
+          {validationResults.warnings?.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                Advertencias ({validationResults.warnings.length})
+              </p>
+              <ul className="space-y-1">
+                {validationResults.warnings.map((warning, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                    <span>{warning}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" size="sm" onClick={handleValidate} disabled={loading}>
+              <RefreshCw className="mr-2 h-3.5 w-3.5" />
+              Validar nuevamente
+            </Button>
+            {validationResults.valid && !xmlGenerated && (
+              <Button size="sm" onClick={handleGenerateXML} disabled={loading}>
+                {loading ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileText className="mr-2 h-3.5 w-3.5" />
+                )}
+                Generar XML
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* XML Generated Section */}
+      {xmlGenerated && xmlData && (
+        <>
+          <Separator />
+          <Alert>
+            <CheckCircle className="h-4 w-4" />
+            <AlertTitle>XML SENIAT Generado</AlertTitle>
+            <AlertDescription>
+              El documento fiscal electrónico fue generado exitosamente.
+            </AlertDescription>
+          </Alert>
+
+          <div className="flex flex-col gap-2">
+            <Button variant="outline" size="sm" onClick={handleDownloadXML}>
+              <Download className="mr-2 h-3.5 w-3.5" />
+              Descargar XML
+            </Button>
+          </div>
+
+          {xmlData.xmlHash && (
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Hash SHA-256:</p>
+              <p className="text-xs font-mono bg-muted p-2 rounded-md break-all">
+                {xmlData.xmlHash}
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 };
 

@@ -46,6 +46,9 @@ import { CustomerSegmentationChart } from '@/components/charts/CustomerSegmentat
 import { EmployeePerformanceChart } from '@/components/charts/EmployeePerformanceChart.jsx';
 import { InventoryAttributeTable } from '@/components/tables/InventoryAttributeTable.jsx';
 import { SalesAttributeTable } from '@/components/tables/SalesAttributeTable.jsx';
+import { RubikLoader } from './RubikLoader';
+import { FinancialKpisDashboard } from '@/components/charts/FinancialKpisDashboard.jsx';
+import { CustomAnalytics } from '@/components/charts/CustomAnalytics.jsx';
 
 const statusMap = {
   draft: { label: 'Borrador', colorClassName: 'bg-gray-200 text-gray-800' },
@@ -59,8 +62,8 @@ const statusMap = {
 };
 
 const getStatusBadge = (status) => {
-    const statusInfo = statusMap[status] || { label: status, colorClassName: 'bg-gray-200' };
-    return <Badge className={statusInfo.colorClassName}>{statusInfo.label}</Badge>;
+  const statusInfo = statusMap[status] || { label: status, colorClassName: 'bg-gray-200' };
+  return <Badge className={statusInfo.colorClassName}>{statusInfo.label}</Badge>;
 };
 
 function DashboardView() {
@@ -100,7 +103,7 @@ function DashboardView() {
   }, []);
 
   if (loading) {
-    return <DashboardSkeleton />;
+    return <RubikLoader />;
   }
 
   if (error) {
@@ -114,7 +117,7 @@ function DashboardView() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center">
-        <h2 className="text-3xl font-bold text-foreground">Panel de Control</h2>
+        <div className="text-lg font-semibold text-foreground">Panel de Control</div>
         <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4 mt-4 md:mt-0">
           <Button onClick={() => navigate('/purchases')}>
             <Truck className="mr-2 h-5 w-5" />
@@ -231,6 +234,14 @@ function DashboardView() {
         </div>
       )}
 
+      {/* KPIs Financieros - Vista ejecutiva para dueños de negocio */}
+      <FinancialKpisDashboard />
+
+      {/* Análisis Personalizado - Power BI style (Phase 2) */}
+      <div className="mt-8">
+        <CustomAnalytics />
+      </div>
+
       {flags.DASHBOARD_CHARTS ? (
         <div className="space-y-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -269,11 +280,11 @@ function DashboardView() {
                   <SalesByCategoryChart data={chartData.sales.categories} />
                   {((chartData.sales.attributes?.schema?.length ?? 0) > 0 &&
                     (chartData.sales.attributes?.combinations?.length ?? 0) > 0) ? (
-                      <SalesAttributeTable
-                        schema={chartData.sales.attributes.schema}
-                        combinations={chartData.sales.attributes.combinations}
-                      />
-                    ) : null}
+                    <SalesAttributeTable
+                      schema={chartData.sales.attributes.schema}
+                      combinations={chartData.sales.attributes.combinations}
+                    />
+                  ) : null}
                 </div>
                 <SalesComparisonCard comparison={chartData.sales.comparison} />
               </div>
@@ -373,9 +384,9 @@ function DashboardView() {
                     <span className="font-medium">{alert.productName}</span>
                     {
                       alert.alerts.lowStock ? (
-                          <Badge variant="destructive">Stock Bajo</Badge>
+                        <Badge variant="destructive">Stock Bajo</Badge>
                       ) : alert.alerts.nearExpiration ? (
-                          <Badge variant="secondary">Próximo a Vencer</Badge>
+                        <Badge variant="secondary">Próximo a Vencer</Badge>
                       ) : null
                     }
                   </div>

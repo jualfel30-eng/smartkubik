@@ -12,6 +12,9 @@ import { Order, OrderSchema } from "../../schemas/order.schema";
 import { User, UserSchema } from "../../schemas/user.schema";
 import { Shift, ShiftSchema } from "../../schemas/shift.schema";
 import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
+import { Role, RoleSchema } from "../../schemas/role.schema";
+import { EmployeeProfile, EmployeeProfileSchema } from "../../schemas/employee-profile.schema";
+import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 import { PermissionsModule } from "../permissions/permissions.module";
 
 @Module({
@@ -23,6 +26,9 @@ import { PermissionsModule } from "../permissions/permissions.module";
       { name: User.name, schema: UserSchema },
       { name: Shift.name, schema: ShiftSchema },
       { name: Tenant.name, schema: TenantSchema },
+      { name: "Role", schema: RoleSchema },
+      { name: EmployeeProfile.name, schema: EmployeeProfileSchema },
+      { name: Customer.name, schema: CustomerSchema },
     ]),
     PermissionsModule,
   ],
@@ -30,4 +36,4 @@ import { PermissionsModule } from "../permissions/permissions.module";
   providers: [TipsService, TipsDistributionJob],
   exports: [TipsService],
 })
-export class TipsModule {}
+export class TipsModule { }

@@ -143,10 +143,6 @@ export class SeniatValidationService {
 
     // 3. Customer information
     if (!invoice.customer) {
-      errors.push('Cliente es requerido');
-    }
-
-    if (!invoice.customer) {
       errors.push('Información del cliente es requerida');
     } else {
       if (!invoice.customer.name) {

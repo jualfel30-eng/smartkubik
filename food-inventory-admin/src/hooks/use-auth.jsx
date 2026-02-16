@@ -35,6 +35,7 @@ function normalizeTenant(rawTenant) {
       key: rawTenant.verticalProfile?.key || 'food-service',
       overrides: rawTenant.verticalProfile?.overrides || {},
     },
+    currency: rawTenant.settings?.currency?.primary || 'USD',
     aiAssistant: {
       autoReplyEnabled: Boolean(aiAssistant.autoReplyEnabled),
       knowledgeBaseTenantId: aiAssistant.knowledgeBaseTenantId || '',
@@ -125,9 +126,89 @@ export const AuthProvider = ({ children }) => {
   // Este useEffect ya no es necesario para la inicialización,
   // porque ahora se hace en el useState inicial.
   // Lo mantenemos vacío para evitar warnings de dependencias.
+  // Refresh session on mount validation
+  const refreshSession = async () => {
+    try {
+      if (!token) return;
+
+      const response = await fetchApi('/auth/profile');
+
+      // Update User
+      setUser(response);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(response));
+
+      // Refresh Memberships from dedicated endpoint
+      try {
+        const membershipsResponse = await fetchApi('/auth/memberships');
+        if (membershipsResponse && membershipsResponse.success && Array.isArray(membershipsResponse.data)) {
+          setMemberships(membershipsResponse.data);
+          localStorage.setItem(STORAGE_KEYS.MEMBERSHIPS, JSON.stringify(membershipsResponse.data));
+          console.log('Memberships refreshed:', membershipsResponse.data);
+        }
+      } catch (memError) {
+        console.error('Failed to refresh memberships:', memError);
+      }
+
+      // Old logic commented out
+      /*
+      // Note: If /auth/me doesn't return memberships, we rely on the implementation below.
+      // Ideally, the backend /auth/me should return everything or we call a dedicated endpoint.
+      // Based on login logic, memberships come with login. Let's try to get them.
+      
+      // If /auth/me only returns user, we might be missing memberships updates.
+      // However, usually detailed session info includes it. 
+      // Let's assume for now we need to trigger a token refresh flow or similar if /auth/me is limited.
+      // But looking at login response, it seems robust.
+      // For now, let's trust that if we have a token, we can at least validate the user.
+      
+      // CRITICAL: The issue is memberships are stale.
+      // If /auth/me doesn't return memberships, we might need /users/me/memberships.
+      // Let's check if we can assume response has it or if we need to fetch organizations.
+      // Actually, fetching organizations list might be safer to sync memberships.
+      
+      const orgsResponse = await fetchApi('/organizations');
+      // If orgsResponse is the list of organizations, we can map them to memberships structure if needed,
+      // OR we just rely on the fact that OrganizationSelector fetches /organizations itself?
+      // Wait, OrganizationSelector uses `memberships` from useAuth.
+      // And `memberships` are set in `useAuth` from `localStorage`.
+      
+      // We need to update `memberships` state.
+      // Let's fetch /users/me/tenants or /auth/refresh if available.
+      // Since we don't know the exact endpoint for memberships, let's try to infer from typical structure
+      // or just assume /auth/me might have it.
+      
+      if (response.memberships) {
+        setMemberships(response.memberships);
+        localStorage.setItem(STORAGE_KEYS.MEMBERSHIPS, JSON.stringify(response.memberships));
+      } else {
+        // Fallback: if /auth/me didn't return memberships, we must force a reload?
+        // Let's actually use the loginWithTokens logic if we had a refresh token endpoint.
+        // But we don't.
+      
+        // Let's try to fetch /organizations and rebuild memberships if the backend supports it.
+        // But memberships have roles, etc. Simple /organizations might not be enough.
+      
+        // Strategy: Force a deeper refresh if possible.
+        // For now, let's just make sure we at least try to update user.
+        console.log('Session refreshed', response);
+      }
+            */
+
+    } catch (error) {
+      console.error('Failed to refresh session:', error);
+      // If 401, logout
+      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        logout();
+      }
+    }
+  };
+
   useEffect(() => {
     // Inicialización ahora en useState
-  }, []);
+    if (token) {
+      refreshSession();
+    }
+  }, [token]);
 
   const login = async (email, password, tenantCode) => {
     try {
@@ -554,7 +635,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem(STORAGE_KEYS.LAST_LOCATION);
   };
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     tenant,
     tenantConfirmed: tenant ? tenant.isConfirmed !== false : true,
@@ -574,7 +655,22 @@ export const AuthProvider = ({ children }) => {
     saveLastLocation,
     getLastLocation,
     clearLastLocation,
-  };
+    refreshSession,
+  }), [
+    user,
+    tenant,
+    token,
+    memberships,
+    activeMembershipId,
+    isSwitchingTenant,
+    isAuthenticated,
+    multiTenantEnabled,
+    permissions,
+  ]);
+
+  useEffect(() => {
+    // Inicialización ahora en useState
+  }, []);
 
   return (
     <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

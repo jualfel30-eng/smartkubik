@@ -14,6 +14,7 @@ import ChangePasswordForm from './ChangePasswordForm'; // Importar ChangePasswor
 import UsageAndBilling from './UsageAndBilling'; // Importar UsageAndBilling
 import { DeliverySettings } from './DeliverySettings'; // Importar DeliverySettings
 import { NotificationSettings } from './NotificationSettings';
+import { UserNotificationPreferences } from './UserNotificationPreferences';
 import WhatsAppConnection from './WhatsAppConnection'; // Importar WhatsAppConnection
 import { useAuth } from '@/hooks/use-auth.jsx'; // Importar useAuth
 import TenantKnowledgeBaseManager from './TenantKnowledgeBaseManager';
@@ -26,6 +27,8 @@ import { getAvailableCountries } from '@/country-plugins/registry';
 
 const initialSettings = {
   name: '',
+  ownerFirstName: '',
+  ownerLastName: '',
   website: '',
   logo: '',
   countryCode: 'VE',
@@ -58,6 +61,9 @@ const initialSettings = {
   taxInfo: {
     rif: '',
     businessName: '',
+    isRetentionAgent: false,
+    taxpayerType: 'ordinario',
+    specialTaxpayerWithholdingRate: 75,
   },
   settings: {
     currency: {
@@ -321,7 +327,8 @@ const SettingsPage = () => {
           applySettingsData(response.data);
           updateTenantContext?.({
             name: response.data.name,
-            contactInfo: response.data.contactInfo,
+            ownerFirstName: response.data.ownerFirstName,
+            ownerLastName: response.data.ownerLastName, contactInfo: response.data.contactInfo,
             taxInfo: response.data.taxInfo,
             verticalProfile: {
               key: response.data.verticalProfile?.key || settings.verticalProfile.key,
@@ -500,7 +507,9 @@ const SettingsPage = () => {
                   <CardDescription>Datos principales de tu empresa.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>Nombre del Negocio</Label><Input name="name" value={settings.name} onChange={handleInputChange} /></div>
+                  <div className="space-y-2"><Label>Nombre del Propietario</Label><Input name="ownerFirstName" value={settings.ownerFirstName || ''} onChange={handleInputChange} placeholder="Nombre" /></div>
+                  <div className="space-y-2"><Label>Apellido del Propietario</Label><Input name="ownerLastName" value={settings.ownerLastName || ''} onChange={handleInputChange} placeholder="Apellido" /></div>
+                  <div className="space-y-2 md:col-span-2"><Label>Nombre del Negocio</Label><Input name="name" value={settings.name} onChange={handleInputChange} /></div>
                   <div className="space-y-2"><Label>Sitio Web</Label><Input name="website" value={settings.website} onChange={handleInputChange} /></div>
                   <div className="space-y-2"><Label>Email de Contacto</Label><Input name="contactInfo.email" value={settings.contactInfo.email} onChange={handleInputChange} /></div>
                   <div className="space-y-2"><Label>Teléfono</Label><Input name="contactInfo.phone" value={settings.contactInfo.phone} onChange={handleInputChange} /></div>
@@ -608,10 +617,82 @@ const SettingsPage = () => {
               <Card>
                 <CardHeader>
                   <CardTitle>Información Fiscal</CardTitle>
+                  <CardDescription>Datos fiscales y configuración de retenciones SENIAT</CardDescription>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label>RIF</Label><Input name="taxInfo.rif" value={settings.taxInfo.rif} onChange={handleInputChange} /></div>
-                  <div className="space-y-2"><Label>Razón Social</Label><Input name="taxInfo.businessName" value={settings.taxInfo.businessName} onChange={handleInputChange} /></div>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label>RIF</Label><Input name="taxInfo.rif" value={settings.taxInfo.rif} onChange={handleInputChange} /></div>
+                    <div className="space-y-2"><Label>Razón Social</Label><Input name="taxInfo.businessName" value={settings.taxInfo.businessName} onChange={handleInputChange} /></div>
+                  </div>
+
+                  <div className="border-t pt-4 mt-4">
+                    <Label className="text-sm font-semibold mb-3 block">Retención de IVA</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                          <Label className="text-sm">Agente de Retención</Label>
+                          <p className="text-xs text-muted-foreground">¿Su empresa está designada como agente de retención de IVA por el SENIAT?</p>
+                        </div>
+                        <Switch
+                          name="taxInfo.isRetentionAgent"
+                          checked={settings.taxInfo.isRetentionAgent || false}
+                          onCheckedChange={(c) => handleSwitchChange('taxInfo.isRetentionAgent', c)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tipo de Contribuyente</Label>
+                        <Select
+                          value={settings.taxInfo.taxpayerType || 'ordinario'}
+                          onValueChange={(value) => {
+                            setSettings(prev => ({
+                              ...prev,
+                              taxInfo: { ...prev.taxInfo, taxpayerType: value }
+                            }));
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccione tipo..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ordinario">Contribuyente Ordinario</SelectItem>
+                            <SelectItem value="especial">Contribuyente Especial</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          {settings.taxInfo.taxpayerType === 'especial'
+                            ? 'Designado por el SENIAT como Contribuyente Especial.'
+                            : 'Al vender a un Contribuyente Especial, se retendrá el 75% del IVA.'
+                          }
+                        </p>
+                      </div>
+
+                      {settings.taxInfo.taxpayerType === 'especial' && (
+                        <div className="space-y-2">
+                          <Label>Porcentaje de Retención de IVA</Label>
+                          <Select
+                            value={String(settings.taxInfo.specialTaxpayerWithholdingRate || 75)}
+                            onValueChange={(value) => {
+                              setSettings(prev => ({
+                                ...prev,
+                                taxInfo: { ...prev.taxInfo, specialTaxpayerWithholdingRate: Number(value) }
+                              }));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="75">75% — Retención parcial</SelectItem>
+                              <SelectItem value="100">100% — Retención total</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            Según su designación SENIAT, al vender a otro Contribuyente Especial se retendrá el {settings.taxInfo.specialTaxpayerWithholdingRate || 75}% del IVA.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -620,7 +701,17 @@ const SettingsPage = () => {
                   <CardTitle>Configuraciones Varias</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2"><Label>Moneda Principal</Label><Input name="settings.currency.primary" value={settings.settings.currency.primary} onChange={handleInputChange} /></div>
+                  <div className="space-y-2">
+                    <Label>Moneda Principal (Divisa)</Label>
+                    <Select value={settings.settings.currency.primary || 'USD'} onValueChange={(value) => setNestedValue('settings.currency.primary', value)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD — Dólar Estadounidense ($)</SelectItem>
+                        <SelectItem value="EUR">EUR — Euro (€)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Define la moneda extranjera principal para precios y cobros (tasa BCV)</p>
+                  </div>
                   <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
                     <Label>Habilitar Inventario FEFO (First-Expires, First-Out)</Label>
                     <Switch name="settings.inventory.fefoEnabled" checked={settings.settings.inventory.fefoEnabled} onCheckedChange={(c) => handleSwitchChange('settings.inventory.fefoEnabled', c)} />
@@ -733,6 +824,21 @@ const SettingsPage = () => {
                       Estándar para facturas normales, Térmica para tickets de caja. Los montos se mostrarán en USD y Bs usando el tipo de cambio del BCV.
                     </p>
                   </div>
+
+                  {settings.settings.invoiceFormat === 'thermal' && (
+                    <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm mt-4">
+                      <div className="space-y-0.5">
+                        <Label>Imprimir Logo en Ticket Térmico</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Ocultar para ahorrar papel y tinta en impresoras de recibos.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={settings.settings.billingPreferences?.printLogoOnThermal !== false}
+                        onCheckedChange={(checked) => handleSwitchChange('settings.billingPreferences.printLogoOnThermal', checked)}
+                      />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -897,14 +1003,17 @@ const SettingsPage = () => {
           </div>
         </TabsContent>
         <TabsContent value="notifications" className="mt-10">
-          <NotificationSettings
-            settings={settings.settings}
-            onSettingChange={(newPrefs) => setNestedValue('settings.notifications', newPrefs)}
-          />
-          <div className="mt-6 flex justify-end">
-            <Button size="lg" onClick={handleSaveSettings} disabled={isSaving}>
-              {isSaving ? 'Guardando...' : 'Guardar Configuración'}
-            </Button>
+          <div className="space-y-8">
+            <UserNotificationPreferences />
+            <NotificationSettings
+              settings={settings.settings}
+              onSettingChange={(newPrefs) => setNestedValue('settings.notifications', newPrefs)}
+            />
+            <div className="flex justify-end">
+              <Button size="lg" onClick={handleSaveSettings} disabled={isSaving}>
+                {isSaving ? 'Guardando...' : 'Guardar Configuración'}
+              </Button>
+            </div>
           </div>
         </TabsContent>
         <TabsContent value="email" className="mt-10">

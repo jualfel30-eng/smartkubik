@@ -136,9 +136,9 @@ export default function TenantEditForm({ tenant, onSave, onCancel }) {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="trial">Trial</SelectItem>
-                      <SelectItem value="basic">Basic</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                      <SelectItem value="fundamental">Fundamental</SelectItem>
+                      <SelectItem value="crecimiento">Crecimiento</SelectItem>
+                      <SelectItem value="expansion">Expansión</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

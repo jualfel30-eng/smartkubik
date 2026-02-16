@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog.jsx';
 import { Button } from '@/components/ui/button.jsx';
+import { Input } from '@/components/ui/input.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Label } from '@/components/ui/label.jsx';
@@ -11,6 +12,7 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
   const [hoverRating, setHoverRating] = useState(0);
   const [reason, setReason] = useState('');
   const [comments, setComments] = useState('');
+  const [receivedBy, setReceivedBy] = useState('');
 
   const isOneStar = rating === 1;
   const isOtherReason = reason === 'Otro';
@@ -23,6 +25,7 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
       rating,
       reason: isOneStar ? reason : undefined,
       comments,
+      receivedBy,
     });
     resetState();
   };
@@ -37,6 +40,7 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
     setHoverRating(0);
     setReason('');
     setComments('');
+    setReceivedBy('');
   };
 
   return (
@@ -55,9 +59,8 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                   key={star}
-                  className={`cursor-pointer h-8 w-8 ${
-                    (hoverRating || rating) >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
-                  }`}
+                  className={`cursor-pointer h-8 w-8 ${(hoverRating || rating) >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
+                    }`}
                   onMouseEnter={() => setHoverRating(star)}
                   onMouseLeave={() => setHoverRating(0)}
                   onClick={() => setRating(star)}
@@ -86,6 +89,15 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
               </Select>
             </div>
           )}
+
+          <div className="space-y-2">
+            <Label>Recibido por</Label>
+            <Input
+              value={receivedBy}
+              onChange={(e) => setReceivedBy(e.target.value)}
+              placeholder="Nombre de quien recibe"
+            />
+          </div>
 
           <div className="space-y-2">
             <Label>Comentarios {isOneStar && isOtherReason ? '' : '(Opcional)'}</Label>

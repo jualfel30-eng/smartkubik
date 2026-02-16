@@ -404,6 +404,23 @@ export class PermissionsSeed {
       module: "payroll",
     },
 
+    // Tips Module (CORE - available for all verticals)
+    {
+      name: "tips_read",
+      description: "Ver propinas/comisiones",
+      module: "tips",
+    },
+    {
+      name: "tips_write",
+      description: "Registrar y gestionar propinas/comisiones",
+      module: "tips",
+    },
+    {
+      name: "tips_distribute",
+      description: "Distribuir propinas/comisiones",
+      module: "tips",
+    },
+
     // CRM / Opportunities (Phase 1.2)
     {
       name: "opportunities_read",
@@ -429,6 +446,133 @@ export class PermissionsSeed {
       name: "opportunities_view_all",
       description: "Ver todas las oportunidades del tenant (Manager)",
       module: "opportunities",
+    },
+
+    // Commissions Module
+    {
+      name: "commissions_read",
+      description: "Ver planes y registros de comisiones",
+      module: "commissions",
+    },
+    {
+      name: "commissions_write",
+      description: "Crear y gestionar planes de comisiones",
+      module: "commissions",
+    },
+    {
+      name: "commissions_approve",
+      description: "Aprobar o rechazar comisiones pendientes",
+      module: "commissions",
+    },
+
+    // Goals Module
+    {
+      name: "goals_read",
+      description: "Ver metas de ventas y progreso",
+      module: "goals",
+    },
+    {
+      name: "goals_write",
+      description: "Crear y gestionar metas de ventas",
+      module: "goals",
+    },
+
+    // Bonuses Module
+    {
+      name: "bonuses_read",
+      description: "Ver bonos de empleados",
+      module: "bonuses",
+    },
+    {
+      name: "bonuses_write",
+      description: "Crear y gestionar bonos de empleados",
+      module: "bonuses",
+    },
+    {
+      name: "bonuses_approve",
+      description: "Aprobar o rechazar bonos pendientes",
+      module: "bonuses",
+    },
+
+    // Cash Register Module (Cierre de Caja)
+    {
+      name: "cash_register_read",
+      description: "Ver sesiones y cierres de caja",
+      module: "cash_register",
+    },
+    {
+      name: "cash_register_open",
+      description: "Abrir sesión de caja",
+      module: "cash_register",
+    },
+    {
+      name: "cash_register_write",
+      description: "Registrar movimientos de efectivo",
+      module: "cash_register",
+    },
+    {
+      name: "cash_register_close",
+      description: "Cerrar sesión de caja",
+      module: "cash_register",
+    },
+    {
+      name: "cash_register_admin",
+      description: "Administrar todas las cajas y cierres globales",
+      module: "cash_register",
+    },
+    {
+      name: "cash_register_approve",
+      description: "Aprobar o rechazar cierres de caja",
+      module: "cash_register",
+    },
+    {
+      name: "cash_register_reports",
+      description: "Ver reportes de cierres de caja",
+      module: "cash_register",
+    },
+    {
+      name: "cash_register_export",
+      description: "Exportar cierres de caja (PDF, Excel, CSV)",
+      module: "cash_register",
+    },
+
+    // Billing Module (Facturación Electrónica)
+    {
+      name: "billing_read",
+      description: "Ver facturas y documentos fiscales",
+      module: "billing",
+    },
+    {
+      name: "billing_create",
+      description: "Crear facturas y documentos fiscales",
+      module: "billing",
+    },
+    {
+      name: "billing_void",
+      description: "Anular facturas y documentos fiscales",
+      module: "billing",
+    },
+
+    // Appointments Module (Citas/Reservaciones)
+    {
+      name: "appointments_read",
+      description: "Ver citas y reservaciones",
+      module: "appointments",
+    },
+    {
+      name: "appointments_create",
+      description: "Crear citas y reservaciones",
+      module: "appointments",
+    },
+    {
+      name: "appointments_update",
+      description: "Actualizar citas y reservaciones",
+      module: "appointments",
+    },
+    {
+      name: "appointments_delete",
+      description: "Eliminar citas y reservaciones",
+      module: "appointments",
     },
   ];
 

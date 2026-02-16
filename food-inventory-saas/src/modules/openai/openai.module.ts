@@ -1,9 +1,17 @@
-import { Module, forwardRef } from "@nestjs/common";
+import { Module } from "@nestjs/common";
+import { MongooseModule } from "@nestjs/mongoose";
 import { OpenaiService } from "./openai.service";
-import { SuperAdminModule } from "../super-admin/super-admin.module";
+import {
+  GlobalSetting,
+  GlobalSettingSchema,
+} from "../../schemas/global-settings.schema";
 
 @Module({
-  imports: [forwardRef(() => SuperAdminModule)], // It needs access to SuperAdminService
+  imports: [
+    MongooseModule.forFeature([
+      { name: GlobalSetting.name, schema: GlobalSettingSchema },
+    ]),
+  ],
   providers: [OpenaiService],
   exports: [OpenaiService],
 })

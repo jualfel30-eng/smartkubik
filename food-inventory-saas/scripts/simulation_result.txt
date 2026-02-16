@@ -1,0 +1,6 @@
+
+    Simulation Result: SUCCESS
+    Total Tips Distributed: 10
+    Tip Amount Expected: 5
+    Employee Report (MeseroTest): 3.33
+    

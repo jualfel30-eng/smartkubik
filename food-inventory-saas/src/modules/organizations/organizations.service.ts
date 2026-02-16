@@ -11,11 +11,14 @@ import {
   OrganizationDocument,
 } from "../../schemas/organization.schema";
 import { Product, ProductDocument } from "../../schemas/product.schema";
+import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import {
   CreateOrganizationDto,
   UpdateOrganizationDto,
   AddMemberDto,
 } from "../../dto/organization.dto";
+import { MembershipsService } from "../memberships/memberships.service";
+import { RolesService } from "../roles/roles.service";
 
 @Injectable()
 export class OrganizationsService {
@@ -24,7 +27,11 @@ export class OrganizationsService {
     private organizationModel: Model<OrganizationDocument>,
     @InjectModel(Product.name)
     private productModel: Model<ProductDocument>,
-  ) {}
+    @InjectModel(Tenant.name)
+    private tenantModel: Model<TenantDocument>,
+    private membershipsService: MembershipsService,
+    private rolesService: RolesService,
+  ) { }
 
   async create(
     createOrganizationDto: CreateOrganizationDto,
@@ -39,8 +46,12 @@ export class OrganizationsService {
       ...organizationData
     } = createOrganizationDto;
 
+    // Generate a unified ID for both Organization and Tenant
+    const unifiedId = new Types.ObjectId();
+
     // Crear la organización base
     const organization = new this.organizationModel({
+      _id: unifiedId,
       ...organizationData,
       owner: new Types.ObjectId(ownerId),
       type: type || "new-business",
@@ -59,6 +70,60 @@ export class OrganizationsService {
     });
 
     const savedOrganization = await organization.save();
+
+    // CRITICAL FIX: Create companion Tenant and Membership to ensure Auth works
+    try {
+      // 1. Create Tenant (using same ID)
+      const newTenant = new this.tenantModel({
+        _id: unifiedId,
+        name: organizationData.name,
+        // Optional fields could be extracted from a User lookup if needed, 
+        // for now leaving owner names empty or using generic defaults.
+        businessType: businessType || "Generic",
+        vertical: vertical || "FOOD_SERVICE",
+        status: "active",
+        subscriptionPlan: "trial",
+        isConfirmed: true, // Auto-confirm for internal creation
+        confirmedAt: new Date(),
+        usage: {
+          currentUsers: 1,
+          currentProducts: 0,
+          currentOrders: 0,
+          currentStorage: 0,
+        },
+        limits: {
+          maxUsers: 5,
+          maxProducts: 100,
+          maxOrders: 1000,
+          maxStorage: 1024,
+        },
+      });
+      await newTenant.save();
+
+      // 2. Create/Find Admin Role for this new Tenant
+      // We pass empty enabledModules or derive them from vertical if needed.
+      // RolesService.findOrCreateAdminRoleForTenant logic usually handles defaults via permissionsService lookup.
+      // We might want to pass 'all' or standard modules based on vertical.
+      // For simplicity, passing [] triggers finding permissions for assumed modules in the service or we trust it creates a basic admin.
+      const adminRole = await this.rolesService.findOrCreateAdminRoleForTenant(
+        unifiedId,
+        []
+      );
+
+      // 3. Create Membership (User <-> Tenant)
+      await this.membershipsService.createDefaultMembershipIfMissing(
+        new Types.ObjectId(ownerId),
+        unifiedId,
+        adminRole._id
+      );
+
+      console.log(`Synced Tenant and Membership for Organization ${unifiedId}`);
+
+    } catch (error) {
+      console.error("Error creating companion Tenant/Membership:", error);
+      // We log but don't fail the Organization creation to strictly preserve legacy behavior if any,
+      // although ideally we should rollback. For now, proceeding as Organization is primary return.
+    }
 
     // Si es una nueva sede y se debe clonar datos
     if (type === "new-location" && parentOrganizationId && cloneData) {

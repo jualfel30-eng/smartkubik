@@ -80,6 +80,23 @@ export class TaxInfoDto {
   @IsOptional()
   @SanitizeString()
   businessName: string;
+
+  @ApiPropertyOptional({ example: true, description: "Si el tenant es agente de retención de IVA" })
+  @IsOptional()
+  @IsBoolean()
+  isRetentionAgent?: boolean;
+
+  @ApiPropertyOptional({ example: "especial", description: "Tipo de contribuyente: ordinario o especial", enum: ["ordinario", "especial"] })
+  @IsOptional()
+  @IsString()
+  @IsIn(["ordinario", "especial"])
+  taxpayerType?: string;
+
+  @ApiPropertyOptional({ example: 75, description: "Porcentaje de retención de IVA (75 o 100) — solo aplica si es Contribuyente Especial", enum: [75, 100] })
+  @IsOptional()
+  @IsNumber()
+  @IsIn([75, 100])
+  specialTaxpayerWithholdingRate?: number;
 }
 
 export class CurrencySettingsDto {
@@ -375,6 +392,30 @@ export class BillingPreferencesDto {
   printers?: {
     receiptPrinterIp?: string;
   };
+
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  printLogoOnThermal?: boolean;
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      "Genera y emite factura automáticamente al registrar pago completo de una orden",
+  })
+  @IsOptional()
+  @IsBoolean()
+  autoInvoiceOnPayment?: boolean;
+
+  @ApiPropertyOptional({
+    example: "invoice",
+    description:
+      "Tipo de documento fiscal a generar automáticamente: invoice (factura) o delivery_note (nota de entrega)",
+    enum: ["invoice", "delivery_note"],
+  })
+  @IsOptional()
+  @IsIn(["invoice", "delivery_note"])
+  autoInvoiceDocumentType?: "invoice" | "delivery_note";
 }
 
 export class NotificationSettingsDto {
@@ -588,6 +629,18 @@ export class UpdateTenantSettingsDto {
   @IsOptional()
   @SanitizeString()
   name?: string;
+
+  @ApiProperty({ example: "Juan" })
+  @IsString()
+  @IsOptional()
+  @SanitizeString()
+  ownerFirstName?: string;
+
+  @ApiProperty({ example: "Pérez" })
+  @IsString()
+  @IsOptional()
+  @SanitizeString()
+  ownerLastName?: string;
 
   @ApiProperty({ type: ContactInfoDto })
   @IsOptional()

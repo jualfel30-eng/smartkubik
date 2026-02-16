@@ -94,6 +94,23 @@ export class Payment {
   @Prop({ type: Number })
   serviceFee?: number; // Comisión de servicio
 
+  // === Cash Tender & Change Tracking ===
+  @Prop({ type: Number })
+  amountTendered?: number; // Monto entregado por el cliente (solo para cash)
+
+  @Prop({ type: Number, default: 0 })
+  changeGiven?: number; // Vuelto dado al cliente (solo para cash)
+
+  @Prop({ type: Object })
+  changeGivenBreakdown?: {
+    usd: number;           // Vuelto en USD (efectivo)
+    ves: number;           // Vuelto en VES (efectivo o digital)
+    vesMethod?: string;    // 'efectivo_ves' | 'pago_movil_ves'
+  };
+
+  @Prop({ type: Boolean, default: false })
+  isLegacyPayment?: boolean; // Marca pagos anteriores a esta feature
+
   // === Robustez / Nuevos campos ===
   @Prop({ type: String, index: true })
   idempotencyKey?: string;

@@ -186,8 +186,9 @@ export class CustomersController {
           ? Number(maxAmount)
           : undefined;
 
+      // Query orders collection directly (always has data)
       const transactions =
-        await this.transactionHistoryService.getCustomerTransactionHistory(
+        await this.customersService.getCustomerOrderHistory(
           id,
           req.user.tenantId,
           {
@@ -196,8 +197,6 @@ export class CustomersController {
             status,
             minAmount: sanitizedMinAmount,
             maxAmount: sanitizedMaxAmount,
-            productId,
-            category,
           },
         );
 
@@ -226,21 +225,9 @@ export class CustomersController {
   })
   async getTransactionStats(@Param("id") id: string, @Request() req) {
     try {
-      const stats =
-        await this.transactionHistoryService.getCustomerTransactionStats(
-          id,
-          req.user.tenantId,
-        );
-
-      const topProducts =
-        await this.transactionHistoryService.getTopProductsByCustomer(
-          id,
-          req.user.tenantId,
-          5,
-        );
-
-      const avgOrderValue =
-        await this.transactionHistoryService.getAverageOrderValue(
+      // Query orders collection directly (always has data)
+      const statsWithProducts =
+        await this.customersService.getCustomerOrderStats(
           id,
           req.user.tenantId,
         );
@@ -248,11 +235,7 @@ export class CustomersController {
       return {
         success: true,
         message: "Estadísticas obtenidas exitosamente",
-        data: {
-          ...stats,
-          averageOrderValue: avgOrderValue,
-          topProducts,
-        },
+        data: statsWithProducts,
       };
     } catch (error) {
       throw new HttpException(

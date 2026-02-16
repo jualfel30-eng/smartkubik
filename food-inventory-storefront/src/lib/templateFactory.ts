@@ -1,9 +1,11 @@
 import ModernEcommerce from '@/templates/ModernEcommerce';
 import ModernServices from '@/templates/ModernServices';
+import PremiumStorefront from '@/templates/PremiumStorefront';
 
 const TEMPLATES = {
   'modern-ecommerce': ModernEcommerce,
   'modern-services': ModernServices,
+  'premium': PremiumStorefront,
   // Alias para compatibilidad con backend
   'ecommerce': ModernEcommerce,
   'services': ModernServices,

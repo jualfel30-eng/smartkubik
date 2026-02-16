@@ -12,11 +12,13 @@ import {
 } from "../../schemas/inventory.schema";
 import { Product, ProductSchema } from "../../schemas/product.schema"; // Import Product schema
 import { Warehouse, WarehouseSchema } from "../../schemas/warehouse.schema";
+import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
 import { RolesModule } from "../roles/roles.module";
 import { InventoryMovementsService } from "./inventory-movements.service";
 import { InventoryMovementsController } from "./inventory-movements.controller";
 import { InventoryAlertsService } from "./inventory-alerts.service";
 import { InventoryAlertsController } from "./inventory-alerts.controller";
+import { InventoryReceiptPdfService } from "./inventory-receipt-pdf.service";
 import {
   InventoryAlertRule,
   InventoryAlertRuleSchema,
@@ -33,11 +35,12 @@ import {
       { name: InventoryMovement.name, schema: InventoryMovementSchema },
       { name: Product.name, schema: ProductSchema }, // Add ProductModel to feature module
       { name: Warehouse.name, schema: WarehouseSchema },
+      { name: Tenant.name, schema: TenantSchema },
       { name: InventoryAlertRule.name, schema: InventoryAlertRuleSchema },
     ]),
   ],
   controllers: [InventoryController, InventoryMovementsController, InventoryAlertsController],
-  providers: [InventoryService, InventoryMovementsService, InventoryAlertsService],
-  exports: [InventoryService, InventoryMovementsService, InventoryAlertsService],
+  providers: [InventoryService, InventoryMovementsService, InventoryAlertsService, InventoryReceiptPdfService],
+  exports: [InventoryService, InventoryMovementsService, InventoryAlertsService, InventoryReceiptPdfService],
 })
-export class InventoryModule {}
+export class InventoryModule { }
