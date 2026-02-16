@@ -34,8 +34,14 @@ import {
   deleteTaxSettings,
   seedDefaultTaxes,
 } from '../../lib/api';
+import { useCountryPlugin } from '../../country-plugins/CountryPluginContext';
 
 const TaxSettingsManager = () => {
+  const plugin = useCountryPlugin();
+  const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
+  const defaultTaxType = defaultTax?.type ?? 'IVA';
+  const defaultTaxRate = defaultTax?.rate ?? 16;
+
   const [taxSettings, setTaxSettings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -322,7 +328,7 @@ const TaxSettingsManager = () => {
                   name="code"
                   value={formData.code}
                   onChange={handleChange}
-                  placeholder="IVA-16"
+                  placeholder={`${defaultTaxType}-${defaultTaxRate}`}
                 />
               </Grid>
 
@@ -333,7 +339,7 @@ const TaxSettingsManager = () => {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="IVA General 16%"
+                  placeholder={`${defaultTaxType} General ${defaultTaxRate}%`}
                 />
               </Grid>
 

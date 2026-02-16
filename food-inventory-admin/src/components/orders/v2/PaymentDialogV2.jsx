@@ -18,6 +18,8 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
   const plugin = useCountryPlugin();
   const primaryCurrency = plugin.currencyEngine.getPrimaryCurrency();
   const numberLocale = plugin.localeProvider.getNumberLocale();
+  const transactionTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
+  const igtfRate = transactionTax ? transactionTax.rate / 100 : 0.03;
 
   const [paymentMode, setPaymentMode] = useState('single');
   const [singlePayment, setSinglePayment] = useState({ method: '', reference: '', bankAccountId: '' });
@@ -248,7 +250,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
         totalVES += rawAmount;
       } else {
         // Monto ingresado en USD
-        const lineIgtf = rawAmount * 0.03;
+        const lineIgtf = rawAmount * igtfRate;
         igtf += lineIgtf;
         subtotalUSD += rawAmount; // This is the amount paid. It already INCLUDES the IGTF coverage if the user intended it.
         totalVES += rawAmount * rateForCalc;
@@ -558,7 +560,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                 // Si es VES, el monto ingresado ya está en Bs. Si es USD, convertir a Bs
                 const lineAmountVes = lineIsVes ? lineAmount : lineAmount * rate;
                 const lineAmountUsd = lineIsVes ? lineAmount / rate : lineAmount;
-                const lineIgtf = lineIsVes ? 0 : lineAmount * 0.03;
+                const lineIgtf = lineIsVes ? 0 : lineAmount * igtfRate;
                 const filteredAccounts = bankAccounts.filter(account =>
                   account.acceptedPaymentMethods &&
                   account.acceptedPaymentMethods.includes(mapPaymentMethodToName(line.method))
@@ -569,7 +571,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                 const currentTotalIGTF = mixedPayments.reduce((sum, p) => {
                   const pIsVes = isVesMethod(p.method);
                   const pRaw = Number(p.amount) || 0;
-                  return sum + (pIsVes ? 0 : pRaw * 0.03);
+                  return sum + (pIsVes ? 0 : pRaw * igtfRate);
                 }, 0);
 
                 const dynamicTotalRequired = remainingAmount + currentTotalIGTF;
