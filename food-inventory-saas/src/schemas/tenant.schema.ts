@@ -441,6 +441,9 @@ export class Tenant {
   @Prop({ type: String })
   website?: string;
 
+  @Prop({ type: String, default: 'VE' })
+  countryCode: string;
+
   @Prop({ type: String, default: "America/Caracas" })
   timezone: string;
 

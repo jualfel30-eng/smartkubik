@@ -117,6 +117,7 @@ import { ActivitiesModule } from "./modules/activities/activities.module";
 import { RemindersModule } from "./modules/reminders/reminders.module";
 import { TenantPaymentConfigModule } from "./modules/tenant-payment-config/tenant-payment-config.module";
 import { BinancePayModule } from "./modules/binance-pay/binance-pay.module";
+import { CountryPluginModule } from "./country-plugins/country-plugin.module";
 
 import { Redis } from "ioredis";
 
@@ -437,6 +438,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
           inject: [ConfigService],
         }),
       ]),
+    CountryPluginModule,
     FeatureFlagsGlobalModule,
     FeatureFlagsModule,
     HealthModule,

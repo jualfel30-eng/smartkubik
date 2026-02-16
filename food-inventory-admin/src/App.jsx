@@ -78,6 +78,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CrmProvider } from './context/CrmContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
 import { NotificationProvider, useNotification } from './context/NotificationContext.jsx';
+import { CountryPluginProvider } from './country-plugins/CountryPluginContext.jsx';
 import { TenantPickerDialog } from '@/components/auth/TenantPickerDialog.jsx';
 import {
   Sidebar,
@@ -1308,9 +1309,11 @@ function App() {
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
         <MuiThemeBridge>
           <AuthProvider>
-            <NotificationProvider>
-              <AppContent />
-            </NotificationProvider>
+            <CountryPluginProvider>
+              <NotificationProvider>
+                <AppContent />
+              </NotificationProvider>
+            </CountryPluginProvider>
           </AuthProvider>
         </MuiThemeBridge>
       </ThemeProvider>

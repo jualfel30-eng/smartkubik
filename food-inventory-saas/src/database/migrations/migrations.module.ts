@@ -6,6 +6,7 @@ import { PopulateTransactionHistoryMigration } from "./populate-transaction-hist
 import { RebuildProductAffinityMigration } from "./rebuild-product-affinity.migration";
 import { SeedDefaultWarehousesMigration } from "./seed-default-warehouses.migration";
 import { LinkPaymentsToOrdersMigration } from "./link-payments-to-orders.migration";
+import { AddCountryCodeMigration } from "./add-country-code.migration";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import { Payment, PaymentSchema } from "../../schemas/payment.schema";
 import {
@@ -40,6 +41,7 @@ import { ProductAffinityModule } from "../../modules/product-affinity/product-af
     RebuildProductAffinityMigration,
     SeedDefaultWarehousesMigration,
     LinkPaymentsToOrdersMigration,
+    AddCountryCodeMigration,
   ],
   exports: [
     AddMarketingPermissionsMigration,
@@ -47,6 +49,7 @@ import { ProductAffinityModule } from "../../modules/product-affinity/product-af
     RebuildProductAffinityMigration,
     SeedDefaultWarehousesMigration,
     LinkPaymentsToOrdersMigration,
+    AddCountryCodeMigration,
   ],
 })
 export class MigrationsModule {}

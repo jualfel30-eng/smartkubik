@@ -6,6 +6,7 @@ import { PopulateTransactionHistoryMigration } from "./populate-transaction-hist
 import { RebuildProductAffinityMigration } from "./rebuild-product-affinity.migration";
 import { SeedDefaultWarehousesMigration } from "./seed-default-warehouses.migration";
 import { LinkPaymentsToOrdersMigration } from "./link-payments-to-orders.migration";
+import { AddCountryCodeMigration } from "./add-country-code.migration";
 
 @ApiTags("Migrations")
 @Controller("migrations")
@@ -17,6 +18,7 @@ export class MigrationsController {
     private readonly rebuildProductAffinityMigration: RebuildProductAffinityMigration,
     private readonly seedDefaultWarehousesMigration: SeedDefaultWarehousesMigration,
     private readonly linkPaymentsToOrdersMigration: LinkPaymentsToOrdersMigration,
+    private readonly addCountryCodeMigration: AddCountryCodeMigration,
   ) {}
 
   @Post("add-marketing-permissions")
@@ -106,6 +108,24 @@ export class MigrationsController {
     return {
       success: true,
       message: "Payments linked to orders migration completed successfully",
+    };
+  }
+
+  @Post("add-country-code")
+  @ApiOperation({
+    summary: "[SUPER ADMIN] Add countryCode field to all tenants",
+    description:
+      "Sets countryCode='VE' on all existing tenants that don't have the field yet. Part of internationalization Phase 0.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Country code added to tenants successfully",
+  })
+  async addCountryCode() {
+    const result = await this.addCountryCodeMigration.run();
+    return {
+      success: true,
+      message: `Country code migration completed: ${result.updated} tenants updated`,
     };
   }
 }
