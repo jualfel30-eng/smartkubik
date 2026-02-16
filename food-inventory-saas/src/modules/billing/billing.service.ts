@@ -28,6 +28,7 @@ import { ImprentaDigitalProvider } from "./imprenta-digital.provider";
 import { SeniatValidationService } from "./services/seniat-validation.service";
 import { SeniatExportService } from "./services/seniat-export.service";
 import { ValidationResult } from "./services/seniat-validation.service";
+import { CountryPluginService } from "../../country-plugins/country-plugin.service";
 
 @Injectable()
 export class BillingService {
@@ -50,6 +51,7 @@ export class BillingService {
     private readonly eventEmitter: EventEmitter2,
     private readonly seniatValidation: SeniatValidationService,
     private readonly seniatExport: SeniatExportService,
+    private readonly countryPluginService: CountryPluginService,
   ) { }
 
   async getById(id: string, tenantId: string) {
@@ -120,7 +122,7 @@ export class BillingService {
         // If it's already ISSUED or VALIDATED, we block duplicates
         throw new BadRequestException(
           `Esta orden ya tiene una factura asociada (${existingInvoice.documentNumber}). ` +
-          `Una orden solo puede tener una factura según regulaciones fiscales de Venezuela.`
+          `Una orden solo puede tener una factura según regulaciones fiscales.`
         );
       }
     }

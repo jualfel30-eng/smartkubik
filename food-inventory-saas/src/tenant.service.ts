@@ -103,7 +103,7 @@ export class TenantService {
     const tenant = await this.tenantModel
       .findById(tenantId)
       .select(
-        "name contactInfo taxInfo logo website timezone settings aiAssistant verticalProfile limits usage subscriptionPlan",
+        "name contactInfo taxInfo logo website timezone language countryCode settings aiAssistant verticalProfile limits usage subscriptionPlan",
       )
       .exec();
 
