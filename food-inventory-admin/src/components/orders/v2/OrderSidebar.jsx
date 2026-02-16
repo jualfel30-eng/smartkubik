@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getCurrencyConfig } from '@/lib/currency-config';
+import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 
 /**
  * OrderSidebar - Columna derecha sticky con información del pedido
@@ -49,9 +49,12 @@ export function OrderSidebar({
   onSendToKitchen, // NEW
   isEditMode, // NEW
   context = 'default', // 'whatsapp' | 'tables' | 'default'
-  tenantCurrency = 'USD',
 }) {
-  const cc = getCurrencyConfig(tenantCurrency);
+  const plugin = useCountryPlugin();
+  const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
+  const transactionTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
+  const ivaLabel = defaultTax ? `${defaultTax.type} (${defaultTax.rate}%):` : 'IVA (16%):';
+  const igtfLabel = transactionTax ? `${transactionTax.type} (${transactionTax.rate}%):` : 'IGTF (3%):';
   // Ajustar padding según contexto
   const bottomPadding = context === 'whatsapp' ? 'pb-8' : 'pb-2';
 
@@ -110,40 +113,40 @@ export function OrderSidebar({
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>Subtotal:</span>
-              <span>{cc.symbol}{totals.subtotal.toFixed(2)}</span>
+              <span>${totals.subtotal.toFixed(2)}</span>
             </div>
 
             {generalDiscountPercentage > 0 && (
               <>
                 <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
                   <span>Descuento ({generalDiscountPercentage}%):</span>
-                  <span>-{cc.symbol}{totals.generalDiscountAmount.toFixed(2)}</span>
+                  <span>-${totals.generalDiscountAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Subtotal c/descuento:</span>
-                  <span>{cc.symbol}{totals.subtotalAfterDiscount.toFixed(2)}</span>
+                  <span>${totals.subtotalAfterDiscount.toFixed(2)}</span>
                 </div>
               </>
             )}
 
             <div className="flex justify-between text-sm">
-              <span>IVA (16%):</span>
-              <span>{cc.symbol}{totals.ivaAfterDiscount.toFixed(2)}</span>
+              <span>{ivaLabel}</span>
+              <span>${totals.ivaAfterDiscount.toFixed(2)}</span>
             </div>
 
             {shippingCost > 0 && (
               <div className="flex justify-between text-sm">
                 <span>Envío:</span>
                 <span>
-                  {calculatingShipping ? '...' : `${cc.symbol}${shippingCost.toFixed(2)}`}
+                  {calculatingShipping ? '...' : `$$${shippingCost.toFixed(2)}`}
                 </span>
               </div>
             )}
 
             {totals.igtf > 0 && (
               <div className="flex justify-between text-sm">
-                <span>IGTF (3%):</span>
-                <span>{cc.symbol}{totals.igtf.toFixed(2)}</span>
+                <span>{igtfLabel}</span>
+                <span>${totals.igtf.toFixed(2)}</span>
               </div>
             )}
 
@@ -152,7 +155,7 @@ export function OrderSidebar({
                 <Separator />
                 <div className="flex justify-between text-sm text-amber-600 dark:text-amber-400">
                   <span>Ret. IVA ({totals.ivaWithholdingPercentage}%):</span>
-                  <span>-{cc.symbol}{totals.ivaWithholdingAmount.toFixed(2)}</span>
+                  <span>-${totals.ivaWithholdingAmount.toFixed(2)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Cliente Contribuyente Especial - Retención a pagar al SENIAT
@@ -164,13 +167,13 @@ export function OrderSidebar({
 
             <div className="flex justify-between text-lg font-bold">
               <span>TOTAL:</span>
-              <span className="text-primary">{cc.symbol}{totals.total.toFixed(2)}</span>
+              <span className="text-primary">${totals.total.toFixed(2)}</span>
             </div>
 
             {totals.ivaWithholdingAmount > 0 && (
               <div className="flex justify-between text-sm font-semibold text-amber-600 dark:text-amber-400">
                 <span>A cobrar (neto):</span>
-                <span>{cc.symbol}{totals.totalWithWithholding.toFixed(2)}</span>
+                <span>${totals.totalWithWithholding.toFixed(2)}</span>
               </div>
             )}
 

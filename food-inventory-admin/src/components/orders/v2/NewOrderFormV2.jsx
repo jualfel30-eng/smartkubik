@@ -18,7 +18,7 @@ import { venezuelaData } from '@/lib/venezuela-data.js';
 import { SearchableSelect } from './custom/SearchableSelect';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
-import { getCurrencyConfig } from '@/lib/currency-config';
+import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 import { useOrderDraft } from '@/hooks/useOrderDraft';
 import ModifierSelector from '@/components/restaurant/ModifierSelector.jsx';
 import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
@@ -226,8 +226,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const shouldRenderMobileLayout = isEmbedded || !isDesktop;
 
-  const { rate: bcvRate, loading: loadingRate, error: rateError, tenantCurrency } = useExchangeRate();
-  const cc = getCurrencyConfig(tenantCurrency);
+  const { rate: bcvRate, loading: loadingRate, error: rateError } = useExchangeRate();
+  const plugin = useCountryPlugin();
   const { tenant, hasPermission } = useAuth();
   const { sessionId, registerId } = useCashRegister();
   const canApplyDiscounts = hasPermission('orders_apply_discounts');
@@ -2008,10 +2008,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{item.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {quantity} x {cc.symbol}{unitPrice.toFixed(2)}
+                  {quantity} x ${unitPrice.toFixed(2)}
                 </p>
               </div>
-              <p className="font-semibold ml-2">{cc.symbol}{itemTotal.toFixed(2)}</p>
+              <p className="font-semibold ml-2">${itemTotal.toFixed(2)}</p>
             </div>
           );
         })}
@@ -2105,7 +2105,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                             <span>• {mod.name}{mod.quantity > 1 ? ` x${mod.quantity}` : ''}</span>
                             {adjustment !== 0 && (
                               <span>
-                                ({adjustment > 0 ? '+' : ''}{cc.symbol}{adjustment.toFixed(2)})
+                                ({adjustment > 0 ? '+' : ''}${adjustment.toFixed(2)})
                               </span>
                             )}
                           </div>
@@ -2128,7 +2128,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                         onClick={() => toggleWholesalePrice(index)}
                       >
                         <Tag className="h-3 w-3 mr-1" />
-                        {item.useWholesalePrice ? `Mayor: ${cc.symbol}${item.wholesalePrice}` : `Mayor disponible`}
+                        {item.useWholesalePrice ? `Mayor: $$${item.wholesalePrice}` : `Mayor disponible`}
                       </Badge>
                       {!item.useWholesalePrice && (
                         <span className="text-[9px] text-muted-foreground">
@@ -2152,7 +2152,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                           Peso
                         </ToggleGroupItem>
                         <ToggleGroupItem value="amount" aria-label="Ingresar por monto">
-                          {cc.symbol}
+                          $
                         </ToggleGroupItem>
                       </ToggleGroup>
                     )}
@@ -2167,7 +2167,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                             placeholder="Monto"
                             className="w-24 h-8 text-center"
                           />
-                          <span className="ml-2 text-xs text-muted-foreground">{cc.label}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">USD</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
                           ≈ {formatDecimalString(getItemQuantityValue(item))}{' '}
@@ -2223,10 +2223,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm line-through text-muted-foreground">
-                          {cc.symbol}{item.promotionInfo.originalPrice.toFixed(2)}
+                          ${item.promotionInfo.originalPrice.toFixed(2)}
                         </span>
                         <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                          {cc.symbol}{getItemFinalUnitPrice(item).toFixed(2)}
+                          ${getItemFinalUnitPrice(item).toFixed(2)}
                         </span>
                       </div>
                       <div className="text-xs text-green-600 dark:text-green-400">
@@ -2235,17 +2235,17 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     </div>
                   ) : (
                     <>
-                      {cc.symbol}{getItemFinalUnitPrice(item).toFixed(2)}
+                      ${getItemFinalUnitPrice(item).toFixed(2)}
                       {item.modifiers && item.modifiers.length > 0 && (
                         <div className="text-xs text-muted-foreground">
-                          Base: {cc.symbol}{(Number(item.unitPrice) || 0).toFixed(2)}
+                          Base: ${(Number(item.unitPrice) || 0).toFixed(2)}
                         </div>
                       )}
                     </>
                   )}
                 </TableCell>
                 <TableCell>
-                  {cc.symbol}{(getItemFinalUnitPrice(item) * getItemQuantityValue(item)).toFixed(2)}
+                  ${(getItemFinalUnitPrice(item) * getItemQuantityValue(item)).toFixed(2)}
                   {!canApplyDiscounts && item.discountPercentage > 0 && (
                     <div className="text-xs text-green-600 dark:text-green-400 font-semibold mt-1">
                       Descuento: -{item.discountPercentage}%
@@ -2580,7 +2580,6 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 isEmbedded={true}
                 onSendToKitchen={tenant?.vertical === 'FOOD_SERVICE' ? handleSendToKitchen : undefined}
                 isEditMode={isEditMode}
-                tenantCurrency={tenantCurrency}
               />
             </TabsContent>
           </Tabs>
@@ -3115,7 +3114,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 <div className="space-y-2">
                   <Label>Precio Original</Label>
                   <div className="text-lg font-semibold">
-                    {cc.symbol}{selectedItemForDiscount.unitPrice?.toFixed(2) || '0.00'}
+                    ${selectedItemForDiscount.unitPrice?.toFixed(2) || '0.00'}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -3147,10 +3146,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                   <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
                     <div className="text-sm text-muted-foreground">Nuevo Precio</div>
                     <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                      {cc.symbol}{((selectedItemForDiscount.unitPrice || 0) * (1 - itemDiscountPercentage / 100)).toFixed(2)}
+                      ${((selectedItemForDiscount.unitPrice || 0) * (1 - itemDiscountPercentage / 100)).toFixed(2)}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Ahorro: {cc.symbol}{((selectedItemForDiscount.unitPrice || 0) * itemDiscountPercentage / 100).toFixed(2)}
+                      Ahorro: ${((selectedItemForDiscount.unitPrice || 0) * itemDiscountPercentage / 100).toFixed(2)}
                     </div>
                   </div>
                 )}
@@ -3181,7 +3180,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
             <div className="space-y-2">
               <Label>Subtotal Actual</Label>
               <div className="text-lg font-semibold">
-                {cc.symbol}{totals.subtotal.toFixed(2)}
+                ${totals.subtotal.toFixed(2)}
               </div>
             </div>
             <div className="space-y-2">
@@ -3215,13 +3214,13 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Descuento:</span>
                   <span className="font-semibold text-green-600 dark:text-green-400">
-                    -{cc.symbol}{((totals.subtotal * generalDiscountPercentage) / 100).toFixed(2)}
+                    -${((totals.subtotal * generalDiscountPercentage) / 100).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Nuevo Subtotal:</span>
                   <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                    {cc.symbol}{(totals.subtotal * (1 - generalDiscountPercentage / 100)).toFixed(2)}
+                    ${(totals.subtotal * (1 - generalDiscountPercentage / 100)).toFixed(2)}
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground mt-2">

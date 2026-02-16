@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth.jsx";
 import { fetchApi } from "@/lib/api";
-import { useExchangeRate } from "@/hooks/useExchangeRate";
+import { useCountryPlugin } from "@/country-plugins/CountryPluginContext";
 import { HRNavigation } from '@/components/payroll/HRNavigation.jsx';
 import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
@@ -261,6 +261,10 @@ const KpiCard = ({ label, value, currency }) => (
 
 const PayrollRunsDashboard = () => {
   const { tenant, hasPermission } = useAuth();
+  const plugin = useCountryPlugin();
+  const transactionTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
+  const defaultIgtfRate = transactionTax ? transactionTax.rate / 100 : 0.03;
+
   const location = useLocation();
   const navigate = useNavigate();
   const payrollEnabled = Boolean(tenant?.enabledModules?.payroll);
@@ -271,7 +275,6 @@ const PayrollRunsDashboard = () => {
     ? hasPermission("payroll_employees_write")
     : false;
   const currency = tenant?.currency || "USD";
-  const { rate: bcvRate, loading: loadingBcvRate } = useExchangeRate();
 
   const [runs, setRuns] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
@@ -295,7 +298,7 @@ const PayrollRunsDashboard = () => {
     currency: "USD",
     reference: "",
     igtf: false,
-    igtfRate: 0.03,
+    igtfRate: defaultIgtfRate,
   });
   const [bankAccountId, setBankAccountId] = useState("");
   const [bankAccounts, setBankAccounts] = useState([]);

@@ -7,13 +7,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useCrmContext } from '@/context/CrmContext';
 import { X, Plus, Calculator } from 'lucide-react';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
-import { getCurrencyConfig, isVesMethod } from '@/lib/currency-config';
+import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 
 export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
   const { paymentMethods, loading: contextLoading } = useCrmContext();
-  const { rate: bcvRate, tenantCurrency } = useExchangeRate();
-  const cc = getCurrencyConfig(tenantCurrency);
+  const { rate: bcvRate } = useExchangeRate();
+  const plugin = useCountryPlugin();
+  const primaryCurrency = plugin.currencyEngine.getPrimaryCurrency();
+  const numberLocale = plugin.localeProvider.getNumberLocale();
   const [payments, setPayments] = useState([]);
+
+  // Get IGTF label and rate from plugin
+  const igtfMeta = (() => {
+    const taxes = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' });
+    if (taxes[0]) return { label: `${taxes[0].type} (${taxes[0].rate}%)`, rate: taxes[0].rate / 100 };
+    return { label: 'IGTF (3%)', rate: 0.03 };
+  })();
 
   useEffect(() => {
     // Cuando se abre el modal, si no hay pagos, añadir la primera línea automáticamente
@@ -33,11 +42,6 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
     }
   }, [isOpen, totalAmount, paymentMethods, payments.length]);
 
-  /* 
-     IGTF Calculation Logic:
-     We need to calculate IGTF dynamically to know the REAL total required.
-     IGTF = 3% of payments made in foreign currency (IGTF applicable methods).
-  */
   const igtf = useMemo(() => {
     const foreignCurrencyAmount = payments
       .filter(p => {
@@ -45,8 +49,8 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
         return methodDef?.igtfApplicable;
       })
       .reduce((sum, p) => sum + Number(p.amount || 0), 0);
-    return foreignCurrencyAmount * 0.03;
-  }, [payments, paymentMethods]);
+    return foreignCurrencyAmount * igtfMeta.rate;
+  }, [payments, paymentMethods, igtfMeta.rate]);
 
   // The total amount the customer ACTUALLY needs to pay is Original Total + IGTF
   const totalRequired = totalAmount + igtf;
@@ -133,7 +137,7 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
                   <div className="flex-1 space-y-1">
                     <Input
                       type="number"
-                      placeholder={`Monto (${cc.symbol})`}
+                      placeholder="Monto ($)"
                       value={line.amount}
                       onChange={(e) => handleUpdatePayment(line.id, 'amount', e.target.value)}
                       className={remaining < -0.01 ? "border-red-500 focus-visible:ring-red-500" : ""}
@@ -161,7 +165,7 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
                     {line.amountTendered && Number(line.amount) > 0 && (
                       <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md text-xs">
                         <p className="font-bold text-green-700 dark:text-green-300 flex items-center gap-2">
-                          Vuelto: {isVesMethod(line.method) ? 'Bs' : cc.symbol} {
+                          Vuelto: ${
                             (parseFloat(line.amountTendered) - Number(line.amount)).toFixed(2)
                           }
                         </p>
@@ -179,13 +183,11 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
                   >
                     <Calculator className="w-3 h-3 group-hover:text-blue-600" />
                     <span>
-                      Faltan: <span className="font-medium text-blue-600 group-hover:underline">{cc.symbol}{lineRemaining.toFixed(2)}</span>
-                      {bcvRate > 0 && (
-                        <>
-                          {' '}≈{' '}
-                          <span className="font-medium text-green-600">Bs {lineRemainingBs.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </>
-                      )}
+                      Faltan: <span className="font-medium text-blue-600 group-hover:underline">${lineRemaining.toFixed(2)}</span>
+                      <>
+                        {' '}≈{' '}
+                        <span className="font-medium text-green-600">{primaryCurrency.symbol} {lineRemainingBs.toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </>
                     </span>
                     <span className="ml-auto text-[10px] text-blue-500 opacity-0 group-hover:opacity-100 font-medium">
                       USAR TOTAL →
@@ -200,19 +202,21 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
 
         <div className="p-6 bg-muted/30 border-t mt-auto space-y-4">
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between text-muted-foreground"><span>Total Orden:</span><span>{cc.symbol}{totalAmount.toFixed(2)}</span></div>
-            <div className="flex justify-between text-orange-600"><span>+ IGTF (3%):</span><span>{cc.symbol}{igtf.toFixed(2)}</span></div>
-            <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Total a Pagar:</span><span>{cc.symbol}{totalRequired.toFixed(2)}</span></div>
+            <div className="flex justify-between text-muted-foreground"><span>Total Orden:</span><span>${totalAmount.toFixed(2)}</span></div>
+            {igtf > 0 && (
+              <div className="flex justify-between text-orange-600"><span>+ {igtfMeta.label}:</span><span>${igtf.toFixed(2)}</span></div>
+            )}
+            <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Total a Pagar:</span><span>${totalRequired.toFixed(2)}</span></div>
 
-            <div className="flex justify-between font-medium"><span>Pagado:</span><span>{cc.symbol}{totalPaid.toFixed(2)}</span></div>
+            <div className="flex justify-between font-medium"><span>Pagado:</span><span>${totalPaid.toFixed(2)}</span></div>
 
             <div className={`flex justify-between font-bold text-lg ${remaining < -0.01 ? 'text-red-500' : (remaining > 0.01 ? 'text-blue-600' : 'text-green-600')}`}>
               <span>Restante:</span>
               <div className="text-right">
-                <div>{cc.symbol}{remaining.toFixed(2)}</div>
+                <div>${remaining.toFixed(2)}</div>
                 {remaining !== 0 && bcvRate > 0 && (
                   <div className="text-sm font-normal text-muted-foreground">
-                    ≈ Bs {(remaining * bcvRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ≈ {primaryCurrency.symbol} {(remaining * bcvRate).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 )}
               </div>
