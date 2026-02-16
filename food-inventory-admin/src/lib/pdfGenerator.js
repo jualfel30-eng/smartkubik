@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import QRCode from "qrcode";
+import { resolvePlugin } from "../country-plugins/registry";
 
 // Helper function to load an image and get its dimensions
 const loadImage = (url) => {
@@ -51,15 +52,36 @@ const buildQrFallbackText = (orderData, tenantSettings, documentType) => {
 };
 
 export const generateDocumentPDF = async ({ documentType, orderData, customerData, tenantSettings, action = 'download' }) => {
+  // Resolve country plugin from tenant settings
+  const countryCode = tenantSettings?.countryCode || 'VE';
+  const plugin = resolvePlugin(countryCode);
+  const primaryCurrency = plugin.currencyEngine.getPrimaryCurrency();
+  const secondaryCurrencies = plugin.currencyEngine.getSecondaryCurrencies();
+  const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
+  const transactionTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
+  const exchangeRateConfig = plugin.currencyEngine.getExchangeRateConfig();
+
   const invoiceFormat = tenantSettings.settings?.invoiceFormat || 'standard'; // 'standard' o 'thermal'
 
-  // Calcular el tipo de cambio de la orden (USD a Bs)
+  // Calcular el tipo de cambio de la orden
   const exchangeRate = orderData.totalAmountVes && orderData.totalAmount
     ? orderData.totalAmountVes / orderData.totalAmount
-    : 36.5; // Valor por defecto si no hay datos
+    : (exchangeRateConfig ? 0 : 1); // 0 if multi-currency (will fetch), 1 if single-currency
 
   if (invoiceFormat === 'thermal') {
-    return generateThermalPDF({ documentType, orderData, customerData, tenantSettings, action, exchangeRate });
+    return generateThermalPDF({
+      documentType,
+      orderData,
+      customerData,
+      tenantSettings,
+      action,
+      exchangeRate,
+      plugin,
+      primaryCurrency,
+      secondaryCurrencies,
+      defaultTax,
+      transactionTax
+    });
   }
 
   const doc = new jsPDF();
@@ -213,20 +235,32 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
   const totalBs = totalUSD * exchangeRate;
   const generalDiscountAmount = orderData.generalDiscountAmount || 0;
 
+  // Build totals array with dynamic currency display
+  const hasDualCurrency = secondaryCurrencies.length > 0 && exchangeRate > 0;
+  const formatAmount = (amount) => {
+    if (!hasDualCurrency) {
+      return `${primaryCurrency.symbol}${amount.toFixed(2)}`;
+    }
+    return `$${amount.toFixed(2)} / ${primaryCurrency.symbol} ${(amount * exchangeRate).toFixed(2)}`;
+  };
+
   const totals = [
-    `Subtotal: $${(orderData.subtotal || 0).toFixed(2)} / Bs ${((orderData.subtotal || 0) * exchangeRate).toFixed(2)}`,
+    `Subtotal: ${formatAmount(orderData.subtotal || 0)}`,
   ];
 
   // Add general discount if present
   if (generalDiscountAmount > 0) {
-    totals.push(`Descuento General: -$${generalDiscountAmount.toFixed(2)} / Bs ${(generalDiscountAmount * exchangeRate).toFixed(2)}`);
+    totals.push(`Descuento General: -${formatAmount(generalDiscountAmount)}`);
   }
 
+  const ivaLabel = defaultTax ? defaultTax.type : 'IVA';
+  const igtfLabel = transactionTax ? transactionTax.type : 'IGTF';
+
   totals.push(
-    `IVA: $${(orderData.ivaTotal || 0).toFixed(2)} / Bs ${((orderData.ivaTotal || 0) * exchangeRate).toFixed(2)}`,
-    `IGTF: $${(orderData.igtfTotal || 0).toFixed(2)} / Bs ${((orderData.igtfTotal || 0) * exchangeRate).toFixed(2)}`,
-    `Envío: $${(orderData.shippingCost || 0).toFixed(2)} / Bs ${((orderData.shippingCost || 0) * exchangeRate).toFixed(2)}`,
-    `Total: $${totalUSD.toFixed(2)} / Bs ${totalBs.toFixed(2)}`
+    `${ivaLabel}: ${formatAmount(orderData.ivaTotal || 0)}`,
+    `${igtfLabel}: ${formatAmount(orderData.igtfTotal || 0)}`,
+    `Envío: ${formatAmount(orderData.shippingCost || 0)}`,
+    `Total: ${formatAmount(totalUSD)}`
   );
   doc.setFontSize(11);
   doc.text(totals.join('\n'), 200, finalY + 10, { align: 'right' });
@@ -278,7 +312,19 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
 };
 
 // Thermal printer format (80mm width)
-const generateThermalPDF = async ({ documentType, orderData, customerData, tenantSettings, action, exchangeRate }) => {
+const generateThermalPDF = async ({
+  documentType,
+  orderData,
+  customerData,
+  tenantSettings,
+  action,
+  exchangeRate,
+  plugin,
+  primaryCurrency,
+  secondaryCurrencies,
+  defaultTax,
+  transactionTax
+}) => {
   // 80mm = 226.77 pixels at 72 DPI, use 80mm x auto height
   const doc = new jsPDF({
     unit: 'mm',
@@ -455,13 +501,16 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
     doc.text(`-$${generalDiscountAmount.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
+  const ivaLabel = defaultTax ? `${defaultTax.type}:` : 'IVA:';
+  const igtfLabel = transactionTax ? `${transactionTax.type}:` : 'IGTF:';
+
   if (orderData.ivaTotal) {
-    doc.text('IVA:', 5, currentY);
+    doc.text(ivaLabel, 5, currentY);
     doc.text(`$${orderData.ivaTotal.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
   if (orderData.igtfTotal) {
-    doc.text('IGTF:', 5, currentY);
+    doc.text(igtfLabel, 5, currentY);
     doc.text(`$${orderData.igtfTotal.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
@@ -476,8 +525,8 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   doc.text(`$${totalUSD.toFixed(2)}`, 75, currentY, { align: 'right' });
   currentY += 5;
 
-  doc.text('TOTAL Bs:', 5, currentY);
-  doc.text(`Bs ${totalBs.toFixed(2)}`, 75, currentY, { align: 'right' });
+  doc.text(`TOTAL ${primaryCurrency.code}:`, 5, currentY);
+  doc.text(`${primaryCurrency.symbol} ${totalBs.toFixed(2)}`, 75, currentY, { align: 'right' });
   currentY += 6;
 
   // Footer
