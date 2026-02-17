@@ -92,11 +92,29 @@ const BillingCreateForm = () => {
 
   const { rate: bcvRate, loading: loadingRate } = useExchangeRate();
 
+  const [sequences, setSequences] = useState([]);
+  const [selectedSequence, setSelectedSequence] = useState(null);
+
   useEffect(() => {
     if (bcvRate && !formData.exchangeRate) {
       setFormData(prev => ({ ...prev, exchangeRate: bcvRate }));
     }
   }, [bcvRate]);
+
+  useEffect(() => {
+    api.get('/billing/sequences')
+      .then(res => setSequences(res || []))
+      .catch(err => console.error('Error loading sequences:', err));
+  }, []);
+
+  // Auto-select default sequence when document type or sequences change
+  useEffect(() => {
+    if (sequences.length > 0 && formData.type) {
+      const seq = sequences.find(s => s.type === formData.type && s.isDefault)
+        || sequences.find(s => s.type === formData.type);
+      if (seq) setSelectedSequence(seq._id);
+    }
+  }, [sequences, formData.type]);
 
   const [newItem, setNewItem] = useState({
     productId: '',
@@ -305,7 +323,10 @@ const BillingCreateForm = () => {
 
       const payload = {
         type: formData.type,
+        seriesId: selectedSequence,
         customer: formData.customer,
+        customerName: formData.customerData.name,
+        customerTaxId: formData.customerData.rif,
         customerData: formData.customerData,
         items: formData.items.map(item => ({
           product: item.productId,
@@ -368,9 +389,17 @@ const BillingCreateForm = () => {
 
       const totals = calculateTotals();
 
+      if (!selectedSequence) {
+        toast.error('Selecciona una serie de facturación');
+        return;
+      }
+
       const payload = {
         type: formData.type,
+        seriesId: selectedSequence,
         customer: formData.customer,
+        customerName: formData.customerData.name,
+        customerTaxId: formData.customerData.rif,
         customerData: formData.customerData,
         items: formData.items.map(item => ({
           product: item.productId,
@@ -487,6 +516,21 @@ const BillingCreateForm = () => {
                     Tasa BCV: {bcvRate.toFixed(2)}
                   </p>
                 )}
+              </div>
+              <div>
+                <Label>Serie de Facturación</Label>
+                <Select value={selectedSequence || ''} onValueChange={setSelectedSequence}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar serie..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sequences.filter(s => s.type === formData.type).map(seq => (
+                      <SelectItem key={seq._id} value={seq._id}>
+                        {seq.prefix} - {seq.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label>Método de Pago</Label>
