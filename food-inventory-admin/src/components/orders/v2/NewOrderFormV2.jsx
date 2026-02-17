@@ -3085,7 +3085,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
               // Only pass onSendToKitchen if it's a restaurant, enabling the 2-button layout
               onSendToKitchen={tenant?.vertical === 'FOOD_SERVICE' ? handleSendToKitchen : undefined}
               isEditMode={isEditMode}
-              tenantCurrency={tenantCurrency}
+              tenantCurrency={plugin.currencyEngine.getPrimaryCurrency().code}
             />
           </div>
         </div>
