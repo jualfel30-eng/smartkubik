@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Req, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
 import { InjectModel } from "@nestjs/mongoose";
@@ -8,7 +9,7 @@ import { BillingAuditLog } from "../../schemas/billing-audit-log.schema";
 
 @ApiTags("billing-audit")
 @Controller("billing/audit")
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class BillingAuditController {
   constructor(
     @InjectModel(BillingAuditLog.name)

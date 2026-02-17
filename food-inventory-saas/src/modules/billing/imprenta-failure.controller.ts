@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
 import { ImprentaFailureService } from "./imprenta-failure.service";
@@ -8,7 +9,7 @@ import { Param } from "@nestjs/common";
 
 @ApiTags("billing-imprenta")
 @Controller("billing/imprenta-failures")
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class ImprentaFailureController {
   constructor(
     private readonly imprentaFailureService: ImprentaFailureService,

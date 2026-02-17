@@ -1,5 +1,6 @@
 import { Controller, Get, Query, Req, UseGuards } from "@nestjs/common";
 import { ApiOperation, ApiTags } from "@nestjs/swagger";
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
 import { BillingEvidencesService } from "./billing-evidences.service";
@@ -7,7 +8,7 @@ import { Param } from "@nestjs/common";
 
 @ApiTags("billing-evidences")
 @Controller("billing/evidences")
-@UseGuards(PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class BillingEvidencesController {
   constructor(private readonly evidencesService: BillingEvidencesService) {}
 
