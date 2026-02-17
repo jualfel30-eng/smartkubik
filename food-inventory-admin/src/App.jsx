@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth, AuthProvider } from './hooks/use-auth.jsx';
 import { useShift, ShiftProvider } from './context/ShiftContext.jsx';
@@ -91,6 +92,7 @@ import { AccountingProvider } from './context/AccountingContext.jsx';
 import { NotificationProvider, useNotification } from './context/NotificationContext.jsx';
 import { CashRegisterProvider } from './contexts/CashRegisterContext.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
+import { CountryPluginProvider } from './country-plugins/CountryPluginContext.jsx';
 import { TenantPickerDialog } from '@/components/auth/TenantPickerDialog.jsx';
 import {
   Sidebar,
@@ -1323,9 +1325,11 @@ function App() {
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
         <MuiThemeBridge>
           <AuthProvider>
-            <NotificationProvider>
-              <AppContent />
-            </NotificationProvider>
+            <CountryPluginProvider>
+              <NotificationProvider>
+                <AppContent />
+              </NotificationProvider>
+            </CountryPluginProvider>
           </AuthProvider>
         </MuiThemeBridge>
       </ThemeProvider>
