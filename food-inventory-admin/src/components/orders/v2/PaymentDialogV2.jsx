@@ -626,7 +626,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                           {singlePayment.method && (
                             <p className="text-sm text-muted-foreground mt-1">
                               {isVesMethod(singlePayment.method)
-                                ? `≈ $$${remainingAmount.toFixed(2)} ${cc.label}`
+                                ? `≈ $$${remainingAmount.toFixed(2)} ${plugin.currencyEngine.getSecondaryCurrencies()[0]?.code ?? 'USD'}`
                                 : `≈ Bs ${remainingAmountVes.toFixed(2)}`
                               }
                             </p>
@@ -1038,7 +1038,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                   {tipMode === 'custom' && (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="custom-tip">Monto de propina ({cc.label})</Label>
+                        <Label htmlFor="custom-tip">Monto de propina ({plugin.currencyEngine.getSecondaryCurrencies()[0]?.code ?? 'USD'})</Label>
                         <Input
                           id="custom-tip"
                           type="number"
