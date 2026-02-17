@@ -6,6 +6,7 @@ import { Input } from './input';
 import { Label } from './label';
 import { MapPin, Search, X } from 'lucide-react';
 import { useTheme } from '../ThemeProvider';
+import { useCountryPlugin } from '../../country-plugins/CountryPluginContext';
 
 const libraries = ['places'];
 const defaultCenter = { lat: 10.1807, lng: -67.9904 }; // Valencia, VE default
@@ -92,11 +93,14 @@ const darkModeStyle = [
 ];
 
 export function LocationPicker({ value, onChange, label = 'Ubicación' }) {
+  const plugin = useCountryPlugin();
+  const locale = plugin.localeProvider.getLanguageCode();
+
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
     libraries,
-    language: 'es'
+    language: locale
   });
 
   const { theme } = useTheme();

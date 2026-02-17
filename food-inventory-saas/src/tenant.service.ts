@@ -103,7 +103,7 @@ export class TenantService {
     const tenant = await this.tenantModel
       .findById(tenantId)
       .select(
-        "name ownerFirstName ownerLastName contactInfo taxInfo logo website timezone settings aiAssistant verticalProfile limits usage subscriptionPlan",
+        "name contactInfo taxInfo logo website timezone language countryCode settings aiAssistant verticalProfile limits usage subscriptionPlan",
       )
       .exec();
 
@@ -120,11 +120,10 @@ export class TenantService {
     // We flatten the DTO to update nested objects correctly with $set
     const updatePayload = {};
     if (updateDto.name) updatePayload["name"] = updateDto.name;
-    if (updateDto.ownerFirstName !== undefined) updatePayload["ownerFirstName"] = updateDto.ownerFirstName;
-    if (updateDto.ownerLastName !== undefined) updatePayload["ownerLastName"] = updateDto.ownerLastName;
     if (updateDto.logo) updatePayload["logo"] = updateDto.logo;
     if (updateDto.website) updatePayload["website"] = updateDto.website;
     if (updateDto.timezone) updatePayload["timezone"] = updateDto.timezone;
+    if (updateDto.countryCode) updatePayload["countryCode"] = updateDto.countryCode;
 
     if (updateDto.contactInfo) {
       const contactInfo = updateDto.contactInfo;
@@ -258,7 +257,7 @@ export class TenantService {
         { new: true, runValidators: true },
       )
       .select(
-        "name ownerFirstName ownerLastName contactInfo taxInfo logo website timezone settings aiAssistant verticalProfile",
+        "name contactInfo taxInfo logo website timezone countryCode settings aiAssistant verticalProfile",
       )
       .exec();
 

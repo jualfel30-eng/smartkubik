@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import QRCode from "qrcode";
+import { resolvePlugin } from "../country-plugins/registry";
 
 // Helper function to load an image and get its dimensions
 const loadImage = (url) => {
@@ -51,15 +52,36 @@ const buildQrFallbackText = (orderData, tenantSettings, documentType) => {
 };
 
 export const generateDocumentPDF = async ({ documentType, orderData, customerData, tenantSettings, action = 'download' }) => {
+  // Resolve country plugin from tenant settings
+  const countryCode = tenantSettings?.countryCode || 'VE';
+  const plugin = resolvePlugin(countryCode);
+  const primaryCurrency = plugin.currencyEngine.getPrimaryCurrency();
+  const secondaryCurrencies = plugin.currencyEngine.getSecondaryCurrencies();
+  const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
+  const transactionTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
+  const exchangeRateConfig = plugin.currencyEngine.getExchangeRateConfig();
+
   const invoiceFormat = tenantSettings.settings?.invoiceFormat || 'standard'; // 'standard' o 'thermal'
 
-  // Calcular el tipo de cambio de la orden (USD a Bs)
+  // Calcular el tipo de cambio de la orden
   const exchangeRate = orderData.totalAmountVes && orderData.totalAmount
     ? orderData.totalAmountVes / orderData.totalAmount
-    : 36.5; // Valor por defecto si no hay datos
+    : (exchangeRateConfig ? 0 : 1); // 0 if multi-currency (will fetch), 1 if single-currency
 
   if (invoiceFormat === 'thermal') {
-    return generateThermalPDF({ documentType, orderData, customerData, tenantSettings, action, exchangeRate });
+    return generateThermalPDF({
+      documentType,
+      orderData,
+      customerData,
+      tenantSettings,
+      action,
+      exchangeRate,
+      plugin,
+      primaryCurrency,
+      secondaryCurrencies,
+      defaultTax,
+      transactionTax
+    });
   }
 
   const doc = new jsPDF();
@@ -213,20 +235,32 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
   const totalBs = totalUSD * exchangeRate;
   const generalDiscountAmount = orderData.generalDiscountAmount || 0;
 
+  // Build totals array with dynamic currency display
+  const hasDualCurrency = secondaryCurrencies.length > 0 && exchangeRate > 0;
+  const formatAmount = (amount) => {
+    if (!hasDualCurrency) {
+      return `${primaryCurrency.symbol}${amount.toFixed(2)}`;
+    }
+    return `$${amount.toFixed(2)} / ${primaryCurrency.symbol} ${(amount * exchangeRate).toFixed(2)}`;
+  };
+
   const totals = [
-    `Subtotal: $${(orderData.subtotal || 0).toFixed(2)} / Bs ${((orderData.subtotal || 0) * exchangeRate).toFixed(2)}`,
+    `Subtotal: ${formatAmount(orderData.subtotal || 0)}`,
   ];
 
   // Add general discount if present
   if (generalDiscountAmount > 0) {
-    totals.push(`Descuento General: -$${generalDiscountAmount.toFixed(2)} / Bs ${(generalDiscountAmount * exchangeRate).toFixed(2)}`);
+    totals.push(`Descuento General: -${formatAmount(generalDiscountAmount)}`);
   }
 
+  const ivaLabel = defaultTax ? defaultTax.type : 'IVA';
+  const igtfLabel = transactionTax ? transactionTax.type : 'IGTF';
+
   totals.push(
-    `IVA: $${(orderData.ivaTotal || 0).toFixed(2)} / Bs ${((orderData.ivaTotal || 0) * exchangeRate).toFixed(2)}`,
-    `IGTF: $${(orderData.igtfTotal || 0).toFixed(2)} / Bs ${((orderData.igtfTotal || 0) * exchangeRate).toFixed(2)}`,
-    `Envío: $${(orderData.shippingCost || 0).toFixed(2)} / Bs ${((orderData.shippingCost || 0) * exchangeRate).toFixed(2)}`,
-    `Total: $${totalUSD.toFixed(2)} / Bs ${totalBs.toFixed(2)}`
+    `${ivaLabel}: ${formatAmount(orderData.ivaTotal || 0)}`,
+    `${igtfLabel}: ${formatAmount(orderData.igtfTotal || 0)}`,
+    `Envío: ${formatAmount(orderData.shippingCost || 0)}`,
+    `Total: ${formatAmount(totalUSD)}`
   );
   doc.setFontSize(11);
   doc.text(totals.join('\n'), 200, finalY + 10, { align: 'right' });
@@ -278,7 +312,19 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
 };
 
 // Thermal printer format (80mm width)
-const generateThermalPDF = async ({ documentType, orderData, customerData, tenantSettings, action, exchangeRate }) => {
+const generateThermalPDF = async ({
+  documentType,
+  orderData,
+  customerData,
+  tenantSettings,
+  action,
+  exchangeRate,
+  plugin,
+  primaryCurrency,
+  secondaryCurrencies,
+  defaultTax,
+  transactionTax
+}) => {
   // 80mm = 226.77 pixels at 72 DPI, use 80mm x auto height
   const doc = new jsPDF({
     unit: 'mm',
@@ -353,14 +399,9 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   });
 
   // Divider
-  const margin = 8;
-  const contentWidth = 80 - (margin * 2);
-  const rightEdge = 80 - margin;
-  const centerX = 40;
-
   currentY += 2;
   doc.setLineWidth(0.1);
-  doc.line(margin, currentY, rightEdge, currentY);
+  doc.line(5, currentY, 75, currentY);
   currentY += 4;
 
   // Document title centered
@@ -370,42 +411,42 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   currentY += 6;
 
   // Order info
-  doc.setFontSize(10);
+  doc.setFontSize(12);
   doc.setFont(undefined, 'normal');
-  doc.text(`Orden: ${orderData.orderNumber || ''}`, margin, currentY);
+  doc.text(`Orden: ${orderData.orderNumber || ''}`, 5, currentY);
   currentY += 4;
-  doc.text(`Fecha: ${new Date(orderData.createdAt).toLocaleDateString()}`, margin, currentY);
+  doc.text(`Fecha: ${new Date(orderData.createdAt).toLocaleDateString()}`, 5, currentY);
   currentY += 4;
   if (controlNumber) {
-    doc.text(`Control Fiscal: ${controlNumber}`, margin, currentY);
+    doc.text(`Control Fiscal: ${controlNumber}`, 5, currentY);
     currentY += 4;
   }
   if (fiscalHash) {
-    doc.text(`Hash: ${String(fiscalHash).slice(0, 24)}...`, margin, currentY);
+    doc.text(`Hash: ${String(fiscalHash).slice(0, 24)}...`, 5, currentY);
     currentY += 4;
   }
 
   // Customer info
-  doc.text(`Cliente: ${customerData?.name || orderData.customerName}`, margin, currentY);
+  doc.text(`Cliente: ${customerData?.name || orderData.customerName}`, 5, currentY);
   currentY += 4;
   if (customerData?.taxId) {
-    doc.text(`RIF: ${customerData.taxId}`, margin, currentY);
+    doc.text(`RIF: ${customerData.taxId}`, 5, currentY);
     currentY += 4;
   }
 
   // Divider
   currentY += 2;
-  doc.line(margin, currentY, rightEdge, currentY);
+  doc.line(5, currentY, 75, currentY);
   currentY += 4;
 
   // Products table
   doc.setFont(undefined, 'bold');
-  doc.setFontSize(9);
-  doc.text('Producto', margin, currentY);
-  doc.text('Cant', margin + 35, currentY);
-  doc.text('Total', rightEdge, currentY, { align: 'right' });
+  doc.setFontSize(10);
+  doc.text('Producto', 5, currentY);
+  doc.text('Cant', 50, currentY);
+  doc.text('Total', 70, currentY, { align: 'right' });
   currentY += 4;
-  doc.line(margin, currentY, rightEdge, currentY);
+  doc.line(5, currentY, 75, currentY);
   currentY += 4;
 
   doc.setFont(undefined, 'normal');
@@ -420,27 +461,27 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
     const total = quantity * finalUnitPrice;
 
     lines.forEach((line, idx) => {
-      doc.text(line, margin, currentY);
+      doc.text(line, 5, currentY);
       if (idx === 0) {
-        doc.text(String(quantity), margin + 35, currentY);
-        doc.text(`$${total.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
+        doc.text(String(quantity), 50, currentY);
+        doc.text(`$${total.toFixed(2)}`, 75, currentY, { align: 'right' });
       }
       currentY += 4;
     });
 
     // Price per unit in smaller font
-    doc.setFontSize(10);
+    doc.setFontSize(11);
     if (discount > 0) {
-      doc.text(`@ $${unitPrice.toFixed(2)} c/u (-${discount}%)`, margin, currentY);
+      doc.text(`@ $${unitPrice.toFixed(2)} c/u (-${discount}%)`, 5, currentY);
     } else {
-      doc.text(`@ $${unitPrice.toFixed(2)} c/u`, margin, currentY);
+      doc.text(`@ $${unitPrice.toFixed(2)} c/u`, 5, currentY);
     }
     currentY += 4;
     doc.setFontSize(8);
   });
 
   // Divider
-  doc.line(margin, currentY, rightEdge, currentY);
+  doc.line(5, currentY, 75, currentY);
   currentY += 4;
 
   // Totals
@@ -451,38 +492,41 @@ const generateThermalPDF = async ({ documentType, orderData, customerData, tenan
   const generalDiscountAmount = orderData.generalDiscountAmount || 0;
 
   if (orderData.subtotal) {
-    doc.text('Subtotal:', margin, currentY); // labels left-aligned
-    doc.text(`$${orderData.subtotal.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
+    doc.text('Subtotal:', 5, currentY); // labels left-aligned
+    doc.text(`$${orderData.subtotal.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
   if (generalDiscountAmount > 0) {
-    doc.text('Desc. General:', margin, currentY);
-    doc.text(`-$${generalDiscountAmount.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
+    doc.text('Desc. General:', 5, currentY);
+    doc.text(`-$${generalDiscountAmount.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
+  const ivaLabel = defaultTax ? `${defaultTax.type}:` : 'IVA:';
+  const igtfLabel = transactionTax ? `${transactionTax.type}:` : 'IGTF:';
+
   if (orderData.ivaTotal) {
-    doc.text('IVA:', margin, currentY);
-    doc.text(`$${orderData.ivaTotal.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
+    doc.text(ivaLabel, 5, currentY);
+    doc.text(`$${orderData.ivaTotal.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
   if (orderData.igtfTotal) {
-    doc.text('IGTF:', margin, currentY);
-    doc.text(`$${orderData.igtfTotal.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
+    doc.text(igtfLabel, 5, currentY);
+    doc.text(`$${orderData.igtfTotal.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
   if (orderData.shippingCost) {
-    doc.text('Envío:', margin, currentY);
-    doc.text(`$${orderData.shippingCost.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
+    doc.text('Envío:', 5, currentY);
+    doc.text(`$${orderData.shippingCost.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
 
-  doc.setFontSize(11);
-  doc.text('TOTAL USD:', margin, currentY);
-  doc.text(`$${totalUSD.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
+  doc.setFontSize(12);
+  doc.text('TOTAL USD:', 5, currentY);
+  doc.text(`$${totalUSD.toFixed(2)}`, 75, currentY, { align: 'right' });
   currentY += 5;
 
-  doc.text('TOTAL Bs:', margin, currentY);
-  doc.text(`Bs ${totalBs.toFixed(2)}`, rightEdge, currentY, { align: 'right' });
+  doc.text(`TOTAL ${primaryCurrency.code}:`, 5, currentY);
+  doc.text(`${primaryCurrency.symbol} ${totalBs.toFixed(2)}`, 75, currentY, { align: 'right' });
   currentY += 6;
 
   // Footer

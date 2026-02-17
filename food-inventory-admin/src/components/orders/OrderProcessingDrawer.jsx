@@ -42,6 +42,7 @@ import { fetchApi } from '@/lib/api.js';
 import { PaymentDialogV2 } from './v2/PaymentDialogV2';
 import BillingDrawer from '../billing/BillingDrawer';
 import { useAuth } from '@/hooks/use-auth.jsx';
+import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
@@ -75,6 +76,12 @@ const FULFILLMENT_TYPES = [
 ];
 
 export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
+  const plugin = useCountryPlugin();
+  const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
+  const transactionTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
+  const ivaLabel = defaultTax ? `${defaultTax.type} (${defaultTax.rate}%):` : 'IVA (16%):';
+  const igtfLabel = transactionTax ? `${transactionTax.type} (${transactionTax.rate}%):` : 'IGTF (3%):';
+
   const [currentStep, setCurrentStep] = useState(1);
   const [fulfillmentType, setFulfillmentType] = useState(order?.fulfillmentType || 'store');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -357,6 +364,8 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
           selectedDocumentType={selectedDocumentType}
           onDocumentTypeChange={setSelectedDocumentType}
           effectiveTotals={effectiveTotals}
+          ivaLabel={ivaLabel}
+          igtfLabel={igtfLabel}
         />;
       case 2:
         return <Step3Billing
@@ -556,7 +565,7 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
 
 // ==================== STEP COMPONENTS ====================
 
-function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChange, isPaid, isPartiallyPaid, balance, onOpenPaymentDialog, selectedDocumentType, onDocumentTypeChange, effectiveTotals }) {
+function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChange, isPaid, isPartiallyPaid, balance, onOpenPaymentDialog, selectedDocumentType, onDocumentTypeChange, effectiveTotals, ivaLabel, igtfLabel }) {
   const isDeliveryNote = selectedDocumentType === 'delivery_note';
 
   // Use effective totals (adjusted for document type)
@@ -659,7 +668,7 @@ function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChang
           </div>
           <div className="flex justify-between">
             <span className={`text-muted-foreground ${isDeliveryNote ? 'line-through' : ''}`}>
-              {isDeliveryNote ? 'IVA:' : 'IVA (16%):'}
+              {isDeliveryNote ? ivaLabel.replace(/\s*\([^)]*\):?/, ':') : ivaLabel}
             </span>
             <span className={isDeliveryNote ? 'line-through text-muted-foreground' : ''}>
               {formatCurrency(displayIva)}
@@ -667,13 +676,13 @@ function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChang
           </div>
           {(order.igtfTotal > 0 || displayIgtf > 0) && !isDeliveryNote && (
             <div className="flex justify-between text-orange-600">
-              <span>IGTF (3%):</span>
+              <span>{igtfLabel}</span>
               <span>{formatCurrency(displayIgtf)}</span>
             </div>
           )}
           {isDeliveryNote && order.igtfTotal > 0 && (
             <div className="flex justify-between text-muted-foreground">
-              <span className="line-through">IGTF (3%):</span>
+              <span className="line-through">{igtfLabel}</span>
               <span className="line-through">{formatCurrency(0)}</span>
             </div>
           )}
