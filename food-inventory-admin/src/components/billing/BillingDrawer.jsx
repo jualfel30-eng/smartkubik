@@ -44,7 +44,7 @@ import InvoiceDeliveryDialog from './InvoiceDeliveryDialog';
 import { useCrmContext } from '../../context/CrmContext';
 import { useCountryPlugin } from '../../country-plugins/CountryPluginContext';
 
-const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
+const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated, initialDocumentType }) => {
     const navigate = useNavigate();
     const { rate: bcvRate, loading: loadingRate } = useExchangeRate();
     const { paymentMethods, paymentMethodsLoading } = useCrmContext();
@@ -61,7 +61,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
     const [products, setProducts] = useState([]);
 
     const [formData, setFormData] = useState({
-        type: 'invoice',
+        type: initialDocumentType || 'invoice',
         issueDate: new Date().toISOString().split('T')[0], // Fecha actual en formato YYYY-MM-DD
         customer: null,
         customerData: {
@@ -84,7 +84,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
         description: '',
         quantity: 1,
         unitPrice: 0,
-        taxRate: defaultTaxRate,
+        taxRate: initialDocumentType === 'delivery_note' ? 0 : defaultTaxRate,
         discount: 0
     });
 
@@ -108,18 +108,20 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
             // Determine if exempt based on populated product data
             const isExempt = item.ivaApplicable === false || productObj?.ivaApplicable === false || item.product?.ivaApplicable === false;
 
+            const effectiveTaxRate = (isExempt || initialDocumentType === 'delivery_note') ? 0 : defaultTaxRate;
+            const qty = item.quantity || 1;
+            const subtotal = qty * unitPrice;
             return {
                 productId: productId,
                 description: description,
-                quantity: item.quantity || 1,
+                quantity: qty,
                 unit: unit,
                 unitPrice: unitPrice,
-                // Fix: Respect the exemption flag from the order item or product
-                taxRate: isExempt ? 0 : defaultTaxRate,
+                taxRate: effectiveTaxRate,
                 discount: 0,
-                subtotal: (item.quantity || 1) * unitPrice,
-                tax: ((item.quantity || 1) * unitPrice * (isExempt ? 0 : defaultTaxRate) / 100),
-                total: ((item.quantity || 1) * unitPrice * (1 + (isExempt ? 0 : defaultTaxRate) / 100))
+                subtotal: subtotal,
+                tax: subtotal * effectiveTaxRate / 100,
+                total: subtotal * (1 + effectiveTaxRate / 100)
             };
         });
 
@@ -186,7 +188,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
         const totalAmount = items.reduce((sum, item) => sum + (item.total || 0), 0);
 
         setFormData({
-            type: 'invoice',
+            type: initialDocumentType || 'invoice',
             issueDate: new Date().toISOString().split('T')[0],
             customer: customerId,
             customerData,
@@ -197,7 +199,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated }) => {
             exchangeRate: bcvRate || orderData.exchangeRate || 1,
             amountBs: orderData.totalAmountVes || (totalAmount * (bcvRate || orderData.exchangeRate || 1))
         });
-    }, [bcvRate]);
+    }, [bcvRate, initialDocumentType]);
 
     // Effect: When opened, fetch FRESH order details AND full customer details
     useEffect(() => {
