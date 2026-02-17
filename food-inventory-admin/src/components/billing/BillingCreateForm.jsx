@@ -364,7 +364,7 @@ const BillingCreateForm = () => {
 
       const response = await api.post('/billing/documents', payload);
       toast.success('Documento guardado como borrador');
-      navigate(`/billing/documents/${response.data._id}`);
+      navigate(`/billing/documents/${response._id}`);
     } catch (error) {
       console.error('Error saving document:', error);
       toast.error(error.response?.data?.message || 'Error al guardar documento');
@@ -438,10 +438,10 @@ const BillingCreateForm = () => {
       const response = await api.post('/billing/documents', payload);
 
       // Emitir inmediatamente
-      await api.post(`/billing/documents/${response.data._id}/issue`);
+      await api.post(`/billing/documents/${response._id}/issue`);
 
       toast.success('Documento emitido correctamente');
-      navigate(`/billing/documents/${response.data._id}`);
+      navigate(`/billing/documents/${response._id}`);
     } catch (error) {
       console.error('Error issuing document:', error);
       toast.error(error.response?.data?.message || 'Error al emitir documento');
