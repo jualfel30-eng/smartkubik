@@ -180,7 +180,7 @@ export function OrderSidebar({
             {bcvRate && !loadingRate && (
               <div className="flex justify-between text-xs text-muted-foreground mt-2">
                 <span>Tasa BCV:</span>
-                <span>Bs. {bcvRate.toFixed(2)} / {cc.label}</span>
+                <span>Bs. {bcvRate.toFixed(2)} / {plugin.currencyEngine.getSecondaryCurrencies()[0]?.code ?? 'USD'}</span>
               </div>
             )}
 
