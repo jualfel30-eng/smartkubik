@@ -48,7 +48,7 @@ const BillingDocumentDetail = () => {
       setLoading(true);
       const [docResponse, evidenceResponse] = await Promise.all([
         api.get(`/billing/documents/${id}`),
-        api.get(`/billing/documents/${id}/evidence`).catch(() => ({ data: null }))
+        api.get(`/billing/evidences?documentId=${id}`).catch(() => ({ data: null }))
       ]);
 
       setDocument(docResponse.data);
