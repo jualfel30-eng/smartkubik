@@ -377,6 +377,8 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
       case 3:
         return <Step4Confirmation
           order={orderData}
+          effectiveTotals={effectiveTotals}
+          selectedDocumentType={selectedDocumentType}
           onComplete={handleComplete}
           isProcessing={isProcessing}
           onViewInvoice={handleViewInvoice}
@@ -821,7 +823,7 @@ function Step3Billing({ order, hasInvoice, onOpenBillingDrawer, onViewInvoice })
   );
 }
 
-function Step4Confirmation({ order, onComplete, isProcessing, onViewInvoice }) {
+function Step4Confirmation({ order, effectiveTotals, selectedDocumentType, onComplete, isProcessing, onViewInvoice }) {
   const handlePrint = () => {
     if (order.billingDocumentId) {
       onViewInvoice(order.billingDocumentId);
@@ -945,8 +947,9 @@ function Step4Confirmation({ order, onComplete, isProcessing, onViewInvoice }) {
           <p><strong>Número de Orden:</strong> {order.orderNumber}</p>
           <p><strong>Cliente:</strong> {order.customerName}</p>
           <p><strong>Tipo de Entrega:</strong> {FULFILLMENT_TYPES.find(t => t.id === order.fulfillmentType)?.label || order.fulfillmentType}</p>
-          <p><strong>Monto Total:</strong> {formatCurrency(order.totalAmount)}</p>
-          <p><strong>Factura:</strong> {order.billingDocumentNumber}</p>
+          <p><strong>Tipo de Documento:</strong> {selectedDocumentType === 'delivery_note' ? 'Nota de Entrega' : 'Factura'}</p>
+          <p><strong>Monto Total:</strong> {formatCurrency(effectiveTotals?.totalAmount ?? order.totalAmount)}</p>
+          <p><strong>Número de Documento:</strong> {order.billingDocumentNumber}</p>
         </div>
       </div>
 
