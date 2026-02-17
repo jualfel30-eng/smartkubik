@@ -15,7 +15,7 @@ import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import MixedChangeModal from './MixedChangeModal';
 
-export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exchangeRate }) {
+export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exchangeRate, overrideTotalAmount, overrideTotalAmountVes, isDeliveryNote }) {
   const { paymentMethods, paymentMethodsLoading } = useCrmContext();
   const { triggerRefresh } = useAccountingContext();
   const plugin = useCountryPlugin();
