@@ -656,6 +656,8 @@ export class BillingService {
       const endDate = filters.endDate
         ? new Date(filters.endDate)
         : new Date();
+      // Treat endDate as end-of-day (UTC) so documents created/issued any time today are included
+      endDate.setUTCHours(23, 59, 59, 999);
 
       query.$or = [
         { issueDate: { $gte: startDate, $lte: endDate } },
@@ -782,6 +784,8 @@ export class BillingService {
     const endDate = filters.endDate
       ? new Date(filters.endDate)
       : new Date(); // Today
+    // Treat endDate as end-of-day (UTC) so documents issued any time today are included
+    endDate.setUTCHours(23, 59, 59, 999);
 
     const query: any = {
       tenantId,
