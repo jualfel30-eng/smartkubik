@@ -555,7 +555,7 @@ const ElectronicInvoicesManager = () => {
                               <Download className="h-4 w-4" />
                             </Button>
                           ) : (
-                            inv.status === 'issued' && (
+                            inv.status === 'issued' && ['invoice', 'credit_note', 'debit_note'].includes(inv.type) && (
                               <Button
                                 variant="ghost"
                                 size="icon"

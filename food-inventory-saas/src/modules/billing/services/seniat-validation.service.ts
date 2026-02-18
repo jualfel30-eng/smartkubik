@@ -197,8 +197,9 @@ export class SeniatValidationService {
       warnings.push('Serie de facturación no especificada');
     }
 
-    // 9. Currency validation
-    if (!invoice.totals?.currency) {
+    // 9. Currency validation (stored at root-level 'currency' OR nested in totals.currency)
+    const currency = invoice.totals?.currency || (invoice as any).currency;
+    if (!currency) {
       errors.push('Moneda es requerida');
     }
 
