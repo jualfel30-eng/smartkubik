@@ -349,4 +349,11 @@ export class BillingController {
     const tenantId = req.user.tenantId;
     return this.billingService.repairInvoices(tenantId);
   }
+
+  @Post('migrate-currency')
+  @Permissions('billing_issue')
+  @ApiOperation({ summary: 'Backfill totals.currency=VES para documentos históricos sin moneda' })
+  async migrateCurrency(@Req() req: any) {
+    return this.billingService.migrateCurrency(req.user.tenantId);
+  }
 }

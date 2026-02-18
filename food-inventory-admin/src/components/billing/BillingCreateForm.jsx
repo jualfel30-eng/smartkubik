@@ -78,6 +78,8 @@ const BillingCreateForm = () => {
     customerData: {
       name: '',
       rif: '',
+      rifType: 'J',
+      rifNumber: '',
       email: '',
       phone: '',
       address: ''
@@ -178,12 +180,17 @@ const BillingCreateForm = () => {
     // SearchableSelect returns an object { value, label, customer } or null
     if (selectedOption && selectedOption.customer) {
       const { customer } = selectedOption;
+      const fullRif = customer.rif || customer.taxId || '';
+      const [parsedType, ...rest] = fullRif.split('-');
+      const isValidType = ['V', 'E', 'J', 'P', 'G'].includes(parsedType?.toUpperCase());
       setFormData({
         ...formData,
         customer: customer._id,
         customerData: {
           name: customer.name,
-          rif: customer.rif || customer.taxId || '',
+          rif: fullRif,
+          rifType: isValidType ? parsedType.toUpperCase() : 'J',
+          rifNumber: isValidType ? rest.join('-') : fullRif,
           email: customer.email || '',
           phone: customer.phone || '',
           address: customer.address || ((customer.addresses && customer.addresses.length > 0) ? customer.addresses[0].street : '')
@@ -587,14 +594,46 @@ const BillingCreateForm = () => {
 
               <div>
                 <Label>{fiscalIdLabel} *</Label>
-                <Input
-                  value={formData.customerData.rif}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    customerData: { ...formData.customerData, rif: e.target.value }
-                  })}
-                  placeholder="J-123456789"
-                />
+                <div className="flex gap-2">
+                  <Select
+                    value={formData.customerData.rifType || 'J'}
+                    onValueChange={(type) => setFormData({
+                      ...formData,
+                      customerData: {
+                        ...formData.customerData,
+                        rifType: type,
+                        rif: `${type}-${formData.customerData.rifNumber || ''}`,
+                      }
+                    })}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="J">J</SelectItem>
+                      <SelectItem value="V">V</SelectItem>
+                      <SelectItem value="E">E</SelectItem>
+                      <SelectItem value="P">P</SelectItem>
+                      <SelectItem value="G">G</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    value={formData.customerData.rifNumber || ''}
+                    onChange={(e) => {
+                      const number = e.target.value.replace(/[^0-9-]/g, '');
+                      setFormData({
+                        ...formData,
+                        customerData: {
+                          ...formData.customerData,
+                          rifNumber: number,
+                          rif: `${formData.customerData.rifType || 'J'}-${number}`,
+                        }
+                      });
+                    }}
+                    placeholder="12345678-9"
+                    className="flex-1"
+                  />
+                </div>
               </div>
 
               <div>

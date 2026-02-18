@@ -942,6 +942,42 @@ export class BillingService {
     return [];
   }
 
+  /**
+   * Migration: backfill totals.currency = 'VES' for documents created before
+   * the currency-in-totals fix. Also backfills totals.exchangeRate = 1.
+   */
+  async migrateCurrency(tenantId: string) {
+    this.logger.log(`Running currency migration for tenant ${tenantId}`);
+
+    const result = await this.billingModel.updateMany(
+      {
+        tenantId,
+        'totals.currency': { $in: [null, undefined, ''] },
+      },
+      [
+        {
+          $set: {
+            'totals.currency': {
+              $ifNull: ['$totals.currency', 'VES'],
+            },
+            'totals.exchangeRate': {
+              $ifNull: ['$totals.exchangeRate', 1],
+            },
+          },
+        },
+      ],
+    );
+
+    this.logger.log(
+      `Currency migration complete: ${result.modifiedCount} documents updated`,
+    );
+    return {
+      success: true,
+      updated: result.modifiedCount,
+      matched: result.matchedCount,
+    };
+  }
+
   async repairInvoices(tenantId: string) {
     this.logger.log(`Starting invoice repair for tenant ${tenantId}`);
 
