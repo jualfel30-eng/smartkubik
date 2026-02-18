@@ -629,7 +629,7 @@ export class ProductsService {
       "unitOfMeasure isSoldByWeight hasMultipleSellingUnits sellingUnits " +
       "price salePrice image imageUrl images attributes inventoryConfig pricingRules " +
       "ivaApplicable igtfExempt taxCategory isPerishable shelfLifeDays shelfLifeUnit storageTemperature sendToKitchen " +
-      "variants.name variants.sku variants.isActive variants.barcode variants.basePrice variants.costPrice variants.wholesalePrice variants.price variants.unit variants.unitSize variants.images variants.attributes";
+      "variants.name variants.sku variants.isActive variants.barcode variants.basePrice variants.costPrice variants.wholesalePrice variants.price variants.unit variants.unitSize variants.images variants.attributes variants.pricingStrategy";
 
     // Build projection to include text score when doing text search
     const projection = useTextSearch ? { score: { $meta: "textScore" } } : {};
