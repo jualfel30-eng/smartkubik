@@ -130,7 +130,11 @@ export class AutoBillingListener {
           type: docType,
           seriesId,
           customerName: order.customerName || event.customerName,
-          customerTaxId: order.customerRif,
+          // Reconstruct full RIF: taxType prefix + RIF number (e.g. "J-12345678-9")
+          // The POS stores them separately in order.taxType and order.customerRif
+          customerTaxId: order.taxType && order.customerRif
+            ? `${order.taxType}-${order.customerRif}`
+            : order.customerRif || '',
           customerData: {
             address: order.customerAddress,
             email: order.customerEmail,
