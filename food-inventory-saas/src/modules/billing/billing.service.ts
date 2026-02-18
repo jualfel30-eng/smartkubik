@@ -175,9 +175,12 @@ export class BillingService {
         phone: dto.customerData?.phone || original?.customer?.phone,
       },
       items: dto.items,
-      totals: dto.totals,
-      currency: dto.currency,
-      exchangeRate: dto.exchangeRate,
+      totals: {
+        ...dto.totals,
+        // Ensure currency/exchangeRate are inside totals (schema location)
+        currency: dto.totals?.currency || dto.currency || 'VES',
+        exchangeRate: dto.totals?.exchangeRate || dto.exchangeRate || 1,
+      },
       paymentMethod: dto.paymentMethod,
       issueDate: dto.issueDate,
       references: dto.originalDocumentId

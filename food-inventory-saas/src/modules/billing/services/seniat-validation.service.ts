@@ -197,10 +197,12 @@ export class SeniatValidationService {
       warnings.push('Serie de facturación no especificada');
     }
 
-    // 9. Currency validation (stored at root-level 'currency' OR nested in totals.currency)
+    // 9. Currency validation — missing currency defaults to VES (Venezuelan invoices)
+    // The export service already handles missing currency with a 'VES' fallback,
+    // so we only warn (not error) when absent.
     const currency = invoice.totals?.currency || (invoice as any).currency;
     if (!currency) {
-      errors.push('Moneda es requerida');
+      warnings.push('Moneda no especificada, se asume VES');
     }
 
     // 10. Payment terms (warning only)
