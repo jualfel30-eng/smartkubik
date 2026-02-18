@@ -45,6 +45,20 @@ export function PricingStrategySelector({
     }
   );
 
+  // Sync internal state when the strategy prop changes from outside
+  // (e.g. when the edit dialog opens with an existing product's saved strategy)
+  useEffect(() => {
+    if (strategy) {
+      setLocalStrategy(strategy);
+    }
+  }, [
+    strategy?.mode,
+    strategy?.markupPercentage,
+    strategy?.marginPercentage,
+    strategy?.autoCalculate,
+    strategy?.psychologicalRounding,
+  ]);
+
   // Calcular precio automáticamente (incluye redondeo psicológico)
   const calculatedPrice = calculatePriceWithRounding(costPrice, localStrategy, basePrice);
   const metrics = calculateProfitMetrics(costPrice, calculatedPrice);
