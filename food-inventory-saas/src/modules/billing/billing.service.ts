@@ -943,6 +943,77 @@ export class BillingService {
   }
 
   /**
+   * Migration: add taxType prefix to customer.taxId for billing documents
+   * that were created from POS orders before the auto-billing listener fix.
+   *
+   * Strategy: find billing docs whose customer.taxId does NOT start with a
+   * valid Venezuelan prefix ([VEJPG]-). For each, look up the linked order
+   * via references.orderId and prepend order.taxType if it is valid.
+   */
+  async migrateCustomerRifPrefix(tenantId: string) {
+    this.logger.log(`Running customer RIF prefix migration for tenant ${tenantId}`);
+
+    const RIF_PATTERN = /^[VEJPG]-/;
+    const VALID_TYPES = ['V', 'E', 'J', 'P', 'G'];
+
+    // Find docs that have a taxId but it lacks the [TYPE]- prefix
+    const docs = await this.billingModel
+      .find({
+        tenantId,
+        'customer.taxId': { $exists: true, $ne: '', $not: /^[VEJPG]-/ },
+      })
+      .lean();
+
+    this.logger.log(`Found ${docs.length} documents with unformatted customer taxId`);
+
+    let fixed = 0;
+    let skipped = 0;
+
+    for (const doc of docs) {
+      const orderId = (doc as any).references?.orderId;
+      if (!orderId) {
+        this.logger.warn(`No orderId for doc ${doc._id}, skipping`);
+        skipped++;
+        continue;
+      }
+
+      const order = await this.orderModel.findById(orderId).lean() as any;
+      if (!order) {
+        this.logger.warn(`Order ${orderId} not found for doc ${doc._id}, skipping`);
+        skipped++;
+        continue;
+      }
+
+      const taxType = order.taxType?.toUpperCase();
+      if (!taxType || !VALID_TYPES.includes(taxType)) {
+        this.logger.warn(
+          `Order ${orderId} has no valid taxType (got "${order.taxType}"), skipping doc ${doc._id}`,
+        );
+        skipped++;
+        continue;
+      }
+
+      const currentTaxId = (doc as any).customer?.taxId || '';
+      const newTaxId = `${taxType}-${currentTaxId}`;
+
+      await this.billingModel.updateOne(
+        { _id: doc._id },
+        { $set: { 'customer.taxId': newTaxId } },
+      );
+
+      this.logger.log(`Fixed doc ${doc._id}: "${currentTaxId}" → "${newTaxId}"`);
+      fixed++;
+    }
+
+    return {
+      success: true,
+      total: docs.length,
+      fixed,
+      skipped,
+    };
+  }
+
+  /**
    * Migration: backfill totals.currency = 'VES' for documents created before
    * the currency-in-totals fix. Also backfills totals.exchangeRate = 1.
    */

@@ -356,4 +356,11 @@ export class BillingController {
   async migrateCurrency(@Req() req: any) {
     return this.billingService.migrateCurrency(req.user.tenantId);
   }
+
+  @Post('migrate-customer-rif')
+  @Permissions('billing_issue')
+  @ApiOperation({ summary: 'Añadir prefijo tipo RIF (J/V/E/P/G) a documentos históricos sin prefijo' })
+  async migrateCustomerRif(@Req() req: any) {
+    return this.billingService.migrateCustomerRifPrefix(req.user.tenantId);
+  }
 }
