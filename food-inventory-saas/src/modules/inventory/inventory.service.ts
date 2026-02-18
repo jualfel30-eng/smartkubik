@@ -1289,6 +1289,34 @@ export class InventoryService {
 
     await inventory.save({ session });
 
+    // Sync average cost price back to product variant so auto-calculate pricing stays accurate
+    const variantIndex = product.variants.findIndex(
+      (v: any) => v.sku === sku || (item.variantId && v._id?.toString() === item.variantId?.toString()),
+    );
+    if (variantIndex !== -1) {
+      const variant = product.variants[variantIndex] as any;
+      const newCostPrice = inventory.averageCostPrice;
+      variant.costPrice = newCostPrice;
+
+      // Re-calculate basePrice if auto-calculate is enabled
+      const strategy = variant.pricingStrategy;
+      if (strategy?.autoCalculate && strategy.mode !== 'manual') {
+        let newBasePrice: number | null = null;
+        if (strategy.mode === 'markup' && strategy.markupPercentage != null) {
+          newBasePrice = newCostPrice * (1 + strategy.markupPercentage / 100);
+        } else if (strategy.mode === 'margin' && strategy.marginPercentage != null) {
+          const divisor = 1 - strategy.marginPercentage / 100;
+          if (divisor > 0) newBasePrice = newCostPrice / divisor;
+        }
+        if (newBasePrice !== null) {
+          variant.basePrice = Math.round(newBasePrice * 100) / 100;
+        }
+      }
+
+      product.markModified('variants');
+      await product.save({ session });
+    }
+
     await this.createMovementRecord(
       {
         inventoryId: inventory._id.toString(),

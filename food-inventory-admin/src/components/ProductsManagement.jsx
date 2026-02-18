@@ -1338,6 +1338,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         basePrice: Number(variant.basePrice) || 0,
         wholesalePrice: Number(variant.wholesalePrice) || undefined,
         images: Array.isArray(variant.images) ? variant.images : [],
+        pricingStrategy: variant.pricingStrategy || undefined,
       };
       if (sanitizedAttributes !== undefined) {
         nextVariant.attributes = sanitizedAttributes;

@@ -313,15 +313,37 @@ export function PricingStrategySelector({
           />
         )}
 
-        {/* Warning for manual mode */}
+        {/* Manual mode: show live markup indicator */}
         {localStrategy.mode === 'manual' && (
-          <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500 mt-0.5" />
-            <p className="text-xs text-amber-900 dark:text-amber-200">
-              En modo manual, deberás actualizar el precio manualmente cada vez que cambie el
-              costo.
-            </p>
-          </div>
+          <>
+            {costPrice > 0 && basePrice > 0 ? (
+              <div className="p-3 bg-muted/50 border rounded-lg space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground font-medium">Margen sobre costo actual</span>
+                  <span className={cn(
+                    'text-sm font-bold',
+                    metrics.profitPercentage < 0 ? 'text-red-600' :
+                    metrics.profitPercentage < 10 ? 'text-orange-600' :
+                    metrics.profitPercentage < 30 ? 'text-blue-600' :
+                    'text-green-600'
+                  )}>
+                    {metrics.profitPercentage.toFixed(1)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Ganancia por unidad</span>
+                  <span className="font-medium">${(basePrice - costPrice).toFixed(2)}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500 mt-0.5" />
+                <p className="text-xs text-amber-900 dark:text-amber-200">
+                  Ingresa costo y precio de venta para ver el margen calculado automáticamente.
+                </p>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>
