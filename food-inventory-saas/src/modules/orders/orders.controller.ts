@@ -291,6 +291,25 @@ export class OrdersController {
     }
   }
 
+  @Post("migrate-delivery-note-status")
+  @Permissions("orders_update")
+  @ApiOperation({ summary: "Migración: corregir paymentStatus de órdenes con nota de entrega" })
+  async migrateDeliveryNotePaymentStatus(@Request() req) {
+    try {
+      const result = await this.ordersService.migrateDeliveryNotePaymentStatus(req.user.tenantId);
+      return {
+        success: true,
+        message: `Migración completada: ${result.updated} de ${result.checked} órdenes actualizadas`,
+        data: result,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error en migración",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   @Post("fix-historic-payments")
   @Permissions("orders_update")
   @ApiOperation({ summary: "Generar documentos de pago para órdenes históricas confirmadas" })

@@ -381,8 +381,12 @@ export function OrdersHistoryV2() {
                 accessorKey: "balance",
                 header: "Balance",
                 cell: ({ row }) => {
-                    const rawBalance = (row.original.totalAmount || 0) - (row.original.paidAmount || 0);
-                    // If the order is marked as 'paid' but has a negative balance (due to IGTF), show $0.00
+                    // For delivery notes, effective total is subtotal + shipping (IVA/IGTF not charged)
+                    const effectiveTotal = row.original.billingDocumentType === 'delivery_note'
+                        ? (row.original.subtotal || 0) + (row.original.shippingCost || 0)
+                        : (row.original.totalAmount || 0);
+                    const rawBalance = effectiveTotal - (row.original.paidAmount || 0);
+                    // If the order is marked as 'paid' but has a small negative balance (rounding), show $0.00
                     const balance = (row.original.paymentStatus === 'paid' && rawBalance < 0) ? 0 : rawBalance;
 
                     const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(balance);
@@ -393,7 +397,14 @@ export function OrdersHistoryV2() {
                 accessorKey: "paymentStatus",
                 header: "Estado de Pago",
                 cell: ({ row }) => {
-                    const status = row.original.paymentStatus;
+                    // For delivery notes, treat as 'paid' if paidAmount covers effective total (subtotal + shipping)
+                    let status = row.original.paymentStatus;
+                    if (status === 'partial' && row.original.billingDocumentType === 'delivery_note') {
+                        const effectiveTotal = (row.original.subtotal || 0) + (row.original.shippingCost || 0);
+                        if ((row.original.paidAmount || 0) >= effectiveTotal - 0.01) {
+                            status = 'paid';
+                        }
+                    }
                     const { label, variant } = paymentStatusMap[status] || { label: status, variant: 'secondary' };
                     return <Badge variant={variant}>{label}</Badge>;
                 }
@@ -410,7 +421,11 @@ export function OrdersHistoryV2() {
                 header: () => <div className="text-center">Procesar</div>,
                 cell: ({ row }) => {
                     const order = row.original;
-                    const isPaid = order.paymentStatus === 'paid';
+                    // For delivery notes, consider paid if paidAmount covers subtotal + shipping
+                    const effectivePaid = order.paymentStatus === 'paid' ||
+                        (order.billingDocumentType === 'delivery_note' &&
+                         (order.paidAmount || 0) >= ((order.subtotal || 0) + (order.shippingCost || 0)) - 0.01);
+                    const isPaid = effectivePaid;
                     const hasInvoice = order.billingDocumentId && order.billingDocumentType !== 'none';
 
                     // Determine button variant based on order state

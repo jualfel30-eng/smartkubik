@@ -713,7 +713,7 @@ export class PaymentsService {
   ): Promise<void> {
     const order = await this.orderModel
       .findById(orderId)
-      .select("payments paymentStatus totalAmount totalAmountVes tenantId orderNumber")
+      .select("payments paymentStatus totalAmount totalAmountVes tenantId orderNumber billingDocumentType subtotal shippingCost")
       .lean();
     if (!order) {
       throw new NotFoundException(`Order with ID ${orderId} not found.`);
@@ -734,8 +734,14 @@ export class PaymentsService {
       0,
     );
 
+    // For delivery notes, customers only pay subtotal + shipping (no IVA/IGTF)
+    const effectiveTotal =
+      (order as any).billingDocumentType === "delivery_note"
+        ? Number((order as any).subtotal || 0) + Number((order as any).shippingCost || 0)
+        : Number(order.totalAmount || 0);
+
     const paymentStatus =
-      paidAmount >= Number(order.totalAmount || 0) - 0.01
+      paidAmount >= effectiveTotal - 0.01
         ? "paid"
         : paidAmount > 0
           ? "partial"

@@ -3209,4 +3209,31 @@ export class OrdersService {
       this.logger.error(`Error in deductIngredients for item ${item.productSku}: ${error.message}`);
     }
   }
+
+  /**
+   * Migration: Fix paymentStatus for delivery note orders stuck at 'partial'.
+   * A delivery note order should be 'paid' once paidAmount >= subtotal + shippingCost.
+   */
+  async migrateDeliveryNotePaymentStatus(tenantId: string): Promise<{ updated: number; checked: number }> {
+    const orders = await this.orderModel
+      .find({ tenantId, billingDocumentType: 'delivery_note', paymentStatus: 'partial' })
+      .select('_id subtotal shippingCost paidAmount')
+      .lean();
+
+    let updated = 0;
+    for (const order of orders) {
+      const effectiveTotal = Number(order.subtotal || 0) + Number((order as any).shippingCost || 0);
+      const paidAmount = Number(order.paidAmount || 0);
+      if (paidAmount >= effectiveTotal - 0.01) {
+        await this.orderModel.updateOne(
+          { _id: order._id },
+          { $set: { paymentStatus: 'paid' } },
+        );
+        updated++;
+      }
+    }
+
+    this.logger.log(`[Migration] migrateDeliveryNotePaymentStatus: checked=${orders.length}, updated=${updated}`);
+    return { updated, checked: orders.length };
+  }
 }
