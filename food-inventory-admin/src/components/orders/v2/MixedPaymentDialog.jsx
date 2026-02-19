@@ -8,6 +8,7 @@ import { useCrmContext } from '@/context/CrmContext';
 import { X, Plus, Calculator } from 'lucide-react';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
+import { isVesMethod } from '@/lib/currency-config';
 
 export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
   const { paymentMethods, loading: contextLoading } = useCrmContext();

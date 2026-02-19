@@ -394,4 +394,134 @@ describe("PaymentsService (unit)", () => {
       });
     });
   });
+
+  // ─── Delivery note vs invoice paymentStatus ───────────────────────────────
+  // handleSalePayment() is private but critical — we exercise it through the
+  // internal method directly to avoid creating a full payment document chain.
+  describe("handleSalePayment - nota de entrega vs factura", () => {
+    const makeOrderMock = (overrides: Record<string, any>) => ({
+      _id: "order1",
+      totalAmount: 116,      // subtotal 100 + IVA 16
+      subtotal: 100,
+      shippingCost: 0,
+      paymentStatus: "pending",
+      orderNumber: "ORD-001",
+      tenantId: "t1",
+      billingDocumentType: "invoice",
+      ...overrides,
+    });
+
+    const makePaymentEntry = (amount: number) => ({
+      _id: "p1",
+      amount,
+      amountVes: amount * 36,
+      fees: { igtf: 0 },
+    });
+
+    const setupMocks = (order: object, payments: object[]) => {
+      orderModel.findById = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue(order),
+        }),
+      });
+      paymentModel.find = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue(payments),
+        }),
+      });
+      orderModel.findByIdAndUpdate = jest.fn().mockResolvedValue({});
+    };
+
+    it("marca 'paid' en factura cuando paidAmount >= totalAmount", async () => {
+      const order = makeOrderMock({ billingDocumentType: "invoice" });
+      setupMocks(order, [makePaymentEntry(116)]);
+
+      await (service as any).handleSalePayment("order1", { _id: "p1" }, "t1");
+
+      const updateCall = orderModel.findByIdAndUpdate.mock.calls[0];
+      expect(updateCall[1].$set.paymentStatus).toBe("paid");
+    });
+
+    it("marca 'partial' en factura cuando paidAmount < totalAmount", async () => {
+      const order = makeOrderMock({ billingDocumentType: "invoice" });
+      setupMocks(order, [makePaymentEntry(80)]);
+
+      await (service as any).handleSalePayment("order1", { _id: "p1" }, "t1");
+
+      const updateCall = orderModel.findByIdAndUpdate.mock.calls[0];
+      expect(updateCall[1].$set.paymentStatus).toBe("partial");
+    });
+
+    it("nota de entrega: marca 'paid' cuando paidAmount cubre subtotal+shipping (IVA no se cobra)", async () => {
+      // totalAmount = 116 (con IVA), pero effectiveTotal = subtotal(100) + shipping(0) = 100
+      const order = makeOrderMock({
+        billingDocumentType: "delivery_note",
+        subtotal: 100,
+        shippingCost: 0,
+        totalAmount: 116,
+      });
+      setupMocks(order, [makePaymentEntry(100)]);
+
+      await (service as any).handleSalePayment("order1", { _id: "p1" }, "t1");
+
+      const updateCall = orderModel.findByIdAndUpdate.mock.calls[0];
+      expect(updateCall[1].$set.paymentStatus).toBe("paid");
+    });
+
+    it("nota de entrega con envío: effectiveTotal = subtotal + shippingCost", async () => {
+      const order = makeOrderMock({
+        billingDocumentType: "delivery_note",
+        subtotal: 100,
+        shippingCost: 15,
+        totalAmount: 131, // subtotal + shipping + IVA
+      });
+      setupMocks(order, [makePaymentEntry(115)]);
+
+      await (service as any).handleSalePayment("order1", { _id: "p1" }, "t1");
+
+      const updateCall = orderModel.findByIdAndUpdate.mock.calls[0];
+      expect(updateCall[1].$set.paymentStatus).toBe("paid");
+    });
+
+    it("nota de entrega: sigue en 'partial' si paidAmount < subtotal+shipping", async () => {
+      const order = makeOrderMock({
+        billingDocumentType: "delivery_note",
+        subtotal: 100,
+        shippingCost: 0,
+        totalAmount: 116,
+      });
+      setupMocks(order, [makePaymentEntry(50)]);
+
+      await (service as any).handleSalePayment("order1", { _id: "p1" }, "t1");
+
+      const updateCall = orderModel.findByIdAndUpdate.mock.calls[0];
+      expect(updateCall[1].$set.paymentStatus).toBe("partial");
+    });
+
+    it("paidAmount se acumula considerando el fee IGTF de cada pago", async () => {
+      const order = makeOrderMock({ billingDocumentType: "invoice", totalAmount: 100 });
+      // Two payments: $90 + $10 IGTF fee on second → total paidAmount = 100.3
+      orderModel.findById = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue(order),
+        }),
+      });
+      paymentModel.find = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          lean: jest.fn().mockResolvedValue([
+            { _id: "p1", amount: 90, amountVes: 90 * 36, fees: { igtf: 0 } },
+            { _id: "p2", amount: 10, amountVes: 10 * 36, fees: { igtf: 0.3 } },
+          ]),
+        }),
+      });
+      orderModel.findByIdAndUpdate = jest.fn().mockResolvedValue({});
+
+      await (service as any).handleSalePayment("order1", { _id: "p2" }, "t1");
+
+      const updateCall = orderModel.findByIdAndUpdate.mock.calls[0];
+      // 90 + 10 + 0.3 = 100.3 >= 100 → paid
+      expect(updateCall[1].$set.paymentStatus).toBe("paid");
+      expect(updateCall[1].$set.paidAmount).toBeCloseTo(100.3);
+    });
+  });
 });
