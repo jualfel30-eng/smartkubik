@@ -149,12 +149,15 @@ export class InvoicePdfService {
 
         // Items Table
         const items = (doc as any).items || [];
+        const baseCurrency = doc.totals?.currency || "USD";
+        const currencySymbol = baseCurrency === 'VES' ? 'Bs ' : '$';
+
         const rows = items.map((item) => [
             item.code || "",
             item.description || "Producto",
             item.quantity?.toString() || "0",
-            item.unitPrice?.toFixed(2) || "0.00",
-            ((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)
+            `${currencySymbol}${(item.unitPrice || 0).toFixed(2)}`,
+            `${currencySymbol}${((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}`
         ]);
 
         autoTable(pdf, {
@@ -198,11 +201,22 @@ export class InvoicePdfService {
                 usd = amount / (rate || 1);
             }
 
-            // For Total, make it larger/bold
-            if (type === 'total') {
-                return `${usd.toFixed(2)} USD / Bs ${ves.toFixed(2)}`;
+            // Check if we need dual currency display (rate is valid and significantly different from 1)
+            const needsDualDisplay = rate > 0 && isFinite(rate) && Math.abs(rate - 1) > 0.01;
+
+            if (baseCurrency === 'VES') {
+                // VES document: show Bs first
+                if (needsDualDisplay) {
+                    return `Bs ${ves.toFixed(2)} ($${usd.toFixed(2)})`;
+                }
+                return `Bs ${ves.toFixed(2)}`;
+            } else {
+                // USD document: show $ first
+                if (needsDualDisplay) {
+                    return `$${usd.toFixed(2)} (Bs ${ves.toFixed(2)})`;
+                }
+                return `$${usd.toFixed(2)}`;
             }
-            return `${usd.toFixed(2)} USD / Bs ${ves.toFixed(2)}`;
         };
 
         // Subtotal
@@ -335,11 +349,14 @@ export class InvoicePdfService {
 
         // Items
         const items = (doc as any).items || [];
+        const baseCurrency = doc.totals?.currency || "USD";
+        const currencySymbol = baseCurrency === 'VES' ? 'Bs ' : '$';
+
         const rows = items.map(item => [
             item.description?.substring(0, 20) || "Prod",
             item.quantity?.toString() || "0",
-            // format 10.00
-            ((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)
+            // format with currency symbol
+            `${currencySymbol}${((item.quantity || 0) * (item.unitPrice || 0)).toFixed(2)}`
         ]);
 
         autoTable(pdf, {
@@ -380,15 +397,24 @@ export class InvoicePdfService {
                 ves = amount;
                 usd = amount / (rate || 1);
             }
-            return { usd, ves };
+
+            // Check if we need dual currency display
+            const needsDual = rate > 0 && isFinite(rate) && Math.abs(rate - 1) > 0.01;
+
+            return {
+                primary: baseCurrency === 'VES' ? { symbol: 'Bs ', amount: ves } : { symbol: '$', amount: usd },
+                secondary: needsDual ? (baseCurrency === 'VES' ? { symbol: '$', amount: usd } : { symbol: 'Bs ', amount: ves }) : null
+            };
         };
 
         const subtotalDual = formatDual(doc.totals?.subtotal || 0);
         pdf.text(`SUBTOTAL:`, 40, y, { align: "right" });
-        pdf.text(`$${subtotalDual.usd.toFixed(2)}`, rightEdge, y, { align: "right" });
+        pdf.text(`${subtotalDual.primary.symbol}${subtotalDual.primary.amount.toFixed(2)}`, rightEdge, y, { align: "right" });
         y += 4;
-        pdf.text(`Bs ${subtotalDual.ves.toFixed(2)}`, rightEdge, y, { align: "right" });
-        y += 4;
+        if (subtotalDual.secondary) {
+            pdf.text(`${subtotalDual.secondary.symbol}${subtotalDual.secondary.amount.toFixed(2)}`, rightEdge, y, { align: "right" });
+            y += 4;
+        }
 
         // Add separator
         y += 2;
@@ -396,7 +422,11 @@ export class InvoicePdfService {
         (doc.totals?.taxes || []).forEach(tax => {
             const taxDual = formatDual(tax.amount || 0);
             pdf.text(`${tax.type || 'Tax'} (${tax.rate}%)`, 40, y, { align: "right" });
-            pdf.text(`$${taxDual.usd.toFixed(2)} / Bs ${taxDual.ves.toFixed(2)}`, rightEdge, y, { align: "right" });
+            if (taxDual.secondary) {
+                pdf.text(`${taxDual.primary.symbol}${taxDual.primary.amount.toFixed(2)} / ${taxDual.secondary.symbol}${taxDual.secondary.amount.toFixed(2)}`, rightEdge, y, { align: "right" });
+            } else {
+                pdf.text(`${taxDual.primary.symbol}${taxDual.primary.amount.toFixed(2)}`, rightEdge, y, { align: "right" });
+            }
             y += 4;
         });
 
@@ -405,13 +435,20 @@ export class InvoicePdfService {
 
         const totalDual = formatDual(doc.totals?.grandTotal || 0);
 
-        pdf.text(`TOTAL USD:`, 40, y, { align: "right" });
-        pdf.text(`$${totalDual.usd.toFixed(2)}`, rightEdge, y, { align: "right" });
+        const primaryLabel = baseCurrency === 'VES' ? 'TOTAL VES:' : 'TOTAL USD:';
+        const secondaryLabel = baseCurrency === 'VES' ? 'TOTAL USD:' : 'TOTAL VES:';
+
+        pdf.text(primaryLabel, 40, y, { align: "right" });
+        pdf.text(`${totalDual.primary.symbol}${totalDual.primary.amount.toFixed(2)}`, rightEdge, y, { align: "right" });
         y += 5;
 
-        pdf.text(`TOTAL VES:`, 40, y, { align: "right" });
-        pdf.text(`Bs ${totalDual.ves.toFixed(2)}`, rightEdge, y, { align: "right" });
-        y += 8;
+        if (totalDual.secondary) {
+            pdf.text(secondaryLabel, 40, y, { align: "right" });
+            pdf.text(`${totalDual.secondary.symbol}${totalDual.secondary.amount.toFixed(2)}`, rightEdge, y, { align: "right" });
+            y += 5;
+        }
+
+        y += 3;
 
         pdf.setFontSize(8);
         pdf.setFont("helvetica", "italic");

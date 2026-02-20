@@ -171,6 +171,18 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
   const orderInfo = orderInfoLines.join('\n');
   doc.text(orderInfo, 130, orderInfoY);
 
+  // Currency detection for formatting
+  // exchangeRate = totalAmountVes / totalAmount
+  // When rate ≈ 1: amounts are already in the primary currency (e.g. VES)
+  // When rate > 1: amounts are in secondary currency (e.g. USD) and need conversion
+  const secondaryCurrency = secondaryCurrencies[0];
+  const needsDualCurrency = secondaryCurrency && exchangeRate > 0 && isFinite(exchangeRate) && Math.abs(exchangeRate - 1) > 0.01;
+
+  // Determine the correct symbol for item/order amounts
+  const amountSymbol = needsDualCurrency
+    ? `${secondaryCurrency.symbol}` // amounts stored in secondary (USD)
+    : `${primaryCurrency.symbol} `; // amounts stored in primary (VES)
+
   // 6. Add Table with Products - starts after company and order info
   const tableStartY = Math.max(35 + companyInfo.filter(line => line).length * 5, orderInfoY + 15);
   const hasDiscounts = orderData.items.some(item => item.discountPercentage > 0);
@@ -190,15 +202,15 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
       ? [
         item.productName,
         quantity,
-        `$${unitPrice.toFixed(2)}`,
+        `${amountSymbol}${unitPrice.toFixed(2)}`,
         discount > 0 ? `-${discount}%` : '-',
-        `$${total.toFixed(2)}`
+        `${amountSymbol}${total.toFixed(2)}`
       ]
       : [
         item.productName,
         quantity,
-        `$${unitPrice.toFixed(2)}`,
-        `$${total.toFixed(2)}`
+        `${amountSymbol}${unitPrice.toFixed(2)}`,
+        `${amountSymbol}${total.toFixed(2)}`
       ];
     tableRows.push(itemData);
   });
@@ -232,16 +244,15 @@ export const generateDocumentPDF = async ({ documentType, orderData, customerDat
   // 7. Add Totals with USD and Bs conversion
   const finalY = doc.lastAutoTable.finalY || 150;
   const totalUSD = orderData.totalAmount || 0;
-  const totalBs = totalUSD * exchangeRate;
   const generalDiscountAmount = orderData.generalDiscountAmount || 0;
 
   // Build totals array with dynamic currency display
-  const hasDualCurrency = secondaryCurrencies.length > 0 && exchangeRate > 0;
   const formatAmount = (amount) => {
-    if (!hasDualCurrency) {
-      return `${primaryCurrency.symbol}${amount.toFixed(2)}`;
+    if (!needsDualCurrency) {
+      return `${primaryCurrency.symbol} ${amount.toFixed(2)}`;
     }
-    return `$${amount.toFixed(2)} / ${primaryCurrency.symbol} ${(amount * exchangeRate).toFixed(2)}`;
+    const convertedAmount = amount * exchangeRate;
+    return `${secondaryCurrency.symbol}${amount.toFixed(2)} / ${primaryCurrency.symbol} ${convertedAmount.toFixed(2)}`;
   };
 
   const totals = [
@@ -350,6 +361,13 @@ const generateThermalPDF = async ({
   const qrImage = await generateQrDataUrl(qrData);
 
   let currentY = 5;
+
+  // Currency detection
+  const secondaryCurrency = secondaryCurrencies[0];
+  const needsDualCurrency = secondaryCurrency && exchangeRate > 0 && isFinite(exchangeRate) && Math.abs(exchangeRate - 1) > 0.01;
+  const amountSymbol = needsDualCurrency
+    ? `${secondaryCurrency.symbol}` // amounts in secondary (USD)
+    : `${primaryCurrency.symbol} `; // amounts in primary (VES)
 
   // Use a monospaced font to better emulate thermal printer legibility
   doc.setFont('courier', 'normal');
@@ -464,7 +482,7 @@ const generateThermalPDF = async ({
       doc.text(line, 5, currentY);
       if (idx === 0) {
         doc.text(String(quantity), 50, currentY);
-        doc.text(`$${total.toFixed(2)}`, 75, currentY, { align: 'right' });
+        doc.text(`${amountSymbol}${total.toFixed(2)}`, 75, currentY, { align: 'right' });
       }
       currentY += 4;
     });
@@ -472,9 +490,9 @@ const generateThermalPDF = async ({
     // Price per unit in smaller font
     doc.setFontSize(11);
     if (discount > 0) {
-      doc.text(`@ $${unitPrice.toFixed(2)} c/u (-${discount}%)`, 5, currentY);
+      doc.text(`@ ${amountSymbol}${unitPrice.toFixed(2)} c/u (-${discount}%)`, 5, currentY);
     } else {
-      doc.text(`@ $${unitPrice.toFixed(2)} c/u`, 5, currentY);
+      doc.text(`@ ${amountSymbol}${unitPrice.toFixed(2)} c/u`, 5, currentY);
     }
     currentY += 4;
     doc.setFontSize(8);
@@ -488,17 +506,16 @@ const generateThermalPDF = async ({
   doc.setFont(undefined, 'bold');
   doc.setFontSize(11);
   const totalUSD = orderData.totalAmount || 0;
-  const totalBs = totalUSD * exchangeRate;
   const generalDiscountAmount = orderData.generalDiscountAmount || 0;
 
   if (orderData.subtotal) {
-    doc.text('Subtotal:', 5, currentY); // labels left-aligned
-    doc.text(`$${orderData.subtotal.toFixed(2)}`, 75, currentY, { align: 'right' });
+    doc.text('Subtotal:', 5, currentY);
+    doc.text(`${amountSymbol}${orderData.subtotal.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
   if (generalDiscountAmount > 0) {
     doc.text('Desc. General:', 5, currentY);
-    doc.text(`-$${generalDiscountAmount.toFixed(2)}`, 75, currentY, { align: 'right' });
+    doc.text(`-${amountSymbol}${generalDiscountAmount.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
   const ivaLabel = defaultTax ? `${defaultTax.type}:` : 'IVA:';
@@ -506,28 +523,39 @@ const generateThermalPDF = async ({
 
   if (orderData.ivaTotal) {
     doc.text(ivaLabel, 5, currentY);
-    doc.text(`$${orderData.ivaTotal.toFixed(2)}`, 75, currentY, { align: 'right' });
+    doc.text(`${amountSymbol}${orderData.ivaTotal.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
   if (orderData.igtfTotal) {
     doc.text(igtfLabel, 5, currentY);
-    doc.text(`$${orderData.igtfTotal.toFixed(2)}`, 75, currentY, { align: 'right' });
+    doc.text(`${amountSymbol}${orderData.igtfTotal.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
   if (orderData.shippingCost) {
     doc.text('Envío:', 5, currentY);
-    doc.text(`$${orderData.shippingCost.toFixed(2)}`, 75, currentY, { align: 'right' });
+    doc.text(`${amountSymbol}${orderData.shippingCost.toFixed(2)}`, 75, currentY, { align: 'right' });
     currentY += 4;
   }
 
   doc.setFontSize(12);
-  doc.text('TOTAL USD:', 5, currentY);
-  doc.text(`$${totalUSD.toFixed(2)}`, 75, currentY, { align: 'right' });
+  // Primary total (always shown)
+  doc.text(`TOTAL ${primaryCurrency.code}:`, 5, currentY);
+  if (needsDualCurrency) {
+    // Amounts are in secondary (USD), convert to primary
+    doc.text(`${primaryCurrency.symbol} ${(totalUSD * exchangeRate).toFixed(2)}`, 75, currentY, { align: 'right' });
+  } else {
+    // Amounts are already in primary currency
+    doc.text(`${primaryCurrency.symbol} ${totalUSD.toFixed(2)}`, 75, currentY, { align: 'right' });
+  }
   currentY += 5;
 
-  doc.text(`TOTAL ${primaryCurrency.code}:`, 5, currentY);
-  doc.text(`${primaryCurrency.symbol} ${totalBs.toFixed(2)}`, 75, currentY, { align: 'right' });
-  currentY += 6;
+  // Secondary total (only if dual currency)
+  if (needsDualCurrency) {
+    doc.text(`TOTAL ${secondaryCurrency.code}:`, 5, currentY);
+    doc.text(`${secondaryCurrency.symbol}${totalUSD.toFixed(2)}`, 75, currentY, { align: 'right' });
+    currentY += 5;
+  }
+  currentY += 1;
 
   // Footer
   const footerLines = [];
