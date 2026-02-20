@@ -1192,7 +1192,12 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
           }
           return 0;
         })()}
-        exchangeRate={exchangeRate || (order?.totalAmountVes / order?.totalAmount) || 1}
+        exchangeRate={(() => {
+          // Try prop first, then calculate from order, then fallback to 1
+          const rate = exchangeRate || (order?.totalAmountVes / order?.totalAmount);
+          // Ensure rate is a positive finite number (not NaN, Infinity, 0, or negative)
+          return (rate > 0 && isFinite(rate)) ? rate : 1;
+        })()}
         onConfirm={handleMixedChangeConfirm}
       />
     </>

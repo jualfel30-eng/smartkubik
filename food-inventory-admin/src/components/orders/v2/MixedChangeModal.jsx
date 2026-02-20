@@ -17,6 +17,9 @@ export default function MixedChangeModal({
     exchangeRate,
     onConfirm
 }) {
+    // Guard: ensure exchangeRate is valid (positive finite number) to prevent NaN/Infinity
+    const safeRate = (exchangeRate > 0 && isFinite(exchangeRate)) ? exchangeRate : 1;
+
     const [usdAmount, setUsdAmount] = useState('');
     const [vesAmount, setVesAmount] = useState('');
     const [vesMethod, setVesMethod] = useState('efectivo_ves');
@@ -29,11 +32,11 @@ export default function MixedChangeModal({
             const cents = totalChange - wholeDollars;
 
             setUsdAmount(wholeDollars.toString());
-            setVesAmount((cents * exchangeRate).toFixed(2));
+            setVesAmount((cents * safeRate).toFixed(2));
             setVesMethod('efectivo_ves');
             setError('');
         }
-    }, [isOpen, totalChange, exchangeRate]);
+    }, [isOpen, totalChange, safeRate]);
 
     const handleUsdChange = (value) => {
         setUsdAmount(value);
@@ -41,7 +44,7 @@ export default function MixedChangeModal({
         const remaining = totalChange - usd;
 
         if (remaining >= 0) {
-            setVesAmount((remaining * exchangeRate).toFixed(2));
+            setVesAmount((remaining * safeRate).toFixed(2));
             setError('');
         } else {
             setError('El monto en USD no puede ser mayor que el vuelto total');
@@ -51,7 +54,7 @@ export default function MixedChangeModal({
     const handleVesChange = (value) => {
         setVesAmount(value);
         const ves = parseFloat(value) || 0;
-        const vesInUsd = ves / exchangeRate;
+        const vesInUsd = ves / safeRate;
         const remaining = totalChange - vesInUsd;
 
         if (remaining >= 0) {
@@ -65,7 +68,7 @@ export default function MixedChangeModal({
     const handleConfirm = () => {
         const usd = parseFloat(usdAmount) || 0;
         const ves = parseFloat(vesAmount) || 0;
-        const vesInUsd = ves / exchangeRate;
+        const vesInUsd = ves / safeRate;
         const total = usd + vesInUsd;
 
         // Validate total matches (with small tolerance for rounding)
@@ -112,7 +115,7 @@ export default function MixedChangeModal({
                             Vuelto Total: <span className="text-lg">${totalChange.toFixed(2)}</span>
                         </p>
                         <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                            ≈ Bs {(totalChange * exchangeRate).toFixed(2)} (Tasa: {exchangeRate})
+                            ≈ Bs {(totalChange * safeRate).toFixed(2)} (Tasa: {safeRate.toFixed(2)})
                         </p>
                     </div>
 
@@ -150,7 +153,7 @@ export default function MixedChangeModal({
                         />
                         {vesAmount && parseFloat(vesAmount) > 0 && (
                             <p className="text-xs text-muted-foreground">
-                                ≈ ${(parseFloat(vesAmount) / exchangeRate).toFixed(2)} USD
+                                ≈ ${(parseFloat(vesAmount) / safeRate).toFixed(2)} USD
                             </p>
                         )}
                     </div>
