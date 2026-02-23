@@ -9,6 +9,7 @@ import {
   Min,
   Max,
   Matches,
+  ValidateIf,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeString } from "../decorators/sanitize.decorator";
@@ -74,16 +75,19 @@ export class CreateSupplierDto {
 
   @IsString()
   @IsOptional()
+  @ValidateIf(o => o.contactName !== '')
   @SanitizeString()
   contactName?: string; // "Nombre del vendedor"
 
   @IsString()
   @IsOptional()
+  @ValidateIf(o => o.contactPhone !== '')
   @SanitizeString()
   contactPhone?: string; // "Teléfono"
 
-  @IsEmail()
   @IsOptional()
+  @ValidateIf(o => o.contactEmail !== '')
+  @IsEmail()
   contactEmail?: string; // "Correo" - Email no necesita sanitización, solo validación
 
   @IsOptional()
