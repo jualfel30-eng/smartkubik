@@ -8,9 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { sanityClient } from '@/lib/sanity';
+import { getApiBaseUrl } from '@/lib/api';
 
 const BlogSidebar = () => {
   const [email, setEmail] = useState('');
+  const [nlLoading, setNlLoading] = useState(false);
   const [topPosts, setTopPosts] = useState([]);
   const [tags, setTags] = useState([]);
   const [archive, setArchive] = useState([]);
@@ -69,13 +71,24 @@ const BlogSidebar = () => {
     { id: 'analytics-reports', name: 'Analítica' }
   ];
 
-  const handleNewsletterSubmit = (e) => {
+  const handleNewsletterSubmit = async (e) => {
     e.preventDefault();
-    console.log('Newsletter subscription:', email);
-    toast.success('¡Suscripción exitosa!', {
-      description: `Gracias por suscribirte, ${email}. Revisa tu bandeja de entrada.`,
-    });
-    setEmail('');
+    setNlLoading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/newsletter/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source: 'blog_sidebar' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Error al suscribirse');
+      toast.success('¡Suscripción exitosa!', { description: data.message });
+      setEmail('');
+    } catch (err) {
+      toast.error(err.message || 'Error al suscribirse. Intenta de nuevo.');
+    } finally {
+      setNlLoading(false);
+    }
   };
 
   return (
@@ -102,10 +115,11 @@ const BlogSidebar = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tu@email.com"
                 required
+                disabled={nlLoading}
               />
             </div>
-            <Button type="submit" className="w-full">
-              Suscribirse
+            <Button type="submit" className="w-full" disabled={nlLoading}>
+              {nlLoading ? 'Suscribiendo...' : 'Suscribirse'}
             </Button>
           </form>
         </CardContent>

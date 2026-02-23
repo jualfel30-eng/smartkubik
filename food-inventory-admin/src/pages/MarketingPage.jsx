@@ -6,7 +6,8 @@ import ProductCampaignsPage from './ProductCampaignsPage';
 import LoyaltyManager from '../components/marketing/LoyaltyManager';
 import CouponManager from '../components/marketing/CouponManager';
 import PromotionsManager from '../components/marketing/PromotionsManager';
-import { Mail, Package, Award, Tag, Percent } from 'lucide-react';
+import LinkManager from '../components/LinkManager';
+import { Mail, Package, Award, Tag, Percent, Link2 } from 'lucide-react';
 
 const MarketingPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -63,7 +64,7 @@ const MarketingPage = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full max-w-4xl grid-cols-5 mb-6">
+        <TabsList className="grid w-full max-w-5xl grid-cols-6 mb-6">
           <TabsTrigger value="campaigns" className="flex items-center gap-2">
             <Mail className="w-4 h-4" />
             Campañas
@@ -83,6 +84,10 @@ const MarketingPage = () => {
           <TabsTrigger value="promotions" className="flex items-center gap-2">
             <Percent className="w-4 h-4" />
             Promociones
+          </TabsTrigger>
+          <TabsTrigger value="links" className="flex items-center gap-2">
+            <Link2 className="w-4 h-4" />
+            Bio Link
           </TabsTrigger>
         </TabsList>
 
@@ -107,6 +112,10 @@ const MarketingPage = () => {
 
         <TabsContent value="promotions">
           <PromotionsManager />
+        </TabsContent>
+
+        <TabsContent value="links">
+          <LinkManager mode="tenant" />
         </TabsContent>
       </Tabs>
     </div>

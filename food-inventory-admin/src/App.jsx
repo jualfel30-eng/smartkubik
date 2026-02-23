@@ -92,6 +92,7 @@ import { AccountingProvider } from './context/AccountingContext.jsx';
 import { NotificationProvider, useNotification } from './context/NotificationContext.jsx';
 import { CashRegisterProvider } from './contexts/CashRegisterContext.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
+import TrialBanner from './components/TrialBanner.jsx';
 import { CountryPluginProvider } from './country-plugins/CountryPluginContext.jsx';
 import { TenantPickerDialog } from '@/components/auth/TenantPickerDialog.jsx';
 import {
@@ -150,6 +151,8 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
 const FoundersPage = lazy(() => import('./pages/FoundersPage'));
+const TrialExpired = lazy(() => import('./pages/TrialExpired'));
+const LinksPage = lazy(() => import('./pages/LinksPage'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
 const SmartKubikLandingV2 = lazy(() => import('./pages/SmartKubikLandingV2'));
 const WebVentasSectionDemo = lazy(() => import('./pages/WebVentasSectionDemo'));
@@ -1047,6 +1050,7 @@ function TenantLayout() {
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-auto p-4 md:p-6">
+            <TrialBanner />
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
                 <Route path="dashboard" element={<DashboardView />} />
@@ -1235,6 +1239,7 @@ function AppContent() {
         <Routes>
           <Route path="/v2" element={<SmartKubikLandingV2 />} />
           <Route path="/fundadores" element={<FoundersPage />} />
+          <Route path="/links" element={<LinksPage />} />
           <Route path="/demo-web-ventas" element={<WebVentasSectionDemo />} />
           <Route path="/" element={<SmartKubikLanding />} />
           <Route path="/blog" element={<BlogIndex />} />
@@ -1251,6 +1256,7 @@ function AppContent() {
           <Route path="/login" element={<LoginV2 />} />
           <Route path="/register" element={<Register />} />
           <Route path="/confirm-account" element={<ConfirmAccount />} />
+          <Route path="/trial-expired" element={<TrialExpired />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth/callback" element={<AuthCallback />} />

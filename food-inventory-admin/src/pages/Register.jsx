@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { fetchApi } from '@/lib/api';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
-import { Eye, EyeOff, Check, Sparkles, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Check, Sparkles, Rocket, Shield } from 'lucide-react';
 import smartkubikLogo from '@/assets/logo-smartkubik.png';
 
 const businessVerticals = [
@@ -73,66 +73,10 @@ const businessVerticals = [
   },
 ];
 
-const subscriptionPlans = [
-  {
-    id: 'fundamental',
-    name: 'Fundamental',
-    price: '$39 / mes',
-    description: 'Para pequeños negocios que quieren orden.',
-    features: [
-      '1 usuario',
-      '1 sucursal',
-      'Todos los módulos básicos incluídos',
-      'Web de ventas vinculada al sistema',
-      'Analítica y reportes básicos',
-      'Backup mensual',
-      'Soporte estandar',
-    ],
-  },
-  {
-    id: 'crecimiento',
-    name: 'Crecimiento',
-    price: '$99 / mes',
-    description: 'Para empresas que crecen rápido.',
-    features: [
-      'Todo lo del plan Fundamental',
-      'Todos los módulos + funciones IA avanzadas',
-      'Hasta 5 usuarios',
-      'Hasta 2 sucursales',
-      'Integración WhatsApp + ventas/reservas',
-      'Automatizaciones IA',
-      'Agente IA de Análisis predictivo',
-      'Mayor personalización de tu web',
-      'Integraciones Full (Gmail/Outlook)',
-      'Backup semanal',
-      'Soporte prioritario',
-    ],
-  },
-  {
-    id: 'expansion',
-    name: 'Expansión',
-    price: '$149 / mes',
-    description: 'Para grandes operaciones y franquicias.',
-    features: [
-      'Todo lo del plan Crecimiento',
-      'Usuarios Ilimitados',
-      'Sucursales Ilimitadas',
-      'Soporte dedicado / SLA',
-      'Migración gratuita',
-      'Asistente IA Ilimitado',
-      'Back up diario',
-      'Dominio web propio',
-      'Acceso prioritario a nuevas funciones',
-      'Web sin publicidad',
-    ],
-  },
-];
-
 const stepConfig = [
-  { id: 1, label: 'Seleccionar plan' },
-  { id: 2, label: 'Datos del negocio' },
-  { id: 3, label: 'Administrador' },
-  { id: 4, label: 'Confirmación' },
+  { id: 1, label: 'Tu negocio' },
+  { id: 2, label: 'Tu cuenta' },
+  { id: 3, label: 'Confirmación' },
 ];
 
 const StepIndicator = ({ currentStep }) => (
@@ -165,7 +109,7 @@ const StepIndicator = ({ currentStep }) => (
         );
       })}
     </div>
-    <div className="mt-2 grid grid-cols-4 text-xs text-muted-foreground">
+    <div className="mt-2 grid grid-cols-3 text-xs text-muted-foreground">
       {stepConfig.map((step) => (
         <div key={`${step.id}-label`} className="text-center">
           {step.label}
@@ -175,70 +119,7 @@ const StepIndicator = ({ currentStep }) => (
   </div>
 );
 
-const PlanSelectionStep = ({ selectedPlan, onSelectPlan }) => (
-  <div className="space-y-6">
-    <div className="text-center space-y-2">
-      <Badge className="mx-auto flex items-center gap-1 bg-primary/10 text-primary dark:bg-primary/20">
-        <Sparkles className="h-3 w-3" />
-        Configura tu cuenta
-      </Badge>
-      <h2 className="text-2xl font-semibold">Elige el plan que mejor se adapte a tu negocio</h2>
-      <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-        Puedes cambiar de plan en cualquier momento. Comenzamos con la información básica para personalizar tu experiencia.
-      </p>
-    </div>
-    <div className="grid gap-4">
-      {subscriptionPlans.map((plan) => {
-        const isSelected = selectedPlan === plan.id;
-        return (
-          <button
-            key={plan.id}
-            type="button"
-            onClick={() => onSelectPlan(plan.id)}
-            className={`w-full text-left p-5 rounded-lg border transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
-              ${isSelected ? 'border-primary ring-2 ring-primary/40' : 'border-muted-foreground/20'}
-            `}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-lg font-semibold">{plan.name}</h3>
-                  {plan.id === 'crecimiento' && (
-                    <Badge className="bg-primary/10 text-primary">Más popular</Badge>
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground">{plan.description}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-semibold">{plan.price}</p>
-                <p className="text-xs text-muted-foreground">Sin cargos ocultos</p>
-              </div>
-            </div>
-            <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-              {plan.features.map((feature) => (
-                <li key={feature} className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 flex justify-end">
-              <span
-                className={`inline-flex items-center gap-1 text-sm font-medium ${isSelected ? 'text-primary' : 'text-muted-foreground'
-                  }`}
-              >
-                {isSelected ? 'Plan seleccionado' : 'Seleccionar plan'}
-                <ArrowRight className="h-4 w-4" />
-              </span>
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  </div>
-);
-
-const BusinessInfoStep = ({ formData, setFormData, onNext, onBack }) => {
+const BusinessInfoStep = ({ formData, setFormData, onNext }) => {
   const [categories, setCategories] = useState([]);
 
   useEffect(() => {
@@ -275,8 +156,11 @@ const BusinessInfoStep = ({ formData, setFormData, onNext, onBack }) => {
       }}
       className="space-y-4"
     >
-      <div className="rounded-md border border-primary/20 bg-primary/10 dark:bg-primary/20 p-3 text-xs text-primary">
-        Plan seleccionado: <strong>{subscriptionPlans.find((p) => p.id === formData.plan)?.name || 'Sin plan'}</strong>
+      <div className="text-center space-y-2 mb-2">
+        <Badge className="mx-auto flex items-center gap-1 bg-primary/10 text-primary dark:bg-primary/20">
+          <Sparkles className="h-3 w-3" />
+          14 días gratis — sin tarjeta de crédito
+        </Badge>
       </div>
       <div className="space-y-2">
         <Label htmlFor="businessName">Nombre del negocio</Label>
@@ -331,10 +215,7 @@ const BusinessInfoStep = ({ formData, setFormData, onNext, onBack }) => {
           required
         />
       </div>
-      <div className="flex justify-between">
-        <Button type="button" variant="outline" onClick={onBack}>
-          Atrás
-        </Button>
+      <div className="flex justify-end">
         <Button type="submit" disabled={!canContinue}>
           Siguiente
         </Button>
@@ -459,18 +340,23 @@ const AdminInfoStep = ({ formData, setFormData, onNext, onBack }) => {
 const SummaryStep = ({ formData, onBack, onSubmit, loading, error }) => {
   const verticalName =
     businessVerticals.find((v) => v.value === formData.vertical)?.name || formData.vertical;
-  const selectedPlan = subscriptionPlans.find((plan) => plan.id === formData.plan);
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border border-primary/30 bg-primary/10 dark:bg-primary/20 p-3 text-sm text-primary">
-        Te enviaremos un correo con un código de confirmación para activar tu cuenta.
+      <div className="rounded-md border border-green-500/30 bg-green-500/10 dark:bg-green-500/20 p-4 text-sm">
+        <div className="flex items-start gap-3">
+          <Rocket className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-medium text-green-700 dark:text-green-300">Prueba gratuita de 14 días</p>
+            <p className="text-green-600 dark:text-green-400 mt-1">
+              Acceso completo a todos los módulos. Sin tarjeta de crédito. Sin compromisos.
+            </p>
+          </div>
+        </div>
       </div>
+
       <h3 className="font-medium">Resumen de registro</h3>
       <div className="space-y-2 rounded-md border p-4">
-        <p>
-          <strong>Plan seleccionado:</strong> {selectedPlan?.name}
-        </p>
         <p>
           <strong>Negocio:</strong> {formData.businessName}
         </p>
@@ -493,15 +379,32 @@ const SummaryStep = ({ formData, onBack, onSubmit, loading, error }) => {
           <strong>Teléfono:</strong> {formData.phone}
         </p>
       </div>
+
+      <div className="rounded-md border border-primary/20 bg-primary/5 dark:bg-primary/10 p-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <Shield className="h-4 w-4 text-primary shrink-0" />
+          <span>Te enviaremos un correo con un código de confirmación para activar tu cuenta.</span>
+        </div>
+      </div>
+
       {error && <p className="text-sm text-destructive">{error}</p>}
+
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack} disabled={loading}>
           Atrás
         </Button>
-        <Button onClick={onSubmit} disabled={loading}>
-          {loading ? 'Registrando...' : 'Confirmar y registrar'}
+        <Button onClick={onSubmit} disabled={loading} size="lg">
+          {loading ? 'Registrando...' : 'Comenzar mi prueba GRATIS de 14 días'}
         </Button>
       </div>
+
+      <p className="text-center text-xs text-muted-foreground">
+        ¿Ya decidiste? También puedes acceder directo al{' '}
+        <Link to="/fundadores" className="text-primary hover:underline font-medium">
+          Programa Clientes Fundadores
+        </Link>{' '}
+        y bloquear tu precio de por vida.
+      </p>
     </div>
   );
 };
@@ -509,7 +412,6 @@ const SummaryStep = ({ formData, onBack, onSubmit, loading, error }) => {
 function Register() {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    plan: '',
     businessName: '',
     numberOfUsers: '',
     vertical: '',
@@ -528,10 +430,6 @@ function Register() {
 
   const handleNext = () => setStep((prev) => Math.min(prev + 1, stepConfig.length));
   const handleBack = () => setStep((prev) => Math.max(prev - 1, 1));
-  const handlePlanSelect = (planId) => {
-    setFormData((prev) => ({ ...prev, plan: planId }));
-    setStep(2);
-  };
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -540,7 +438,7 @@ function Register() {
       ...formData,
       businessType: formData.specificCategory,
       numberOfUsers: parseInt(formData.numberOfUsers || '0', 10),
-      subscriptionPlan: formData.plan,
+      subscriptionPlan: 'trial',
     };
 
     try {
@@ -557,7 +455,7 @@ function Register() {
         navigate('/confirm-account', {
           state: {
             email: formData.email,
-            plan: formData.plan,
+            plan: 'trial',
             tenant: response?.tenant,
           },
         });
@@ -575,17 +473,14 @@ function Register() {
   const renderStep = () => {
     switch (step) {
       case 1:
-        return <PlanSelectionStep selectedPlan={formData.plan} onSelectPlan={handlePlanSelect} />;
-      case 2:
         return (
           <BusinessInfoStep
             formData={formData}
             setFormData={setFormData}
             onNext={handleNext}
-            onBack={handleBack}
           />
         );
-      case 3:
+      case 2:
         return (
           <AdminInfoStep
             formData={formData}
@@ -594,7 +489,7 @@ function Register() {
             onBack={handleBack}
           />
         );
-      case 4:
+      case 3:
         return (
           <SummaryStep
             formData={formData}
@@ -618,8 +513,8 @@ function Register() {
       <img src={smartkubikLogo} alt="Smartkubik Logo" className="h-12 w-auto mb-8" />
       <Card className="w-full max-w-3xl shadow-lg border border-muted-foreground/10">
         <CardHeader className="space-y-2">
-          <CardTitle className="text-2xl">Registro en SmartKubik</CardTitle>
-          <CardDescription>Te guiaremos paso a paso. Podrás cambiar de plan cuando quieras.</CardDescription>
+          <CardTitle className="text-2xl">Prueba SmartKubik gratis por 14 días</CardTitle>
+          <CardDescription>Sin tarjeta de crédito. Acceso completo a todos los módulos.</CardDescription>
           <StepIndicator currentStep={step} />
         </CardHeader>
         <CardContent className="space-y-6">{renderStep()}</CardContent>

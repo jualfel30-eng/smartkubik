@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import LightRaysCanvas from '../components/LightRaysCanvas';
 import { BackgroundBeams } from '../components/ui/BackgroundBeams';
+import testimonials from '../data/testimonials';
 // Icons
 import {
     CheckCircle2,
@@ -18,11 +19,40 @@ import {
     Rocket,
     Lock,
     Users,
-    ArrowRight
+    ArrowRight,
+    DollarSign,
+    Smartphone,
+    Wallet,
+    Building2,
+    Star,
+    Quote
 } from 'lucide-react';
 
 // Pricing Configuration
 const PRICING_TIERS = [
+    {
+        id: 'starter',
+        name: 'Starter',
+        regularPrice: 19,
+        founderMonthly: 12,
+        founderAnnual: 10,
+        discountMonthly: 37, // 37% OFF
+        discountAnnual: 47, // 47% OFF
+        cupos: 20,
+        features: [
+            "1 usuario",
+            "1 sucursal",
+            "Inventario hasta 100 productos",
+            "Ventas y órdenes básicas",
+            "Reportes esenciales",
+            "Soporte por email"
+        ],
+        notIncluded: [
+            "Sin IA ni WhatsApp",
+            "Sin web de ventas",
+            "Sin integraciones avanzadas"
+        ]
+    },
     {
         id: 'fundamental',
         name: 'Fundamental',
@@ -138,10 +168,47 @@ const FAQ_ITEMS = [
     }
 ];
 
+const PAYMENT_METHODS = [
+    {
+        id: 'efectivo_usd',
+        icon: DollarSign,
+        name: 'Efectivo USD',
+        desc: 'Pago en dólares en efectivo. Coordinamos la entrega personalmente.',
+        color: 'text-green-400',
+        bg: 'bg-green-400/10',
+    },
+    {
+        id: 'pago_movil',
+        icon: Smartphone,
+        name: 'Pago Móvil',
+        desc: 'Transferencia instantánea desde cualquier banco venezolano.',
+        color: 'text-blue-400',
+        bg: 'bg-blue-400/10',
+    },
+    {
+        id: 'binance_usdt',
+        icon: Wallet,
+        name: 'Binance (USDT)',
+        desc: 'Pago en USDT vía Binance Pay. Rápido y sin comisiones.',
+        color: 'text-yellow-400',
+        bg: 'bg-yellow-400/10',
+    },
+    {
+        id: 'transferencia',
+        icon: Building2,
+        name: 'Transferencia Bancaria',
+        desc: 'Transferencia nacional en bolívares al tipo de cambio del día.',
+        color: 'text-purple-400',
+        bg: 'bg-purple-400/10',
+    },
+];
+
 const FoundersPage = () => {
     const [billingCycle, setBillingCycle] = useState('annual'); // 'monthly' | 'annual'
     const [activeVertical, setActiveVertical] = useState('restaurant');
     const [openFaqIndex, setOpenFaqIndex] = useState(null);
+    const [showStickyBanner, setShowStickyBanner] = useState(false);
+    const heroRef = useRef(null);
 
     // Inject scoped styles + landing-page-active class (mirrors SmartKubikLanding exactly)
     useEffect(() => {
@@ -214,6 +281,18 @@ const FoundersPage = () => {
         };
     }, []);
 
+    // Sticky banner: show when hero scrolls out of view
+    useEffect(() => {
+        const node = heroRef.current;
+        if (!node) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => setShowStickyBanner(!entry.isIntersecting),
+            { threshold: 0 }
+        );
+        observer.observe(node);
+        return () => observer.disconnect();
+    }, []);
+
     // Initial Animation Variants
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -267,7 +346,7 @@ const FoundersPage = () => {
 
 
                 {/* HERO WRAPPER */}
-                <div className="relative min-h-[91vh] flex flex-col justify-center overflow-hidden">
+                <div ref={heroRef} className="relative min-h-[91vh] flex flex-col justify-center overflow-hidden">
                     {/* BackgroundBeams hero effect */}
                     <BackgroundBeams className="z-0 pointer-events-none" />
                     {/* Overlay gradient to fade bottom */}
@@ -314,7 +393,8 @@ const FoundersPage = () => {
                                     Unirme como Fundador
                                     <ArrowRight className="w-5 h-5" />
                                 </a>
-                                <a href="https://calendly.com" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl border border-white/10 transition-all text-lg backdrop-blur-sm">
+                                <a href="https://wa.me/584241234567?text=Hola%2C%20quiero%20ver%20una%20demo%20en%20vivo%20de%20SmartKubik" target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl border border-white/10 transition-all text-lg backdrop-blur-sm flex items-center justify-center gap-2">
+                                    <MessageCircle className="w-5 h-5" />
                                     Ver Demo en Vivo
                                 </a>
                             </motion.div>
@@ -387,7 +467,7 @@ const FoundersPage = () => {
                         </div>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-8 items-start">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
                         {PRICING_TIERS.map((tier, idx) => {
                             const isAnnual = billingCycle === 'annual';
                             const price = isAnnual ? tier.founderAnnual : tier.founderMonthly;
@@ -466,6 +546,36 @@ const FoundersPage = () => {
                 </section>
 
 
+                {/* --- 3.5 PAYMENT METHODS --- */}
+                <section className="max-w-5xl mx-auto px-4 mb-32">
+                    <div className="text-center mb-12">
+                        <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-black tracking-tighter mb-4 text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
+                            Métodos de Pago
+                        </h2>
+                        <p className="text-lg text-gray-400 max-w-xl mx-auto">
+                            100% adaptados a Venezuela. Paga como te sea más cómodo.
+                        </p>
+                    </div>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {PAYMENT_METHODS.map((method, idx) => (
+                            <motion.div
+                                key={method.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: idx * 0.1 }}
+                                className="p-6 rounded-2xl bg-white/5 border border-white/5 hover:border-white/15 hover:bg-white/10 transition-all text-center group"
+                            >
+                                <div className={`w-12 h-12 mx-auto rounded-xl ${method.bg} ${method.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                                    <method.icon className="w-6 h-6" />
+                                </div>
+                                <h3 className="text-lg font-bold text-white mb-2">{method.name}</h3>
+                                <p className="text-sm text-gray-400 leading-relaxed">{method.desc}</p>
+                            </motion.div>
+                        ))}
+                    </div>
+                </section>
+
                 {/* --- 4. VERTICALS SECTION --- */}
                 <section className="max-w-7xl mx-auto px-4 mb-32">
                     <div className="text-center mb-16">
@@ -521,6 +631,83 @@ const FoundersPage = () => {
 
 
 
+                {/* --- 5. TESTIMONIALS --- */}
+                <section className="max-w-7xl mx-auto px-4 mb-32">
+                    <div className="text-center mb-16">
+                        <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-black tracking-tighter mb-6 text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
+                            Lo que dicen nuestros Fundadores
+                        </h2>
+                        <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+                            Negocios reales que ya están transformando sus operaciones con SmartKubik.
+                        </p>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {testimonials.slice(0, 3).map((t, idx) => (
+                            <motion.div
+                                key={t.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: idx * 0.12 }}
+                                className="relative p-6 md:p-8 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 transition-all flex flex-col"
+                            >
+                                <Quote className="w-8 h-8 text-cyan-500/30 mb-4" />
+                                <p className="text-gray-300 leading-relaxed mb-6 flex-1 italic">
+                                    "{t.quote}"
+                                </p>
+                                <div className="flex items-center gap-3 pt-4 border-t border-white/5">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                                        {t.name.split(' ').map(n => n[0]).join('')}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-white font-semibold text-sm truncate">{t.name}</p>
+                                        <p className="text-gray-500 text-xs truncate">{t.role} — {t.business}</p>
+                                    </div>
+                                    {t.metric && (
+                                        <span className="ml-auto shrink-0 px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold whitespace-nowrap">
+                                            {t.metric}
+                                        </span>
+                                    )}
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+
+                    {/* Second row — 2 testimonials centered */}
+                    <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mt-6">
+                        {testimonials.slice(3, 5).map((t, idx) => (
+                            <motion.div
+                                key={t.id}
+                                initial={{ opacity: 0, y: 20 }}
+                                whileInView={{ opacity: 1, y: 0 }}
+                                viewport={{ once: true }}
+                                transition={{ delay: idx * 0.12 }}
+                                className="relative p-6 md:p-8 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 transition-all flex flex-col"
+                            >
+                                <Quote className="w-8 h-8 text-cyan-500/30 mb-4" />
+                                <p className="text-gray-300 leading-relaxed mb-6 flex-1 italic">
+                                    "{t.quote}"
+                                </p>
+                                <div className="flex items-center gap-3 pt-4 border-t border-white/5">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                                        {t.name.split(' ').map(n => n[0]).join('')}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-white font-semibold text-sm truncate">{t.name}</p>
+                                        <p className="text-gray-500 text-xs truncate">{t.role} — {t.business}</p>
+                                    </div>
+                                    {t.metric && (
+                                        <span className="ml-auto shrink-0 px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold whitespace-nowrap">
+                                            {t.metric}
+                                        </span>
+                                    )}
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </section>
+
                 {/* --- 6. FAQ & FOOTER --- */}
                 <section className="max-w-3xl mx-auto px-4 mb-32">
                     <h2 className="text-2xl md:text-4xl font-display font-bold text-center mb-12 tracking-tight">Preguntas Frecuentes</h2>
@@ -569,9 +756,49 @@ const FoundersPage = () => {
                     </div>
                 </section>
 
-                <footer className="text-center text-gray-600 text-sm py-12 border-t border-white/5">
+                <footer className="text-center text-gray-600 text-sm py-12 border-t border-white/5 pb-24">
                     © 2026 SmartKubik Inc. Todos los derechos reservados.
                 </footer>
+
+                {/* --- STICKY FOUNDER SLOTS BANNER --- */}
+                <AnimatePresence>
+                    {showStickyBanner && (
+                        <motion.div
+                            initial={{ y: 80, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: 80, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="fixed bottom-0 left-0 right-0 z-50"
+                        >
+                            <div className="bg-[#0F172A]/95 backdrop-blur-xl border-t border-cyan-500/20 shadow-[0_-4px_30px_rgba(6,182,212,0.15)]">
+                                <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="hidden sm:flex items-center gap-2 shrink-0">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                            <span className="text-emerald-400 text-sm font-bold">78/90 cupos</span>
+                                        </div>
+                                        <span className="text-gray-400 text-sm truncate hidden md:block">
+                                            Precio bloqueado de por vida — hasta 51% OFF
+                                        </span>
+                                        <span className="text-gray-400 text-sm truncate md:hidden sm:hidden">
+                                            78 cupos — hasta 51% OFF
+                                        </span>
+                                        <span className="text-gray-400 text-sm truncate sm:block hidden md:hidden">
+                                            Hasta 51% OFF vitalicio
+                                        </span>
+                                    </div>
+                                    <a
+                                        href="#pricing"
+                                        className="shrink-0 px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-bold rounded-lg text-sm transition-all shadow-lg shadow-cyan-900/30 flex items-center gap-2"
+                                    >
+                                        Ver Planes
+                                        <ArrowRight className="w-4 h-4" />
+                                    </a>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
             </div>
         </div>

@@ -15,6 +15,50 @@ import { FileText, Trash2, Search } from 'lucide-react';
 import GlobalMetricsDashboard from './GlobalMetricsDashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import PlanManagement from './super-admin/PlanManagement';
+import FunnelCard from './super-admin/FunnelCard';
+
+function computeHealthScore(tenant) {
+  let profile = 0;
+  if (tenant.name) profile += 7;
+  if (tenant.contactInfo?.phone) profile += 6;
+  if (tenant.contactInfo?.email) profile += 6;
+  if (tenant.isConfirmed) profile += 6;
+
+  let adoption = 0;
+  if (tenant.usage?.currentProducts > 0) adoption += 10;
+  if (tenant.usage?.currentOrders > 0) adoption += 10;
+  if (tenant.usage?.currentUsers > 1) adoption += 8;
+  const enabledCount = tenant.enabledModules
+    ? Object.values(tenant.enabledModules).filter(Boolean).length
+    : 0;
+  if (enabledCount > 5) adoption += 7;
+
+  let activity = 0;
+  if (tenant.usage?.currentOrders > 0) activity += 13;
+  if (tenant.usage?.currentProducts > 10) activity += 12;
+
+  let plan = 0;
+  const planName = (tenant.subscriptionPlan || '').toLowerCase();
+  if (planName === 'starter') plan = 5;
+  else if (planName === 'fundamental') plan = 10;
+  else if (planName === 'crecimiento') plan = 13;
+  else if (['expansion', 'expansión'].includes(planName)) plan = 15;
+
+  return profile + adoption + activity + plan;
+}
+
+function HealthBadge({ score }) {
+  let color = 'bg-red-100 text-red-700';
+  if (score >= 60) color = 'bg-green-100 text-green-700';
+  else if (score >= 35) color = 'bg-yellow-100 text-yellow-700';
+  else if (score >= 15) color = 'bg-orange-100 text-orange-700';
+
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${color}`}>
+      {score}
+    </span>
+  );
+}
 
 // ... (TenantDeleteDialog and TenantStatusSelector components remain the same)
 
@@ -236,6 +280,7 @@ export default function SuperAdminDashboard() {
           <TabsTrigger value="plans">Gestión de Planes</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard" className="space-y-4">
+          <FunnelCard />
           <GlobalMetricsDashboard />
           <Card>
             <CardHeader>
@@ -285,6 +330,7 @@ export default function SuperAdminDashboard() {
                       <TableHead>Nombre del Tenant</TableHead>
                       <TableHead>Código</TableHead>
                       <TableHead>Plan</TableHead>
+                      <TableHead>Salud</TableHead>
                       <TableHead>Expira</TableHead>
                       <TableHead>Estado</TableHead>
                       <TableHead>Acciones</TableHead>
@@ -297,6 +343,9 @@ export default function SuperAdminDashboard() {
                         <TableCell>{tenant.code}</TableCell>
                         <TableCell>
                           <Badge variant="outline">{tenant.subscriptionPlan}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <HealthBadge score={computeHealthScore(tenant)} />
                         </TableCell>
                         <TableCell>
                           {tenant.subscriptionExpiresAt ? new Date(tenant.subscriptionExpiresAt).toLocaleDateString() : 'N/A'}

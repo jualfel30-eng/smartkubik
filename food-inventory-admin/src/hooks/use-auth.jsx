@@ -30,6 +30,9 @@ function normalizeTenant(rawTenant) {
     vertical: rawTenant.vertical,
     enabledModules: rawTenant.enabledModules,
     subscriptionPlan: rawTenant.subscriptionPlan,
+    trialStartDate: rawTenant.trialStartDate || null,
+    trialEndDate: rawTenant.trialEndDate || null,
+    trialExtended: rawTenant.trialExtended || false,
     isConfirmed: !isExplicitlyUnconfirmed,
     verticalProfile: {
       key: rawTenant.verticalProfile?.key || 'food-service',

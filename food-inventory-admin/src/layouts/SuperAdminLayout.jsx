@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Menu,
   X,
+  Link2,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -24,11 +25,13 @@ import TenantConfigurationEdit from '@/components/super-admin/TenantConfiguratio
 import { BrainCircuit } from 'lucide-react';
 import SuperAdminSettings from '@/components/super-admin/SuperAdminSettings';
 import KnowledgeBaseManagement from '@/components/super-admin/KnowledgeBaseManagement';
+import LinkManager from '@/components/LinkManager';
 
 const navItems = [
   { to: '/super-admin/tenants', icon: Settings, label: 'Gestión de Tenants' },
   { to: '/super-admin/crm', icon: Users, label: 'CRM' },
   { to: '/super-admin/calendar', icon: CalendarDays, label: 'Calendario' },
+  { to: '/super-admin/links', icon: Link2, label: 'Bio Links' },
   { to: '/super-admin/knowledge-base', icon: BrainCircuit, label: 'Base de Conocimiento' },
   { to: '/super-admin/settings', icon: Settings, label: 'Ajustes' },
 ];
@@ -135,6 +138,7 @@ function SuperAdminLayout() {
               <Route path="tenants" element={<SuperAdminDashboard />} />
               <Route path="tenants/:tenantId/users" element={<TenantUserList />} />
               <Route path="tenants/:tenantId/configuration" element={<TenantConfigurationEdit />} />
+              <Route path="links" element={<LinkManager mode="super-admin" />} />
               <Route path="settings" element={<SuperAdminSettings />} />
               <Route path="knowledge-base" element={<KnowledgeBaseManagement />} />
               <Route path="audit-logs" element={<AuditLogView />} />

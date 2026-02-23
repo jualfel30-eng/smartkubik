@@ -4,6 +4,8 @@ import { Meteors } from "../components/ui/meteors";
 import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import LightRaysCanvas from '../components/LightRaysCanvas';
 import SalesContactModal from '../components/SalesContactModal';
+import SocialProofSection from '../components/SocialProofSection';
+import ROICalculator from '../components/ROICalculator';
 import { CheckCircle2, XCircle } from 'lucide-react';
 
 // Industry Backgrounds
@@ -137,6 +139,7 @@ const SmartKubikLanding = () => {
     const [billingCycle, setBillingCycle] = useState('annual'); // 'annual' | 'monthly'
 
     const PRICING_TIERS = {
+        starter: { annual: 15, monthlyMarkup: 1.267 },     // $19/mes, $15/anual
         fundamental: { annual: 29, monthlyMarkup: 1.345 }, // $39/mes, $29/anual
         crecimiento: { annual: 79, monthlyMarkup: 1.253 }, // $99/mes, $79/anual
         expansion: { annual: 125, monthlyMarkup: 1.192 }   // $149/mes, $125/anual
@@ -803,44 +806,8 @@ const SmartKubikLanding = () => {
             question.addEventListener('click', handleFaqClick);
         });
 
-        // CALCULATOR LOGIC
-        const handleSliderInput = (e) => {
-            const users = parseInt(e.currentTarget.value);
-            const userCount = document.getElementById('userCount');
-            const monthlyCost = document.getElementById('monthlyCost');
-            const competitorCost = document.getElementById('competitorCost');
-            const savings = document.getElementById('savings');
-            const annualSavings = document.getElementById('annualSavings');
-
-            if (userCount) userCount.textContent = users;
-
-            // SmartKubik Cost (Updated Tiers)
-            let skCost = 49;
-            if (users >= 4 && users <= 8) {
-                skCost = 99;
-            } else if (users >= 9) {
-                skCost = 149;
-            }
-
-            // Fragmented Stack Cost
-            const fragCost = 500 + (users * 50);
-            const saveMonth = fragCost - skCost;
-            const saveYear = saveMonth * 12;
-
-            if (monthlyCost) monthlyCost.textContent = `$${skCost}`;
-            if (competitorCost) competitorCost.textContent = `~$${fragCost.toLocaleString()}`;
-            if (savings) savings.textContent = `$${saveMonth.toLocaleString()}`;
-            if (annualSavings) annualSavings.textContent = `$${saveYear.toLocaleString()}`;
-        };
-
-        const slider = document.getElementById('userSlider');
-        if (slider) {
-            slider.addEventListener('input', handleSliderInput);
-        }
-
         return () => {
             faqQuestions.forEach(question => question.removeEventListener('click', handleFaqClick));
-            if (slider) slider.removeEventListener('input', handleSliderInput);
         };
     }, []);
 
@@ -3324,74 +3291,9 @@ const SmartKubikLanding = () => {
                             </div>
                         </div>
 
-                        {/*  CALCULATOR SECTION  */}
+                        {/*  CALCULATOR SECTION — ROI Calculator  */}
                         <div className="my-24 relative">
-                            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
-                                <div className="glass-card rounded-3xl p-8 md:p-12 max-w-3xl mx-auto">
-                                    <h3 className="text-2xl font-bold mb-6 text-center text-white">
-                                        <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Calculadora Interactiva</span>
-                                        <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Interactive Calculator</span>
-                                    </h3>
-
-                                    <div className="mb-6">
-                                        <label className="block text-gray-400 mb-3">
-                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>¿Cuántos usuarios tienes?</span>
-                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>How many users do you have?</span>
-                                        </label>
-                                        <input type="range" min="1" max="30" defaultValue="8"
-                                            className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
-                                            id="userSlider" />
-                                        <div className="text-center mt-2">
-                                            <span className="text-4xl font-bold font-mono text-white" id="userCount">8</span>
-                                            <span className="text-gray-500 ml-2">
-                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>usuarios</span>
-                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>users</span>
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                        <div className="text-center">
-                                            <div className="text-sm text-gray-400 mb-2">
-                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Tu costo mensual</span>
-                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Your monthly cost</span>
-                                            </div>
-                                            <div className="text-5xl font-bold font-mono text-cyan-400" id="monthlyCost">$99</div>
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/mes</span>
-                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/month</span>
-                                            </div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-sm text-gray-400 mb-2">
-                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Vs. alternativas fragmentadas</span>
-                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Vs. fragmented alternatives</span>
-                                            </div>
-                                            <div className="text-5xl font-bold font-mono text-gray-600 line-through" id="competitorCost">
-                                                ~$900
-                                            </div>
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/mes</span>
-                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/month</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        className="text-center glass-card rounded-2xl p-6 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border-emerald-500/30">
-                                        <div className="text-sm text-gray-400 mb-2">
-                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras</span>
-                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>You save</span>
-                                        </div>
-                                        <div className="text-4xl font-bold text-emerald-400 mb-1" id="savings">$801</div>
-                                        <div className="text-lg text-gray-400">
-                                            = <span className="font-bold text-emerald-400" id="annualSavings">$9,612</span>
-                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>/año 🎉</span>
-                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>/year 🎉</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <ROICalculator language={language} />
                         </div>
 
                         {/*  Competitor Matrix  */}
@@ -3508,7 +3410,68 @@ const SmartKubikLanding = () => {
                             </div>
                         </div>
 
-                        <div className="grid md:grid-cols-3 gap-8 items-stretch max-w-[75%] mx-auto">
+                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch mx-auto">
+                            {/*  Starter  */}
+                            <div className="relative rounded-3xl p-6 mt-8 border border-white/10 hover:border-white/20 backdrop-blur-md flex flex-col bg-[#0A0F1C]/60 transition-all">
+                                <div className="mb-4">
+                                    <h3 className="text-2xl font-bold text-white mb-2">Starter</h3>
+                                    <div className="flex items-baseline gap-2">
+                                        {billingCycle === 'annual' && (
+                                            <span className="text-gray-500 line-through text-base">${getPrice('starter', true)}</span>
+                                        )}
+                                        <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-400">
+                                            ${getPrice('starter')}
+                                        </span>
+                                        <span className="text-gray-400 text-xs">/mes</span>
+                                    </div>
+                                    {billingCycle === 'annual' && (
+                                        <div className="mt-2 inline-block px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
+                                            <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Ahorras 21% vs Mensual</span>
+                                            <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Save 21% vs Monthly</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <p className={`text-gray-400 text-sm mb-4 lang-es ${language === "es" ? "" : "hidden"}`}>Para emprendedores que arrancan.</p>
+                                <p className={`text-gray-400 text-sm mb-4 lang-en ${language === "en" ? "" : "hidden"}`}>For entrepreneurs just starting out.</p>
+
+                                <ul className="space-y-3 mb-6 flex-1">
+                                    {[
+                                        { es: "1 usuario", en: "1 user" },
+                                        { es: "1 sucursal", en: "1 branch" },
+                                        { es: "Inventario hasta 100 productos", en: "Inventory up to 100 products" },
+                                        { es: "Ventas y órdenes básicas", en: "Basic sales & orders" },
+                                        { es: "Reportes esenciales", en: "Essential reports" },
+                                        { es: "Soporte por email", en: "Email support" },
+                                    ].map((feat, i) => (
+                                        <li key={i} className="flex items-start gap-3 text-xs text-gray-300">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                            <span>
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>{feat.es}</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>{feat.en}</span>
+                                            </span>
+                                        </li>
+                                    ))}
+                                    {[
+                                        { es: "Sin IA ni WhatsApp", en: "No AI or WhatsApp" },
+                                        { es: "Sin web de ventas", en: "No sales website" },
+                                    ].map((feat, i) => (
+                                        <li key={`x-${i}`} className="flex items-start gap-3 text-xs text-gray-600">
+                                            <XCircle className="w-4 h-4 text-gray-700 shrink-0" />
+                                            <span>
+                                                <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>{feat.es}</span>
+                                                <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>{feat.en}</span>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+
+                                <Link to="/register"
+                                    className="w-full py-3 rounded-xl font-bold text-center transition-all bg-white/10 text-white hover:bg-white/20 flex justify-center text-sm">
+                                    <span className={`lang-es ${language === "es" ? "" : "hidden"} `}>Empezar Gratis</span>
+                                    <span className={`lang-en ${language === "en" ? "" : "hidden"} `}>Start for Free</span>
+                                </Link>
+                            </div>
+
                             {/*  Fundamental / Essentials  */}
                             <div className="relative rounded-3xl p-6 mt-8 border border-white/10 hover:border-white/20 backdrop-blur-md flex flex-col bg-[#0A0F1C]/60 transition-all">
                                 <div className="mb-4">
@@ -3784,6 +3747,9 @@ const SmartKubikLanding = () => {
 
 
 
+
+                {/*  SECTION 11: SOCIAL PROOF & TESTIMONIALS  */}
+                <SocialProofSection language={language} />
 
                 {/*  SECTION 14: FAQ  */}
                 < section className="py-24 px-4 bg-[#050810] relative overflow-hidden" >

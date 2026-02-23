@@ -4,18 +4,34 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { getApiBaseUrl } from '@/lib/api';
 
-const NewsletterForm = () => {
+const NewsletterForm = ({ source = 'blog_post' }) => {
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Here you would typically send the email to your CRM or email service
-    console.log('Subscribing email:', email);
-    toast.success('¡Suscripción exitosa!', {
-      description: `Gracias por suscribirte, ${email}. Revisa tu bandeja de entrada.`,
-    });
-    setEmail('');
+    setLoading(true);
+    try {
+      const res = await fetch(`${getApiBaseUrl()}/newsletter/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, source }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Error al suscribirse');
+      }
+      toast.success('¡Suscripción exitosa!', {
+        description: data.message,
+      });
+      setEmail('');
+    } catch (err) {
+      toast.error(err.message || 'Error al suscribirse. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -35,9 +51,12 @@ const NewsletterForm = () => {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="ejemplo@smartkubik.com"
               required
+              disabled={loading}
             />
           </div>
-          <Button type="submit" className="w-full">Suscribirse</Button>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? 'Suscribiendo...' : 'Suscribirse'}
+          </Button>
         </form>
       </CardContent>
     </Card>

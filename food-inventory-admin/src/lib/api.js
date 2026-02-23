@@ -66,6 +66,22 @@ export const fetchApi = async (url, options = {}) => {
       errorData = { message: response.statusText || 'Error en la petición a la API' };
     }
 
+    // Handle TRIAL_EXPIRED: redirect to /trial-expired
+    if (response.status === 403) {
+      let parsedMessage = null;
+      try {
+        parsedMessage = typeof errorData.message === 'string'
+          ? JSON.parse(errorData.message)
+          : null;
+      } catch {
+        // Not JSON, proceed normally
+      }
+      if (parsedMessage?.code === 'TRIAL_EXPIRED') {
+        window.location.href = '/trial-expired';
+        throw new Error(parsedMessage.message);
+      }
+    }
+
     let errorMessage = errorData.message || 'Error en la petición a la API';
     if (Array.isArray(errorMessage)) {
       errorMessage = errorMessage.join(', ');
