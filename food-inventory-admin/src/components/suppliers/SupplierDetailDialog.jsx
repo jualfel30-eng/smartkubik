@@ -252,6 +252,11 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
                 contactPhone: formData.contactPhone
             };
 
+            // Clean empty strings for optional fields so backend validation doesn't fail
+            if (!payload.contactEmail) delete payload.contactEmail;
+            if (!payload.contactPhone) delete payload.contactPhone;
+            if (!payload.contactName) delete payload.contactName;
+
             // Basic validation
             if (!payload.name || !payload.rif) {
                 toast.error('Nombre y RIF son obligatorios');
