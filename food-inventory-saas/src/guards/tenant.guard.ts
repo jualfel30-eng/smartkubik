@@ -63,11 +63,23 @@ export class TenantGuard implements CanActivate {
         );
       }
 
-      // Verificar límites de suscripción si es necesario
+      // Verificar expiración de suscripción / trial
       if (
         tenant.subscriptionExpiresAt &&
         tenant.subscriptionExpiresAt < new Date()
       ) {
+        if (tenant.subscriptionPlan === "Trial") {
+          this.logger.warn(
+            `Expired trial for tenant: ${tenant.name}`,
+          );
+          throw new ForbiddenException(
+            JSON.stringify({
+              code: "TRIAL_EXPIRED",
+              message:
+                "Tu período de prueba ha expirado. Selecciona un plan para continuar.",
+            }),
+          );
+        }
         this.logger.warn(`Expired subscription for tenant: ${tenant.name}`);
         throw new ForbiddenException("Suscripción expirada. Renueve su plan.");
       }

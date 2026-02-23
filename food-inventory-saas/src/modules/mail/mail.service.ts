@@ -209,6 +209,60 @@ export class MailService {
     await this.defaultTransporter.sendMail(mailOptions);
   }
 
+  async sendTrialExpiredEmail(
+    email: string,
+    options: {
+      businessName: string;
+      ownerFirstName?: string;
+    },
+  ) {
+    const frontendUrl =
+      this.configService.get<string>("FRONTEND_URL") ||
+      "https://smartkubik.com";
+    const foundersUrl = `${frontendUrl}/fundadores`;
+    const whatsappUrl = "https://wa.me/584124000000?text=Hola%2C%20mi%20prueba%20de%20SmartKubik%20terminó%20y%20quiero%20saber%20más";
+    const greeting = options.ownerFirstName
+      ? `Hola ${options.ownerFirstName},`
+      : "Hola,";
+
+    const mailOptions = {
+      from: this.configService.get<string>("SMTP_FROM"),
+      to: email,
+      subject:
+        "Tu prueba de SmartKubik terminó — tus datos están seguros 🔒",
+      html: `
+        <table style="width:100%;max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;border-collapse:collapse;">
+          <tr>
+            <td style="padding:24px 0;text-align:center;background-color:#111827;color:#ffffff;">
+              <h1 style="margin:0;font-size:24px;">Tu prueba gratuita terminó</h1>
+              <p style="margin:8px 0 0;font-size:14px;">${options.businessName}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px;background-color:#f9fafb;color:#111827;">
+              <p style="margin:0 0 16px;font-size:16px;">${greeting}</p>
+              <p style="margin:0 0 16px;font-size:14px;">Tu período de prueba de 14 días en SmartKubik ha finalizado. <strong>Tranquilo — todos tus datos están guardados y seguros.</strong> Cuando actives un plan, todo estará exactamente como lo dejaste.</p>
+              <p style="margin:0 0 16px;font-size:14px;">Como parte de nuestro programa de <strong>Clientes Fundadores</strong>, puedes acceder a SmartKubik con hasta <strong>51% de descuento de por vida</strong>. Solo quedan cupos limitados.</p>
+              <p style="margin:0 0 24px;text-align:center;">
+                <a href="${foundersUrl}" style="display:inline-block;padding:14px 28px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-size:16px;font-weight:bold;">Asegurar mi precio de Fundador</a>
+              </p>
+              <p style="margin:0 0 16px;font-size:14px;text-align:center;">
+                <a href="${whatsappUrl}" style="color:#2563eb;text-decoration:underline;">¿Prefieres hablar con nosotros por WhatsApp?</a>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px;text-align:center;background-color:#f3f4f6;color:#6b7280;font-size:12px;">
+              SmartKubik · Transformando la gestión de tu negocio
+            </td>
+          </tr>
+        </table>
+      `,
+    };
+
+    await this.defaultTransporter.sendMail(mailOptions);
+  }
+
   async sendTenantWelcomeEmail(
     email: string,
     options: {

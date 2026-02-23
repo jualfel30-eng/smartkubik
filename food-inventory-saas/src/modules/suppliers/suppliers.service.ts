@@ -53,7 +53,7 @@ export class SuppliersService {
       const contacts: CustomerContact[] = [];
       if (createSupplierDto.contactEmail) {
         contacts.push({
-          name: createSupplierDto.contactName,
+          name: createSupplierDto.contactName || createSupplierDto.name || 'Contacto Principal',
           type: "email",
           value: createSupplierDto.contactEmail,
           isPrimary: true,
@@ -61,7 +61,7 @@ export class SuppliersService {
       }
       if (createSupplierDto.contactPhone) {
         contacts.push({
-          name: createSupplierDto.contactName,
+          name: createSupplierDto.contactName || createSupplierDto.name || 'Contacto Principal',
           type: "phone",
           value: createSupplierDto.contactPhone,
           isPrimary: contacts.length === 0,
@@ -147,15 +147,15 @@ export class SuppliersService {
         businessName: createSupplierDto.name,
         isRetentionAgent: false,
       },
-      contacts: [
+      contacts: (createSupplierDto.contactName || createSupplierDto.contactEmail || createSupplierDto.contactPhone) ? [
         {
-          name: createSupplierDto.contactName,
+          name: createSupplierDto.contactName || createSupplierDto.name || 'Contacto Principal',
           email: createSupplierDto.contactEmail,
           phone: createSupplierDto.contactPhone,
           position: "Principal",
           isPrimary: true,
         },
-      ],
+      ] : [],
 
       createdBy: user.id,
       tenantId: user.tenantId,
@@ -238,15 +238,19 @@ export class SuppliersService {
     if (updateSupplierDto.status) supplier.status = updateSupplierDto.status;
 
     // Map flat contact fields to contacts array if provided
-    if (updateSupplierDto.contactName) {
+    const hasContactUpdate = updateSupplierDto.contactName !== undefined ||
+      updateSupplierDto.contactEmail !== undefined ||
+      updateSupplierDto.contactPhone !== undefined;
+
+    if (hasContactUpdate) {
       if (!supplier.contacts) supplier.contacts = [];
       if (supplier.contacts.length > 0) {
-        supplier.contacts[0].name = updateSupplierDto.contactName;
-        supplier.contacts[0].email = updateSupplierDto.contactEmail;
-        supplier.contacts[0].phone = updateSupplierDto.contactPhone;
+        if (updateSupplierDto.contactName !== undefined) supplier.contacts[0].name = updateSupplierDto.contactName || supplier.name || 'Contacto Principal';
+        if (updateSupplierDto.contactEmail !== undefined) supplier.contacts[0].email = updateSupplierDto.contactEmail;
+        if (updateSupplierDto.contactPhone !== undefined) supplier.contacts[0].phone = updateSupplierDto.contactPhone;
       } else {
         supplier.contacts.push({
-          name: updateSupplierDto.contactName,
+          name: updateSupplierDto.contactName || supplier.name || 'Contacto Principal',
           email: updateSupplierDto.contactEmail,
           phone: updateSupplierDto.contactPhone,
           position: 'Principal', // Required by schema
@@ -329,7 +333,7 @@ export class SuppliersService {
         }
 
         // 5. Sync Contacts (Basic Name/Email/Phone updates for primary contact)
-        if (updateSupplierDto.contactName && supplier.contacts && supplier.contacts.length > 0) {
+        if (hasContactUpdate) {
           // This is harder to sync via atomic updates without finding the specific array element.
           // We will rely on the fact that if the user edits the "Contact Name" in the Supplier Form, 
           // they expect the linked Customer's primary contact to update.
@@ -340,14 +344,14 @@ export class SuppliersService {
             if (!primaryContact && linkedCustomer.contacts.length > 0) primaryContact = linkedCustomer.contacts[0];
 
             if (primaryContact) {
-              primaryContact.name = updateSupplierDto.contactName;
-              if (updateSupplierDto.contactEmail) primaryContact.value = updateSupplierDto.contactEmail; // Assuming type matches
+              if (updateSupplierDto.contactName !== undefined) primaryContact.name = updateSupplierDto.contactName || updatedSupplier.name || 'Contacto Principal';
+              if (updateSupplierDto.contactEmail !== undefined) primaryContact.value = updateSupplierDto.contactEmail; // Assuming type matches
               // Note: Robust sync would require checking contact type (email vs phone). 
               // For now, we update the name which is the most visible "masking" culprit.
             } else {
               // Add new contact if none exists
               linkedCustomer.contacts.push({
-                name: updateSupplierDto.contactName,
+                name: updateSupplierDto.contactName || updatedSupplier.name || 'Contacto Principal',
                 type: 'email', // Default assumption
                 value: updateSupplierDto.contactEmail || 'N/A',
                 isPrimary: true,

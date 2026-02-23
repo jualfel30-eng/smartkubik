@@ -127,6 +127,8 @@ import { InvestmentsModule } from "./modules/investments/investments.module";
 import { DataImportModule } from "./modules/data-import/data-import.module";
 import { PriceListsModule } from "./modules/price-lists/price-lists.module";
 import { CountryPluginModule } from "./country-plugins/country-plugin.module";
+import { NewsletterModule } from "./modules/newsletter/newsletter.module";
+import { SocialLinksModule } from "./modules/social-links/social-links.module";
 
 import { Redis } from "ioredis";
 
@@ -451,6 +453,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     OnboardingModule,
     ProductsModule,
     PriceListsModule,
+    NewsletterModule,
     InventoryModule,
     InventoryMovementsModule,
     ConsumablesModule,
@@ -552,6 +555,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     FixedAssetsModule,
     InvestmentsModule,
     DataImportModule,
+    SocialLinksModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

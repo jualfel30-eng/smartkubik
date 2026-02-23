@@ -12,6 +12,7 @@ import {
 } from "../../schemas/global-settings.schema";
 import { AuthService } from "../../auth/auth.service";
 import { FeatureFlagsService } from "../../config/feature-flags.service";
+import { SocialLinksService } from "../social-links/social-links.service";
 
 @Injectable()
 export class SuperAdminService {
@@ -60,6 +61,7 @@ export class SuperAdminService {
     private readonly globalSettingModel: Model<GlobalSettingDocument>,
     private readonly authService: AuthService,
     private readonly featureFlagsService: FeatureFlagsService,
+    private readonly socialLinksService: SocialLinksService,
   ) {}
 
   async impersonateUser(
@@ -230,6 +232,67 @@ export class SuperAdminService {
     }
 
     return updatedTenant;
+  }
+
+  async extendTrial(
+    tenantId: string,
+    days: number = 7,
+  ): Promise<any> {
+    this.logger.log(
+      `Extending trial for tenant ${tenantId} by ${days} days`,
+    );
+
+    const tenant = await this.connection
+      .model("Tenant")
+      .findById(tenantId)
+      .exec();
+
+    if (!tenant) {
+      throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado.`);
+    }
+
+    if ((tenant as any).subscriptionPlan !== "Trial") {
+      throw new NotFoundException(
+        `Tenant "${(tenant as any).name}" no está en trial (plan actual: ${(tenant as any).subscriptionPlan}).`,
+      );
+    }
+
+    const currentEnd = (tenant as any).trialEndDate
+      ? new Date((tenant as any).trialEndDate)
+      : new Date();
+    const newEnd = new Date(
+      currentEnd.getTime() + days * 24 * 60 * 60 * 1000,
+    );
+
+    const updatedTenant = await this.connection
+      .model("Tenant")
+      .findByIdAndUpdate(
+        tenantId,
+        {
+          $set: {
+            trialEndDate: newEnd,
+            subscriptionExpiresAt: newEnd,
+            trialExtended: true,
+          },
+        },
+        { new: true },
+      )
+      .exec();
+
+    this.logger.log(
+      `Trial extended for tenant ${(tenant as any).name}: new end date ${newEnd.toISOString()}`,
+    );
+
+    return {
+      success: true,
+      message: `Trial extendido ${days} días hasta ${newEnd.toLocaleDateString("es-VE")}`,
+      tenant: {
+        id: updatedTenant._id,
+        name: (updatedTenant as any).name,
+        trialEndDate: newEnd,
+        trialExtended: true,
+      },
+    };
   }
 
   async getUsersForTenant(tenantId: string): Promise<any> {
@@ -436,5 +499,140 @@ export class SuperAdminService {
     } finally {
       session.endSession();
     }
+  }
+
+  // ─── Funnel Metrics ────────────────────────────────────────────────
+
+  async getFunnelMetrics(): Promise<any> {
+    this.logger.log("Fetching funnel metrics");
+    const TenantModel = this.connection.model("Tenant");
+    const now = new Date();
+    const sevenDaysFromNow = new Date(
+      now.getTime() + 7 * 24 * 60 * 60 * 1000,
+    );
+    const thirtyDaysAgo = new Date(
+      now.getTime() - 30 * 24 * 60 * 60 * 1000,
+    );
+    const sevenDaysAgo = new Date(
+      now.getTime() - 7 * 24 * 60 * 60 * 1000,
+    );
+
+    const [
+      totalRegistered,
+      totalConfirmed,
+      totalActive,
+      totalPaying,
+      totalTrial,
+      trialExpiring7d,
+      recentRegistrations7d,
+      recentRegistrations30d,
+      planBreakdown,
+    ] = await Promise.all([
+      TenantModel.countDocuments(),
+      TenantModel.countDocuments({ isConfirmed: true }),
+      TenantModel.countDocuments({
+        status: "active",
+        "usage.currentProducts": { $gt: 0 },
+      }),
+      TenantModel.countDocuments({
+        subscriptionPlan: { $nin: ["Trial", "trial"] },
+      }),
+      TenantModel.countDocuments({
+        subscriptionPlan: { $in: ["Trial", "trial"] },
+      }),
+      TenantModel.countDocuments({
+        subscriptionPlan: { $in: ["Trial", "trial"] },
+        trialEndDate: { $gte: now, $lte: sevenDaysFromNow },
+      }),
+      TenantModel.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
+      TenantModel.countDocuments({ createdAt: { $gte: thirtyDaysAgo } }),
+      TenantModel.aggregate([
+        { $group: { _id: "$subscriptionPlan", count: { $sum: 1 } } },
+      ]),
+    ]);
+
+    return {
+      totalRegistered,
+      totalConfirmed,
+      totalActive,
+      totalPaying,
+      totalTrial,
+      trialExpiring7d,
+      recentRegistrations7d,
+      recentRegistrations30d,
+      planBreakdown: planBreakdown.reduce(
+        (acc: Record<string, number>, item: any) => {
+          acc[item._id || "unknown"] = item.count;
+          return acc;
+        },
+        {} as Record<string, number>,
+      ),
+    };
+  }
+
+  // ─── Health Scores ─────────────────────────────────────────────────
+
+  computeHealthScore(tenant: any): {
+    profile: number;
+    adoption: number;
+    activity: number;
+    plan: number;
+    total: number;
+  } {
+    let profile = 0;
+    if (tenant.name) profile += 7;
+    if (tenant.contactInfo?.phone) profile += 6;
+    if (tenant.contactInfo?.email) profile += 6;
+    if (tenant.isConfirmed) profile += 6;
+
+    let adoption = 0;
+    if (tenant.usage?.currentProducts > 0) adoption += 10;
+    if (tenant.usage?.currentOrders > 0) adoption += 10;
+    if (tenant.usage?.currentUsers > 1) adoption += 8;
+    const enabledCount = tenant.enabledModules
+      ? Object.values(tenant.enabledModules).filter(Boolean).length
+      : 0;
+    if (enabledCount > 5) adoption += 7;
+
+    let activity = 0;
+    if (tenant.usage?.currentOrders > 0) activity += 13;
+    if (tenant.usage?.currentProducts > 10) activity += 12;
+
+    let plan = 0;
+    const planName = (tenant.subscriptionPlan || "").toLowerCase();
+    if (planName === "starter") plan = 5;
+    else if (planName === "fundamental") plan = 10;
+    else if (planName === "crecimiento") plan = 13;
+    else if (["expansion", "expansión"].includes(planName)) plan = 15;
+
+    return {
+      profile,
+      adoption,
+      activity,
+      plan,
+      total: profile + adoption + activity + plan,
+    };
+  }
+
+  // ─── Global Social Links (super-admin) ─────────────────────────────
+
+  async getGlobalLinks() {
+    return this.socialLinksService.getManageLinks(null);
+  }
+
+  async createGlobalLink(dto: any) {
+    return this.socialLinksService.createLink(null, dto);
+  }
+
+  async updateGlobalLink(linkId: string, dto: any) {
+    return this.socialLinksService.updateLink(linkId, dto);
+  }
+
+  async deleteGlobalLink(linkId: string) {
+    return this.socialLinksService.deleteLink(linkId);
+  }
+
+  async reorderGlobalLinks(orderedIds: string[]) {
+    return this.socialLinksService.reorderLinks(null, orderedIds);
   }
 }

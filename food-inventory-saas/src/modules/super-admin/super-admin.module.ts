@@ -33,6 +33,7 @@ import { KnowledgeBaseModule } from "../knowledge-base/knowledge-base.module";
 import { AssistantModule } from "../assistant/assistant.module";
 import { AuthModule } from "../../auth/auth.module";
 import { FeatureFlagsService } from "../../config/feature-flags.service";
+import { SocialLinksModule } from "../social-links/social-links.module";
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { FeatureFlagsService } from "../../config/feature-flags.service";
     TablesModule,
     TodosModule,
     forwardRef(() => UsersModule),
+    SocialLinksModule,
   ],
   controllers: [SuperAdminController],
   providers: [SuperAdminService, FeatureFlagsService],

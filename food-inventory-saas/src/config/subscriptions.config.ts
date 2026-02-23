@@ -18,6 +18,15 @@ export const subscriptionPlans: Record<string, SubscriptionPlan> = {
       maxStorage: 500,
     },
   },
+  starter: {
+    name: "Starter",
+    limits: {
+      maxUsers: 1,
+      maxProducts: 100,
+      maxOrders: 200,
+      maxStorage: 500,
+    },
+  },
   fundamental: {
     name: "Fundamental",
     limits: {

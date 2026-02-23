@@ -21,6 +21,7 @@ import { SubscriptionPlansService } from "../subscription-plans/subscription-pla
 import {
   CreateTenantWithAdminDto,
   ConfirmTenantDto,
+  SubscribeDto,
 } from "./dto/onboarding.dto";
 import { SeedingService } from "../seeding/seeding.service";
 import { LoggerSanitizer } from "../../utils/logger-sanitizer.util";
@@ -35,6 +36,7 @@ import {
 } from "../memberships/memberships.service";
 import { getVerticalProfileKey } from "../../utils/vertical-profile-mapper.util";
 import { BillingService } from "../billing/billing.service";
+import { WhapiService } from "../whapi/whapi.service";
 
 @Injectable()
 export class OnboardingService {
@@ -52,6 +54,7 @@ export class OnboardingService {
     private mailService: MailService,
     private membershipsService: MembershipsService,
     private billingService: BillingService,
+    private whapiService: WhapiService,
     @InjectConnection() private readonly connection: Connection,
   ) { }
 
@@ -80,8 +83,15 @@ export class OnboardingService {
         const configPlan = subscriptionPlans[requestedPlanId];
         const planName = configPlan?.name || "Trial";
 
+        // Calculate trial dates if plan is trial
+        const isTrial = requestedPlanId === "trial" || !dto.subscriptionPlan;
+        const trialStartDate = isTrial ? new Date() : undefined;
+        const trialEndDate = isTrial
+          ? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+          : undefined;
+
         this.logger.log(
-          `Requested plan: "${dto.subscriptionPlan}" -> Normalized to: "${planName}"`,
+          `Requested plan: "${dto.subscriptionPlan}" -> Normalized to: "${planName}"${isTrial ? ` (trial until ${trialEndDate?.toISOString()})` : ""}`,
         );
 
         let selectedPlan: SubscriptionPlan | null = null;
@@ -114,6 +124,12 @@ export class OnboardingService {
 
         const vertical = dto.vertical || "FOOD_SERVICE";
         const enabledModules = getDefaultModulesForVertical(vertical);
+
+        // Gate marketing for Trial and Starter plans (only Fundamental+)
+        if (requestedPlanId === "trial" || requestedPlanId === "starter") {
+          enabledModules.marketing = false;
+        }
+
         const enabledModuleNames = Object.keys(enabledModules).filter(
           (key) => enabledModules[key],
         );
@@ -161,6 +177,11 @@ export class OnboardingService {
             key: verticalProfileKey,
             overrides: {},
           },
+          ...(isTrial && {
+            trialStartDate,
+            trialEndDate,
+            subscriptionExpiresAt: trialEndDate,
+          }),
         });
         savedTenant = await newTenant.save({ session });
         this.logger.log(`Paso 1/7: Tenant creado con ID: ${savedTenant._id}`);
@@ -307,6 +328,8 @@ export class OnboardingService {
           subscriptionPlan: tenantDoc.subscriptionPlan,
           isConfirmed: tenantDoc.isConfirmed,
           verticalProfile: tenantDoc.verticalProfile,
+          trialStartDate: tenantDoc.trialStartDate,
+          trialEndDate: tenantDoc.trialEndDate,
         },
         memberships,
         ...tokens,
@@ -347,6 +370,32 @@ export class OnboardingService {
         // pero sí lo registramos para debugging
       }
 
+      // Day 0: Send WhatsApp welcome message (fire-and-forget)
+      if (dto.phone && savedTenant) {
+        const tenantId = savedTenant._id.toString();
+        const welcomeMsg =
+          `¡Hola${dto.firstName ? ` ${dto.firstName}` : ""}! 🎉\n\n` +
+          `¡Bienvenido a SmartKubik! Tu cuenta para *${dto.businessName}* está lista.\n\n` +
+          `Tu prueba gratuita de 14 días acaba de comenzar. Aquí van 3 pasos rápidos para arrancar:\n\n` +
+          `1️⃣ Agrega tu primer producto en *Inventario → Productos*\n` +
+          `2️⃣ Configura tus categorías en *Configuración*\n` +
+          `3️⃣ Explora el Dashboard para ver métricas en tiempo real\n\n` +
+          `¿Necesitas ayuda? Solo responde este mensaje — estoy aquí para ti. 💬`;
+
+        this.whapiService
+          .sendWhatsAppMessage(tenantId, dto.phone, welcomeMsg)
+          .then(() => {
+            this.logger.log(`[ONBOARDING] ✅ WhatsApp welcome sent to ${dto.phone}`);
+            this.tenantModel.updateOne(
+              { _id: tenantId },
+              { $push: { whatsappFollowUpsSent: "day0_welcome" } },
+            ).exec().catch(() => {});
+          })
+          .catch((err) => {
+            this.logger.warn(`[ONBOARDING] WhatsApp welcome failed: ${err.message}`);
+          });
+      }
+
       return finalResponse;
     } catch (error) {
       this.logger.error(
@@ -362,6 +411,51 @@ export class OnboardingService {
     } finally {
       await session.endSession();
     }
+  }
+
+  async subscribeToPlan(tenantId: string, dto: SubscribeDto) {
+    const tenant = await this.tenantModel.findById(tenantId).exec();
+    if (!tenant) {
+      throw new NotFoundException("Tenant no encontrado.");
+    }
+
+    const planKey = dto.planId.toLowerCase();
+    const configPlan = subscriptionPlans[planKey];
+    if (!configPlan || planKey === "trial") {
+      throw new BadRequestException(
+        `Plan "${dto.planId}" no es un plan de pago válido.`,
+      );
+    }
+
+    tenant.subscriptionPlan = configPlan.name;
+    tenant.limits = configPlan.limits;
+    tenant.subscriptionExpiresAt = undefined;
+    tenant.trialStartDate = undefined;
+    tenant.trialEndDate = undefined;
+
+    if (dto.isFounder) {
+      tenant.featureFlags = {
+        ...(tenant.featureFlags || {}),
+        founderTier: true,
+      };
+    }
+
+    await tenant.save();
+
+    this.logger.log(
+      `Tenant ${tenant.name} upgraded from trial to ${configPlan.name}${dto.isFounder ? " (Founder)" : ""}`,
+    );
+
+    return {
+      success: true,
+      message: `Suscripción activada: ${configPlan.name}`,
+      tenant: {
+        id: tenant._id,
+        name: tenant.name,
+        subscriptionPlan: tenant.subscriptionPlan,
+        limits: tenant.limits,
+      },
+    };
   }
 
   async confirmTenant(dto: ConfirmTenantDto) {

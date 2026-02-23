@@ -73,8 +73,9 @@ export class CreateSupplierDto {
   rif: string;
 
   @IsString()
+  @IsOptional()
   @SanitizeString()
-  contactName: string; // "Nombre del vendedor"
+  contactName?: string; // "Nombre del vendedor"
 
   @IsString()
   @IsOptional()

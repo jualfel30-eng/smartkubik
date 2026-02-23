@@ -118,13 +118,60 @@ export class CreateTenantWithAdminDto {
   password: string; // No sanitizar passwords
 
   @ApiProperty({
-    description: "Plan de suscripción seleccionado",
+    description:
+      "Plan de suscripción seleccionado. Si no se envía, se asigna trial de 14 días.",
+    example: "trial",
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @SanitizeString()
+  subscriptionPlan?: string;
+}
+
+export class SubscribeDto {
+  @ApiProperty({
+    description: "ID del plan al que se suscribe",
     example: "crecimiento",
   })
   @IsString()
   @IsNotEmpty()
   @SanitizeString()
-  subscriptionPlan: string;
+  planId: string;
+
+  @ApiProperty({
+    description: "Método de pago seleccionado",
+    example: "pago_movil",
+    enum: [
+      "efectivo_usd",
+      "pago_movil",
+      "binance_usdt",
+      "transferencia_bancaria",
+    ],
+  })
+  @IsString()
+  @IsNotEmpty()
+  @SanitizeString()
+  paymentMethod: string;
+
+  @ApiProperty({
+    description: "Si se suscribe como Cliente Fundador",
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  isFounder?: boolean;
+
+  @ApiProperty({
+    description: "Ciclo de facturación",
+    example: "monthly",
+    enum: ["monthly", "annual"],
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  @SanitizeString()
+  billingCycle?: "monthly" | "annual";
 }
 
 export class ConfirmTenantDto {

@@ -404,6 +404,18 @@ export class Tenant {
   @Prop({ type: Date })
   subscriptionExpiresAt?: Date;
 
+  @Prop({ type: Date })
+  trialStartDate?: Date;
+
+  @Prop({ type: Date })
+  trialEndDate?: Date;
+
+  @Prop({ type: Boolean, default: false })
+  trialExtended: boolean;
+
+  @Prop({ type: [String], default: [] })
+  whatsappFollowUpsSent: string[];
+
   @Prop({ type: String, required: true, default: "active" })
   status: string;
 
@@ -565,3 +577,4 @@ export const TenantSchema = SchemaFactory.createForClass(Tenant);
 TenantSchema.index({ status: 1 });
 TenantSchema.index({ subscriptionPlan: 1 });
 TenantSchema.index({ subscriptionExpiresAt: 1 });
+TenantSchema.index({ trialEndDate: 1 });

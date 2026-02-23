@@ -105,6 +105,21 @@ export class SuperAdminController {
     return this.superAdminService.updateTenantStatus(tenantId, body.status);
   }
 
+  @Patch("tenants/:tenantId/extend-trial")
+  @ApiOperation({
+    summary: "[SUPER ADMIN] Extend a tenant's trial period",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Trial extendido exitosamente.",
+  })
+  async extendTrial(
+    @Param("tenantId") tenantId: string,
+    @Body() body: { days?: number },
+  ) {
+    return this.superAdminService.extendTrial(tenantId, body.days ?? 7);
+  }
+
   @Patch("tenants/:tenantId")
   @ApiOperation({ summary: "[SUPER ADMIN] Update a tenant's details" })
   @ApiResponse({
@@ -355,5 +370,46 @@ export class SuperAdminController {
       knowledgeBaseTenantId: tenantId,
     });
     return { data: { tenantId, ...response } };
+  }
+
+  // ─── Funnel Metrics ────────────────────────────────────────────────
+
+  @Get("metrics/funnel")
+  @ApiOperation({ summary: "[SUPER ADMIN] Get registration funnel metrics" })
+  @ApiResponse({ status: 200, description: "Funnel metrics obtained." })
+  async getFunnelMetrics() {
+    return this.superAdminService.getFunnelMetrics();
+  }
+
+  // ─── Global Social Links ──────────────────────────────────────────
+
+  @Get("social-links")
+  @ApiOperation({ summary: "[SUPER ADMIN] Get global social links" })
+  async getGlobalLinks() {
+    return this.superAdminService.getGlobalLinks();
+  }
+
+  @Post("social-links")
+  @ApiOperation({ summary: "[SUPER ADMIN] Create a global social link" })
+  async createGlobalLink(@Body() dto: any) {
+    return this.superAdminService.createGlobalLink(dto);
+  }
+
+  @Patch("social-links/reorder")
+  @ApiOperation({ summary: "[SUPER ADMIN] Reorder global social links" })
+  async reorderGlobalLinks(@Body() body: { orderedIds: string[] }) {
+    return this.superAdminService.reorderGlobalLinks(body.orderedIds);
+  }
+
+  @Patch("social-links/:id")
+  @ApiOperation({ summary: "[SUPER ADMIN] Update a global social link" })
+  async updateGlobalLink(@Param("id") id: string, @Body() dto: any) {
+    return this.superAdminService.updateGlobalLink(id, dto);
+  }
+
+  @Delete("social-links/:id")
+  @ApiOperation({ summary: "[SUPER ADMIN] Delete a global social link" })
+  async deleteGlobalLink(@Param("id") id: string) {
+    return this.superAdminService.deleteGlobalLink(id);
   }
 }

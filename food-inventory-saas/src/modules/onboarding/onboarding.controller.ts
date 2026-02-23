@@ -1,10 +1,20 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from "@nestjs/common";
-import { ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
+  Request,
+} from "@nestjs/common";
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Public } from "../../decorators/public.decorator";
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import {
   CreateTenantWithAdminDto,
   ConfirmTenantDto,
+  SubscribeDto,
 } from "./dto/onboarding.dto";
 import { OnboardingService } from "./onboarding.service";
 
@@ -42,5 +52,22 @@ export class OnboardingController {
   @ApiResponse({ status: 400, description: "Código inválido o expirado." })
   async confirm(@Body() confirmTenantDto: ConfirmTenantDto) {
     return this.onboardingService.confirmTenant(confirmTenantDto);
+  }
+
+  @Post("subscribe")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Upgrade de trial a plan pago (o cambio de plan)",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Suscripción activada exitosamente.",
+  })
+  @ApiResponse({ status: 400, description: "Plan inválido." })
+  async subscribe(@Body() subscribeDto: SubscribeDto, @Request() req) {
+    const tenantId = req.user.tenantId;
+    return this.onboardingService.subscribeToPlan(tenantId, subscribeDto);
   }
 }
