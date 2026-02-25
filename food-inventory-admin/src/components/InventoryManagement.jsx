@@ -1415,7 +1415,8 @@ function InventoryManagement() {
                     value={null}
                     placeholder="Escribe para buscar producto por nombre o SKU..."
                     className="w-full"
-                    menuPosition="fixed"
+                    menuPortalTarget={document.body}
+                    styles={{ menuPortal: base => ({ ...base, zIndex: 9999, pointerEvents: 'auto' }) }}
                   />
                 </div>
 
