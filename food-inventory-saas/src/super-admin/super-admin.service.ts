@@ -16,6 +16,7 @@ import { UpdateTenantModulesDto } from "../dto/update-tenant-modules.dto";
 import { UpdateRolePermissionsDto } from "../dto/update-role-permissions.dto";
 import { AuthService } from "../auth/auth.service";
 import { AuditLogService } from "../modules/audit-log/audit-log.service";
+import { FeatureFlagsService } from "../config/feature-flags.service";
 import { getPlanLimits } from "../config/subscriptions.config";
 import {
   UserTenantMembership,
@@ -57,6 +58,7 @@ export class SuperAdminService {
     private membershipModel: Model<UserTenantMembershipDocument>,
     @Inject(AuthService) private authService: AuthService,
     private auditLogService: AuditLogService,
+    private featureFlagsService: FeatureFlagsService,
   ) {}
 
   async findAll(): Promise<Tenant[]> {
@@ -539,5 +541,18 @@ export class SuperAdminService {
     );
 
     return updatedRole;
+  }
+
+  async getFeatureFlags() {
+    return this.featureFlagsService.getFeatureFlags();
+  }
+
+  async updateFeatureFlags(flags: Record<string, boolean>) {
+    return this.featureFlagsService.updateFeatureFlags(flags);
+  }
+
+  async reloadFeatureFlags() {
+    await this.featureFlagsService.reloadFromDatabase();
+    return { reloaded: true };
   }
 }

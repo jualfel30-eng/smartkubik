@@ -32,6 +32,12 @@ const ProtectedRoute = ({ children, requireOrganization = false }) => {
       console.log('[ProtectedRoute] ❌ No memberships, redirecting to /organizations');
       return <Navigate to="/organizations" replace state={{ from: location.pathname }} />;
     }
+
+    // Si el onboarding no está completo, redirigir al wizard
+    if (tenant && !tenant.onboardingCompleted && location.pathname !== '/onboarding') {
+      console.log('[ProtectedRoute] ➡️ Onboarding not completed, redirecting to /onboarding');
+      return <Navigate to="/onboarding" replace />;
+    }
   }
 
   console.log('[ProtectedRoute] ✅ Access granted');

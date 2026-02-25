@@ -5,6 +5,7 @@ import { WhatsAppService } from "../marketing/whatsapp.service";
 import { TenantPaymentConfig } from "../../schemas/tenant-payment-config.schema";
 import { OrderDocument } from "../../schemas/order.schema";
 import { StorefrontConfig } from "../../schemas/storefront-config.schema";
+import { normalizeWhatsAppPhone } from "../../utils/phone.util";
 
 @Injectable()
 export class WhatsAppOrderNotificationsService {
@@ -229,22 +230,7 @@ export class WhatsAppOrderNotificationsService {
    * Normalize phone number to WhatsApp format
    */
   private normalizePhoneNumber(phone: string): string {
-    // Remove all non-numeric characters
-    let normalized = phone.replace(/\D/g, "");
-
-    // If doesn't start with country code, assume Venezuela (+58)
-    if (!normalized.startsWith("58") && !normalized.startsWith("+58")) {
-      // Remove leading 0 if present
-      if (normalized.startsWith("0")) {
-        normalized = normalized.substring(1);
-      }
-      normalized = "58" + normalized;
-    }
-
-    // Remove + if present
-    normalized = normalized.replace("+", "");
-
-    return normalized;
+    return normalizeWhatsAppPhone(phone);
   }
 
   /**

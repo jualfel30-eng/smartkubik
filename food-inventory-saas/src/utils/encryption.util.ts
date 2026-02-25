@@ -1,12 +1,38 @@
 import * as crypto from "crypto";
 
 const ALGORITHM = "aes-256-cbc";
-const ENCRYPTION_KEY =
-  process.env.ENCRYPTION_KEY || "default-32-char-encryption-key";
 const IV_LENGTH = 16;
+const DEV_FALLBACK_KEY = "dev-only-32-char-encryption-key!";
+
+// Production guard: require ENCRYPTION_KEY in production
+if (!process.env.ENCRYPTION_KEY && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "FATAL: ENCRYPTION_KEY environment variable is required in production. " +
+      'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"',
+  );
+}
+
+if (!process.env.ENCRYPTION_KEY && process.env.NODE_ENV !== "test") {
+  console.warn(
+    "[encryption] WARNING: ENCRYPTION_KEY not set — using development fallback. " +
+      "Set ENCRYPTION_KEY in production.",
+  );
+}
+
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || DEV_FALLBACK_KEY;
 
 /**
- * Encrypt a string value
+ * Check if a value appears to be already encrypted (iv:ciphertext hex format)
+ */
+export function isEncrypted(text: string): boolean {
+  if (!text || typeof text !== "string") return false;
+  const colonIndex = text.indexOf(":");
+  if (colonIndex !== 32) return false;
+  return /^[0-9a-f]{32}:[0-9a-f]+$/.test(text);
+}
+
+/**
+ * Encrypt a string value using AES-256-CBC
  */
 export function encrypt(text: string): string {
   if (!text) return text;
@@ -37,6 +63,28 @@ export function decrypt(text: string): string {
   decrypted += decipher.final("utf8");
 
   return decrypted;
+}
+
+/**
+ * Safely decrypt a value — returns the original if it's not encrypted (backward compat)
+ */
+export function safeDecrypt(text: string): string {
+  if (!text) return text;
+  if (!isEncrypted(text)) return text;
+  try {
+    return decrypt(text);
+  } catch {
+    return text;
+  }
+}
+
+/**
+ * Encrypt a value only if it's not already encrypted
+ */
+export function safeEncrypt(text: string): string {
+  if (!text) return text;
+  if (isEncrypted(text)) return text;
+  return encrypt(text);
 }
 
 /**

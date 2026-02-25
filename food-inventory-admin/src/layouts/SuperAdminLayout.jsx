@@ -22,9 +22,10 @@ import SuperAdminCalendar from '@/components/super-admin/SuperAdminCalendar';
 import TenantUserList from '@/components/TenantUserList';
 import AuditLogView from '@/components/AuditLogView';
 import TenantConfigurationEdit from '@/components/super-admin/TenantConfigurationEdit';
-import { BrainCircuit } from 'lucide-react';
+import { BrainCircuit, Sparkles } from 'lucide-react';
 import SuperAdminSettings from '@/components/super-admin/SuperAdminSettings';
 import KnowledgeBaseManagement from '@/components/super-admin/KnowledgeBaseManagement';
+import SuperAdminAssistant from '@/components/super-admin/SuperAdminAssistant';
 import LinkManager from '@/components/LinkManager';
 
 const navItems = [
@@ -33,6 +34,7 @@ const navItems = [
   { to: '/super-admin/calendar', icon: CalendarDays, label: 'Calendario' },
   { to: '/super-admin/links', icon: Link2, label: 'Bio Links' },
   { to: '/super-admin/knowledge-base', icon: BrainCircuit, label: 'Base de Conocimiento' },
+  { to: '/super-admin/assistant', icon: Sparkles, label: 'Asistente IA' },
   { to: '/super-admin/settings', icon: Settings, label: 'Ajustes' },
 ];
 
@@ -141,6 +143,7 @@ function SuperAdminLayout() {
               <Route path="links" element={<LinkManager mode="super-admin" />} />
               <Route path="settings" element={<SuperAdminSettings />} />
               <Route path="knowledge-base" element={<KnowledgeBaseManagement />} />
+              <Route path="assistant" element={<SuperAdminAssistant />} />
               <Route path="audit-logs" element={<AuditLogView />} />
               <Route path="*" element={<Navigate to="tenants" />} />
             </Routes>

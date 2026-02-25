@@ -2,7 +2,7 @@ import { Test, TestingModule } from "@nestjs/testing";
 import { getModelToken } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { RoutingService } from "./routing.service";
-import { Routing } from "../../schemas/routing.schema";
+import { Routing } from "../../schemas/manufacturing-routing.schema";
 import { Product } from "../../schemas/product.schema";
 import { WorkCenter } from "../../schemas/work-center.schema";
 import { NotFoundException, BadRequestException } from "@nestjs/common";

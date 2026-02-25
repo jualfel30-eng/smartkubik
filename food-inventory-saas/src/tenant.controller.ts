@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Put,
+  Patch,
   Post,
   Delete,
   Body,
@@ -121,6 +122,27 @@ export class TenantController {
     } catch (error) {
       throw new HttpException(
         error.message || "Error al actualizar la configuración",
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Patch("onboarding-progress")
+  @ApiOperation({ summary: "Actualizar progreso del onboarding" })
+  @ApiResponse({ status: 200, description: "Progreso actualizado" })
+  async updateOnboardingProgress(
+    @Request() req,
+    @Body() body: { step?: number; stepsCompleted?: string[]; completed?: boolean; skipped?: boolean },
+  ) {
+    try {
+      const updated = await this.tenantService.updateOnboardingProgress(
+        req.user.tenantId,
+        body,
+      );
+      return { success: true, data: updated };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al actualizar el onboarding",
         error.status || HttpStatus.BAD_REQUEST,
       );
     }

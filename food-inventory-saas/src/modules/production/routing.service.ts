@@ -5,7 +5,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types, ClientSession } from "mongoose";
-import { Routing, RoutingDocument } from "../../schemas/routing.schema";
+import { Routing, RoutingDocument } from "../../schemas/manufacturing-routing.schema";
 import {
   CreateRoutingDto,
   UpdateRoutingDto,

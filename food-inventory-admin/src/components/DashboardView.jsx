@@ -49,6 +49,8 @@ import { SalesAttributeTable } from '@/components/tables/SalesAttributeTable.jsx
 import { RubikLoader } from './RubikLoader';
 import { FinancialKpisDashboard } from '@/components/charts/FinancialKpisDashboard.jsx';
 import { CustomAnalytics } from '@/components/charts/CustomAnalytics.jsx';
+import { useAuth } from '@/hooks/use-auth';
+import OnboardingChecklist from './OnboardingChecklist';
 
 const statusMap = {
   draft: { label: 'Borrador', colorClassName: 'bg-gray-200 text-gray-800' },
@@ -68,6 +70,7 @@ const getStatusBadge = (status) => {
 
 function DashboardView() {
   const { flags } = useFeatureFlags();
+  const { tenant } = useAuth();
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -129,6 +132,11 @@ function DashboardView() {
           </Button>
         </div>
       </div>
+
+      {/* Onboarding checklist — visible until setup tasks are complete */}
+      {tenant && !tenant.onboardingCompleted && (
+        <OnboardingChecklist summaryData={summaryData} />
+      )}
 
       {/* Stat Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

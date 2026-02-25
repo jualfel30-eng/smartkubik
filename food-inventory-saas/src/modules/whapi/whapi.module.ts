@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { ConfigModule } from "@nestjs/config";
 import { WhapiController } from "./whapi.controller";
@@ -14,7 +14,7 @@ import { SuperAdminModule } from "../super-admin/super-admin.module";
       { name: Tenant.name, schema: TenantSchema },
     ]),
     ConfigModule,
-    SuperAdminModule,
+    forwardRef(() => SuperAdminModule),
   ],
   controllers: [WhapiController],
   providers: [WhapiService],

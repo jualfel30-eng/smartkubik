@@ -17,6 +17,7 @@ import { OrdersModule } from "../orders/orders.module";
 import { DashboardModule } from "../dashboard/dashboard.module";
 import { InventoryModule } from "../inventory/inventory.module";
 import { AnalyticsModule } from "../analytics/analytics.module";
+import { SuperAdminModule } from "../super-admin/super-admin.module";
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { AnalyticsModule } from "../analytics/analytics.module";
     ExchangeRateModule,
     forwardRef(() => OrdersModule),
     DashboardModule,
-
+    forwardRef(() => SuperAdminModule),
     InventoryModule,
     AnalyticsModule,
     MongooseModule.forFeature([

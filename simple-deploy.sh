@@ -12,6 +12,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+export RSYNC_RSH="ssh -o ServerAliveInterval=60"
 SERVER="deployer@178.156.182.177"
 BACKEND_LOCAL="./food-inventory-saas"
 FRONTEND_LOCAL="./food-inventory-admin"

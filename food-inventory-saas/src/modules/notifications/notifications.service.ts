@@ -16,6 +16,7 @@ import {
   GlobalSetting,
   GlobalSettingDocument,
 } from "../../schemas/global-settings.schema";
+import { safeDecrypt } from "../../utils/encryption.util";
 
 export type NotificationChannel = "email" | "sms" | "whatsapp";
 
@@ -356,7 +357,8 @@ export class NotificationsService {
               .findOne({ code: tenantId })
               .select("whapiToken")
               .exec();
-        tenantToken = tenant?.whapiToken?.trim() || undefined;
+        const rawToken = tenant?.whapiToken?.trim();
+        tenantToken = rawToken ? safeDecrypt(rawToken) : undefined;
         if (tenantToken) {
           this.whapiTokenCache.set(cacheKey, tenantToken);
           return tenantToken;

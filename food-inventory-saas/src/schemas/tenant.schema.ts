@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document } from "mongoose";
+import { safeEncrypt } from "../utils/encryption.util";
 
 export type TenantDocument = Tenant & Document;
 
@@ -568,9 +569,78 @@ export class Tenant {
     key: string;
     overrides?: Record<string, any>;
   };
+
+  // ── Onboarding wizard progress ──────────────────────────────
+  @Prop({ type: Boolean, default: false })
+  onboardingCompleted: boolean;
+
+  @Prop({ type: Number, default: 0 })
+  onboardingStep: number;
+
+  @Prop({ type: [String], default: [] })
+  onboardingStepsCompleted: string[];
+
+  @Prop({ type: Date })
+  onboardingSkippedAt?: Date;
+
+  @Prop({ type: Date })
+  onboardingCompletedAt?: Date;
 }
 
 export const TenantSchema = SchemaFactory.createForClass(Tenant);
+
+// Pre-save hook: encrypt sensitive fields before persisting to database
+TenantSchema.pre("save", function (next) {
+  // Encrypt whapiToken
+  if (this.isModified("whapiToken") && this.whapiToken) {
+    this.whapiToken = safeEncrypt(this.whapiToken);
+  }
+
+  // Encrypt PMS API key
+  if (
+    this.isModified("settings.integrations.pms.apiKey") &&
+    this.settings?.integrations?.pms?.apiKey
+  ) {
+    this.settings.integrations.pms.apiKey = safeEncrypt(
+      this.settings.integrations.pms.apiKey,
+    );
+  }
+
+  // Encrypt calendar OAuth tokens
+  const googleCal = this.settings?.integrations?.calendar?.google;
+  if (googleCal) {
+    if (
+      this.isModified("settings.integrations.calendar.google.accessToken") &&
+      googleCal.accessToken
+    ) {
+      googleCal.accessToken = safeEncrypt(googleCal.accessToken);
+    }
+    if (
+      this.isModified("settings.integrations.calendar.google.refreshToken") &&
+      googleCal.refreshToken
+    ) {
+      googleCal.refreshToken = safeEncrypt(googleCal.refreshToken);
+    }
+  }
+
+  const outlookCal = this.settings?.integrations?.calendar?.outlook;
+  if (outlookCal) {
+    if (
+      this.isModified("settings.integrations.calendar.outlook.accessToken") &&
+      outlookCal.accessToken
+    ) {
+      outlookCal.accessToken = safeEncrypt(outlookCal.accessToken);
+    }
+    if (
+      this.isModified("settings.integrations.calendar.outlook.refreshToken") &&
+      outlookCal.refreshToken
+    ) {
+      outlookCal.refreshToken = safeEncrypt(outlookCal.refreshToken);
+    }
+  }
+
+  next();
+});
 
 // Índices para tenants
 // TenantSchema.index({ code: 1 }, { unique: true }); // Deprecated index

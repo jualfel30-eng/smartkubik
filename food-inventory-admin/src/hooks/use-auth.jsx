@@ -51,6 +51,11 @@ function normalizeTenant(rawTenant) {
         orderLookup: Boolean(aiAssistant.capabilities?.orderLookup),
       },
     },
+    // Onboarding — default true so legacy tenants (without field) skip wizard
+    onboardingCompleted: rawTenant.onboardingCompleted ?? true,
+    onboardingStep: rawTenant.onboardingStep ?? 0,
+    onboardingStepsCompleted: rawTenant.onboardingStepsCompleted ?? [],
+    logo: rawTenant.logo || null,
   };
 }
 

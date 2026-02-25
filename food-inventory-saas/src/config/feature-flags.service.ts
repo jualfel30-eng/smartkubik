@@ -20,8 +20,8 @@ export class FeatureFlagsService {
   private cacheTimestamp: number = 0;
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
 
-  // Mapeo de claves en MongoDB a propiedades de FeatureFlags
-  private readonly FLAG_KEY_MAP = {
+  // Mapeo de claves en MongoDB → propiedades de FeatureFlags
+  private readonly FLAG_KEY_MAP: Record<string, keyof FeatureFlags> = {
     ENABLE_EMPLOYEE_PERFORMANCE: "EMPLOYEE_PERFORMANCE_TRACKING",
     ENABLE_BANK_MOVEMENTS: "BANK_ACCOUNTS_MOVEMENTS",
     ENABLE_BANK_RECONCILIATION: "BANK_ACCOUNTS_RECONCILIATION",
@@ -132,6 +132,43 @@ export class FeatureFlagsService {
     this.cache = null;
     this.cacheTimestamp = 0;
     this.logger.log("Feature flags cache invalidated");
+  }
+
+  /**
+   * Actualiza feature flags en MongoDB y recarga el caché.
+   * Acepta un objeto parcial: { DASHBOARD_CHARTS: true, MULTI_WAREHOUSE: false }
+   */
+  async updateFeatureFlags(
+    flags: Record<string, boolean>,
+  ): Promise<FeatureFlags> {
+    // Mapeo inverso: FeatureFlags key → GlobalSetting key
+    const reverseMap = new Map<string, string>();
+    for (const [dbKey, flagKey] of Object.entries(this.FLAG_KEY_MAP)) {
+      reverseMap.set(flagKey, dbKey);
+    }
+
+    const ops = Object.entries(flags)
+      .filter(([key]) => reverseMap.has(key))
+      .map(([key, value]) => ({
+        updateOne: {
+          filter: { key: reverseMap.get(key)! },
+          update: {
+            $set: { value: String(value) },
+            $setOnInsert: { key: reverseMap.get(key)! },
+          },
+          upsert: true,
+        },
+      }));
+
+    if (ops.length > 0) {
+      await this.globalSettingModel.bulkWrite(ops);
+      this.logger.log(
+        `Updated ${ops.length} feature flag(s) in database`,
+      );
+    }
+
+    this.invalidateCache();
+    return this.getFeatureFlags();
   }
 
   /**

@@ -23,7 +23,7 @@ import {
   BillOfMaterials,
   BillOfMaterialsDocument,
 } from "../../schemas/bill-of-materials.schema";
-import { Routing, RoutingDocument } from "../../schemas/routing.schema";
+import { Routing, RoutingDocument } from "../../schemas/manufacturing-routing.schema";
 import { Inventory, InventoryDocument } from "../../schemas/inventory.schema";
 import {
   CreateManufacturingOrderDto,

@@ -7,7 +7,7 @@ import { Product } from "../../schemas/product.schema";
 import { WorkCenter } from "../../schemas/work-center.schema";
 import { ProductionVersion } from "../../schemas/production-version.schema";
 import { BillOfMaterials } from "../../schemas/bill-of-materials.schema";
-import { Routing } from "../../schemas/routing.schema";
+import { Routing } from "../../schemas/manufacturing-routing.schema";
 import { Inventory } from "../../schemas/inventory.schema";
 import { InventoryService } from "../inventory/inventory.service";
 import { AccountingService } from "../accounting/accounting.service";

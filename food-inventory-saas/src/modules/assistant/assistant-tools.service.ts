@@ -1,6 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
+import { SuperAdminService } from "../super-admin/super-admin.service";
 import { Product, ProductDocument } from "../../schemas/product.schema";
 import { Inventory, InventoryDocument } from "../../schemas/inventory.schema";
 import { Service, ServiceDocument } from "../../schemas/service.schema";
@@ -142,6 +143,8 @@ export class AssistantToolsService {
     private readonly exchangeRateService: ExchangeRateService,
     private readonly dashboardService: DashboardService,
     private readonly analyticsService: AnalyticsService,
+    @Inject(forwardRef(() => SuperAdminService))
+    private readonly superAdminService: SuperAdminService,
   ) { }
 
   async executeTool(
@@ -192,6 +195,13 @@ export class AssistantToolsService {
           return await this.getBusinessKPIs(tenantId, user);
         case "list_inventory":
           return await this.listInventorySummary(tenantId, user, rawArgs);
+        // ─── Super-Admin Tools ─────────────────────────────────────
+        case "get_funnel_metrics":
+          return await this.getSuperAdminFunnelMetrics();
+        case "get_tenant_health_scores":
+          return await this.getSuperAdminTenantHealthScores(rawArgs);
+        case "get_platform_metrics":
+          return await this.getSuperAdminPlatformMetrics();
         default:
           this.logger.warn(`Tool "${toolName}" is not implemented.`);
           return {
@@ -2098,5 +2108,97 @@ export class AssistantToolsService {
       .lean();
 
     return resource?._id?.toString();
+  }
+
+  // ─── Super-Admin Tool Implementations ──────────────────────────────
+
+  private async getSuperAdminFunnelMetrics(): Promise<Record<string, any>> {
+    try {
+      const metrics = await this.superAdminService.getFunnelMetrics();
+      return { ok: true, ...metrics, timestamp: new Date().toISOString() };
+    } catch (error) {
+      this.logger.error(
+        `get_funnel_metrics failed: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
+      return {
+        ok: false,
+        message: "Error al obtener métricas del funnel.",
+      };
+    }
+  }
+
+  private async getSuperAdminTenantHealthScores(
+    args: Record<string, any>,
+  ): Promise<Record<string, any>> {
+    try {
+      const limit = Math.min(Math.max(args.limit || 20, 1), 50);
+      const sortBy = args.sortBy || "total_desc";
+
+      const tenants = await this.tenantModel
+        .find({ status: "active" })
+        .select(
+          "name contactInfo subscriptionPlan isConfirmed usage enabledModules createdAt",
+        )
+        .lean();
+
+      const scored = tenants.map((tenant: any) => {
+        const healthScore =
+          this.superAdminService.computeHealthScore(tenant);
+        return {
+          tenantId: tenant._id?.toString(),
+          name: tenant.name || "Sin nombre",
+          email: tenant.contactInfo?.email || "N/A",
+          plan: tenant.subscriptionPlan || "N/A",
+          isConfirmed: tenant.isConfirmed ?? false,
+          createdAt: tenant.createdAt,
+          healthScore,
+        };
+      });
+
+      scored.sort((a, b) =>
+        sortBy === "total_asc"
+          ? a.healthScore.total - b.healthScore.total
+          : b.healthScore.total - a.healthScore.total,
+      );
+
+      const results = scored.slice(0, limit);
+
+      return {
+        ok: true,
+        totalEvaluated: tenants.length,
+        returned: results.length,
+        sortBy,
+        tenants: results,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      this.logger.error(
+        `get_tenant_health_scores failed: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
+      return {
+        ok: false,
+        message: "Error al calcular health scores de tenants.",
+      };
+    }
+  }
+
+  private async getSuperAdminPlatformMetrics(): Promise<
+    Record<string, any>
+  > {
+    try {
+      const metrics = await this.superAdminService.getMetrics();
+      return { ok: true, ...metrics, timestamp: new Date().toISOString() };
+    } catch (error) {
+      this.logger.error(
+        `get_platform_metrics failed: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
+      return {
+        ok: false,
+        message: "Error al obtener métricas de la plataforma.",
+      };
+    }
   }
 }

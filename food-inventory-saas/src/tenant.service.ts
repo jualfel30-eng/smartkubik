@@ -103,7 +103,7 @@ export class TenantService {
     const tenant = await this.tenantModel
       .findById(tenantId)
       .select(
-        "name contactInfo taxInfo logo website timezone language countryCode settings aiAssistant verticalProfile limits usage subscriptionPlan",
+        "name contactInfo taxInfo logo website timezone language countryCode settings aiAssistant verticalProfile limits usage subscriptionPlan onboardingCompleted onboardingStep onboardingStepsCompleted",
       )
       .exec();
 
@@ -268,6 +268,50 @@ export class TenantService {
     }
 
     return updatedTenant;
+  }
+
+  // ── Onboarding progress ──────────────────────────────────────
+  async updateOnboardingProgress(
+    tenantId: string,
+    dto: {
+      step?: number;
+      stepsCompleted?: string[];
+      completed?: boolean;
+      skipped?: boolean;
+    },
+  ): Promise<Tenant> {
+    const updatePayload: Record<string, any> = {};
+
+    if (dto.step !== undefined) {
+      updatePayload["onboardingStep"] = dto.step;
+    }
+
+    if (dto.stepsCompleted) {
+      updatePayload["onboardingStepsCompleted"] = dto.stepsCompleted;
+    }
+
+    if (dto.completed) {
+      updatePayload["onboardingCompleted"] = true;
+      updatePayload["onboardingCompletedAt"] = new Date();
+    }
+
+    if (dto.skipped) {
+      updatePayload["onboardingCompleted"] = true;
+      updatePayload["onboardingSkippedAt"] = new Date();
+    }
+
+    const tenant = await this.tenantModel
+      .findByIdAndUpdate(tenantId, { $set: updatePayload }, { new: true })
+      .select(
+        "onboardingCompleted onboardingStep onboardingStepsCompleted onboardingSkippedAt onboardingCompletedAt",
+      )
+      .exec();
+
+    if (!tenant) {
+      throw new NotFoundException("Tenant no encontrado");
+    }
+
+    return tenant;
   }
 
   async getUsers(tenantId: string): Promise<User[]> {

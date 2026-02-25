@@ -18,6 +18,7 @@ import {
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { SuperAdminService } from "../super-admin/super-admin.service";
+import { safeDecrypt } from "../../utils/encryption.util";
 import {
   Configuration,
   MessagesApi,
@@ -869,7 +870,7 @@ export class WhatsAppService {
 
   private async resolveWhapiToken(tenant: TenantDocument): Promise<string> {
     if (tenant?.whapiToken?.trim()) {
-      return tenant.whapiToken.trim();
+      return safeDecrypt(tenant.whapiToken.trim());
     }
 
     const masterTokenSetting =

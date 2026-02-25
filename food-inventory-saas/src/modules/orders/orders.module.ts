@@ -4,6 +4,10 @@ import { OrdersController } from "./orders.controller";
 import { OrdersPublicController } from "./orders-public.controller";
 import { OrdersService } from "./orders.service";
 import { DiscountService } from "./services/discount.service";
+import { OrderAnalyticsService } from "./services/order-analytics.service";
+import { OrderFulfillmentService } from "./services/order-fulfillment.service";
+import { OrderInventoryService } from "./services/order-inventory.service";
+import { OrderPaymentsService } from "./services/order-payments.service";
 import { WhatsAppOrderNotificationsService } from "./whatsapp-order-notifications.service";
 import { AuthModule } from "../../auth/auth.module";
 import { InventoryModule } from "../inventory/inventory.module";
@@ -39,7 +43,6 @@ import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
 import { TransactionHistoryModule } from "../transaction-history/transaction-history.module";
 import { CouponsModule } from "../coupons/coupons.module";
 import { PromotionsModule } from "../promotions/promotions.module";
-import { WhapiModule } from "../whapi/whapi.module";
 import { MarketingModule } from "../marketing/marketing.module";
 import { TablesModule } from "../tables/tables.module";
 import { PriceListsModule } from "../price-lists/price-lists.module";
@@ -58,8 +61,6 @@ import { PriceListsModule } from "../price-lists/price-lists.module";
     TransactionHistoryModule,
     CouponsModule,
     PromotionsModule,
-    WhapiModule,
-    WhapiModule,
     forwardRef(() => MarketingModule),
     TablesModule,
     PriceListsModule,
@@ -80,11 +81,19 @@ import { PriceListsModule } from "../price-lists/price-lists.module";
   providers: [
     OrdersService,
     DiscountService,
+    OrderAnalyticsService,
+    OrderFulfillmentService,
+    OrderInventoryService,
+    OrderPaymentsService,
     WhatsAppOrderNotificationsService,
   ],
   exports: [
     OrdersService,
     DiscountService,
+    OrderAnalyticsService,
+    OrderFulfillmentService,
+    OrderInventoryService,
+    OrderPaymentsService,
     WhatsAppOrderNotificationsService,
   ],
 })

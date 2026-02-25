@@ -48,6 +48,7 @@ interface AssistantQuestionParams {
     timestamp?: Date;
   }>;
   user?: UserDocument | null;
+  mode?: "tenant" | "super-admin";
 }
 
 interface ContextHit {
@@ -69,6 +70,7 @@ interface AgentRunOptions {
     timestamp?: Date;
   }>;
   user?: UserDocument | null;
+  maxTokens?: number;
 }
 
 interface AgentRunResult {
@@ -281,6 +283,7 @@ export class AssistantService {
       conversationSummary,
       conversationHistory = [],
       user,
+      mode = "tenant",
     } = params;
 
     // Convertir tenantId a string si es ObjectId
@@ -298,29 +301,28 @@ export class AssistantService {
       );
     }
 
+    const isSuperAdmin = mode === "super-admin";
+
     const capabilities: AssistantCapabilities = {
       ...DEFAULT_CAPABILITIES,
       ...(aiSettings?.capabilities || {}),
     };
 
     this.logger.log(
-      `[DEBUG] Tenant ${tenantIdStr} - Capabilities received: ${JSON.stringify(capabilities)}`,
-    );
-    this.logger.log(
-      `[DEBUG] aiSettings?.capabilities: ${JSON.stringify(aiSettings?.capabilities)}`,
+      `[DEBUG] Tenant ${tenantIdStr} - Mode: ${mode} - Capabilities received: ${JSON.stringify(capabilities)}`,
     );
 
-    const knowledgeTargets = this.buildKnowledgeTargets(
-      knowledgeBaseTenantId,
-      capabilities.knowledgeBaseEnabled,
-    );
+    // ─── Knowledge Base Targets ──────────────────────────────────────
+    const knowledgeTargets = isSuperAdmin
+      ? Array.from(new Set(["smartkubik_growth", "smartkubik_docs"].filter(Boolean)))
+      : this.buildKnowledgeTargets(knowledgeBaseTenantId, capabilities.knowledgeBaseEnabled);
 
     const contextHits = knowledgeTargets.length
       ? await this.gatherKnowledgeBaseContexts(knowledgeTargets, question, topK)
       : [];
 
     this.logger.debug(
-      `Assistant query for tenant ${tenantIdStr}. Knowledge targets: ${knowledgeTargets.join(", ") || "none"}.`,
+      `Assistant query for tenant ${tenantIdStr}. Mode: ${mode}. Knowledge targets: ${knowledgeTargets.join(", ") || "none"}.`,
     );
 
     if (contextHits.length) {
@@ -335,7 +337,11 @@ export class AssistantService {
     }
 
     const documents = contextHits.map(({ document }) => document);
-    const toolDefinitions = this.buildToolDefinitions(capabilities, user);
+
+    // ─── Tool Definitions ────────────────────────────────────────────
+    const toolDefinitions = isSuperAdmin
+      ? this.buildSuperAdminToolDefinitions()
+      : this.buildToolDefinitions(capabilities, user);
     const hasTools = toolDefinitions.length > 0;
 
     const bootstrapSections: string[] = [];
@@ -347,35 +353,38 @@ export class AssistantService {
       );
     }
 
-    this.logger.log(
-      `[DEBUG] inventoryLookup enabled: ${capabilities.inventoryLookup}`,
-    );
-
-    if (capabilities.inventoryLookup) {
+    // ─── Tenant-only bootstraps (inventory, promotions) ──────────────
+    if (!isSuperAdmin) {
       this.logger.log(
-        `[DEBUG] Attempting inventory bootstrap for question: "${question}"`,
+        `[DEBUG] inventoryLookup enabled: ${capabilities.inventoryLookup}`,
       );
-      const inventoryBootstrap = await this.bootstrapInventoryContext(
-        tenantIdStr,
-        question,
-      );
-      if (inventoryBootstrap) {
-        this.logger.log(
-          `[DEBUG] Bootstrap inventory data obtained, length: ${inventoryBootstrap.length}`,
-        );
-        bootstrapSections.push(inventoryBootstrap);
-        bootstrapUsedTools = true;
-      } else {
-        this.logger.warn(`[DEBUG] Bootstrap inventory returned null`);
-      }
-    }
 
-    if (capabilities.promotionLookup && this.shouldCheckPromotions(question)) {
-      const promotionsBootstrap =
-        await this.bootstrapPromotionsContext(tenantIdStr);
-      if (promotionsBootstrap) {
-        bootstrapSections.push(promotionsBootstrap);
-        bootstrapUsedTools = true;
+      if (capabilities.inventoryLookup) {
+        this.logger.log(
+          `[DEBUG] Attempting inventory bootstrap for question: "${question}"`,
+        );
+        const inventoryBootstrap = await this.bootstrapInventoryContext(
+          tenantIdStr,
+          question,
+        );
+        if (inventoryBootstrap) {
+          this.logger.log(
+            `[DEBUG] Bootstrap inventory data obtained, length: ${inventoryBootstrap.length}`,
+          );
+          bootstrapSections.push(inventoryBootstrap);
+          bootstrapUsedTools = true;
+        } else {
+          this.logger.warn(`[DEBUG] Bootstrap inventory returned null`);
+        }
+      }
+
+      if (capabilities.promotionLookup && this.shouldCheckPromotions(question)) {
+        const promotionsBootstrap =
+          await this.bootstrapPromotionsContext(tenantIdStr);
+        if (promotionsBootstrap) {
+          bootstrapSections.push(promotionsBootstrap);
+          bootstrapUsedTools = true;
+        }
       }
     }
 
@@ -386,9 +395,15 @@ export class AssistantService {
       return this.buildFallbackResponse();
     }
 
-    // Fetch tenant settings to get payment methods
-    const tenantSettings = await this.tenantModel.findById(tenantIdStr).select('settings.paymentMethods').lean();
-    const systemPrompt = this.buildSystemPrompt(capabilities, tenantSettings?.settings?.paymentMethods, user);
+    // ─── System Prompt ───────────────────────────────────────────────
+    let systemPrompt: string;
+    if (isSuperAdmin) {
+      systemPrompt = this.buildSuperAdminSystemPrompt();
+    } else {
+      const tenantSettings = await this.tenantModel.findById(tenantIdStr).select('settings.paymentMethods').lean();
+      systemPrompt = this.buildSystemPrompt(capabilities, tenantSettings?.settings?.paymentMethods, user);
+    }
+
     const baseContextBlock = contextHits.length
       ? this.buildContextBlock(contextHits)
       : "Sin fragmentos relevantes de la base de conocimiento.";
@@ -405,6 +420,7 @@ export class AssistantService {
       preferredModel: aiSettings?.model,
       conversationHistory,
       user,
+      maxTokens: isSuperAdmin ? 1200 : 600,
     });
 
     const answer = agentResult.answer?.trim();
@@ -641,6 +657,105 @@ export class AssistantService {
       "- `list_active_promotions`: Para informar al empleado qué promos están activas hoy.",
     ];
     return instructions.join(" ");
+  }
+
+  // ─── Super-Admin (CGO) System Prompt ─────────────────────────────
+  private buildSuperAdminSystemPrompt(): string {
+    const instructions: string[] = [
+      "Eres el CHIEF GROWTH OFFICER (CGO) virtual de SmartKubik, la plataforma ERP SaaS multi-tenant para PyMEs en Venezuela y Latinoamérica.",
+      "Tu rol es ser el asesor estratégico de negocio del equipo fundador. Respondes SIEMPRE en español, de forma directa, con datos cuando los tengas, y con mentalidad de crecimiento.",
+
+      "ÁREAS DE EXPERTISE:",
+      "1. ESTRATEGIA SaaS: pricing, unit economics, LTV/CAC, product-market fit, modelo freemium → paid.",
+      "2. ADQUISICIÓN DE TENANTS: funnel de registro, conversión trial-to-paid, canales de adquisición, partnerships, programa de Clientes Fundadores.",
+      "3. RETENCIÓN Y EXPANSIÓN: churn analysis, health scores, upsell/cross-sell, feature adoption, NPS.",
+      "4. MARKETING Y CONTENIDO: content marketing, SEO, redes sociales (Instagram, TikTok, Facebook), calendario editorial, brand positioning.",
+      "5. VENTAS DIRECTAS: visitas presenciales, WhatsApp 1-a-1, grupos de Facebook de gremios, boca a boca, referidos.",
+      "6. MERCADO VENEZOLANO: regulaciones, dolarización parcial, métodos de pago locales (Pago Móvil, Binance/USDT, efectivo USD, transferencia bancaria), hiperinflación, desconfianza del gasto, cultura de relaciones > marca.",
+      "7. MÉTRICAS Y DATA: interpretar funnel metrics, tenant health scores, MRR, ARR, churn rate, CAC payback.",
+
+      "CONTEXTO CLAVE DE SMARTKUBIK:",
+      "- Planes: Fundamental ($39/mes), Crecimiento ($99/mes), Expansión ($149/mes). Los precios base NO se modifican — son el ancla para el descuento de Fundadores.",
+      "- Programa de Clientes Fundadores en /fundadores: hasta 51% de descuento DE POR VIDA para los primeros 90 clientes. TODO CTA de conversión apunta a /fundadores.",
+      "- Plan Starter gratuito (freemium con límites) como puerta de entrada.",
+      "- Free trial de 14 días sin tarjeta de crédito.",
+      "- Follow-up automático por WhatsApp post-trial (secuencia día 0-14).",
+      "- El target son PyMEs venezolanas tech-resistant, donde WhatsApp es el centro de todo y el boca a boca es el canal #1.",
+      "- Solo founder, presupuesto limitado (<$200/mes marketing), máximo 2-3 horas/día para growth.",
+
+      "PROTOCOLOS:",
+      "- Cuando tengas datos del funnel o health scores, úsalos para fundamentar recomendaciones concretas.",
+      "- Si no tienes datos suficientes, indica qué métricas se necesitan y sugiere cómo obtenerlas.",
+      "- Prioriza acciones de alto impacto y bajo esfuerzo (quick wins) para un solo founder.",
+      "- Siempre conecta las recomendaciones con el objetivo de crecimiento: llenar los 90 cupos de Fundadores.",
+      "- Puedes y debes ser proactivo sugiriendo ideas, incluso si no se preguntaron directamente.",
+      "- Usa el framework ICE (Impact, Confidence, Ease) cuando priorices acciones.",
+
+      "HERRAMIENTAS DISPONIBLES:",
+      "- `get_funnel_metrics`: Métricas del funnel de registro (tenants registrados, confirmados, activos, pagantes, trials expirando, breakdown por plan).",
+      "- `get_tenant_health_scores`: Health scores de tenants activos para identificar riesgo de churn o candidatos a upsell.",
+      "- `get_platform_metrics`: Métricas globales de la plataforma (total tenants, total usuarios).",
+      "Usa estas herramientas proactivamente cuando la pregunta involucre datos reales del negocio.",
+
+      "FORMATO DE RESPUESTA: Sé estructurado. Usa listas, tablas simples y secciones claras. Máximo 3-4 párrafos por respuesta a menos que se pida un análisis profundo.",
+    ];
+    return instructions.join(" ");
+  }
+
+  // ─── Super-Admin Tool Definitions ────────────────────────────────
+  private buildSuperAdminToolDefinitions(): ChatCompletionTool[] {
+    return [
+      {
+        type: "function",
+        function: {
+          name: "get_funnel_metrics",
+          description:
+            "Obtiene métricas del funnel de adquisición de SmartKubik: tenants registrados, confirmados, activos, pagantes, trials, trials a punto de expirar (7d), registros recientes (7d y 30d), y breakdown por plan de suscripción. Úsala para responder preguntas sobre cómo va el funnel, la adquisición, o el estado general del negocio.",
+          parameters: {
+            type: "object",
+            properties: {},
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_tenant_health_scores",
+          description:
+            "Calcula health scores para tenants activos. Cada score incluye: perfil (completitud de datos), adopción (productos, órdenes, usuarios, módulos), actividad (órdenes recientes, productos cargados), y plan (tipo de suscripción). Úsala para identificar tenants en riesgo de churn (score bajo), candidatos a upsell (score alto en plan bajo), o para obtener un panorama general de la salud de la base de clientes.",
+          parameters: {
+            type: "object",
+            properties: {
+              limit: {
+                type: "integer",
+                description:
+                  "Número máximo de tenants a evaluar (1-50). Por defecto 20.",
+                minimum: 1,
+                maximum: 50,
+              },
+              sortBy: {
+                type: "string",
+                enum: ["total_asc", "total_desc"],
+                description:
+                  "Ordenar por health score total. 'total_asc' para los peores primero (riesgo de churn), 'total_desc' para los mejores primero. Por defecto 'total_desc'.",
+              },
+            },
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_platform_metrics",
+          description:
+            "Obtiene métricas globales de alto nivel de la plataforma SmartKubik: total de tenants registrados y total de usuarios. Úsala para preguntas sobre el tamaño o crecimiento general de la plataforma.",
+          parameters: {
+            type: "object",
+            properties: {},
+          },
+        },
+      },
+    ];
   }
 
   private buildToolDefinitions(
@@ -1338,6 +1453,7 @@ export class AssistantService {
       preferredModel,
       conversationHistory = [],
       user,
+      maxTokens: configuredMaxTokens = 600,
     } = options;
 
     // Build messages array with conversation history
@@ -1370,7 +1486,7 @@ export class AssistantService {
         tools,
         model: preferredModel,
         temperature: 0.2,
-        maxTokens: 600,
+        maxTokens: configuredMaxTokens,
       });
 
       const choice = response.choices?.[0];

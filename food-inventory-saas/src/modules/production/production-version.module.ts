@@ -10,7 +10,7 @@ import {
   BillOfMaterials,
   BillOfMaterialsSchema,
 } from "../../schemas/bill-of-materials.schema";
-import { Routing, RoutingSchema } from "../../schemas/routing.schema";
+import { Routing, RoutingSchema } from "../../schemas/manufacturing-routing.schema";
 import { Product, ProductSchema } from "../../schemas/product.schema";
 import { AuthModule } from "../../auth/auth.module";
 

@@ -354,20 +354,31 @@ export class SuperAdminController {
   @Post("assistant/query")
   @ApiOperation({
     summary:
-      "[SUPER ADMIN] Ask the SmartKubik assistant using the knowledge base context",
+      "[SUPER ADMIN] Ask the SmartKubik business assistant (CGO mode) using growth knowledge base and real platform data",
   })
   async askAssistant(
-    @Body() body: { tenantId?: string; question: string; topK?: number },
+    @Body()
+    body: {
+      tenantId?: string;
+      question: string;
+      topK?: number;
+      conversationHistory?: Array<{
+        role: "user" | "assistant";
+        content: string;
+      }>;
+    },
   ) {
-    const tenantId = body.tenantId || "smartkubik_docs";
+    const tenantId = body.tenantId || "smartkubik_growth";
     const question = body.question;
-    const topK = body.topK ?? 5;
+    const topK = body.topK ?? 8;
 
     const response = await this.assistantService.answerQuestion({
       tenantId,
       question,
       topK,
       knowledgeBaseTenantId: tenantId,
+      mode: "super-admin",
+      conversationHistory: body.conversationHistory || [],
     });
     return { data: { tenantId, ...response } };
   }

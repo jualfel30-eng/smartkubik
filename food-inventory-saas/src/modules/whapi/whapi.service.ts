@@ -18,6 +18,8 @@ import {
   SendMessageImageRequest,
   SendMessageDocumentRequest,
 } from "../../lib/whapi-sdk/whapi-sdk-typescript-fetch";
+import { safeDecrypt } from "../../utils/encryption.util";
+import { normalizeWhatsAppPhone } from "../../utils/phone.util";
 
 @Injectable()
 export class WhapiService {
@@ -664,7 +666,7 @@ export class WhapiService {
     // Try tenant-specific token first
     if (tenant?.whapiToken?.trim()) {
       this.logger.debug(`Using tenant-specific token for tenant ${tenant.id}`);
-      return tenant.whapiToken.trim();
+      return safeDecrypt(tenant.whapiToken.trim());
     }
 
     // Fallback to master token from environment variables
@@ -846,20 +848,6 @@ export class WhapiService {
    * @returns Normalized phone number
    */
   private normalizePhoneNumber(phone: string): string {
-    // Remove all non-digit characters except +
-    let normalized = phone.replace(/[^\d+]/g, "");
-
-    // If it doesn't start with +, add it
-    if (!normalized.startsWith("+")) {
-      // If it starts with 58 (Venezuela), add +
-      if (normalized.startsWith("58")) {
-        normalized = "+" + normalized;
-      } else {
-        // Otherwise, assume Venezuela (+58)
-        normalized = "+58" + normalized;
-      }
-    }
-
-    return normalized;
+    return normalizeWhatsAppPhone(phone);
   }
 }

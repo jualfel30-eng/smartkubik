@@ -81,6 +81,7 @@ import {
   PackagePlus,
   UserCheck,
   Upload,
+  Link2,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
@@ -135,6 +136,7 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const OrganizationSelector = lazy(() => import('./pages/OrganizationSelector'));
+const OnboardingWizard = lazy(() => import('./pages/OnboardingWizard'));
 const DashboardView = lazy(() => import('./components/DashboardView.jsx'));
 const SettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
 const InventoryDashboard = lazy(() => import('@/components/InventoryDashboard.jsx'));
@@ -469,6 +471,7 @@ function TenantLayout() {
         { name: 'Lealtad', href: 'marketing?tab=loyalty', icon: Award },
         { name: 'Cupones', href: 'marketing?tab=coupons', icon: Tag },
         { name: 'Promociones', href: 'marketing?tab=promotions', icon: Percent },
+        { name: 'Bio Link', href: 'marketing?tab=links', icon: Link2 },
       ]
     },
     {
@@ -1273,6 +1276,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <SuperAdminLayout />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute requireOrganization>
+                <OnboardingWizard />
               </ProtectedRoute>
             }
           />
