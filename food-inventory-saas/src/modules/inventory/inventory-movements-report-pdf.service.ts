@@ -60,7 +60,7 @@ export class InventoryMovementsReportPdfService {
 
         if (tenant?.logo) {
             try {
-                const response = await fetch(tenant.logo);
+                const response = await fetch(tenant.logo, { signal: AbortSignal.timeout(5000) });
                 if (response.ok) {
                     const arrayBuffer = await response.arrayBuffer();
                     const buffer = Buffer.from(arrayBuffer);
@@ -337,7 +337,7 @@ export class InventoryMovementsReportPdfService {
 
         if (tenant?.logo) {
             try {
-                const response = await fetch(tenant.logo);
+                const response = await fetch(tenant.logo, { signal: AbortSignal.timeout(5000) });
                 if (response.ok) {
                     const arrayBuffer = await response.arrayBuffer();
                     const buffer = Buffer.from(arrayBuffer);
