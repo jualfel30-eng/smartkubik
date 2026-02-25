@@ -1328,7 +1328,7 @@ function InventoryManagement() {
             <DialogTrigger asChild>
               <Button id="add-inventory-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full sm:w-auto"><Plus className="h-5 w-5 mr-2" />Agregar Inventario</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+            <DialogContent className="max-w-5xl h-[95vh] md:h-[85vh] overflow-hidden flex flex-col">
               <DialogHeader>
                 <DialogTitle>Agregar Inventario</DialogTitle>
                 <DialogDescription>Agrega múltiples productos al inventario en una sola operación.</DialogDescription>
@@ -1415,6 +1415,7 @@ function InventoryManagement() {
                     value={null}
                     placeholder="Escribe para buscar producto por nombre o SKU..."
                     className="w-full"
+                    menuPosition="fixed"
                   />
                 </div>
 
