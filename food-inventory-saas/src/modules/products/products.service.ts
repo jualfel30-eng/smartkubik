@@ -573,20 +573,29 @@ export class ProductsService {
         }
       }
     }
-    // PERFORMANCE OPTIMIZATION: Use text search instead of regex for better performance
     if (isSearching) {
-      // UX IMPROVEMENT: Use Regex for ALL searches to support partial matching (autocomplete).
-      // Previous optimization using $text search broke partial matching (e.g., "Coc" didn't find "Coca-Cola").
-      const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
+      // Split by spaces to allow non-contiguous matches (e.g. "aceite oliva" matches "aceite de oliva")
+      const words = searchTerm.split(/\s+/).filter(w => w.length > 0);
 
-      filter.$or = [
-        { name: regex },
-        { brand: regex },
-        { sku: regex },
-        { "variants.name": regex },
-        { "variants.sku": regex },
-        { "variants.barcode": regex },
-      ];
+      const searchConditions = words.map(word => {
+        const regex = new RegExp(this.escapeRegExp(word), "i");
+        return {
+          $or: [
+            { name: regex },
+            { brand: regex },
+            { sku: regex },
+            { "variants.name": regex },
+            { "variants.sku": regex },
+            { "variants.barcode": regex },
+          ]
+        };
+      });
+
+      if (filter.$and) {
+        filter.$and = filter.$and.concat(searchConditions);
+      } else {
+        filter.$and = searchConditions;
+      }
 
       useTextSearch = false;
     }

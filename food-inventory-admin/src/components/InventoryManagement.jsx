@@ -1415,13 +1415,11 @@ function InventoryManagement() {
                     value={null}
                     placeholder="Escribe para buscar producto por nombre o SKU..."
                     className="w-full"
-                    menuPortalTarget={document.body}
-                    styles={{ menuPortal: base => ({ ...base, zIndex: 9999, pointerEvents: 'auto' }) }}
                   />
                 </div>
 
                 {/* Items Table */}
-                <div className="border rounded-md">
+                <div className="border rounded-md min-h-[350px] bg-white dark:bg-slate-950">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-slate-100 dark:bg-slate-800">
