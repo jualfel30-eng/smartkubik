@@ -648,6 +648,9 @@ function InventoryManagement() {
     let successCount = 0;
     let failCount = 0;
 
+    const timestamp = new Date().toISOString().replace(/[-:T.]/g, '').substring(0, 14);
+    const batchReference = `RECIBO-${timestamp}`;
+
     try {
       for (const item of itemsToAdd) {
         const payload = {
@@ -660,6 +663,7 @@ function InventoryManagement() {
           notes: newInventoryItem.notes,
           warehouseId: newInventoryItem.warehouseId || undefined,
           binLocationId: newInventoryItem.binLocationId || undefined,
+          reference: batchReference, // Pasamos el batchReference para agruparlo en reportes
         };
 
         if (item.variantId) {

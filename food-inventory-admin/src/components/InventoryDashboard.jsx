@@ -8,6 +8,7 @@ import WarehousesAndBinsManager from '@/components/WarehousesAndBinsManager.jsx'
 import InventoryMovementsPanel from '@/components/InventoryMovementsPanel.jsx';
 import InventoryAlertsPanel from '@/components/InventoryAlertsPanel.jsx';
 import SuppliersManagement from '@/components/SuppliersManagement.jsx';
+import InventoryReportsPanel from '@/components/InventoryReportsPanel.jsx';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 
 export default function InventoryDashboard() {
@@ -40,6 +41,7 @@ export default function InventoryDashboard() {
         'inventory',
         'inventory-movements',
         'inventory-alerts',
+        'inventory-reports',
         'inventory-warehouses',
         'warehouses',
       ].includes(activeTab)
@@ -53,6 +55,7 @@ export default function InventoryDashboard() {
     'inventory',
     'inventory-movements',
     'inventory-alerts',
+    'inventory-reports',
     ...(multiWarehouseEnabled ? ['inventory-warehouses'] : []),
   ];
 
@@ -87,12 +90,13 @@ export default function InventoryDashboard() {
         <TabsContent value="inventory" className="mt-6">
           <Tabs value={activeInventoryTab} onValueChange={handleTabChange} className="w-full">
             <TabsList
-              className={`grid w-full ${multiWarehouseEnabled ? 'grid-cols-4' : 'grid-cols-3'} max-w-4xl`}
+              className={`grid w-full ${multiWarehouseEnabled ? 'grid-cols-5' : 'grid-cols-4'} max-w-5xl`}
             >
               <TabsTrigger value="inventory">Inventario</TabsTrigger>
               {multiWarehouseEnabled && <TabsTrigger value="inventory-warehouses">Almacenes</TabsTrigger>}
               <TabsTrigger value="inventory-movements">Movimientos de Inventario</TabsTrigger>
               <TabsTrigger value="inventory-alerts">Alertas de Stock</TabsTrigger>
+              <TabsTrigger value="inventory-reports">Reportes</TabsTrigger>
             </TabsList>
 
             <TabsContent value="inventory" className="mt-6">
@@ -103,6 +107,9 @@ export default function InventoryDashboard() {
             </TabsContent>
             <TabsContent value="inventory-alerts" className="mt-6">
               <InventoryAlertsPanel />
+            </TabsContent>
+            <TabsContent value="inventory-reports" className="mt-6">
+              <InventoryReportsPanel />
             </TabsContent>
             {multiWarehouseEnabled && (
               <TabsContent value="inventory-warehouses" className="mt-6">

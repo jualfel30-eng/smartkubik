@@ -191,6 +191,11 @@ export class CreateInventoryDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: "Referencia para agrupar recibos de inventario" })
+  @IsOptional()
+  @IsString()
+  reference?: string;
 }
 
 export class InventoryMovementDto {

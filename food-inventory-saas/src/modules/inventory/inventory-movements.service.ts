@@ -182,6 +182,142 @@ export class InventoryMovementsService {
     return { data, pagination: { page, limit, total, totalPages } };
   }
 
+  async findDocuments(
+    tenantId: string,
+    filters: InventoryMovementFilterDto,
+  ): Promise<{ data: any[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> {
+    const query: any = { tenantId: new Types.ObjectId(tenantId) };
+    if (filters.movementType) query.movementType = filters.movementType;
+    if (filters.productId) query.productId = new Types.ObjectId(filters.productId);
+    if (filters.warehouseId) query.warehouseId = new Types.ObjectId(filters.warehouseId);
+
+    if (filters.dateFrom || filters.dateTo) {
+      query.createdAt = {};
+      if (filters.dateFrom) query.createdAt.$gte = new Date(filters.dateFrom);
+      if (filters.dateTo) query.createdAt.$lte = new Date(filters.dateTo);
+    }
+
+    const limit = Math.min(filters.limit || 50, 200);
+    const page = filters.page && filters.page > 0 ? filters.page : 1;
+    const skip = (page - 1) * limit;
+
+    const pipeline: any[] = [
+      { $match: query },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: {
+            $ifNull: [
+              "$orderId",
+              {
+                $ifNull: [
+                  "$transferId",
+                  {
+                    $cond: [
+                      { $ifNull: ["$reference", false] },
+                      {
+                        $concat: [
+                          "$reference",
+                          "-",
+                          { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }
+                        ]
+                      },
+                      "$_id"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          batchId: {
+            $first: {
+              $ifNull: [
+                "$orderId",
+                { $ifNull: ["$transferId", "$reference"] }
+              ]
+            }
+          },
+          type: { $first: "$movementType" },
+          reference: { $first: "$reference" },
+          orderId: { $first: "$orderId" },
+          date: { $first: "$createdAt" },
+          itemsSet: { $addToSet: "$productId" },
+          totalQuantity: { $sum: "$quantity" },
+          totalCost: { $sum: "$totalCost" },
+          receivedBy: { $first: "$receivedBy" },
+          notes: { $first: "$notes" },
+          movements: { $push: "$$ROOT" }
+        }
+      },
+      // Resolve purchase orders to get supplier info
+      {
+        $lookup: {
+          from: "purchaseorders",
+          localField: "orderId",
+          foreignField: "_id",
+          as: "orderData"
+        }
+      },
+      // Resolve user who made the movements
+      {
+        $lookup: {
+          from: "users",
+          localField: "movements.createdBy",
+          foreignField: "_id",
+          as: "usersData"
+        }
+      },
+      {
+        $addFields: {
+          itemsCount: { $size: "$itemsSet" },
+          supplierName: { $arrayElemAt: ["$orderData.supplierName", 0] },
+          poNumber: { $arrayElemAt: ["$orderData.poNumber", 0] },
+          creatorName: { $arrayElemAt: ["$usersData.name", 0] }
+        }
+      },
+      {
+        $addFields: {
+          documentReference: {
+            $cond: [
+              { $ifNull: ["$poNumber", false] },
+              { $concat: ["Orden #", "$poNumber"] },
+              {
+                $cond: [
+                  { $ifNull: ["$reference", false] },
+                  "$reference",
+                  "Documento Automático"
+                ]
+              }
+            ]
+          }
+        }
+      },
+      {
+        $project: {
+          itemsSet: 0,
+          orderData: 0,
+          poNumber: 0,
+          usersData: 0
+        }
+      },
+      { $sort: { date: -1 } },
+      {
+        $facet: {
+          metadata: [{ $count: "total" }],
+          data: [{ $skip: skip }, { $limit: limit }]
+        }
+      }
+    ];
+
+    const result = await this.movementModel.aggregate(pipeline).exec();
+
+    const data = result[0].data || [];
+    const total = result[0].metadata[0]?.total || 0;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    return { data, pagination: { page, limit, total, totalPages } };
+  }
+
   /**
    * Creates a warehouse-to-warehouse transfer.
    * This creates two linked movements: OUT from source and IN to destination.

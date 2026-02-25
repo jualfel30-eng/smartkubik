@@ -189,6 +189,7 @@ export class InventoryService {
           reason: isNewInventory ? "Inventario inicial" : "Reabastecimiento",
           receivedBy: createInventoryDto.receivedBy,
           notes: createInventoryDto.notes,
+          reference: createInventoryDto.reference,
           balanceAfter: {
             totalQuantity: savedInventory.totalQuantity,
             availableQuantity: savedInventory.availableQuantity,

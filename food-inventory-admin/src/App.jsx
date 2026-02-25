@@ -393,6 +393,7 @@ function TenantLayout() {
             { name: 'Almacenes', href: 'inventory-management?tab=inventory-warehouses', icon: Building2 },
             { name: 'Movimientos de Inventario', href: 'inventory-management?tab=inventory-movements', icon: RefreshCw },
             { name: 'Alertas de Stock', href: 'inventory-management?tab=inventory-alerts', icon: AlertCircle },
+            { name: 'Reportes', href: 'inventory-management?tab=inventory-reports', icon: AreaChart },
           ],
         },
         { name: 'Compras', href: 'inventory-management?tab=purchases', icon: PackagePlus },

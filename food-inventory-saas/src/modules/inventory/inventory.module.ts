@@ -23,6 +23,8 @@ import {
   InventoryAlertRule,
   InventoryAlertRuleSchema,
 } from "../../schemas/inventory-alert-rule.schema";
+import { InventoryMovementsReportPdfService } from "./inventory-movements-report-pdf.service";
+import { InventoryMovementsReportCsvService } from "./inventory-movements-report-csv.service";
 
 @Module({
   imports: [
@@ -40,7 +42,14 @@ import {
     ]),
   ],
   controllers: [InventoryController, InventoryMovementsController, InventoryAlertsController],
-  providers: [InventoryService, InventoryMovementsService, InventoryAlertsService, InventoryReceiptPdfService],
+  providers: [
+    InventoryService,
+    InventoryMovementsService,
+    InventoryAlertsService,
+    InventoryReceiptPdfService,
+    InventoryMovementsReportPdfService,
+    InventoryMovementsReportCsvService,
+  ],
   exports: [InventoryService, InventoryMovementsService, InventoryAlertsService, InventoryReceiptPdfService],
 })
 export class InventoryModule { }
