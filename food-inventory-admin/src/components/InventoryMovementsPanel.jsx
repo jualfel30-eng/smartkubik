@@ -22,6 +22,17 @@ const MOVEMENT_TYPES = [
   { value: 'TRANSFER', label: 'Transferencia' },
 ];
 
+const PRESETS = [
+  { value: 'all', label: 'Todo el historial' },
+  { value: 'today', label: 'Hoy' },
+  { value: 'yesterday', label: 'Ayer' },
+  { value: 'this_week', label: 'Esta semana' },
+  { value: 'last_week', label: 'Sem. Pasada' },
+  { value: 'this_month', label: 'Este mes' },
+  { value: 'last_month', label: 'Mes pasado' },
+  { value: 'custom', label: 'Personalizado' },
+];
+
 export default function InventoryMovementsPanel() {
   const { flags } = useFeatureFlags();
   const multiWarehouseEnabled = flags.MULTI_WAREHOUSE;
@@ -31,8 +42,10 @@ export default function InventoryMovementsPanel() {
   const [binLocations, setBinLocations] = useState([]);
   const [inventories, setInventories] = useState([]);
   const [filters, setFilters] = useState({
+    preset: 'all',
     movementType: '',
     warehouseId: '',
+    productId: 'all',
     dateFrom: '',
     dateTo: '',
   });
@@ -85,8 +98,13 @@ export default function InventoryMovementsPanel() {
       params.append('limit', limit);
       if (filters.movementType && filters.movementType !== 'all') params.append('movementType', filters.movementType);
       if (filters.warehouseId && filters.warehouseId !== 'all') params.append('warehouseId', filters.warehouseId);
-      if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
-      if (filters.dateTo) params.append('dateTo', filters.dateTo);
+      if (filters.productId && filters.productId !== 'all') params.append('productId', filters.productId);
+      if (filters.preset && filters.preset !== 'all' && filters.preset !== 'custom') {
+        params.append('datePreset', filters.preset);
+      } else if (filters.preset === 'custom' || filters.preset === 'all') {
+        if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+        if (filters.dateTo) params.append('dateTo', filters.dateTo);
+      }
       const response = await fetchApi(`/inventory-movements?${params.toString()}`);
       if (response?.data && response.pagination) {
         setMovements(response.data);
@@ -325,7 +343,46 @@ export default function InventoryMovementsPanel() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        {/* Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="space-y-1">
+            <Label>Período</Label>
+            <Select
+              value={filters.preset}
+              onValueChange={(v) => setFilters((prev) => ({ ...prev, preset: v }))}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PRESETS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {filters.preset === 'custom' && (
+            <>
+              <div className="space-y-1">
+                <Label>Desde</Label>
+                <Input
+                  type="date"
+                  value={filters.dateFrom}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Hasta</Label>
+                <Input
+                  type="date"
+                  value={filters.dateTo}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, dateTo: e.target.value }))}
+                />
+              </div>
+            </>
+          )}
+
           <div className="space-y-1">
             <Label>Tipo</Label>
             <Select
@@ -344,6 +401,7 @@ export default function InventoryMovementsPanel() {
               </SelectContent>
             </Select>
           </div>
+
           {multiWarehouseEnabled && (
             <div className="space-y-1">
               <Label>Almacén</Label>
@@ -365,27 +423,33 @@ export default function InventoryMovementsPanel() {
               </Select>
             </div>
           )}
-          <div className="space-y-1">
-            <Label>Desde</Label>
-            <Input
-              type="date"
-              value={filters.dateFrom}
-              onChange={(e) => setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
-            />
+
+          <div className="space-y-1 md:col-span-2">
+            <Label>Producto</Label>
+            <Select
+              value={filters.productId}
+              onValueChange={(v) => setFilters((prev) => ({ ...prev, productId: v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Todos los productos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los productos</SelectItem>
+                {productOptions.map((prod) => (
+                  <SelectItem key={prod.id} value={prod.id}>
+                    {prod.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="space-y-1">
-            <Label>Hasta</Label>
-            <Input
-              type="date"
-              value={filters.dateTo}
-              onChange={(e) => setFilters((prev) => ({ ...prev, dateTo: e.target.value }))}
-            />
+
+          <div className="flex items-end justify-end md:col-span-full mt-1">
+            <Button variant="outline" onClick={handleApplyFilters} disabled={loading}>
+              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Aplicar filtros
+            </Button>
           </div>
-        </div>
-        <div className="flex justify-end">
-          <Button variant="outline" onClick={handleApplyFilters} disabled={loading}>
-            Aplicar filtros
-          </Button>
         </div>
 
         <div className="overflow-x-auto">
