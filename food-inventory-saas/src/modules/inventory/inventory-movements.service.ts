@@ -158,6 +158,19 @@ export class InventoryMovementsService {
     if (filters.productId) query.productId = new Types.ObjectId(filters.productId);
     if (filters.warehouseId) query.warehouseId = new Types.ObjectId(filters.warehouseId);
 
+    // Filter by supplier: find inventory lot IDs belonging to this supplier
+    if (filters.supplierId) {
+      const supplierInventoryIds = await this.inventoryModel
+        .find({ tenantId: new Types.ObjectId(tenantId), supplierId: new Types.ObjectId(filters.supplierId) })
+        .distinct('_id')
+        .lean();
+      if (supplierInventoryIds.length === 0) {
+        const empty = { page: 1, limit: filters.limit || 50, total: 0, totalPages: 1 };
+        return { data: [], pagination: empty };
+      }
+      query.inventoryId = { $in: supplierInventoryIds };
+    }
+
     if (filters.dateFrom || filters.dateTo) {
       query.createdAt = {};
       if (filters.dateFrom) query.createdAt.$gte = new Date(filters.dateFrom);
