@@ -408,12 +408,15 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   const [totalPages, setTotalPages] = useState(0);
   const lastFetchRef = useRef('');
   const abortControllerRef = useRef(null);
+  // Ref to detect filter/search changes so we reset to page 1 only when they actually change
+  const prevFiltersRef = useRef({ searchTerm: '', statusFilter: 'all', filterCategory: 'all', defaultProductType });
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState(initialNewProductState);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [visibleColumns, setVisibleColumns] = useState({
     sku: true,
     name: true,
+    brand: true,
     category: true,
     price: true,
     cost: true,
@@ -671,40 +674,45 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     }
   }, []);
 
-  // Load products when filters change - debounce search
-  // OPTIMIZED: Consolidate all data loading into single useEffect to prevent cascade
+  // Reset to page 1 ONLY when filter/search values actually change (not on page/limit change)
   useEffect(() => {
-    // Auto-adjust page limit based on search (sync, no separate effect)
-    const trimmedSearch = searchTerm.trim();
-    const targetLimit = trimmedSearch ? SEARCH_PAGE_LIMIT : (manualPageLimitRef.current || DEFAULT_PAGE_LIMIT);
+    const prev = prevFiltersRef.current;
+    const filtersChanged =
+      prev.searchTerm !== searchTerm ||
+      prev.statusFilter !== statusFilter ||
+      prev.filterCategory !== filterCategory ||
+      prev.defaultProductType !== defaultProductType;
 
-    // Determine if we need to load data
-    const hasFilters = trimmedSearch !== '' || statusFilter !== 'all' || filterCategory !== 'all';
-    const page = hasFilters ? 1 : currentPage;
-
-    // Debounce only for search, instant for other changes
-    const delay = trimmedSearch ? 800 : 0;
-
-    // Keep limit in sync before fetching to avoid double requests
-    if (pageLimit !== targetLimit) {
-      setPageLimit(targetLimit);
-      if (hasFilters && currentPage !== 1) {
+    if (filtersChanged) {
+      prevFiltersRef.current = { searchTerm, statusFilter, filterCategory, defaultProductType };
+      if (currentPage !== 1) {
         setCurrentPage(1);
+        // Don't need to call loadProducts here — the currentPage change will trigger the load effect below
+        return;
       }
-      return;
     }
 
-    const timeoutId = setTimeout(() => {
-      // Reset to page 1 for filter changes
-      if (hasFilters && currentPage !== 1) {
-        setCurrentPage(1);
-      }
+    // Determine effective limit: when searching, increase default to SEARCH_PAGE_LIMIT
+    // but only if the user hasn't manually changed it
+    const trimmedSearch = searchTerm.trim();
+    const effectiveLimit = manualPageLimitRef.current !== DEFAULT_PAGE_LIMIT
+      ? manualPageLimitRef.current
+      : trimmedSearch
+        ? SEARCH_PAGE_LIMIT
+        : DEFAULT_PAGE_LIMIT;
 
-      loadProducts(page, targetLimit, statusFilter, trimmedSearch, filterCategory, defaultProductType);
+    if (pageLimit !== effectiveLimit) {
+      setPageLimit(effectiveLimit);
+      return; // Let the pageLimit change re-trigger this effect
+    }
+
+    const delay = trimmedSearch ? 800 : 0;
+    const timeoutId = setTimeout(() => {
+      loadProducts(currentPage, pageLimit, statusFilter, trimmedSearch, filterCategory, defaultProductType);
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [currentPage, statusFilter, searchTerm, filterCategory, defaultProductType, pageLimit, loadProducts]);
+  }, [currentPage, pageLimit, statusFilter, searchTerm, filterCategory, defaultProductType, loadProducts]);
 
   // Cancel any pending fetch when the component unmounts
   useEffect(() => {
@@ -2132,6 +2140,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
             <DropdownMenuSeparator />
             <DropdownMenuCheckboxItem checked={visibleColumns.sku} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, sku: checked }))}>SKU</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.name} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, name: checked }))}>Producto</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.brand} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, brand: checked }))}>Marca</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.category} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, category: checked }))}>Categoría</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.price} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, price: checked }))}>Precio</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.cost} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, cost: checked }))}>Costo</DropdownMenuCheckboxItem>
@@ -4041,6 +4050,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 <TableRow>
                   {visibleColumns.sku && <TableHead>SKU</TableHead>}
                   {visibleColumns.name && <TableHead>Producto</TableHead>}
+                  {visibleColumns.brand && <TableHead>Marca</TableHead>}
                   {visibleColumns.category && <TableHead>Categoría</TableHead>}
                   {showSalesFields && visibleColumns.price && <TableHead className="text-right">Precio Venta</TableHead>}
                   {visibleColumns.cost && <TableHead className="text-right">Costo</TableHead>}
@@ -4075,6 +4085,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                           />
                           <span className="text-[10px] text-slate-400 font-mono sm:hidden">{product.brand}</span>
                         </div>
+                      </TableCell>
+                    )}
+                    {visibleColumns.brand && (
+                      <TableCell>
+                        <InlineEditableCell
+                          value={product.brand || ''}
+                          type="text"
+                          onSave={(val) => handleInlineUpdate(product._id, 'brand', val)}
+                          className="w-[100px] text-xs text-slate-500 font-medium dark:text-slate-400"
+                          placeholder="Sin marca"
+                        />
                       </TableCell>
                     )}
                     {visibleColumns.category && (
