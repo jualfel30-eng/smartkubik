@@ -8,9 +8,9 @@ import { NumberInput } from '@/components/ui/number-input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { toast } from 'sonner';
-import { fetchApi } from '@/lib/api';
+import { fetchApi, getAuthToken, getApiBaseUrl } from '@/lib/api';
 import { format } from 'date-fns';
-import { Loader2, RefreshCw, Plus, ArrowRightLeft } from 'lucide-react';
+import { Loader2, RefreshCw, Plus, ArrowRightLeft, Download, FileText, Printer } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 import { SearchableSelect } from './orders/v2/custom/SearchableSelect';
 
@@ -46,10 +46,13 @@ export default function InventoryMovementsPanel() {
     movementType: '',
     warehouseId: '',
     productId: 'all',
+    supplierId: 'all',
     dateFrom: '',
     dateTo: '',
   });
   const [loading, setLoading] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [adjustForm, setAdjustForm] = useState({
@@ -71,6 +74,35 @@ export default function InventoryMovementsPanel() {
     reason: '',
   });
   const [productSearchInput, setProductSearchInput] = useState('');
+  const [selectedProductOption, setSelectedProductOption] = useState(null);
+  const [selectedSupplierOption, setSelectedSupplierOption] = useState(null);
+
+  const loadProductOptions = async (searchQuery) => {
+    try {
+      const response = await fetchApi(`/products?search=${encodeURIComponent(searchQuery)}&limit=20`);
+      return (response.data || []).map((p) => ({
+        value: p._id,
+        label: `${p.name} (${p.sku})`,
+      }));
+    } catch (error) {
+      console.error('Error searching products for filter:', error);
+      return [];
+    }
+  };
+
+  const loadSupplierOptions = async (searchQuery) => {
+    try {
+      const response = await fetchApi(`/suppliers?search=${encodeURIComponent(searchQuery)}`);
+      const suppliers = Array.isArray(response) ? response : (response.data || []);
+      return suppliers.map((s) => ({
+        value: s._id,
+        label: s.name,
+      }));
+    } catch (error) {
+      console.error('Error searching suppliers for filter:', error);
+      return [];
+    }
+  };
 
   const productOptions = useMemo(() => {
     const map = new Map();
@@ -99,6 +131,7 @@ export default function InventoryMovementsPanel() {
       if (filters.movementType && filters.movementType !== 'all') params.append('movementType', filters.movementType);
       if (filters.warehouseId && filters.warehouseId !== 'all') params.append('warehouseId', filters.warehouseId);
       if (filters.productId && filters.productId !== 'all') params.append('productId', filters.productId);
+      if (filters.supplierId && filters.supplierId !== 'all') params.append('supplierId', filters.supplierId);
       if (filters.preset && filters.preset !== 'all' && filters.preset !== 'custom') {
         params.append('datePreset', filters.preset);
       } else if (filters.preset === 'custom' || filters.preset === 'all') {
@@ -119,6 +152,62 @@ export default function InventoryMovementsPanel() {
       setLoading(false);
     }
   };
+
+  const handleExport = async (format) => {
+    if (format === 'csv') setExportingCsv(true);
+    if (format === 'pdf') setExportingPdf(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('format', format);
+      if (filters.preset && filters.preset !== 'all' && filters.preset !== 'custom') {
+        params.append('datePreset', filters.preset);
+      } else {
+        if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
+        if (filters.dateTo) params.append('dateTo', filters.dateTo);
+      }
+      if (filters.movementType && filters.movementType !== 'all') params.append('movementType', filters.movementType);
+      if (filters.warehouseId && filters.warehouseId !== 'all') params.append('warehouseId', filters.warehouseId);
+      if (filters.productId && filters.productId !== 'all') params.append('productId', filters.productId);
+      if (filters.supplierId && filters.supplierId !== 'all') params.append('supplierId', filters.supplierId);
+
+      const token = getAuthToken();
+      let baseUrl = getApiBaseUrl();
+      if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+      const apiPath = baseUrl.endsWith('/api/v1') ? '' : '/api/v1';
+      const url = `${baseUrl}${apiPath}/inventory-movements/export?${params.toString()}`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Falló la exportación');
+
+      const disposition = response.headers.get('Content-Disposition');
+      let filename = `movimientos.${format === 'csv' ? 'csv' : 'pdf'}`;
+      if (disposition && disposition.indexOf('attachment') !== -1) {
+        const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+        if (matches != null && matches[1]) filename = matches[1].replace(/['"]/g, '');
+      }
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+      toast.success('Reporte exportado exitosamente');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Ocurrió un error al exportar el reporte');
+    } finally {
+      setExportingCsv(false);
+      setExportingPdf(false);
+    }
+  };
+
+  const handlePrint = () => window.print();
 
   const fetchAuxData = async () => {
     try {
@@ -344,8 +433,8 @@ export default function InventoryMovementsPanel() {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          <div className="space-y-1">
+        <div className="flex flex-wrap items-start gap-4">
+          <div className="space-y-1 w-36">
             <Label>Período</Label>
             <Select
               value={filters.preset}
@@ -364,7 +453,7 @@ export default function InventoryMovementsPanel() {
 
           {filters.preset === 'custom' && (
             <>
-              <div className="space-y-1">
+              <div className="space-y-1 w-36">
                 <Label>Desde</Label>
                 <Input
                   type="date"
@@ -372,7 +461,7 @@ export default function InventoryMovementsPanel() {
                   onChange={(e) => setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 w-36">
                 <Label>Hasta</Label>
                 <Input
                   type="date"
@@ -383,7 +472,7 @@ export default function InventoryMovementsPanel() {
             </>
           )}
 
-          <div className="space-y-1">
+          <div className="space-y-1 w-40">
             <Label>Tipo</Label>
             <Select
               value={filters.movementType}
@@ -403,14 +492,14 @@ export default function InventoryMovementsPanel() {
           </div>
 
           {multiWarehouseEnabled && (
-            <div className="space-y-1">
+            <div className="space-y-1 w-44 max-w-[176px] overflow-hidden">
               <Label>Almacén</Label>
               <Select
                 value={filters.warehouseId}
                 onValueChange={(v) => setFilters((prev) => ({ ...prev, warehouseId: v }))}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos" />
+                <SelectTrigger className="w-full overflow-hidden">
+                  <SelectValue placeholder="Todos" className="truncate" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
@@ -424,32 +513,78 @@ export default function InventoryMovementsPanel() {
             </div>
           )}
 
-          <div className="space-y-1 md:col-span-2">
-            <Label>Producto</Label>
-            <Select
-              value={filters.productId}
-              onValueChange={(v) => setFilters((prev) => ({ ...prev, productId: v }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Todos los productos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los productos</SelectItem>
-                {productOptions.map((prod) => (
-                  <SelectItem key={prod.id} value={prod.id}>
-                    {prod.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-start gap-4 ml-auto">
+            <div className="space-y-1 w-[286px]">
+              <Label>Proveedor</Label>
+              <SearchableSelect
+                asyncSearch={true}
+                loadOptions={loadSupplierOptions}
+                minSearchLength={2}
+                debounceMs={300}
+                isCreatable={false}
+                value={selectedSupplierOption}
+                placeholder="Buscar proveedor..."
+                menuPortalTarget={document.body}
+                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                onSelection={(opt) => {
+                  setSelectedSupplierOption(opt);
+                  setFilters((prev) => ({ ...prev, supplierId: opt ? opt.value : 'all' }));
+                }}
+              />
+            </div>
+            <div className="space-y-1 w-[328px]">
+              <Label>Producto</Label>
+              <SearchableSelect
+                asyncSearch={true}
+                loadOptions={loadProductOptions}
+                minSearchLength={2}
+                debounceMs={300}
+                isCreatable={false}
+                value={selectedProductOption}
+                placeholder="Buscar por nombre o SKU..."
+                menuPortalTarget={document.body}
+                styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
+                onSelection={(opt) => {
+                  setSelectedProductOption(opt);
+                  setFilters((prev) => ({ ...prev, productId: opt ? opt.value : 'all' }));
+                }}
+              />
+            </div>
           </div>
+        </div>
 
-          <div className="flex items-end justify-end md:col-span-full mt-1">
-            <Button variant="outline" onClick={handleApplyFilters} disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Aplicar filtros
-            </Button>
-          </div>
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={handleApplyFilters} disabled={loading}>
+            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Aplicar filtros
+          </Button>
+        </div>
+
+        {/* Action buttons row */}
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={fetchMovements} disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            Actualizar
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => handleExport('csv')}
+            disabled={exportingCsv || movements.length === 0}
+          >
+            {exportingCsv ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+            Exportar Excel
+          </Button>
+          <Button
+            onClick={() => handleExport('pdf')}
+            disabled={exportingPdf || movements.length === 0}
+          >
+            {exportingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+            Exportar PDF
+          </Button>
+          <Button variant="outline" onClick={handlePrint}>
+            <Printer className="h-4 w-4 mr-2" />
+            Imprimir
+          </Button>
         </div>
 
         <div className="overflow-x-auto">

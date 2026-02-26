@@ -5,12 +5,11 @@ import { Button } from '@/components/ui/button.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
-import { Loader2, RefreshCw, Download, FileText, Printer, Eye } from 'lucide-react';
+import { Loader2, RefreshCw, Printer, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchApi, getAuthToken, getApiBaseUrl } from '@/lib/api';
 import { format } from 'date-fns';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs.jsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog.jsx";
 
 const MOVEMENT_TYPES = [
@@ -37,15 +36,12 @@ export default function InventoryReportsPanel() {
 
     const [movements, setMovements] = useState([]);
     const [documents, setDocuments] = useState([]);
-    const [viewMode, setViewMode] = useState('detailed'); // 'detailed' | 'grouped'
     const [selectedDocument, setSelectedDocument] = useState(null);
     const [printingDocId, setPrintingDocId] = useState(null);
 
     const [warehouses, setWarehouses] = useState([]);
     const [inventories, setInventories] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [exportingCsv, setExportingCsv] = useState(false);
-    const [exportingPdf, setExportingPdf] = useState(false);
 
     // Filters state
     const [filters, setFilters] = useState({
@@ -108,15 +104,17 @@ export default function InventoryReportsPanel() {
             if (filters.warehouseId !== 'all') params.append('warehouseId', filters.warehouseId);
             if (filters.productId !== 'all') params.append('productId', filters.productId);
 
-            if (viewMode === 'detailed') {
-                const response = await fetchApi(`/inventory-movements?${params.toString()}`);
-                setMovements(response?.data || response || []);
-                setDocuments([]);
-            } else {
-                const response = await fetchApi(`/inventory-movements/documents?${params.toString()}`);
-                setDocuments(response?.data || response || []);
-                setMovements([]);
-            }
+            const paramsMovements = new URLSearchParams(params);
+            // Default limit for movements for summary calc maxes at 200
+            paramsMovements.set('limit', '200');
+
+            const [docRes, movRes] = await Promise.all([
+                fetchApi(`/inventory-movements/documents?${params.toString()}`),
+                fetchApi(`/inventory-movements?${paramsMovements.toString()}`)
+            ]);
+
+            setDocuments(docRes?.data || docRes || []);
+            setMovements(movRes?.data || movRes || []);
         } catch (err) {
             console.error('Error fetching report preview', err);
             toast.error('Error al cargar la vista previa');
@@ -134,111 +132,13 @@ export default function InventoryReportsPanel() {
             fetchPreview();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [viewMode]);
+    }, []);
 
     const handleApplyFilters = () => {
         fetchPreview();
     };
 
-    const handleExport = async (format) => {
-        if (format === 'csv') setExportingCsv(true);
-        if (format === 'pdf') setExportingPdf(true);
 
-        try {
-            const params = new URLSearchParams();
-            params.append('format', format);
-
-            if (filters.preset !== 'custom') {
-                params.append('datePreset', filters.preset);
-            } else {
-                if (filters.dateFrom) params.append('dateFrom', filters.dateFrom);
-                if (filters.dateTo) params.append('dateTo', filters.dateTo);
-            }
-
-            if (filters.movementType !== 'all') params.append('movementType', filters.movementType);
-            if (filters.warehouseId !== 'all') params.append('warehouseId', filters.warehouseId);
-            if (filters.productId !== 'all') params.append('productId', filters.productId);
-
-            const token = getAuthToken();
-            let baseUrl = getApiBaseUrl();
-            if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
-            const apiPath = baseUrl.endsWith('/api/v1') ? '' : '/api/v1';
-
-            const url = `${baseUrl}${apiPath}/inventory-movements/export?${params.toString()}`;
-
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) throw new Error('Falló la exportación');
-
-            const disposition = response.headers.get('Content-Disposition');
-            let filename = `reporte-movimientos.${format}`;
-            if (disposition && disposition.indexOf('attachment') !== -1) {
-                const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
-                if (matches != null && matches[1]) filename = matches[1].replace(/['"]/g, '');
-            }
-
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(downloadUrl);
-
-            toast.success('Reporte exportado exitosamente');
-
-        } catch (error) {
-            console.error('Export error:', error);
-            toast.error('Ocurrió un error al exportar el reporte');
-        } finally {
-            setExportingCsv(false);
-            setExportingPdf(false);
-        }
-    };
-
-    const handlePrintDocument = async (doc) => {
-        setPrintingDocId(doc.batchId);
-        try {
-            const token = getAuthToken();
-            let baseUrl = getApiBaseUrl();
-            if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
-            const apiPath = baseUrl.endsWith('/api/v1') ? '' : '/api/v1';
-
-            const url = `${baseUrl}${apiPath}/inventory-movements/documents/export`;
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(doc)
-            });
-
-            if (!response.ok) throw new Error('Falló la impresión del documento');
-
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            window.open(downloadUrl, '_blank'); // Open PDF in new tab
-            window.URL.revokeObjectURL(downloadUrl);
-            toast.success('Recibo de inventario generado', { id: `print-${doc.batchId}` });
-        } catch (error) {
-            console.error('Print doc error:', error);
-            toast.error('Ocurrió un error al imprimir el documento', { id: `print-${doc.batchId}` });
-        } finally {
-            setPrintingDocId(null);
-        }
-    };
-
-    const handlePrint = () => {
-        window.print();
-    };
 
     const netMovement = useMemo(() => {
         let entries = 0;
@@ -280,38 +180,13 @@ export default function InventoryReportsPanel() {
                 <div>
                     <CardTitle>Reportes de Inventario</CardTitle>
                     <p className="text-sm text-muted-foreground mb-4">
-                        Genera y exporta reportes detallados de movimientos de inventario.
+                        Visualiza e imprime recibos de inventario agrupados.
                     </p>
-                    <Tabs value={viewMode} onValueChange={setViewMode} className="w-full max-w-[400px]">
-                        <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="detailed">Vista Detallada</TabsTrigger>
-                            <TabsTrigger value="grouped">Recibos de Inventario</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={fetchPreview} disabled={loading}>
                         {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
                         Actualizar
-                    </Button>
-                    <Button
-                        variant="secondary"
-                        onClick={() => handleExport('csv')}
-                        disabled={exportingCsv || movements.length === 0}
-                    >
-                        {exportingCsv ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-                        Exportar Excel
-                    </Button>
-                    <Button
-                        onClick={() => handleExport('pdf')}
-                        disabled={exportingPdf || movements.length === 0}
-                        title={viewMode === 'grouped' ? "La exportación global usa la vista detallada" : ""}
-                    >
-                        {exportingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-                        Exportar PDF
-                    </Button>
-                    <Button variant="outline" onClick={handlePrint} disabled={movements.length === 0}>
-                        <Printer className="h-4 w-4" />
                     </Button>
                 </div>
             </CardHeader>
@@ -481,85 +356,29 @@ export default function InventoryReportsPanel() {
                 <div className="border rounded-md overflow-hidden">
                     <Table>
                         <TableHeader className="bg-muted/50">
-                            {viewMode === 'detailed' ? (
-                                <TableRow>
-                                    <TableHead>Fecha</TableHead>
-                                    <TableHead>Tipo</TableHead>
-                                    <TableHead>Producto</TableHead>
-                                    <TableHead className="text-right">Cantidad</TableHead>
-                                    <TableHead className="text-right">Costo Total</TableHead>
-                                    {multiWarehouseEnabled && <TableHead>Almacén</TableHead>}
-                                </TableRow>
-                            ) : (
-                                <TableRow>
-                                    <TableHead>Fecha</TableHead>
-                                    <TableHead>Documento / Ref</TableHead>
-                                    <TableHead>Proveedor</TableHead>
-                                    <TableHead className="text-right">Ítems</TableHead>
-                                    <TableHead className="text-right">Cant. Total</TableHead>
-                                    <TableHead className="text-right">Costo Total</TableHead>
-                                    <TableHead className="text-center w-[120px]">Acciones</TableHead>
-                                </TableRow>
-                            )}
+                            <TableRow>
+                                <TableHead>Fecha</TableHead>
+                                <TableHead>Documento / Ref</TableHead>
+                                <TableHead>Proveedor</TableHead>
+                                <TableHead className="text-right">Ítems</TableHead>
+                                <TableHead className="text-right">Cant. Total</TableHead>
+                                <TableHead className="text-right">Costo Total</TableHead>
+                                <TableHead className="text-center w-[120px]">Acciones</TableHead>
+                            </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-32 text-center">
+                                    <TableCell colSpan={7} className="h-32 text-center">
                                         <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                                     </TableCell>
                                 </TableRow>
-                            ) : viewMode === 'detailed' && movements.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                                        No se encontraron movimientos con los filtros aplicados.
-                                    </TableCell>
-                                </TableRow>
-                            ) : viewMode === 'grouped' && documents.length === 0 ? (
+                            ) : documents.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                                         No se encontraron documentos agrupados con los filtros aplicados.
                                     </TableCell>
                                 </TableRow>
-                            ) : viewMode === 'detailed' ? (
-                                movements.map((mov, idx) => {
-                                    const productName = typeof mov.productId === 'object' && mov.productId?.name
-                                        ? mov.productId.name
-                                        : mov.productName || mov.productSku || '—';
-
-                                    return (
-                                        <TableRow key={`${mov._id || mov.id || 'mov'}-${idx}`}>
-                                            <TableCell className="whitespace-nowrap">
-                                                {mov.createdAt ? format(new Date(mov.createdAt), 'dd/MM/yyyy HH:mm') : '—'}
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
-                                                    ${mov.movementType === 'IN' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                                        mov.movementType === 'OUT' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                                                            mov.movementType === 'TRANSFER' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
-                                                                'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'}`}
-                                                >
-                                                    {mov.movementType}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="font-medium truncate max-w-[200px]">{productName}</div>
-                                                {mov.productSku && <div className="text-xs text-muted-foreground">{mov.productSku}</div>}
-                                            </TableCell>
-                                            <TableCell className="text-right font-medium">
-                                                {mov.movementType === 'OUT' ? '-' : ''}{mov.quantity}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                ${(mov.totalCost || 0).toFixed(2)}
-                                            </TableCell>
-                                            {multiWarehouseEnabled && (
-                                                <TableCell className="truncate max-w-[150px]">
-                                                    {warehouses.find((w) => (w._id || w.id) === (mov.warehouseId || mov.warehouse))?.name || '—'}
-                                                </TableCell>
-                                            )}
-                                        </TableRow>
-                                    );
-                                })
                             ) : (
                                 documents.map((doc, idx) => (
                                     <TableRow key={`${doc.batchId || doc._id || 'doc'}-${idx}`}>
@@ -603,11 +422,7 @@ export default function InventoryReportsPanel() {
                             )}
                         </TableBody>
                     </Table>
-                    {movements.length === 100 && (
-                        <div className="p-3 text-center text-xs text-muted-foreground bg-muted/20 border-t">
-                            Mostrando los últimos 100 movimientos. Usa los filtros o exporta el reporte para ver todos.
-                        </div>
-                    )}
+
                 </div>
             </CardContent>
 
