@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import { Plus, Save, X, Sparkles, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -26,12 +26,13 @@ import { api } from '../../lib/api';
 const BillingSequencesManager = () => {
   const [sequences, setSequences] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [initializing, setInitializing] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     scope: 'tenant',
     type: 'invoice',
-    prefix: 'FAC-',
+    prefix: 'F',
     startNumber: 1,
     channel: 'digital',
     isDefault: false,
@@ -54,6 +55,24 @@ const BillingSequencesManager = () => {
     }
   };
 
+  const handleInitializeDefaults = async () => {
+    try {
+      setInitializing(true);
+      const result = await api.post('/billing/sequences/initialize-defaults', {});
+      if (result.created > 0) {
+        toast.success(`✅ ${result.created} series creadas exitosamente`);
+        loadSequences();
+      } else {
+        toast.info(`ℹ️ ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error initializing sequences:', error);
+      toast.error(error.response?.data?.message || 'Error al inicializar las series por defecto');
+    } finally {
+      setInitializing(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -71,7 +90,7 @@ const BillingSequencesManager = () => {
         name: '',
         scope: 'tenant',
         type: 'invoice',
-        prefix: 'FAC-',
+        prefix: 'F',
         startNumber: 1,
         channel: 'digital',
         isDefault: false,
@@ -105,13 +124,54 @@ const BillingSequencesManager = () => {
             Gestiona las series de numeración para tus documentos fiscales
           </p>
         </div>
-        {!showForm && (
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva Serie
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={loadSequences}
+            disabled={loading}
+            size="sm"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
           </Button>
-        )}
+          {sequences.length === 0 && (
+            <Button
+              variant="secondary"
+              onClick={handleInitializeDefaults}
+              disabled={initializing}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              {initializing ? 'Inicializando...' : 'Inicializar Series por Defecto'}
+            </Button>
+          )}
+          {!showForm && (
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva Serie
+            </Button>
+          )}
+        </div>
       </div>
+
+      {sequences.length === 0 && !loading && (
+        <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <Sparkles className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="font-medium text-amber-800 dark:text-amber-400">
+                  No tienes series de facturación configuradas
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-500 mt-1">
+                  Sin series, no podrás generar facturas, notas de crédito ni otros documentos.
+                  Haz clic en <strong>"Inicializar Series por Defecto"</strong> para crear las 4 series estándar
+                  (Factura, Nota de Crédito, Nota de Débito, Nota de Entrega) o crea una serie personalizada con el botón "Nueva Serie".
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {showForm && (
         <Card>
@@ -155,7 +215,7 @@ const BillingSequencesManager = () => {
                     id="prefix"
                     value={formData.prefix}
                     onChange={(e) => setFormData({ ...formData, prefix: e.target.value })}
-                    placeholder="Ej: FAC-"
+                    placeholder="Ej: F"
                     required
                   />
                   <p className="text-xs text-muted-foreground mt-1">
@@ -201,7 +261,7 @@ const BillingSequencesManager = () => {
                       name: '',
                       scope: 'tenant',
                       type: 'invoice',
-                      prefix: 'FAC-',
+                      prefix: 'F',
                       startNumber: 1,
                       channel: 'digital',
                       isDefault: false,
@@ -219,7 +279,7 @@ const BillingSequencesManager = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Series Existentes</CardTitle>
+          <CardTitle>Series Configuradas</CardTitle>
           <CardDescription>
             {sequences.length} serie(s) configurada(s)
           </CardDescription>
@@ -232,7 +292,7 @@ const BillingSequencesManager = () => {
           ) : sequences.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <p>No hay series configuradas</p>
-              <p className="text-sm mt-2">Crea tu primera serie para comenzar a facturar</p>
+              <p className="text-sm mt-2">Usa el botón "Inicializar Series por Defecto" para comenzar</p>
             </div>
           ) : (
             <Table>

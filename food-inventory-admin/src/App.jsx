@@ -510,6 +510,7 @@ function TenantLayout() {
       permission: 'accounting_read',
       children: [
         { name: 'Facturación Electrónica', href: 'accounting?tab=electronic-invoices', icon: Receipt },
+        { name: 'Series de Facturación', href: 'billing/sequences', icon: List, permission: 'billing_read' },
         { name: 'Libro Diario', href: 'accounting?tab=journal', icon: FileText },
         { name: 'Libro Mayor', href: 'accounting?tab=general-ledger', icon: BookOpen },
         { name: 'Libro de Ventas', href: 'accounting?tab=sales-book', icon: BookOpen },
