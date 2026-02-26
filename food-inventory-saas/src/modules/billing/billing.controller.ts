@@ -194,10 +194,29 @@ export class BillingController {
       format,
     });
   }
-  @Get("sequences")
-  @ApiOperation({ summary: "Listar secuencias de documentos activas" })
-  async getSequences(@Req() req: any) {
-    return this.billingService.getActiveSequences(req.user.tenantId);
+  @Post("sequences/initialize-defaults")
+  @Permissions("billing_read")
+  @ApiOperation({ summary: "Inicializar series de facturación por defecto (idempotente)" })
+  async initializeDefaultSequences(@Req() req: any) {
+    const tenantId = req.user.tenantId;
+    const existing = await this.billingService.getAllSequences(tenantId);
+    if (existing.length > 0) {
+      return {
+        success: true,
+        message: `Ya existen ${existing.length} serie(s) configurada(s). No se realizaron cambios.`,
+        created: 0,
+        existing: existing.length,
+      };
+    }
+    await this.billingService.createDefaultSequencesForTenant(tenantId);
+    const created = await this.billingService.getAllSequences(tenantId);
+    return {
+      success: true,
+      message: `${created.length} serie(s) de facturación creadas exitosamente.`,
+      created: created.length,
+      existing: 0,
+      sequences: created,
+    };
   }
 
   // ========== SENIAT Electronic Invoicing Endpoints ==========
@@ -316,6 +335,7 @@ export class BillingController {
   async getAllSequences(@Req() req: any) {
     return this.billingService.getAllSequences(req.user.tenantId);
   }
+
 
   @Post("sequences")
   @Permissions("billing_create")

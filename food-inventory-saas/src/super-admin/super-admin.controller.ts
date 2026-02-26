@@ -18,7 +18,7 @@ import { UpdateRolePermissionsDto } from "../dto/update-role-permissions.dto";
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
 @Controller("super-admin")
 export class SuperAdminController {
-  constructor(private readonly superAdminService: SuperAdminService) {}
+  constructor(private readonly superAdminService: SuperAdminService) { }
 
   @Get("tenants")
   findAll() {
@@ -133,5 +133,15 @@ export class SuperAdminController {
       req.user.id,
       req.ip,
     );
+  }
+
+  /**
+   * Migración global: inyecta las 4 series de facturación por defecto
+   * en todos los tenants activos que no tengan ninguna configurada.
+   * Operación idempotente — safe to run multiple times.
+   */
+  @Post("migrations/billing-series")
+  migrateBillingSeries() {
+    return this.superAdminService.migrateBillingSeriesForAllTenants();
   }
 }

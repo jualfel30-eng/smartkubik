@@ -10,6 +10,10 @@ import { Permission, PermissionSchema } from "../schemas/permission.schema";
 import { AuthModule } from "../auth/auth.module";
 import { AuditLogModule } from "../modules/audit-log/audit-log.module";
 import {
+  DocumentSequence,
+  DocumentSequenceSchema,
+} from "../schemas/document-sequence.schema";
+import {
   UserTenantMembership,
   UserTenantMembershipSchema,
 } from "../schemas/user-tenant-membership.schema";
@@ -23,6 +27,7 @@ import {
       { name: Role.name, schema: RoleSchema },
       { name: Permission.name, schema: PermissionSchema },
       { name: UserTenantMembership.name, schema: UserTenantMembershipSchema },
+      { name: DocumentSequence.name, schema: DocumentSequenceSchema },
     ]),
     AuthModule,
     AuditLogModule,
@@ -30,4 +35,4 @@ import {
   controllers: [SuperAdminController],
   providers: [SuperAdminService],
 })
-export class SuperAdminModule {}
+export class SuperAdminModule { }

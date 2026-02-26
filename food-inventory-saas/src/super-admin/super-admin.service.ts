@@ -3,6 +3,7 @@ import {
   NotFoundException,
   Inject,
   BadRequestException,
+  Logger,
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
@@ -11,6 +12,10 @@ import { User, UserDocument } from "../schemas/user.schema";
 import { Event, EventDocument } from "../schemas/event.schema";
 import { Role, RoleDocument } from "../schemas/role.schema";
 import { Permission, PermissionDocument } from "../schemas/permission.schema";
+import {
+  DocumentSequence,
+  DocumentSequenceDocument,
+} from "../schemas/document-sequence.schema";
 import { UpdateTenantDto } from "../dto/update-tenant.dto";
 import { UpdateTenantModulesDto } from "../dto/update-tenant-modules.dto";
 import { UpdateRolePermissionsDto } from "../dto/update-role-permissions.dto";
@@ -47,6 +52,8 @@ const BASELINE_PERMISSIONS = [
 
 @Injectable()
 export class SuperAdminService {
+  private readonly logger = new Logger(SuperAdminService.name);
+
   constructor(
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
@@ -56,10 +63,12 @@ export class SuperAdminService {
     private permissionModel: Model<PermissionDocument>,
     @InjectModel(UserTenantMembership.name)
     private membershipModel: Model<UserTenantMembershipDocument>,
+    @InjectModel(DocumentSequence.name)
+    private sequenceModel: Model<DocumentSequenceDocument>,
     @Inject(AuthService) private authService: AuthService,
     private auditLogService: AuditLogService,
     private featureFlagsService: FeatureFlagsService,
-  ) {}
+  ) { }
 
   async findAll(): Promise<Tenant[]> {
     return this.tenantModel.find().exec();
@@ -483,18 +492,18 @@ export class SuperAdminService {
         id: membership._id.toString(),
         user: membership.userId
           ? {
-              id: (membership.userId as any)._id?.toString?.() ?? "",
-              email: (membership.userId as any).email,
-              firstName: (membership.userId as any).firstName,
-              lastName: (membership.userId as any).lastName,
-              isActive: (membership.userId as any).isActive,
-            }
+            id: (membership.userId as any)._id?.toString?.() ?? "",
+            email: (membership.userId as any).email,
+            firstName: (membership.userId as any).firstName,
+            lastName: (membership.userId as any).lastName,
+            isActive: (membership.userId as any).isActive,
+          }
           : null,
         role: membership.roleId
           ? {
-              id: (membership.roleId as any)._id?.toString?.() ?? "",
-              name: (membership.roleId as any).name,
-            }
+            id: (membership.roleId as any)._id?.toString?.() ?? "",
+            name: (membership.roleId as any).name,
+          }
           : null,
         status: membership.status,
         isDefault: membership.isDefault,
@@ -554,5 +563,67 @@ export class SuperAdminService {
   async reloadFeatureFlags() {
     await this.featureFlagsService.reloadFromDatabase();
     return { reloaded: true };
+  }
+
+  /**
+   * Migración global: crea series de facturación por defecto para todos los
+   * tenants activos que aún no tengan ninguna.
+   */
+  async migrateBillingSeriesForAllTenants() {
+    const DEFAULTS = [
+      { name: 'Factura Principal', type: 'invoice', prefix: 'F', isDefault: true },
+      { name: 'Nota de Crédito', type: 'credit_note', prefix: 'NC', isDefault: true },
+      { name: 'Nota de Débito', type: 'debit_note', prefix: 'ND', isDefault: true },
+      { name: 'Nota de Entrega', type: 'delivery_note', prefix: 'NE', isDefault: true },
+    ];
+
+    const tenants = await this.tenantModel
+      .find({ status: 'active' })
+      .select('_id name')
+      .lean();
+
+    const results: Array<{ tenantId: string; name: string; status: string; seriesCreated: number }> = [];
+
+    for (const tenant of tenants) {
+      const tenantId = tenant._id.toString();
+      try {
+        const existingCount = await this.sequenceModel.countDocuments({ tenantId });
+        if (existingCount > 0) {
+          results.push({ tenantId, name: tenant.name, status: 'skipped', seriesCreated: 0 });
+          continue;
+        }
+
+        let created = 0;
+        for (const def of DEFAULTS) {
+          const alreadyExists = await this.sequenceModel.findOne({ tenantId, type: def.type });
+          if (!alreadyExists) {
+            await this.sequenceModel.create({
+              ...def,
+              currentNumber: 1,
+              status: 'active',
+              scope: 'tenant',
+              channel: 'digital',
+              tenantId,
+            });
+            created++;
+          }
+        }
+        results.push({ tenantId, name: tenant.name, status: 'migrated', seriesCreated: created });
+        this.logger.log(`✅ Billing series migrated for tenant: ${tenant.name} (${tenantId}) — ${created} series created`);
+      } catch (err) {
+        this.logger.error(`❌ Error migrating billing series for tenant ${tenant.name}: ${err.message}`);
+        results.push({ tenantId, name: tenant.name, status: 'error', seriesCreated: 0 });
+      }
+    }
+
+    const summary = {
+      total: tenants.length,
+      migrated: results.filter(r => r.status === 'migrated').length,
+      skipped: results.filter(r => r.status === 'skipped').length,
+      errors: results.filter(r => r.status === 'error').length,
+      totalSeriesCreated: results.reduce((sum, r) => sum + r.seriesCreated, 0),
+    };
+
+    return { success: true, summary, details: results };
   }
 }
