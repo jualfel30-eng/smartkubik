@@ -1230,7 +1230,7 @@ function InventoryManagement() {
         });
 
         return {
-          SKU: row.SKU,
+          SKU: String(row.SKU).trim(),
           NuevaCantidad: newQuantity,
           variantSku: row.VariantSKU ? String(row.VariantSKU).trim() : undefined,
           attributes: Object.keys(attributesPayload).length > 0 ? attributesPayload : undefined,
@@ -1249,14 +1249,16 @@ function InventoryManagement() {
     };
 
     try {
-      await fetchApi('/inventory/bulk-adjust', {
+      const response = await fetchApi('/inventory/bulk-adjust', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
 
       setIsPreviewDialogOpen(false);
       setImportReason('');
-      toast.success('Inventario ajustado masivamente con éxito.');
+
+      const successMessage = response?.message || 'Inventario ajustado masivamente con éxito.';
+      toast.success(successMessage);
 
       // Volver a la primera página después de importar masivamente
       setCurrentPage(1);

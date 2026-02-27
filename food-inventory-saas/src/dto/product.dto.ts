@@ -145,10 +145,10 @@ export class CreateProductVariantDto {
   name: string;
 
   @ApiProperty({ description: "SKU único de la variante" })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @SanitizeString()
-  sku: string;
+  sku?: string;
 
   @ApiPropertyOptional({ description: "Código de barras" })
   @IsOptional()
@@ -355,10 +355,10 @@ export class CreateProductDto {
   productType?: string;
 
   @ApiProperty({ description: "SKU único del producto" })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @SanitizeString()
-  sku: string;
+  sku?: string;
 
   @ApiProperty({ description: "Nombre del producto" })
   @IsString()

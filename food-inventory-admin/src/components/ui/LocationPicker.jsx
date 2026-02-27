@@ -94,7 +94,7 @@ const darkModeStyle = [
 
 export function LocationPicker({ value, onChange, label = 'Ubicación' }) {
   const plugin = useCountryPlugin();
-  const locale = plugin.localeProvider.getLanguageCode();
+  const locale = plugin.localeProvider?.getLanguage ? plugin.localeProvider.getLanguage().split('-')[0] : 'es';
 
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',

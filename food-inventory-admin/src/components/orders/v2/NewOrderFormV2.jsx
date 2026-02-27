@@ -1596,9 +1596,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         return {
           productId: productIdValue,
           productName: item.productName,
-          quantity: item.isSoldByWeight
-            ? parseFloat(item.quantity) || 0
-            : parseInt(item.quantity, 10) || 0,
+          quantity: getItemQuantityValue(item),
           ...(item.selectedUnit && { selectedUnit: item.selectedUnit }),
           modifiers: item.modifiers || [],
           specialInstructions: item.specialInstructions,
@@ -1778,9 +1776,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           return {
             productId: itemProductId,
             productName: i.productName,
-            quantity: i.isSoldByWeight
-              ? parseFloat(i.quantity) || 0
-              : parseInt(i.quantity, 10) || 0,
+            quantity: getItemQuantityValue(i),
             ...(i.selectedUnit && { selectedUnit: i.selectedUnit }),
             modifiers: i.modifiers || [],
             specialInstructions: i.specialInstructions,
@@ -1830,7 +1826,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
         return (
           iProductId === productIdValue &&
-          i.quantity === (item.isSoldByWeight ? parseFloat(item.quantity) : parseInt(item.quantity, 10)) &&
+          i.quantity === getItemQuantityValue(item) &&
           i.specialInstructions === item.specialInstructions &&
           // Compare modifiers
           JSON.stringify(i.modifiers || []) === JSON.stringify(item.modifiers || [])

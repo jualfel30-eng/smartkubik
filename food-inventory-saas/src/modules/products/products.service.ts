@@ -146,6 +146,38 @@ export class ProductsService {
     });
   }
 
+  /**
+   * Generates a unique sequential SKU based on the tenant's name.
+   */
+  async generateSku(tenantId: string | Types.ObjectId): Promise<string> {
+    const tenant = await this.tenantModel.findById(tenantId);
+    if (!tenant) throw new BadRequestException("Tenant no encontrado");
+
+    // Extract prefix: first 3 alphanumeric letters of tenant name, uppercase. Fallback to "TNT"
+    let prefix = "TNT";
+    if (tenant.name) {
+      prefix = tenant.name.replace(/[^a-zA-Z0-9]/gi, '').substring(0, 3).toUpperCase();
+      if (prefix.length < 3) prefix = prefix.padEnd(3, 'X');
+    }
+
+    let baseNumber = tenant.usage?.currentProducts || 0;
+    let isUnique = false;
+    let newSku = '';
+
+    while (!isUnique) {
+      baseNumber++;
+      const numberStr = baseNumber.toString().padStart(4, '0');
+      newSku = `${prefix}-${numberStr}`;
+
+      const existing = await this.productModel.findOne({ sku: newSku, tenantId: new Types.ObjectId(tenantId) }).lean();
+      if (!existing) {
+        isUnique = true;
+      }
+    }
+
+    return newSku;
+  }
+
   async createWithInitialPurchase(
     dto: CreateProductWithPurchaseDto,
     user: any,
@@ -169,6 +201,17 @@ export class ProductsService {
       throw new BadRequestException(
         "Límite de almacenamiento alcanzado para su plan de suscripción.",
       );
+    }
+
+    if (!dto.product.sku) {
+      dto.product.sku = await this.generateSku(user.tenantId);
+    }
+    if (dto.product.variants && dto.product.variants.length > 0) {
+      dto.product.variants.forEach((v, index) => {
+        if (!v.sku) {
+          v.sku = `${dto.product.sku}-VAR${index + 1}`;
+        }
+      });
     }
 
     const existingProduct = await this.productModel.findOne({
@@ -348,6 +391,17 @@ export class ProductsService {
       );
     }
 
+    if (!createProductDto.sku) {
+      createProductDto.sku = await this.generateSku(user.tenantId);
+    }
+    if (createProductDto.variants && createProductDto.variants.length > 0) {
+      createProductDto.variants.forEach((v, index) => {
+        if (!v.sku) {
+          v.sku = `${createProductDto.sku}-VAR${index + 1}`;
+        }
+      });
+    }
+
     const existingProduct = await this.productModel.findOne({
       sku: createProductDto.sku,
       tenantId: new Types.ObjectId(user.tenantId),
@@ -458,7 +512,7 @@ export class ProductsService {
           variants: [
             {
               name: productDto.variantName,
-              sku: productDto.variantSku || `${productDto.sku}-VAR1`,
+              sku: productDto.variantSku || (productDto.sku ? `${productDto.sku}-VAR1` : ""),
               barcode: productDto.variantBarcode || "",
               unit: productDto.variantUnit,
               unitSize: productDto.variantUnitSize,

@@ -87,13 +87,15 @@ export async function configureApp(
   });
   app.enableShutdownHooks();
 
+  const logger = app.get(require("nest-winston").WINSTON_MODULE_PROVIDER);
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       transform: true,
       exceptionFactory: (errors: ValidationError[]) => {
         const messages = formatValidationErrors(errors);
-        console.error("Validation errors:", messages);
+        logger.error(`Validation errors: ${messages.join(", ")}`);
         return new BadRequestException(messages);
       },
     }),

@@ -555,24 +555,90 @@ export class InventoryService {
     session.startTransaction();
     try {
       const results: InventoryDocument[] = [];
+      const movementsToInsert: any[] = [];
+      const alertsToCheck: InventoryDocument[] = [];
+
+      const tenantId = this.buildTenantFilter(user.tenantId);
+      const skus = bulkAdjustDto.items.map(i => i.SKU);
+
+      // Pre-fetch all relevant inventories and products to avoid N+1 queries
+      const existingInventoriesArr = await this.inventoryModel
+        .find({ productSku: { $in: skus }, tenantId })
+        .session(session);
+
+      const existingProductsArr = await this.productModel
+        .find({ sku: { $in: skus }, tenantId })
+        .session(session);
+
+      const inventoriesBySkuVariant = new Map<string, InventoryDocument>();
+      for (const inv of existingInventoriesArr) {
+        const key = `${inv.productSku}_${inv.variantSku || ''}`;
+        inventoriesBySkuVariant.set(key, inv);
+      }
+
+      const productsBySku = new Map<string, any>();
+      for (const prod of existingProductsArr) {
+        productsBySku.set(prod.sku, prod);
+      }
+
       for (const item of bulkAdjustDto.items) {
-        const inventoryQuery: any = {
-          productSku: item.SKU,
-          tenantId: this.buildTenantFilter(user.tenantId),
-        };
+        const key = `${item.SKU}_${item.variantSku || ''}`;
+        let inventory = inventoriesBySkuVariant.get(key);
+        let isNewInventory = false;
 
-        if (item.variantSku) {
-          inventoryQuery.variantSku = item.variantSku;
-        }
-
-        const inventory = await this.inventoryModel
-          .findOne(inventoryQuery)
-          .session(session);
         if (!inventory) {
-          this.logger.warn(
-            `Inventario no encontrado para SKU: ${item.SKU} durante ajuste masivo. Omitiendo.`,
-          );
-          continue;
+          const product = productsBySku.get(item.SKU);
+
+          if (!product) {
+            this.logger.warn(
+              `Producto no encontrado para SKU: ${item.SKU} en el catálogo. No se puede crear inventario. Omitiendo.`,
+            );
+            continue;
+          }
+
+          let variantId: Types.ObjectId | undefined = undefined;
+          let costPrice = 0;
+          if (item.variantSku && product.variants?.length > 0) {
+            const variant = product.variants.find((v: any) => v.sku === item.variantSku);
+            if (variant) {
+              variantId = variant._id;
+              costPrice = variant.costPrice || 0;
+            }
+          } else if (product.variants?.length > 0) {
+            costPrice = product.variants[0].costPrice || 0;
+          }
+
+          inventory = new this.inventoryModel({
+            productId: product._id,
+            productSku: item.SKU,
+            productName: product.name,
+            variantId: variantId,
+            variantSku: item.variantSku || item.SKU,
+            tenantId: this.normalizeTenantValue(user.tenantId),
+            totalQuantity: 0,
+            availableQuantity: 0,
+            reservedQuantity: 0,
+            committedQuantity: 0,
+            averageCostPrice: costPrice,
+            lastCostPrice: costPrice,
+            lots: [],
+            attributeCombinations: [],
+            alerts: {
+              lowStock: false,
+              nearExpiration: false,
+              expired: false,
+              overstock: false,
+            },
+            metrics: {
+              turnoverRate: 0,
+              daysOnHand: 0,
+              averageDailySales: 0,
+              seasonalityFactor: 1,
+            },
+            createdBy: user.id,
+          });
+          isNewInventory = true;
+          this.logger.log(`Inventario inicializado al vuelo para SKU: ${item.SKU}`);
         }
 
         inventory.availableQuantity = inventory.availableQuantity ?? 0;
@@ -696,35 +762,77 @@ export class InventoryService {
           );
         }
 
-        await inventory.save({ session });
+        if (isNewInventory) {
+          // If it's totally new, we must save it to get an _id for the movement
+          await inventory.save({ session });
+          inventoriesBySkuVariant.set(key, inventory);
+        } else {
+          // Otherwise, we flag it as modified. We'll bulkWrite it below.
+          inventory.markModified('totalQuantity');
+          inventory.markModified('availableQuantity');
+          inventory.markModified('reservedQuantity');
+          inventory.markModified('committedQuantity');
+          inventory.markModified('attributeCombinations');
+        }
 
         const totalDifference =
           inventory.totalQuantity - previousTotals.totalQuantity;
         if (totalDifference !== 0) {
-          await this.createMovementRecord(
-            {
-              inventoryId: inventory._id.toString(),
-              productId: inventory.productId.toString(),
-              productSku: inventory.productSku,
-              movementType: "adjustment",
-              quantity: Math.abs(totalDifference),
-              unitCost: inventory.averageCostPrice,
-              totalCost: Math.abs(totalDifference) * inventory.averageCostPrice,
-              reason: bulkAdjustDto.reason,
-              balanceAfter: {
-                totalQuantity: inventory.totalQuantity,
-                availableQuantity: inventory.availableQuantity,
-                reservedQuantity: inventory.reservedQuantity,
-                averageCostPrice: inventory.averageCostPrice,
-              },
+          movementsToInsert.push({
+            inventoryId: inventory._id,
+            productId: inventory.productId,
+            productSku: inventory.productSku,
+            movementType: "adjustment",
+            quantity: Math.abs(totalDifference),
+            unitCost: inventory.averageCostPrice,
+            totalCost: Math.abs(totalDifference) * inventory.averageCostPrice,
+            reason: bulkAdjustDto.reason,
+            balanceAfter: {
+              totalQuantity: inventory.totalQuantity,
+              availableQuantity: inventory.availableQuantity,
+              reservedQuantity: inventory.reservedQuantity,
+              averageCostPrice: inventory.averageCostPrice,
             },
-            user,
-            session,
-          );
+            createdBy: user.id,
+            tenantId: this.normalizeTenantValue(user.tenantId),
+          });
         }
 
-        await this.checkAndCreateAlerts(inventory, user, session);
+        alertsToCheck.push(inventory);
         results.push(inventory);
+      }
+
+      // Execute Bulk updates for existing inventories
+      const bulkOps = results.map(inv => ({
+        updateOne: {
+          filter: { _id: inv._id },
+          update: {
+            $set: {
+              totalQuantity: inv.totalQuantity,
+              availableQuantity: inv.availableQuantity,
+              reservedQuantity: inv.reservedQuantity,
+              committedQuantity: inv.committedQuantity,
+              attributeCombinations: inv.attributeCombinations,
+            }
+          }
+        }
+      }));
+
+      // Only perform bulkWrite if there are operations (some might be new ones just saved)
+      if (bulkOps.length > 0) {
+        await this.inventoryModel.bulkWrite(bulkOps, { session });
+      }
+
+      // Insert all movements in one array
+      if (movementsToInsert.length > 0) {
+        await this.movementModel.insertMany(movementsToInsert, { session });
+      }
+
+      // Check alerts (this still loops, but takes much less DB calls because it uses bulk writes internally where possible, 
+      // though eventsService creates individually. We'll await inside the loop to ensure they finish.
+      // In production this might be offloaded to an event emitter or queue)
+      for (const inv of alertsToCheck) {
+        await this.checkAndCreateAlerts(inv, user, session);
       }
 
       await session.commitTransaction();
@@ -733,7 +841,11 @@ export class InventoryService {
         message: `${results.length} registros de inventario ajustados exitosamente.`,
       };
     } catch (error) {
-      await session.abortTransaction();
+      // Avoid crash if the transaction was already aborted by the server
+      try {
+        await session.abortTransaction();
+      } catch (e) { }
+
       this.logger.error(
         `Error durante el ajuste masivo de inventario: ${error.message}`,
         error.stack,

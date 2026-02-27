@@ -1943,13 +1943,14 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     console.log('📦 Sending bulk import payload:', JSON.stringify(payload, null, 2));
 
     try {
-      await fetchApi('/products/bulk', {
+      const response = await fetchApi('/products/bulk', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
 
       setIsPreviewDialogOpen(false);
-      alert(`${payload.products.length} productos importados exitosamente.`);
+      const successMessage = response?.message || `${payload.products.length} productos importados exitosamente.`;
+      alert(successMessage);
       loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, defaultProductType); // Recargar la lista de productos
 
     } catch (error) {
@@ -2395,12 +2396,12 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="sku">SKU Principal</Label>
+                    <Label htmlFor="sku">SKU Principal (Opcional)</Label>
                     <Input
                       id="sku"
                       value={newProduct.sku}
                       onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
-                      placeholder={getDynamicPlaceholder('sku', newProduct.productType)}
+                      placeholder="Ej: PROD-001 (Automático si se deja vacío)"
                     />
                   </div>
                   <div className="space-y-2">

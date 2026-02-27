@@ -378,6 +378,7 @@ export class InventoryController {
         data: result,
       };
     } catch (error) {
+      console.error("BULK_ADJUST_ERROR_CAUGHT_IN_CONTROLLER:", error);
       throw new HttpException(
         error.message || "Error al ajustar el inventario masivamente",
         HttpStatus.BAD_REQUEST,

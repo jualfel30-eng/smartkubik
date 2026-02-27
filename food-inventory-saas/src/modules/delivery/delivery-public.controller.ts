@@ -24,7 +24,7 @@ class CalculateDeliveryPublicDto {
 @ApiTags("Delivery Public")
 @Controller("public/delivery")
 export class DeliveryPublicController {
-  constructor(private readonly deliveryService: DeliveryService) {}
+  constructor(private readonly deliveryService: DeliveryService) { }
 
   @Public()
   @Post("calculate")
@@ -52,7 +52,7 @@ export class DeliveryPublicController {
       },
     },
   })
-  async calculateDeliveryCost(@Body() dto: CalculateDeliveryPublicDto) {
+  async calculateDeliveryCost(@Body() dto: CalculateDeliveryPublicDto): Promise<any> {
     const result = await this.deliveryService.calculateDeliveryCost({
       tenantId: dto.tenantId,
       method: "delivery",

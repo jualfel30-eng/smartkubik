@@ -108,7 +108,7 @@ const initialNewContactState = {
   taxType: 'V',
   taxId: '',
   primaryLocation: null,
-  defaultPriceListId: ''
+  defaultPriceListId: 'none'
 };
 
 function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
@@ -1441,7 +1441,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       taxId: contact.taxInfo?.taxId || '',
       taxType: contact.taxInfo?.taxType || 'V',
       primaryLocation: contact.primaryLocation || null,
-      defaultPriceListId: contact.defaultPriceListId || '',
+      defaultPriceListId: contact.defaultPriceListId || 'none',
     });
     setIsEditDialogOpen(true);
   };
@@ -1464,7 +1464,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       contacts: contactsPayload,
       notes: newContact.notes,
       primaryLocation: newContact.primaryLocation,
-      defaultPriceListId: newContact.defaultPriceListId || undefined,
+      defaultPriceListId: newContact.defaultPriceListId === 'none' ? undefined : (newContact.defaultPriceListId || undefined),
     };
 
     const shouldEnsureEmployee = payload.customerType === 'employee';
@@ -1570,10 +1570,10 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     }
 
     // Compara defaultPriceListId
-    const oldPriceListId = originalContact.defaultPriceListId || '';
-    const newPriceListId = editingFormState.defaultPriceListId || '';
+    const oldPriceListId = originalContact.defaultPriceListId || 'none';
+    const newPriceListId = editingFormState.defaultPriceListId || 'none';
     if (oldPriceListId !== newPriceListId) {
-      changedFields.defaultPriceListId = newPriceListId || undefined;
+      changedFields.defaultPriceListId = newPriceListId === 'none' ? null : newPriceListId;
     }
 
     const oldTaxType = originalContact.taxInfo?.taxType || 'V';
@@ -2060,14 +2060,14 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                           <div className="col-span-2 space-y-2">
                             <Label>Lista de Precios (Opcional)</Label>
                             <Select
-                              value={newContact.defaultPriceListId}
+                              value={newContact.defaultPriceListId || 'none'}
                               onValueChange={(value) => setNewContact({ ...newContact, defaultPriceListId: value })}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="Sin lista de precios específica (usar precios base)" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">Sin lista específica</SelectItem>
+                                <SelectItem value="none">Sin lista específica</SelectItem>
                                 {priceLists.map((pl) => (
                                   <SelectItem key={pl._id} value={pl._id}>
                                     {pl.name} ({pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type})
@@ -2804,14 +2804,14 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                   <div className="col-span-2 space-y-2">
                     <Label>Lista de Precios (Opcional)</Label>
                     <Select
-                      value={editingFormState.defaultPriceListId || ''}
+                      value={editingFormState.defaultPriceListId || 'none'}
                       onValueChange={(value) => setEditingFormState({ ...editingFormState, defaultPriceListId: value })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Sin lista de precios específica (usar precios base)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Sin lista específica</SelectItem>
+                        <SelectItem value="none">Sin lista específica</SelectItem>
                         {priceLists.map((pl) => (
                           <SelectItem key={pl._id} value={pl._id}>
                             {pl.name} ({pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type})
