@@ -514,7 +514,7 @@ export class ProductsService {
               name: productDto.variantName,
               sku: productDto.variantSku || (productDto.sku ? `${productDto.sku}-VAR1` : ""),
               barcode: productDto.variantBarcode || "",
-              unit: productDto.variantUnit,
+              unit: productDto.variantUnit || "und",
               unitSize: productDto.variantUnitSize,
               basePrice: productDto.variantBasePrice,
               costPrice: productDto.variantCostPrice,
@@ -680,11 +680,30 @@ export class ProductsService {
     }
 
     // Use text score for sorting when doing text search
-    const sortOptions: Record<string, any> = useTextSearch
-      ? { score: { $meta: "textScore" }, createdAt: -1 }
-      : isSearching
-        ? { name: 1 }
-        : { createdAt: -1 };
+    let sortOptions: Record<string, any>;
+    if (useTextSearch) {
+      sortOptions = { score: { $meta: "textScore" }, createdAt: -1 };
+    } else if (isSearching) {
+      sortOptions = { name: 1 };
+    } else {
+      const sortField = query.sortBy || "createdAt";
+      const sortOrderVal = query.sortOrder === "asc" ? 1 : -1;
+
+      // Map frontend fields to database schema
+      const fieldMap: Record<string, string> = {
+        name: "name",
+        category: "category",
+        createdAt: "createdAt",
+        updatedAt: "updatedAt",
+        sku: "sku",
+        brand: "brand",
+        price: "variants.basePrice",
+        cost: "variants.costPrice",
+      };
+
+      const mappedField = fieldMap[sortField] || "createdAt";
+      sortOptions = { [mappedField]: sortOrderVal };
+    }
 
     // Trim down fields for listing to reduce payload and speed up render
     const listingFields =

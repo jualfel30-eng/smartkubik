@@ -12,6 +12,7 @@ import {
 } from "../../schemas/global-settings.schema";
 import { AuthService } from "../../auth/auth.service";
 import { FeatureFlagsService } from "../../config/feature-flags.service";
+import { getPlanLimits } from "../../config/subscriptions.config";
 import { SocialLinksService } from "../social-links/social-links.service";
 
 @Injectable()
@@ -221,7 +222,16 @@ export class SuperAdminService {
 
   async updateTenant(tenantId: string, updateData: any): Promise<any> {
     this.logger.log(`Updating tenant ID: ${tenantId}`);
-    // We should add validation here in a real app (e.g., using a DTO)
+
+    // When subscriptionPlan changes, auto-sync limits to match the new tier
+    if (updateData.subscriptionPlan) {
+      const newLimits = getPlanLimits(updateData.subscriptionPlan);
+      updateData.limits = newLimits;
+      this.logger.log(
+        `Subscription plan changed to "${updateData.subscriptionPlan}" — limits updated: maxProducts=${newLimits.maxProducts}, maxUsers=${newLimits.maxUsers}`,
+      );
+    }
+
     const updatedTenant = await this.connection
       .model("Tenant")
       .findByIdAndUpdate(tenantId, { $set: updateData }, { new: true })

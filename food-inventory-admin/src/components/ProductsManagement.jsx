@@ -53,7 +53,10 @@ import {
   Factory,
   Camera,
   Loader2,
-  Printer
+  Printer,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown
 } from 'lucide-react';
 
 const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
@@ -418,6 +421,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     name: true,
     brand: true,
     category: true,
+    isSoldByWeight: true,
     price: true,
     cost: true,
     wholesalePrice: false,
@@ -606,9 +610,12 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     }
   }, [isAddDialogOpen, unitOptions, isNonFoodRetailVertical]);
 
-  const loadProducts = useCallback(async (page = 1, limit = 25, status = 'all', search = '', category = 'all', productType = 'simple') => {
+  const [sortBy, setSortBy] = useState('createdAt');
+  const [sortOrder, setSortOrder] = useState('desc');
+
+  const loadProducts = useCallback(async (page = 1, limit = 25, status = 'all', search = '', category = 'all', productType = 'simple', currentSortBy = sortBy, currentSortOrder = sortOrder) => {
     const trimmedSearch = (search || '').trim();
-    const requestKey = JSON.stringify({ page, limit, status, search: trimmedSearch, category, productType });
+    const requestKey = JSON.stringify({ page, limit, status, search: trimmedSearch, category, productType, sortBy: currentSortBy, sortOrder: currentSortOrder });
 
     // Cancel any in-flight request to avoid stale results overriding new searches
     if (abortControllerRef.current) {
@@ -625,6 +632,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       const params = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
+        sortBy: currentSortBy,
+        sortOrder: currentSortOrder,
       });
 
       if (status === 'active') {
@@ -672,7 +681,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         setLoading(false);
       }
     }
-  }, []);
+  }, [sortBy, sortOrder]);
 
   // Reset to page 1 ONLY when filter/search values actually change (not on page/limit change)
   useEffect(() => {
@@ -681,10 +690,12 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       prev.searchTerm !== searchTerm ||
       prev.statusFilter !== statusFilter ||
       prev.filterCategory !== filterCategory ||
-      prev.defaultProductType !== defaultProductType;
+      prev.defaultProductType !== defaultProductType ||
+      prev.sortBy !== sortBy ||
+      prev.sortOrder !== sortOrder;
 
     if (filtersChanged) {
-      prevFiltersRef.current = { searchTerm, statusFilter, filterCategory, defaultProductType };
+      prevFiltersRef.current = { searchTerm, statusFilter, filterCategory, defaultProductType, sortBy, sortOrder };
       if (currentPage !== 1) {
         setCurrentPage(1);
         // Don't need to call loadProducts here — the currentPage change will trigger the load effect below
@@ -708,11 +719,11 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
     const delay = trimmedSearch ? 800 : 0;
     const timeoutId = setTimeout(() => {
-      loadProducts(currentPage, pageLimit, statusFilter, trimmedSearch, filterCategory, defaultProductType);
+      loadProducts(currentPage, pageLimit, statusFilter, trimmedSearch, filterCategory, defaultProductType, sortBy, sortOrder);
     }, delay);
 
     return () => clearTimeout(timeoutId);
-  }, [currentPage, pageLimit, statusFilter, searchTerm, filterCategory, defaultProductType, loadProducts]);
+  }, [currentPage, pageLimit, statusFilter, searchTerm, filterCategory, defaultProductType, sortBy, sortOrder, loadProducts]);
 
   // Cancel any pending fetch when the component unmounts
   useEffect(() => {
@@ -1896,22 +1907,35 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       });
 
       // Transform category and subcategory to arrays
-      if (normalizedRow.category) {
+      if (normalizedRow.category !== undefined) {
         normalizedRow.category = parseArray(normalizedRow.category);
+      } else {
+        normalizedRow.category = []; // Ensure it's always an array
       }
-      if (normalizedRow.subcategory) {
+
+      if (normalizedRow.subcategory !== undefined) {
         normalizedRow.subcategory = parseArray(normalizedRow.subcategory);
+      } else {
+        normalizedRow.subcategory = []; // Ensure it's always an array
       }
 
       // Transform boolean fields
       if (normalizedRow.isSoldByWeight !== undefined) {
         normalizedRow.isSoldByWeight = parseBoolean(normalizedRow.isSoldByWeight);
+      } else {
+        normalizedRow.isSoldByWeight = false;
       }
+
       if (normalizedRow.isPerishable !== undefined) {
         normalizedRow.isPerishable = parseBoolean(normalizedRow.isPerishable);
+      } else {
+        normalizedRow.isPerishable = false;
       }
+
       if (normalizedRow.ivaApplicable !== undefined) {
         normalizedRow.ivaApplicable = parseBoolean(normalizedRow.ivaApplicable);
+      } else {
+        normalizedRow.ivaApplicable = true; // Default to true as per backend DTO
       }
 
       // Transform numeric fields
@@ -2143,6 +2167,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
             <DropdownMenuCheckboxItem checked={visibleColumns.name} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, name: checked }))}>Producto</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.brand} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, brand: checked }))}>Marca</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.category} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, category: checked }))}>Categoría</DropdownMenuCheckboxItem>
+            {!isNonFoodRetailVertical && (
+              <DropdownMenuCheckboxItem checked={visibleColumns.isSoldByWeight} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, isSoldByWeight: checked }))}>Vendible por Peso</DropdownMenuCheckboxItem>
+            )}
             <DropdownMenuCheckboxItem checked={visibleColumns.price} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, price: checked }))}>Precio</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.cost} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, cost: checked }))}>Costo</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.wholesalePrice} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, wholesalePrice: checked }))}>P. Mayor</DropdownMenuCheckboxItem>
@@ -4049,12 +4076,127 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
             <Table>
               <TableHeader>
                 <TableRow>
-                  {visibleColumns.sku && <TableHead>SKU</TableHead>}
-                  {visibleColumns.name && <TableHead>Producto</TableHead>}
-                  {visibleColumns.brand && <TableHead>Marca</TableHead>}
-                  {visibleColumns.category && <TableHead>Categoría</TableHead>}
-                  {showSalesFields && visibleColumns.price && <TableHead className="text-right">Precio Venta</TableHead>}
-                  {visibleColumns.cost && <TableHead className="text-right">Costo</TableHead>}
+                  {visibleColumns.sku && (
+                    <TableHead
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        if (sortBy === 'sku') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('sku');
+                          setSortOrder('asc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>SKU</span>
+                        <span className="text-muted-foreground">
+                          {sortBy === 'sku' ? (sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : <ChevronsUpDown className="h-4 w-4" />}
+                        </span>
+                      </div>
+                    </TableHead>
+                  )}
+                  {visibleColumns.name && (
+                    <TableHead
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        if (sortBy === 'name') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('name');
+                          setSortOrder('asc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Producto</span>
+                        <span className="text-muted-foreground">
+                          {sortBy === 'name' ? (sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : <ChevronsUpDown className="h-4 w-4" />}
+                        </span>
+                      </div>
+                    </TableHead>
+                  )}
+                  {visibleColumns.brand && (
+                    <TableHead
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        if (sortBy === 'brand') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('brand');
+                          setSortOrder('asc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Marca</span>
+                        <span className="text-muted-foreground">
+                          {sortBy === 'brand' ? (sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : <ChevronsUpDown className="h-4 w-4" />}
+                        </span>
+                      </div>
+                    </TableHead>
+                  )}
+                  {visibleColumns.category && (
+                    <TableHead
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        if (sortBy === 'category') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('category');
+                          setSortOrder('asc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Categoría</span>
+                        <span className="text-muted-foreground">
+                          {sortBy === 'category' ? (sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : <ChevronsUpDown className="h-4 w-4" />}
+                        </span>
+                      </div>
+                    </TableHead>
+                  )}
+                  {!isNonFoodRetailVertical && visibleColumns.isSoldByWeight && <TableHead className="text-center">Por peso</TableHead>}
+                  {showSalesFields && visibleColumns.price && (
+                    <TableHead
+                      className="text-right cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        if (sortBy === 'price') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('price');
+                          setSortOrder('desc'); // Por defecto descendente para precio (más caro arriba)
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-end space-x-1">
+                        <span>Precio Venta</span>
+                        <span className="text-muted-foreground">
+                          {sortBy === 'price' ? (sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : <ChevronsUpDown className="h-4 w-4" />}
+                        </span>
+                      </div>
+                    </TableHead>
+                  )}
+                  {visibleColumns.cost && (
+                    <TableHead
+                      className="text-right cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        if (sortBy === 'cost') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('cost');
+                          setSortOrder('desc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-end space-x-1">
+                        <span>Costo</span>
+                        <span className="text-muted-foreground">
+                          {sortBy === 'cost' ? (sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : <ChevronsUpDown className="h-4 w-4" />}
+                        </span>
+                      </div>
+                    </TableHead>
+                  )}
                   {showSalesFields && visibleColumns.wholesalePrice && <TableHead className="text-right">P. Mayor</TableHead>}
                   {visibleColumns.variants && <TableHead>Variantes</TableHead>}
                   {showSalesFields && visibleColumns.promotion && <TableHead>Promoción</TableHead>}
@@ -4107,6 +4249,15 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                           suggestions={categories}
                           onSave={(val) => handleInlineUpdate(product._id, 'category', val)}
                           className="w-[120px] text-xs text-slate-500 font-medium dark:text-slate-400"
+                        />
+                      </TableCell>
+                    )}
+                    {!isNonFoodRetailVertical && visibleColumns.isSoldByWeight && (
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={product.isSoldByWeight || false}
+                          onCheckedChange={(checked) => handleInlineUpdate(product._id, 'isSoldByWeight', checked)}
+                          aria-label="Seleccionar si se vende por peso"
                         />
                       </TableCell>
                     )}

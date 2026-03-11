@@ -831,10 +831,10 @@ export class ProductQueryDto {
 
   @ApiPropertyOptional({
     description: "Ordenar por",
-    enum: ["name", "category", "createdAt", "updatedAt"],
+    enum: ["name", "category", "createdAt", "updatedAt", "sku", "brand", "price", "cost"],
   })
   @IsOptional()
-  @IsEnum(["name", "category", "createdAt", "updatedAt"])
+  @IsEnum(["name", "category", "createdAt", "updatedAt", "sku", "brand", "price", "cost"])
   sortBy?: string = "createdAt";
 
   @ApiPropertyOptional({ description: "Orden", enum: ["asc", "desc"] })

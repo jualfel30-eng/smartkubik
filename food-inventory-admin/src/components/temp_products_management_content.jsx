@@ -310,15 +310,20 @@ function ProductsManagement() {
     const dataToExport = filteredProducts.map(p => ({
       SKU: p.sku,
       Nombre: p.name,
-      Categoría: p.category,
-      Subcategoría: p.subcategory,
+      Categoría: Array.isArray(p.category) ? p.category.join(', ') : (p.category || ''),
+      Subcategoría: Array.isArray(p.subcategory) ? p.subcategory.join(', ') : (p.subcategory || ''),
       Marca: p.brand,
       Descripción: p.description,
       'Vendible por Peso': p.isSoldByWeight ? 'Sí' : 'No',
       'Unidad de Medida': p.unitOfMeasure,
       'Variante Nombre': p.variants[0]?.name,
+      'Variante SKU': p.variants[0]?.sku,
+      'Variante Código de Barras': p.variants[0]?.barcode,
+      'Variante Unidad': p.variants[0]?.unit,
+      'Variante Tamaño Unidad': p.variants[0]?.unitSize,
       'Variante Precio Costo': p.variants[0]?.costPrice,
       'Variante Precio Venta': p.variants[0]?.basePrice,
+      'Variante Precio Mayor': p.variants[0]?.wholesalePrice,
     }));
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
@@ -336,15 +341,20 @@ function ProductsManagement() {
     const dataToExport = filteredProducts.map(p => ({
       SKU: p.sku,
       Nombre: p.name,
-      Categoría: p.category,
-      Subcategoría: p.subcategory,
+      Categoría: Array.isArray(p.category) ? p.category.join(', ') : (p.category || ''),
+      Subcategoría: Array.isArray(p.subcategory) ? p.subcategory.join(', ') : (p.subcategory || ''),
       Marca: p.brand,
       Descripción: p.description,
       'Vendible por Peso': p.isSoldByWeight ? 'Sí' : 'No',
       'Unidad de Medida': p.unitOfMeasure,
       'Variante Nombre': p.variants[0]?.name,
+      'Variante SKU': p.variants[0]?.sku,
+      'Variante Código de Barras': p.variants[0]?.barcode,
+      'Variante Unidad': p.variants[0]?.unit,
+      'Variante Tamaño Unidad': p.variants[0]?.unitSize,
       'Variante Precio Costo': p.variants[0]?.costPrice,
       'Variante Precio Venta': p.variants[0]?.basePrice,
+      'Variante Precio Mayor': p.variants[0]?.wholesalePrice,
     }));
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
