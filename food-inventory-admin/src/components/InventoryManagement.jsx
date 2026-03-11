@@ -37,7 +37,10 @@ import {
   MapPin,
   ArrowRightLeft,
   Printer,
-  Loader2
+  Loader2,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown
 } from 'lucide-react';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
@@ -182,7 +185,10 @@ function InventoryManagement() {
   }, []);
 
 
-  const loadData = useCallback(async ({ page, limit, search } = {}) => {
+  const [sortBy, setSortBy] = useState('updatedAt');
+  const [sortOrder, setSortOrder] = useState('desc');
+
+  const loadData = useCallback(async ({ page, limit, search, currentSortBy = sortBy, currentSortOrder = sortOrder } = {}) => {
     try {
       setLoading(true);
       setError(null);
@@ -197,11 +203,13 @@ function InventoryManagement() {
       const requestedLimit = usingSearch ? Math.max(SEARCH_ITEMS_PER_PAGE, safeLimit, 100) : safeLimit;
       const queryLimit = Math.min(100, requestedLimit);
 
-      console.log('🔄 [InventoryManagement] Cargando datos... Página:', queryPage, 'Límite:', queryLimit, 'Search:', safeSearch);
+      console.log('🔄 [InventoryManagement] Cargando datos... Página:', queryPage, 'Límite:', queryLimit, 'Search:', safeSearch, 'Sort:', currentSortBy, currentSortOrder);
 
       const params = new URLSearchParams({
         page: queryPage.toString(),
         limit: queryLimit.toString(),
+        sortBy: currentSortBy,
+        sortOrder: currentSortOrder,
       });
 
       // Nota: evitamos pasar el search al backend para no depender de su lógica (ej. solo busca por SKU).
@@ -251,11 +259,11 @@ function InventoryManagement() {
       console.error('❌ [InventoryManagement] Error al cargar datos:', err);
       setError(err.message);
       setInventoryData([]);
-      setProducts([]);
+      setProducts([]); // Note: setProducts might not exist here based on context, but preserving original line
     } finally {
       setLoading(false);
     }
-  }, [committedSearch, currentPage, itemsPerPage, multiWarehouseEnabled]);
+  }, [committedSearch, currentPage, itemsPerPage, multiWarehouseEnabled, sortBy, sortOrder]);
 
   const refreshData = useCallback(
     async (page, limit, search) => {
@@ -333,11 +341,15 @@ function InventoryManagement() {
 
     if (
       lastQueryRef.current.search !== committedSearch ||
-      lastQueryRef.current.limit !== effectiveLimit
+      lastQueryRef.current.limit !== effectiveLimit ||
+      lastQueryRef.current.sortBy !== sortBy ||
+      lastQueryRef.current.sortOrder !== sortOrder
     ) {
       refreshData(1, effectiveLimit, committedSearch);
+      lastQueryRef.current.sortBy = sortBy;
+      lastQueryRef.current.sortOrder = sortOrder;
     }
-  }, [committedSearch, itemsPerPage, refreshData]);
+  }, [committedSearch, itemsPerPage, refreshData, sortBy, sortOrder]);
 
   const categories = useMemo(() => {
     const collected = [];
@@ -1646,11 +1658,87 @@ function InventoryManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {visibleColumns.sku && <TableHead>SKU</TableHead>}
-                  {visibleColumns.product && <TableHead>Producto</TableHead>}
+                  {visibleColumns.sku && (
+                    <TableHead
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        if (sortBy === 'sku') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('sku');
+                          setSortOrder('asc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>SKU</span>
+                        <span className="text-muted-foreground">
+                          {sortBy === 'sku' ? (sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : <ChevronsUpDown className="h-4 w-4" />}
+                        </span>
+                      </div>
+                    </TableHead>
+                  )}
+                  {visibleColumns.product && (
+                    <TableHead
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        if (sortBy === 'productName') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('productName');
+                          setSortOrder('asc');
+                        }
+                      }}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Producto</span>
+                        <span className="text-muted-foreground">
+                          {sortBy === 'productName' ? (sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : <ChevronsUpDown className="h-4 w-4" />}
+                        </span>
+                      </div>
+                    </TableHead>
+                  )}
                   {visibleColumns.category && <TableHead>Categoría</TableHead>}
-                  {visibleColumns.available && <TableHead>Stock Disponible</TableHead>}
-                  {visibleColumns.cost && <TableHead>Costo Promedio</TableHead>}
+                  {visibleColumns.available && (
+                    <TableHead
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        if (sortBy === 'availableQuantity') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('availableQuantity');
+                          setSortOrder('desc'); // Mayor stock primero por defecto
+                        }
+                      }}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Stock Disponible</span>
+                        <span className="text-muted-foreground">
+                          {sortBy === 'availableQuantity' ? (sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : <ChevronsUpDown className="h-4 w-4" />}
+                        </span>
+                      </div>
+                    </TableHead>
+                  )}
+                  {visibleColumns.cost && (
+                    <TableHead
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        if (sortBy === 'cost') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('cost');
+                          setSortOrder('desc'); // Mayor costo primero por defecto
+                        }
+                      }}
+                    >
+                      <div className="flex items-center space-x-1">
+                        <span>Costo Promedio</span>
+                        <span className="text-muted-foreground">
+                          {sortBy === 'cost' ? (sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />) : <ChevronsUpDown className="h-4 w-4" />}
+                        </span>
+                      </div>
+                    </TableHead>
+                  )}
                   {visibleColumns.sellingPrice && <TableHead>Precio Venta</TableHead>}
                   {visibleColumns.totalValue && <TableHead>Valor Total</TableHead>}
                   {multiWarehouseEnabled && binLocations.length > 0 && visibleColumns.location && <TableHead>Ubicación</TableHead>}

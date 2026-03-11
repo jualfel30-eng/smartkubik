@@ -7,6 +7,7 @@ import { RebuildProductAffinityMigration } from "./rebuild-product-affinity.migr
 import { SeedDefaultWarehousesMigration } from "./seed-default-warehouses.migration";
 import { LinkPaymentsToOrdersMigration } from "./link-payments-to-orders.migration";
 import { AddCountryCodeMigration } from "./add-country-code.migration";
+import { SeedDefaultBusinessLocationsMigration } from "./seed-default-business-locations.migration";
 
 @ApiTags("Migrations")
 @Controller("migrations")
@@ -19,6 +20,7 @@ export class MigrationsController {
     private readonly seedDefaultWarehousesMigration: SeedDefaultWarehousesMigration,
     private readonly linkPaymentsToOrdersMigration: LinkPaymentsToOrdersMigration,
     private readonly addCountryCodeMigration: AddCountryCodeMigration,
+    private readonly seedDefaultBusinessLocationsMigration: SeedDefaultBusinessLocationsMigration,
   ) {}
 
   @Post("add-marketing-permissions")
@@ -126,6 +128,25 @@ export class MigrationsController {
     return {
       success: true,
       message: `Country code migration completed: ${result.updated} tenants updated`,
+    };
+  }
+
+  @Post("seed-default-business-locations")
+  @ApiOperation({
+    summary:
+      "[SUPER ADMIN] Seed default business locations and link warehouses",
+    description:
+      "Creates a default BusinessLocation 'Sede Principal' (SEDE-001) per tenant that has warehouses, and links existing warehouses to it. Idempotent — safe to run multiple times.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Default business locations seeded successfully",
+  })
+  async seedDefaultBusinessLocations() {
+    const result = await this.seedDefaultBusinessLocationsMigration.run();
+    return {
+      success: true,
+      message: `Business locations migration completed: ${result.created} created, ${result.skipped} skipped, ${result.total} tenants processed`,
     };
   }
 }

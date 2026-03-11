@@ -29,6 +29,12 @@ export class UserTenantMembership {
 
   @Prop({ type: [String], default: [] })
   permissionsCache: string[];
+
+  @Prop({
+    type: [{ type: Types.ObjectId, ref: "BusinessLocation" }],
+    default: [],
+  })
+  allowedLocationIds: Types.ObjectId[];
 }
 
 export const UserTenantMembershipSchema =

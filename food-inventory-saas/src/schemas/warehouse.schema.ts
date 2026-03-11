@@ -31,6 +31,9 @@ export class Warehouse {
     lng?: number;
   };
 
+  @Prop({ type: Types.ObjectId, ref: "BusinessLocation" })
+  locationId?: Types.ObjectId;
+
   @Prop({ type: Boolean, default: true })
   isActive: boolean;
 

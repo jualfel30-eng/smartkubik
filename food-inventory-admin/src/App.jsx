@@ -82,6 +82,8 @@ import {
   UserCheck,
   Upload,
   Link2,
+  ArrowRightLeft,
+  MapPin,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
@@ -92,6 +94,7 @@ import { CrmProvider } from './context/CrmContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
 import { NotificationProvider, useNotification } from './context/NotificationContext.jsx';
 import { CashRegisterProvider } from './contexts/CashRegisterContext.jsx';
+import { BusinessLocationProvider } from './context/BusinessLocationContext.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
 import TrialBanner from './components/TrialBanner.jsx';
 import { CountryPluginProvider } from './country-plugins/CountryPluginContext.jsx';
@@ -173,6 +176,7 @@ import { DriverLayout } from '@/components/drivers/DriverLayout.jsx';
 import { DriverDashboard } from '@/components/drivers/DriverDashboard.jsx';
 // RubikLoader imported directly (not lazy) - it's used as the loading fallback
 import { RubikLoader } from '@/components/RubikLoader.jsx';
+import BusinessLocationSelector from '@/components/BusinessLocationSelector.jsx';
 const ServicesManagement = lazy(() => import('@/components/ServicesManagement.jsx'));
 const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.jsx'));
 const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManagement.jsx'));
@@ -206,6 +210,7 @@ const BillingSequencesManager = lazy(() => import('@/components/billing/BillingS
 const FulfillmentDashboard = lazy(() => import('@/components/fulfillment/FulfillmentDashboard.jsx').then(module => ({ default: module.FulfillmentDashboard })));
 const CashRegisterPage = lazy(() => import('./pages/CashRegisterPage.jsx'));
 const DataImportPage = lazy(() => import('./components/data-import/DataImportPage.jsx'));
+const BusinessLocationsManagement = lazy(() => import('./components/BusinessLocationsManagement.jsx'));
 
 
 // Loading fallback component - RubikLoader is now directly imported (not lazy)
@@ -396,9 +401,11 @@ function TenantLayout() {
             { name: 'Reportes', href: 'inventory-management?tab=inventory-reports', icon: AreaChart },
           ],
         },
+        { name: 'Transferencias', href: 'inventory-management?tab=transfers', icon: ArrowRightLeft, permission: 'transfer_orders_read' },
         { name: 'Compras', href: 'inventory-management?tab=purchases', icon: PackagePlus },
         { name: 'Proveedores', href: 'inventory-management?tab=suppliers', icon: UserCheck },
         { name: 'Control de Mermas', href: 'waste-control', icon: Trash2, permission: 'inventory_read' },
+        { name: 'Sedes', href: 'business-locations', icon: MapPin, permission: 'locations_read' },
       ]
     },
     { name: 'Entregas', href: 'fulfillment', icon: PackageCheck, permission: 'orders_read' },
@@ -1043,6 +1050,7 @@ function TenantLayout() {
                   {tenant?.name || 'Seleccionar organización'}
                 </Button>
               )}
+              <BusinessLocationSelector />
               <NotificationCenter />
               <ThemeToggle />
               <Button id="settings-button" variant="outline" size="icon" onClick={() => navigate('/settings')}>
@@ -1210,6 +1218,7 @@ function TenantLayout() {
                   }
                 />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="business-locations" element={<BusinessLocationsManagement />} />
                 <Route path="data-import" element={<DataImportPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="*" element={<NotFoundPage />} />
@@ -1294,11 +1303,13 @@ function AppContent() {
             element={
               <ProtectedRoute requireOrganization>
                 <ShiftProvider>
-                  <AccountingProvider>
-                    <CashRegisterProvider>
-                      <TenantLayout />
-                    </CashRegisterProvider>
-                  </AccountingProvider>
+                  <BusinessLocationProvider>
+                    <AccountingProvider>
+                      <CashRegisterProvider>
+                        <TenantLayout />
+                      </CashRegisterProvider>
+                    </AccountingProvider>
+                  </BusinessLocationProvider>
                 </ShiftProvider>
               </ProtectedRoute>
             }

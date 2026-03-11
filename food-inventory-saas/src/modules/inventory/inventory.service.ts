@@ -1223,9 +1223,21 @@ export class InventoryService {
     }
     const sortField = sortBy || "updatedAt";
     const sortDirection: SortOrder = sortOrder === "asc" ? "asc" : "desc";
-    const sortOptions: Record<string, SortOrder> = {
-      [sortField]: sortDirection,
+
+    // Map frontend fields to database schema
+    const fieldMap: Record<string, string> = {
+      productName: "productName",
+      availableQuantity: "availableQuantity",
+      updatedAt: "updatedAt",
+      sku: "productSku",
+      cost: "averageCostPrice",
     };
+
+    const mappedField = fieldMap[sortField] || fieldMap.updatedAt;
+    const sortOptions: Record<string, SortOrder> = {
+      [mappedField]: sortDirection,
+    };
+
     const skip = (pageNumber - 1) * limitNumber;
     const [inventory, total] = await Promise.all([
       this.inventoryModel

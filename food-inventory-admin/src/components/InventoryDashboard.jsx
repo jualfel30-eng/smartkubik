@@ -9,6 +9,7 @@ import InventoryMovementsPanel from '@/components/InventoryMovementsPanel.jsx';
 import InventoryAlertsPanel from '@/components/InventoryAlertsPanel.jsx';
 import SuppliersManagement from '@/components/SuppliersManagement.jsx';
 import InventoryReportsPanel from '@/components/InventoryReportsPanel.jsx';
+import TransferOrdersPanel from '@/components/TransferOrdersPanel.jsx';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 
 export default function InventoryDashboard() {
@@ -16,6 +17,7 @@ export default function InventoryDashboard() {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'products');
   const { flags } = useFeatureFlags();
   const multiWarehouseEnabled = flags.MULTI_WAREHOUSE;
+  const multiLocationEnabled = flags.MULTI_LOCATION;
 
   // Sincronizar activeTab con searchParams cuando cambia la URL
   useEffect(() => {
@@ -33,7 +35,7 @@ export default function InventoryDashboard() {
 
   // Determinar qué tab superior mostrar basado en el tab actual
   const getMainTab = () => {
-    if (['products', 'raw-materials', 'consumables', 'supplies', 'pricing-engine'].includes(activeTab)) {
+    if (['products', 'raw-materials', 'consumables', 'supplies', 'pricing-engine', 'dedup'].includes(activeTab)) {
       return 'products';
     }
     if (
@@ -47,6 +49,9 @@ export default function InventoryDashboard() {
       ].includes(activeTab)
     ) {
       return 'inventory';
+    }
+    if (activeTab === 'transfers') {
+      return 'transfers';
     }
     return activeTab || 'products';
   };
@@ -78,9 +83,10 @@ export default function InventoryDashboard() {
         <p className="text-muted-foreground">Administra tus productos, niveles de stock y órdenes de compra.</p>
       </div>
       <Tabs value={getMainTab()} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-4xl">
+        <TabsList className={`grid w-full ${multiLocationEnabled ? 'grid-cols-5' : 'grid-cols-4'} max-w-4xl`}>
           <TabsTrigger value="products">Productos</TabsTrigger>
           <TabsTrigger value="inventory">Inventario</TabsTrigger>
+          {multiLocationEnabled && <TabsTrigger value="transfers">Transferencias</TabsTrigger>}
           <TabsTrigger value="purchases">Compras</TabsTrigger>
           <TabsTrigger value="suppliers">Proveedores</TabsTrigger>
         </TabsList>
@@ -118,6 +124,11 @@ export default function InventoryDashboard() {
             )}
           </Tabs>
         </TabsContent>
+        {multiLocationEnabled && (
+          <TabsContent value="transfers" className="mt-6">
+            <TransferOrdersPanel />
+          </TabsContent>
+        )}
         <TabsContent value="purchases" className="mt-6">
           <ComprasManagement />
         </TabsContent>
