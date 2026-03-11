@@ -40,6 +40,7 @@ export interface FeatureFlags {
 
   // Inventario
   MULTI_WAREHOUSE: boolean;
+  MULTI_LOCATION: boolean;
 }
 
 /**
@@ -78,6 +79,7 @@ export const FEATURES: FeatureFlags = {
 
   // Inventario
   MULTI_WAREHOUSE: process.env.ENABLE_MULTI_WAREHOUSE === "true",
+  MULTI_LOCATION: process.env.ENABLE_MULTI_LOCATION === "true",
 };
 
 /**

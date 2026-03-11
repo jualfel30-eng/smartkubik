@@ -49,6 +49,7 @@ export const FeatureFlagsProvider = ({ children }) => {
       SERVICE_BOOKING_PORTAL: import.meta.env.VITE_ENABLE_SERVICE_BOOKING_PORTAL === 'true',
       APPOINTMENT_REMINDERS: import.meta.env.VITE_ENABLE_APPOINTMENT_REMINDERS === 'true',
       MULTI_WAREHOUSE: import.meta.env.VITE_ENABLE_MULTI_WAREHOUSE === 'true',
+      MULTI_LOCATION: import.meta.env.VITE_ENABLE_MULTI_LOCATION === 'true',
     };
     console.log('🔧 Using env vars as initial flags:', envFlags);
     return envFlags;
@@ -180,6 +181,7 @@ export const isFeatureEnabled = (featureName) => {
     SERVICE_BOOKING_PORTAL: 'VITE_ENABLE_SERVICE_BOOKING_PORTAL',
     APPOINTMENT_REMINDERS: 'VITE_ENABLE_APPOINTMENT_REMINDERS',
     MULTI_WAREHOUSE: 'VITE_ENABLE_MULTI_WAREHOUSE',
+    MULTI_LOCATION: 'VITE_ENABLE_MULTI_LOCATION',
   };
 
   const envVar = envMap[featureName];

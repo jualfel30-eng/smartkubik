@@ -329,6 +329,16 @@ export class Product {
 
   @Prop({ type: Date })
   importedAt?: Date;
+
+  // ── Merge tracking ──
+  @Prop({ type: Types.ObjectId, ref: "Product" })
+  mergedIntoProductId?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  mergedAt?: Date;
+
+  @Prop({ type: Types.ObjectId, ref: "MergeJob" })
+  mergeJobId?: Types.ObjectId;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
@@ -363,3 +373,6 @@ ProductSchema.index({ "suppliers.paymentCurrency": 1, tenantId: 1 }); // Filter 
 ProductSchema.index({ "suppliers.usesParallelRate": 1, tenantId: 1 }); // Filter by parallel rate usage
 ProductSchema.index({ "suppliers.preferredPaymentMethod": 1, tenantId: 1 }); // Filter by payment method
 ProductSchema.index({ "suppliers.supplierId": 1, tenantId: 1 }); // Filter by supplier
+
+// MERGE TRACKING: Index for finding merged products
+ProductSchema.index({ mergedIntoProductId: 1, tenantId: 1 });

@@ -2510,4 +2510,178 @@ export const deleteImportJob = (jobId) => {
   });
 };
 
+// ==================== Business Locations API ====================
+
+export const getBusinessLocations = (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  return fetchApi(`/business-locations${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getBusinessLocation = (id) => {
+  return fetchApi(`/business-locations/${id}`);
+};
+
+export const getBusinessLocationInventorySummary = (id) => {
+  return fetchApi(`/business-locations/${id}/inventory-summary`);
+};
+
+export const createBusinessLocation = (data) => {
+  return fetchApi('/business-locations', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateBusinessLocation = (id, data) => {
+  return fetchApi(`/business-locations/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteBusinessLocation = (id) => {
+  return fetchApi(`/business-locations/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// ==================== Transfer Orders API ====================
+
+export const getTransferOrders = (params = {}) => {
+  const queryString = new URLSearchParams(params).toString();
+  return fetchApi(`/transfer-orders${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getTransferOrder = (id) => {
+  return fetchApi(`/transfer-orders/${id}`);
+};
+
+export const createTransferOrder = (data) => {
+  return fetchApi('/transfer-orders', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateTransferOrder = (id, data) => {
+  return fetchApi(`/transfer-orders/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+export const requestTransferOrder = (id) => {
+  return fetchApi(`/transfer-orders/${id}/request`, {
+    method: 'POST',
+  });
+};
+
+export const approveTransferOrder = (id, data = {}) => {
+  return fetchApi(`/transfer-orders/${id}/approve`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const shipTransferOrder = (id, data = {}) => {
+  return fetchApi(`/transfer-orders/${id}/ship`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const receiveTransferOrder = (id, data) => {
+  return fetchApi(`/transfer-orders/${id}/receive`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const cancelTransferOrder = (id, data) => {
+  return fetchApi(`/transfer-orders/${id}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteTransferOrder = (id) => {
+  return fetchApi(`/transfer-orders/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// ==================== Product Deduplication API ====================
+
+export const scanDuplicates = (params = {}) => {
+  return fetchApi('/product-dedup/scan', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+};
+
+export const getDedupScans = () => {
+  return fetchApi('/product-dedup/scans');
+};
+
+export const getDuplicateGroups = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  Object.keys(params).forEach(key => {
+    if (params[key] !== undefined && params[key] !== null) {
+      queryParams.append(key, params[key]);
+    }
+  });
+  const queryString = queryParams.toString();
+  return fetchApi(`/product-dedup/groups${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getDuplicateGroup = (id) => {
+  return fetchApi(`/product-dedup/groups/${id}`);
+};
+
+export const dismissDuplicateGroup = (id) => {
+  return fetchApi(`/product-dedup/groups/${id}/dismiss`, {
+    method: 'PATCH',
+  });
+};
+
+export const mergeProducts = (groupId, data) => {
+  return fetchApi(`/product-dedup/groups/${groupId}/merge`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const bulkMergeProducts = (data) => {
+  return fetchApi('/product-dedup/bulk-merge', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const getMergeJobs = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  Object.keys(params).forEach(key => {
+    if (params[key] !== undefined && params[key] !== null) {
+      queryParams.append(key, params[key]);
+    }
+  });
+  const queryString = queryParams.toString();
+  return fetchApi(`/product-dedup/merge-jobs${queryString ? `?${queryString}` : ''}`);
+};
+
+export const getMergeJob = (id) => {
+  return fetchApi(`/product-dedup/merge-jobs/${id}`);
+};
+
+export const reverseMergeJob = (id, data) => {
+  return fetchApi(`/product-dedup/merge-jobs/${id}/reverse`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const getDedupStats = () => {
+  return fetchApi('/product-dedup/stats');
+};
+
 // ==================== IVA Declaration API ====================

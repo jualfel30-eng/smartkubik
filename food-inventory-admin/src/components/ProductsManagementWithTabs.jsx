@@ -4,7 +4,8 @@ import ProductsManagement from '@/components/ProductsManagement.jsx';
 import ConsumablesTab from '@/components/ConsumablesTab.jsx';
 import SuppliesTab from '@/components/SuppliesTab.jsx';
 import PricingEngineTab from '@/components/PricingEngineTab.jsx';
-import { Package, Layers, Wrench, Calculator, Factory } from 'lucide-react';
+import DedupTab from '@/components/product-dedup/DedupTab.jsx';
+import { Package, Layers, Wrench, Calculator, Factory, GitMerge } from 'lucide-react';
 
 /**
  * ProductsManagementWithTabs
@@ -46,6 +47,10 @@ function ProductsManagementWithTabs({ activeSubTab = 'products' }) {
           <Calculator className="h-4 w-4" />
           Motor de Precios
         </TabsTrigger>
+        <TabsTrigger value="dedup" className="gap-2">
+          <GitMerge className="h-4 w-4" />
+          Depuración
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="products">
@@ -66,6 +71,10 @@ function ProductsManagementWithTabs({ activeSubTab = 'products' }) {
 
       <TabsContent value="pricing-engine">
         <PricingEngineTab />
+      </TabsContent>
+
+      <TabsContent value="dedup">
+        <DedupTab />
       </TabsContent>
     </Tabs>
   );

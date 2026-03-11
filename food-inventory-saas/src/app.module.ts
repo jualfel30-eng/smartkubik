@@ -110,6 +110,8 @@ import { NotificationsModule } from "./modules/notifications/notifications.modul
 import { NotificationCenterModule } from "./modules/notification-center/notification-center.module";
 import { SecurityMonitoringModule } from "./modules/security-monitoring/security-monitoring.module";
 import { WarehousesModule } from "./modules/warehouses/warehouses.module";
+import { BusinessLocationsModule } from "./modules/business-locations/business-locations.module";
+import { TransferOrdersModule } from "./modules/transfer-orders/transfer-orders.module";
 import { OpportunitiesModule } from "./modules/opportunities/opportunities.module";
 import { OpportunityStagesModule } from "./modules/opportunity-stages/opportunity-stages.module";
 import { OpportunityIngestModule } from "./modules/opportunity-ingest/opportunity-ingest.module";
@@ -129,6 +131,7 @@ import { PriceListsModule } from "./modules/price-lists/price-lists.module";
 import { CountryPluginModule } from "./country-plugins/country-plugin.module";
 import { NewsletterModule } from "./modules/newsletter/newsletter.module";
 import { SocialLinksModule } from "./modules/social-links/social-links.module";
+import { ProductDedupModule } from "./modules/product-dedup/product-dedup.module";
 
 import { Redis } from "ioredis";
 
@@ -540,6 +543,8 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     NotificationCenterModule,
     SecurityMonitoringModule,
     WarehousesModule,
+    BusinessLocationsModule,
+    TransferOrdersModule,
     OpportunitiesModule,
     OpportunityStagesModule,
     OpportunityIngestModule,
@@ -556,6 +561,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     InvestmentsModule,
     DataImportModule,
     SocialLinksModule,
+    ProductDedupModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

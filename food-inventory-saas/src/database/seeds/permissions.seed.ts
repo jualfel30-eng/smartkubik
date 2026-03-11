@@ -89,6 +89,23 @@ export class PermissionsSeed {
       module: "products",
     },
 
+    // Product Deduplication
+    {
+      name: "products_dedup_read",
+      description: "Ver herramienta de depuración de productos",
+      module: "products",
+    },
+    {
+      name: "products_dedup_write",
+      description: "Ejecutar fusión de productos duplicados",
+      module: "products",
+    },
+    {
+      name: "products_dedup_admin",
+      description: "Ejecutar merge masivo y revertir fusiones",
+      module: "products",
+    },
+
     // Inventory
     {
       name: "inventory_read",
@@ -573,6 +590,35 @@ export class PermissionsSeed {
       name: "appointments_delete",
       description: "Eliminar citas y reservaciones",
       module: "appointments",
+    },
+
+    // Business Locations (Multi-sede)
+    {
+      name: "locations_read",
+      description: "Ver sedes/ubicaciones",
+      module: "locations",
+    },
+    {
+      name: "locations_write",
+      description: "Gestionar sedes/ubicaciones",
+      module: "locations",
+    },
+
+    // Transfer Orders (Transferencias entre sedes)
+    {
+      name: "transfer_orders_read",
+      description: "Ver órdenes de transferencia",
+      module: "transfer_orders",
+    },
+    {
+      name: "transfer_orders_write",
+      description: "Crear y gestionar órdenes de transferencia",
+      module: "transfer_orders",
+    },
+    {
+      name: "transfer_orders_approve",
+      description: "Aprobar órdenes de transferencia",
+      module: "transfer_orders",
     },
   ];
 

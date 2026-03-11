@@ -41,6 +41,10 @@ export const FEATURES = {
   // Inventario: Multi-Almacén
   MULTI_WAREHOUSE:
     import.meta.env.VITE_ENABLE_MULTI_WAREHOUSE === 'true',
+
+  // Inventario: Multi-Sede / Multi-Location
+  MULTI_LOCATION:
+    import.meta.env.VITE_ENABLE_MULTI_LOCATION === 'true',
 };
 
 /**

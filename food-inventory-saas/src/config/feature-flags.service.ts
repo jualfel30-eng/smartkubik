@@ -34,6 +34,7 @@ export class FeatureFlagsService {
     ENABLE_SERVICE_BOOKING_PORTAL: "SERVICE_BOOKING_PORTAL",
     ENABLE_APPOINTMENT_REMINDERS: "APPOINTMENT_REMINDERS",
     ENABLE_MULTI_WAREHOUSE: "MULTI_WAREHOUSE",
+    ENABLE_MULTI_LOCATION: "MULTI_LOCATION",
   };
 
   constructor(
@@ -108,6 +109,9 @@ export class FeatureFlagsService {
         MULTI_WAREHOUSE:
           settingsMap.get("ENABLE_MULTI_WAREHOUSE") ??
           process.env.ENABLE_MULTI_WAREHOUSE === "true",
+        MULTI_LOCATION:
+          settingsMap.get("ENABLE_MULTI_LOCATION") ??
+          process.env.ENABLE_MULTI_LOCATION === "true",
       };
 
       this.cache = flags;
@@ -232,6 +236,7 @@ export class FeatureFlagsService {
       APPOINTMENT_REMINDERS:
         process.env.ENABLE_APPOINTMENT_REMINDERS === "true",
       MULTI_WAREHOUSE: process.env.ENABLE_MULTI_WAREHOUSE === "true",
+      MULTI_LOCATION: process.env.ENABLE_MULTI_LOCATION === "true",
     };
   }
 
