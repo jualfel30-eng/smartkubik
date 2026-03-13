@@ -211,7 +211,7 @@ const FulfillmentDashboard = lazy(() => import('@/components/fulfillment/Fulfill
 const CashRegisterPage = lazy(() => import('./pages/CashRegisterPage.jsx'));
 const DataImportPage = lazy(() => import('./components/data-import/DataImportPage.jsx'));
 const BusinessLocationsManagement = lazy(() => import('./components/BusinessLocationsManagement.jsx'));
-
+const SubsidiariesPanel = lazy(() => import('./components/SubsidiariesPanel.jsx'));
 
 // Loading fallback component - RubikLoader is now directly imported (not lazy)
 const LoadingFallback = () => (
@@ -359,6 +359,7 @@ function TenantLayout() {
 
   const navLinks = [
     { name: 'Panel de Control', href: 'dashboard', icon: LayoutDashboard, permission: 'dashboard_read' },
+    { name: 'Mis Sedes', href: 'subsidiaries', icon: MapPin, permission: 'dashboard_read', requiresSubsidiaries: true },
 
     // 1. Módulos Operativos
     {
@@ -405,7 +406,7 @@ function TenantLayout() {
         { name: 'Compras', href: 'inventory-management?tab=purchases', icon: PackagePlus },
         { name: 'Proveedores', href: 'inventory-management?tab=suppliers', icon: UserCheck },
         { name: 'Control de Mermas', href: 'waste-control', icon: Trash2, permission: 'inventory_read' },
-        { name: 'Sedes', href: 'business-locations', icon: MapPin, permission: 'locations_read' },
+        { name: 'Sedes', href: 'business-locations', icon: MapPin, permission: 'inventory_read' },
       ]
     },
     { name: 'Entregas', href: 'fulfillment', icon: PackageCheck, permission: 'orders_read' },
@@ -774,6 +775,16 @@ function TenantLayout() {
         return null;
       }
 
+      if (item.requiresSubsidiaries) {
+        // Show "Mis Sedes" only if this tenant is a parent or a subsidiary
+        const isParent = memberships.some(
+          (m) => m.tenant?.parentTenantId && m.tenant.parentTenantId === (tenant?._id || tenant?.id)
+        );
+        if (!isParent && !tenant?.isSubsidiary) {
+          return null;
+        }
+      }
+
       if (item.permission && !hasPermission(item.permission)) {
         return null;
       }
@@ -927,9 +938,14 @@ function TenantLayout() {
               className=""
               onClick={openTenantDialog}
             >
-              <Building2 strokeWidth={1.25} />
-              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">
+              {tenant?.isSubsidiary ? <MapPin strokeWidth={1.25} /> : <Building2 strokeWidth={1.25} />}
+              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden flex items-center gap-1.5">
                 {tenant?.name || 'Seleccionar organización'}
+                {tenant?.isSubsidiary && (
+                  <span className="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300 ring-1 ring-inset ring-blue-700/10 dark:ring-blue-300/20">
+                    Sede
+                  </span>
+                )}
               </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -1219,6 +1235,7 @@ function TenantLayout() {
                 />
                 <Route path="settings" element={<SettingsPage />} />
                 <Route path="business-locations" element={<BusinessLocationsManagement />} />
+                <Route path="subsidiaries" element={<SubsidiariesPanel />} />
                 <Route path="data-import" element={<DataImportPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="*" element={<NotFoundPage />} />

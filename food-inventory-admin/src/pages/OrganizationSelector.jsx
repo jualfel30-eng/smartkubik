@@ -4,7 +4,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/components/ThemeProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building, Plus, ChevronRight, LogOut } from 'lucide-react';
+import { Building, Plus, ChevronRight, LogOut, MapPin } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import SmartKubikLogoLight from '@/assets/logo-smartkubik-light.png';
@@ -361,45 +362,123 @@ export default function OrganizationSelector() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {memberships.map((membership, index) => (
-                <Card
-                  key={membership._id || membership.id || `membership-${index}`}
-                  className="cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => handleSelectOrganization(membership)}
-                >
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-primary/10">
-                          <Building className="h-6 w-6 text-primary" />
+            <div className="space-y-6">
+              {(() => {
+                // Group memberships: parents with their children underneath
+                const parents = [];
+                const subsidiaries = [];
+                const standalone = [];
+
+                memberships.forEach((m) => {
+                  const tenantId = m.tenant?._id || m.tenant?.id || m.tenantId;
+                  const parentId = m.tenant?.parentTenantId;
+                  const isSub = m.tenant?.isSubsidiary;
+
+                  if (isSub && parentId) {
+                    subsidiaries.push({ ...m, _parentId: parentId, _tenantId: tenantId });
+                  } else {
+                    // Check if any other membership is a child of this one
+                    const hasChildren = memberships.some((other) => {
+                      const otherId = other.tenant?._id || other.tenant?.id || other.tenantId;
+                      return otherId !== tenantId && other.tenant?.parentTenantId === tenantId;
+                    });
+                    if (hasChildren) {
+                      parents.push({ ...m, _tenantId: tenantId });
+                    } else {
+                      standalone.push({ ...m, _tenantId: tenantId });
+                    }
+                  }
+                });
+
+                const renderCard = (membership, index, isChild = false) => {
+                  const isSub = membership.tenant?.isSubsidiary;
+                  const Icon = isSub ? MapPin : Building;
+
+                  return (
+                    <Card
+                      key={membership._id || membership.id || `membership-${index}`}
+                      className={`cursor-pointer hover:shadow-lg transition-shadow ${isChild ? 'border-l-4 border-l-primary/30' : ''}`}
+                      onClick={() => handleSelectOrganization(membership)}
+                    >
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-lg ${isSub ? 'bg-blue-500/10' : 'bg-primary/10'}`}>
+                              <Icon className={`h-5 w-5 ${isSub ? 'text-blue-500' : 'text-primary'}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <CardTitle className="text-base line-clamp-2 break-words leading-tight">
+                                  {membership.tenant?.name || 'Sin nombre'}
+                                </CardTitle>
+                                {isSub && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
+                                    Sede
+                                  </Badge>
+                                )}
+                              </div>
+                              <CardDescription className="text-xs mt-0.5">
+                                {membership.role === 'owner' ? 'Propietario' :
+                                  membership.role === 'admin' ? 'Administrador' :
+                                    'Miembro'}
+                              </CardDescription>
+                            </div>
+                          </div>
+                          <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <CardTitle className="text-lg line-clamp-2 break-words leading-tight">
-                            {membership.tenant?.name || 'Sin nombre'}
-                          </CardTitle>
-                          <CardDescription className="text-xs mt-1">
-                            {membership.role === 'owner' ? 'Propietario' :
-                              membership.role === 'admin' ? 'Administrador' :
-                                'Miembro'}
-                          </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="text-sm text-muted-foreground space-y-1">
+                          {membership.tenant?.address && (
+                            <p className="truncate">{membership.tenant.address}</p>
+                          )}
                         </div>
+                      </CardContent>
+                    </Card>
+                  );
+                };
+
+                return (
+                  <>
+                    {/* Parent organizations with their subsidiaries */}
+                    {parents.map((parent, pi) => {
+                      const children = subsidiaries.filter(
+                        (s) => s._parentId === parent._tenantId
+                      );
+                      return (
+                        <div key={parent._tenantId || `parent-${pi}`}>
+                          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                            {renderCard(parent, `p-${pi}`)}
+                            {children.map((child, ci) =>
+                              renderCard(child, `c-${pi}-${ci}`, true)
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Orphan subsidiaries (parent not in memberships) */}
+                    {(() => {
+                      const orphanSubs = subsidiaries.filter(
+                        (s) => !parents.some((p) => p._tenantId === s._parentId)
+                      );
+                      if (orphanSubs.length === 0) return null;
+                      return (
+                        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                          {orphanSubs.map((m, i) => renderCard(m, `orphan-${i}`, true))}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Standalone organizations (no parent, no children) */}
+                    {standalone.length > 0 && (
+                      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        {standalone.map((m, i) => renderCard(m, `standalone-${i}`))}
                       </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-sm text-muted-foreground space-y-1">
-                      {membership.tenant?.address && (
-                        <p className="truncate">{membership.tenant.address}</p>
-                      )}
-                      {membership.tenant?.phone && (
-                        <p>{membership.tenant.phone}</p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>

@@ -2684,4 +2684,14 @@ export const getDedupStats = () => {
   return fetchApi('/product-dedup/stats');
 };
 
+// ==================== Subsidiaries (Multi-Sede) API ====================
+
+export const getSubsidiaries = () => {
+  return fetchApi('/organizations/subsidiaries');
+};
+
+export const getConsolidatedDashboard = () => {
+  return fetchApi('/organizations/subsidiaries/dashboard');
+};
+
 // ==================== IVA Declaration API ====================
