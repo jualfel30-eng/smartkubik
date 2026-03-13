@@ -781,7 +781,7 @@ export default function ComprasManagement() {
     }
     if (selectedOption.__isNew__) {
       const [type, ...rifParts] = selectedOption.label.split('-');
-      setSupplierRifInput('');
+      // NO limpiar supplierRifInput aquí - mantener el valor visible para el usuario
       const cleanRif = rifParts.join('').replace(/[^0-9]/g, '');
       setPo(prev => {
         const normalizedTaxType = (type || prev.taxType || 'J').toUpperCase();
@@ -794,13 +794,15 @@ export default function ComprasManagement() {
         };
       });
     } else {
-      setSupplierRifInput('');
+      // Solo limpiar cuando se selecciona un proveedor existente
       const { customer } = selectedOption;
       // Extract tax type and RIF number from taxId (format: "J-12345678")
       const fullRif = customer.taxInfo?.taxId || '';
       const [taxType, ...rifParts] = fullRif.split('-');
       const rifNumber = rifParts.join('').replace(/[^0-9]/g, '');
 
+      // Actualizar el input para mostrar el RIF del proveedor seleccionado
+      setSupplierRifInput(rifNumber);
       setPo(prev => ({
         ...prev,
         supplierId: customer._id,
@@ -814,16 +816,8 @@ export default function ComprasManagement() {
     }
   };
 
-  const handleSupplierNameInputChange = (inputValue = '', actionMeta) => {
-    if (actionMeta?.action === 'clear-input') {
-      setSupplierNameInput('');
-      return;
-    }
-
-    if (actionMeta?.action && actionMeta.action !== 'input-change') {
-      return;
-    }
-
+  const handleSupplierNameInputChange = (inputValue = '') => {
+    // Siguiendo el patrón del POS: no filtrar por actionMeta, siempre actualizar el input
     setSupplierNameInput(inputValue);
 
     if (inputValue) {
@@ -835,50 +829,44 @@ export default function ComprasManagement() {
     }
   };
 
-  const handleSupplierRifInputChange = (inputValue = '', actionMeta) => {
-    if (actionMeta?.action === 'clear-input') {
-      setSupplierRifInput('');
-      return;
-    }
-
-    if (actionMeta?.action && actionMeta.action !== 'input-change') {
-      return;
-    }
-
+  const handleSupplierRifInputChange = (inputValue = '') => {
+    // Siguiendo el patrón del POS: no filtrar por actionMeta, siempre actualizar el input
     const sanitized = inputValue.replace(/\s+/g, '').toUpperCase();
     setSupplierRifInput(sanitized);
 
-    setPo(prev => {
-      if (!sanitized) {
+    // Solo actualizar el estado si hay valor
+    if (sanitized) {
+      setPo(prev => {
+        let taxType = prev.taxType || 'J';
+        let rifNumber = sanitized;
+
+        const dashParts = sanitized.split('-').filter(Boolean);
+        if (dashParts.length > 1 && /^[JVEGPN]$/.test(dashParts[0])) {
+          taxType = dashParts[0];
+          rifNumber = dashParts.slice(1).join('-');
+        } else if (/^[JVEGPN]\d/.test(sanitized)) {
+          taxType = sanitized.charAt(0);
+          rifNumber = sanitized.slice(1);
+        }
+
+        rifNumber = rifNumber.replace(/[^0-9]/g, '');
+
         return {
           ...prev,
           supplierId: '',
-          supplierRif: '',
-          taxType: prev.taxType || 'J',
+          supplierRif: rifNumber,
+          taxType,
         };
-      }
-
-      let taxType = prev.taxType || 'J';
-      let rifNumber = sanitized;
-
-      const dashParts = sanitized.split('-').filter(Boolean);
-      if (dashParts.length > 1 && /^[JVEGPN]$/.test(dashParts[0])) {
-        taxType = dashParts[0];
-        rifNumber = dashParts.slice(1).join('-');
-      } else if (/^[JVEGPN]\d/.test(sanitized)) {
-        taxType = sanitized.charAt(0);
-        rifNumber = sanitized.slice(1);
-      }
-
-      rifNumber = rifNumber.replace(/[^0-9]/g, '');
-
-      return {
+      });
+    } else {
+      // Si está vacío, limpiar
+      setPo(prev => ({
         ...prev,
         supplierId: '',
-        supplierRif: rifNumber,
-        taxType,
-      };
-    });
+        supplierRif: '',
+        taxType: prev.taxType || 'J',
+      }));
+    }
   };
 
   const handleFieldChange = (field, value) => {
@@ -1320,21 +1308,19 @@ export default function ComprasManagement() {
                           <SelectItem value="N">N</SelectItem>
                         </SelectContent>
                       </Select>
-                      <div className="flex-grow">
-                        <SearchableSelect
-                          isCreatable
-                          options={supplierRifOptions}
-                          onSelection={handleRifSelection}
-                          onInputChange={(value) => {
-                            const formatted = formatRifInput(value, po.taxType);
-                            handleSupplierRifInputChange(formatted);
-                          }}
-                          inputValue={supplierRifInput}
-                          value={po.supplierRif ? { value: po.supplierId || po.supplierRif, label: po.supplierRif } : null}
-                          placeholder="Escriba para buscar RIF..."
-                          customControlClass="flex h-10 w-full rounded-l-none rounded-r-md !border-0 bg-input-background px-3 py-2 text-sm ring-offset-background"
-                        />
-                      </div>
+                      <Input
+                        value={po.supplierRif || ''}
+                        onChange={(e) => {
+                          const formatted = formatRifInput(e.target.value, po.taxType);
+                          setPo(prev => ({
+                            ...prev,
+                            supplierRif: formatted.replace(/[^0-9-]/g, ''),
+                            supplierId: '', // Reset supplier ID when typing
+                          }));
+                        }}
+                        placeholder="12345678-9"
+                        className="flex-1 rounded-l-none !border-0"
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
