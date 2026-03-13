@@ -17,6 +17,8 @@ export interface MembershipSummary {
     id: string;
     name: string;
     status: string;
+    parentTenantId?: string;
+    isSubsidiary?: boolean;
   };
   role: {
     id: string;
@@ -170,6 +172,8 @@ export class MembershipsService {
             id: tenantDoc._id.toString(),
             name: tenantDoc.name,
             status: tenantDoc.status,
+            parentTenantId: (tenantDoc as any).parentTenantId?.toString() || undefined,
+            isSubsidiary: (tenantDoc as any).isSubsidiary || false,
           }
         : {
             id: "",

@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { Document } from "mongoose";
+import { Document, Types } from "mongoose";
 import { safeEncrypt } from "../utils/encryption.util";
 
 export type TenantDocument = Tenant & Document;
@@ -585,6 +585,13 @@ export class Tenant {
 
   @Prop({ type: Date })
   onboardingCompletedAt?: Date;
+
+  // ── Multi-sede (subsidiary tenant) ──────────────────────────
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: false })
+  parentTenantId?: Types.ObjectId;
+
+  @Prop({ type: Boolean, default: false })
+  isSubsidiary: boolean;
 }
 
 export const TenantSchema = SchemaFactory.createForClass(Tenant);
@@ -648,3 +655,7 @@ TenantSchema.index({ status: 1 });
 TenantSchema.index({ subscriptionPlan: 1 });
 TenantSchema.index({ subscriptionExpiresAt: 1 });
 TenantSchema.index({ trialEndDate: 1 });
+TenantSchema.index(
+  { parentTenantId: 1 },
+  { sparse: true },
+);

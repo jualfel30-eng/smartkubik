@@ -67,14 +67,21 @@ export class TransferOrder {
   })
   status: TransferOrderStatus;
 
-  @Prop({ type: Types.ObjectId, ref: "BusinessLocation", required: true })
-  sourceLocationId: Types.ObjectId;
+  // Cross-tenant transfer support (optional — backwards compatible)
+  @Prop({ type: Types.ObjectId, ref: "Tenant" })
+  sourceTenantId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: "Tenant" })
+  destinationTenantId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: "BusinessLocation" })
+  sourceLocationId?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: "Warehouse", required: true })
   sourceWarehouseId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: "BusinessLocation", required: true })
-  destinationLocationId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: "BusinessLocation" })
+  destinationLocationId?: Types.ObjectId;
 
   @Prop({ type: Types.ObjectId, ref: "Warehouse", required: true })
   destinationWarehouseId: Types.ObjectId;
@@ -147,3 +154,8 @@ TransferOrderSchema.index({ tenantId: 1, status: 1 });
 TransferOrderSchema.index({ tenantId: 1, sourceLocationId: 1 });
 TransferOrderSchema.index({ tenantId: 1, destinationLocationId: 1 });
 TransferOrderSchema.index({ tenantId: 1, createdAt: -1 });
+TransferOrderSchema.index({ sourceTenantId: 1, status: 1 }, { sparse: true });
+TransferOrderSchema.index(
+  { destinationTenantId: 1, status: 1 },
+  { sparse: true },
+);

@@ -18,8 +18,11 @@ import {
   InventoryMovement,
   InventoryMovementSchema,
 } from "../../schemas/inventory.schema";
+import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
+import { Product, ProductSchema } from "../../schemas/product.schema";
 import { TransferOrdersService } from "./transfer-orders.service";
 import { TransferOrdersController } from "./transfer-orders.controller";
+import { OrganizationsModule } from "../organizations/organizations.module";
 
 @Module({
   imports: [
@@ -29,7 +32,10 @@ import { TransferOrdersController } from "./transfer-orders.controller";
       { name: Warehouse.name, schema: WarehouseSchema },
       { name: Inventory.name, schema: InventorySchema },
       { name: InventoryMovement.name, schema: InventoryMovementSchema },
+      { name: Tenant.name, schema: TenantSchema },
+      { name: Product.name, schema: ProductSchema },
     ]),
+    OrganizationsModule,
   ],
   controllers: [TransferOrdersController],
   providers: [TransferOrdersService],

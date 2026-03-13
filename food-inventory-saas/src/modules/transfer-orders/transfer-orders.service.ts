@@ -25,6 +25,8 @@ import {
   InventoryMovement,
   InventoryMovementDocument,
 } from "../../schemas/inventory.schema";
+import { Product, ProductDocument } from "../../schemas/product.schema";
+import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import {
   CreateTransferOrderDto,
   UpdateTransferOrderDto,
@@ -34,6 +36,7 @@ import {
   CancelTransferOrderDto,
   TransferOrderFilterDto,
 } from "../../dto/transfer-order.dto";
+import { OrganizationsService } from "../organizations/organizations.service";
 
 @Injectable()
 export class TransferOrdersService {
@@ -48,6 +51,11 @@ export class TransferOrdersService {
     private readonly inventoryModel: Model<InventoryDocument>,
     @InjectModel(InventoryMovement.name)
     private readonly movementModel: Model<InventoryMovementDocument>,
+    @InjectModel(Product.name)
+    private readonly productModel: Model<ProductDocument>,
+    @InjectModel(Tenant.name)
+    private readonly tenantModel: Model<TenantDocument>,
+    private readonly organizationsService: OrganizationsService,
   ) {}
 
   // ─── Helpers ────────────────────────────────────────────
@@ -71,13 +79,21 @@ export class TransferOrdersService {
     }
   }
 
+  /**
+   * Find order by ID — supports cross-tenant (matches tenantId OR destinationTenantId)
+   */
   private async findOrderOrFail(
     id: string,
     tenantId: string,
   ): Promise<TransferOrderDocument> {
+    const tenantOid = new Types.ObjectId(tenantId);
     const order = await this.transferOrderModel.findOne({
       _id: id,
-      tenantId,
+      $or: [
+        { tenantId: tenantOid },
+        { tenantId: tenantId },
+        { destinationTenantId: tenantOid },
+      ],
       isDeleted: false,
     });
     if (!order) {
@@ -86,10 +102,30 @@ export class TransferOrdersService {
     return order;
   }
 
+  /**
+   * Check if a transfer is cross-tenant
+   */
+  private isCrossTenant(order: TransferOrderDocument): boolean {
+    return !!(
+      order.destinationTenantId &&
+      order.tenantId.toString() !== order.destinationTenantId.toString()
+    );
+  }
+
   // ─── CRUD ───────────────────────────────────────────────
 
   async findAll(tenantId: string, filters: TransferOrderFilterDto) {
-    const query: any = { tenantId, isDeleted: false };
+    const tenantOid = new Types.ObjectId(tenantId);
+
+    // Show transfers where this tenant is source OR destination
+    const query: any = {
+      $or: [
+        { tenantId: tenantOid },
+        { tenantId: tenantId },
+        { destinationTenantId: tenantOid },
+      ],
+      isDeleted: false,
+    };
 
     if (filters.status) query.status = filters.status;
     if (filters.sourceLocationId)
@@ -116,6 +152,8 @@ export class TransferOrdersService {
         .populate("destinationLocationId", "name code")
         .populate("sourceWarehouseId", "name code")
         .populate("destinationWarehouseId", "name code")
+        .populate("sourceTenantId", "name")
+        .populate("destinationTenantId", "name")
         .populate("requestedBy", "firstName lastName")
         .populate("createdBy", "firstName lastName")
         .sort({ createdAt: -1 })
@@ -137,12 +175,23 @@ export class TransferOrdersService {
   }
 
   async findById(id: string, tenantId: string) {
+    const tenantOid = new Types.ObjectId(tenantId);
     const order = await this.transferOrderModel
-      .findOne({ _id: id, tenantId, isDeleted: false })
+      .findOne({
+        _id: id,
+        $or: [
+          { tenantId: tenantOid },
+          { tenantId: tenantId },
+          { destinationTenantId: tenantOid },
+        ],
+        isDeleted: false,
+      })
       .populate("sourceLocationId", "name code type")
       .populate("destinationLocationId", "name code type")
       .populate("sourceWarehouseId", "name code")
       .populate("destinationWarehouseId", "name code")
+      .populate("sourceTenantId", "name")
+      .populate("destinationTenantId", "name")
       .populate("requestedBy", "firstName lastName email")
       .populate("approvedBy", "firstName lastName email")
       .populate("shippedBy", "firstName lastName email")
@@ -162,58 +211,55 @@ export class TransferOrdersService {
     tenantId: string,
     userId: string,
   ): Promise<TransferOrderDocument> {
-    // Validate source != destination
-    if (dto.sourceLocationId === dto.destinationLocationId) {
-      throw new BadRequestException(
-        "La sede origen y destino no pueden ser la misma.",
+    const isCrossTenant =
+      dto.destinationTenantId &&
+      dto.destinationTenantId !== tenantId;
+
+    // For cross-tenant: validate both tenants belong to the same family
+    if (isCrossTenant) {
+      const familyIds =
+        await this.organizationsService.getFamilyTenantIds(tenantId);
+      const destInFamily = familyIds.some(
+        (fid) => fid.toString() === dto.destinationTenantId,
       );
+      if (!destInFamily) {
+        throw new BadRequestException(
+          "El tenant destino no pertenece al mismo grupo de sedes.",
+        );
+      }
     }
 
-    // Validate locations exist
-    const [sourceLocation, destLocation] = await Promise.all([
-      this.locationModel
-        .findOne({
-          _id: dto.sourceLocationId,
-          tenantId,
-          isDeleted: false,
-        })
-        .lean(),
-      this.locationModel
-        .findOne({
-          _id: dto.destinationLocationId,
-          tenantId,
-          isDeleted: false,
-        })
-        .lean(),
-    ]);
-
-    if (!sourceLocation)
-      throw new NotFoundException("Sede origen no encontrada.");
-    if (!destLocation)
-      throw new NotFoundException("Sede destino no encontrada.");
-
-    // Validate warehouses exist and belong to their locations
-    const [sourceWarehouse, destWarehouse] = await Promise.all([
-      this.warehouseModel
-        .findOne({
-          _id: dto.sourceWarehouseId,
-          tenantId,
-          isDeleted: { $ne: true },
-        })
-        .lean(),
-      this.warehouseModel
-        .findOne({
-          _id: dto.destinationWarehouseId,
-          tenantId,
-          isDeleted: { $ne: true },
-        })
-        .lean(),
-    ]);
-
+    // Validate source warehouse exists in source tenant
+    const sourceWarehouse = await this.warehouseModel
+      .findOne({
+        _id: dto.sourceWarehouseId,
+        tenantId,
+        isDeleted: { $ne: true },
+      })
+      .lean();
     if (!sourceWarehouse)
       throw new NotFoundException("Almacén origen no encontrado.");
+
+    // Validate destination warehouse exists in destination tenant
+    const destTenantId = isCrossTenant ? dto.destinationTenantId : tenantId;
+    const destWarehouse = await this.warehouseModel
+      .findOne({
+        _id: dto.destinationWarehouseId,
+        tenantId: destTenantId,
+        isDeleted: { $ne: true },
+      })
+      .lean();
     if (!destWarehouse)
       throw new NotFoundException("Almacén destino no encontrado.");
+
+    // Validate locations if provided (intra-tenant)
+    if (dto.sourceLocationId && dto.destinationLocationId && !isCrossTenant) {
+      if (dto.sourceLocationId === dto.destinationLocationId) {
+        throw new BadRequestException(
+          "La sede origen y destino no pueden ser la misma.",
+        );
+      }
+    }
 
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException(
@@ -224,13 +270,12 @@ export class TransferOrdersService {
     const orderNumber = await this.generateOrderNumber(tenantId);
     const userOid = new Types.ObjectId(userId);
 
-    const order = new this.transferOrderModel({
+    const orderData: any = {
       orderNumber,
       status: TransferOrderStatus.DRAFT,
-      sourceLocationId: new Types.ObjectId(dto.sourceLocationId),
       sourceWarehouseId: new Types.ObjectId(dto.sourceWarehouseId),
-      destinationLocationId: new Types.ObjectId(dto.destinationLocationId),
       destinationWarehouseId: new Types.ObjectId(dto.destinationWarehouseId),
+      sourceTenantId: new Types.ObjectId(tenantId),
       items: dto.items.map((item) => ({
         productId: new Types.ObjectId(item.productId),
         productSku: item.productSku,
@@ -248,8 +293,25 @@ export class TransferOrdersService {
       reference: dto.reference,
       tenantId,
       createdBy: userOid,
-    });
+    };
 
+    if (dto.sourceLocationId) {
+      orderData.sourceLocationId = new Types.ObjectId(dto.sourceLocationId);
+    }
+    if (dto.destinationLocationId) {
+      orderData.destinationLocationId = new Types.ObjectId(
+        dto.destinationLocationId,
+      );
+    }
+    if (isCrossTenant) {
+      orderData.destinationTenantId = new Types.ObjectId(
+        dto.destinationTenantId,
+      );
+    } else {
+      orderData.destinationTenantId = new Types.ObjectId(tenantId);
+    }
+
+    const order = new this.transferOrderModel(orderData);
     return order.save();
   }
 
@@ -390,13 +452,14 @@ export class TransferOrdersService {
     const order = await this.findOrderOrFail(id, tenantId);
     this.assertStatus(order, [TransferOrderStatus.APPROVED], "despachar");
 
-    const tenantOid = new Types.ObjectId(tenantId);
+    // Source tenant is always the order's tenantId (the creator)
+    const sourceTenantId = order.tenantId.toString();
+    const sourceTenantOid = new Types.ObjectId(sourceTenantId);
     const userOid = new Types.ObjectId(userId);
     const transferId = uuidv4();
 
     // Determine shipped quantities
     for (const item of order.items) {
-      // Check if dto overrides the shipped quantity
       const dtoItem = dto.items?.find((i) => {
         const match = i.productId === item.productId.toString();
         if (i.variantId) {
@@ -419,7 +482,7 @@ export class TransferOrdersService {
       const sourceInventory = await this.inventoryModel.findOne({
         productId: item.productId,
         warehouseId: order.sourceWarehouseId,
-        tenantId: { $in: [tenantId, tenantOid] },
+        tenantId: { $in: [sourceTenantId, sourceTenantOid] },
       });
 
       if (!sourceInventory) {
@@ -453,7 +516,7 @@ export class TransferOrdersService {
         quantity: qty,
         unitCost,
         totalCost: qty * unitCost,
-        reason: `Despacho transferencia ${order.orderNumber} → ${(order as any).destinationLocationId?.name || "destino"}`,
+        reason: `Despacho transferencia ${order.orderNumber}`,
         reference: order.orderNumber,
         transferId,
         sourceWarehouseId: order.sourceWarehouseId,
@@ -465,7 +528,7 @@ export class TransferOrdersService {
           averageCostPrice: sourceInventory.averageCostPrice,
         },
         createdBy: userOid,
-        tenantId: tenantOid,
+        tenantId: sourceTenantOid,
       });
     }
 
@@ -496,7 +559,18 @@ export class TransferOrdersService {
       "recibir",
     );
 
-    const tenantOid = new Types.ObjectId(tenantId);
+    const crossTenant = this.isCrossTenant(order);
+
+    // Destination tenant: for cross-tenant use destinationTenantId, otherwise order's tenantId
+    const destTenantId = crossTenant
+      ? order.destinationTenantId!.toString()
+      : order.tenantId.toString();
+    const destTenantOid = new Types.ObjectId(destTenantId);
+
+    // Source tenant for looking up OUT movements
+    const sourceTenantId = order.tenantId.toString();
+    const sourceTenantOid = new Types.ObjectId(sourceTenantId);
+
     const userOid = new Types.ObjectId(userId);
 
     // Find the transferId from the OUT movements created during ship
@@ -504,7 +578,7 @@ export class TransferOrdersService {
       .findOne({
         reference: order.orderNumber,
         sourceWarehouseId: order.sourceWarehouseId,
-        tenantId: { $in: [tenantId, tenantOid] },
+        tenantId: { $in: [sourceTenantId, sourceTenantOid] },
         movementType: "TRANSFER",
       })
       .lean();
@@ -543,11 +617,27 @@ export class TransferOrdersService {
 
       if (receiveItem.receivedQuantity <= 0) continue;
 
+      // For cross-tenant: find the matching product in dest tenant by SKU
+      let destProductId = orderItem.productId;
+      if (crossTenant && orderItem.productSku) {
+        const destProduct = await this.productModel.findOne({
+          tenantId: destTenantOid,
+          sku: orderItem.productSku,
+          isActive: true,
+        }).lean();
+
+        if (destProduct) {
+          destProductId = destProduct._id as Types.ObjectId;
+        }
+        // If no matching product found, we'll use the source productId
+        // (inventory will be created but product won't be browsable until synced)
+      }
+
       // Find or create destination inventory
       let destInventory = await this.inventoryModel.findOne({
-        productId: orderItem.productId,
+        productId: destProductId,
         warehouseId: order.destinationWarehouseId,
-        tenantId: { $in: [tenantId, tenantOid] },
+        tenantId: { $in: [destTenantId, destTenantOid] },
       });
 
       if (!destInventory) {
@@ -556,12 +646,12 @@ export class TransferOrdersService {
           .findOne({
             productId: orderItem.productId,
             warehouseId: order.sourceWarehouseId,
-            tenantId: { $in: [tenantId, tenantOid] },
+            tenantId: { $in: [sourceTenantId, sourceTenantOid] },
           })
           .lean();
 
         destInventory = new this.inventoryModel({
-          productId: orderItem.productId,
+          productId: destProductId,
           warehouseId: order.destinationWarehouseId,
           productSku: orderItem.productSku || sourceInventory?.productSku,
           productName: orderItem.productName || sourceInventory?.productName,
@@ -590,7 +680,7 @@ export class TransferOrdersService {
           },
           isActive: true,
           createdBy: userOid,
-          tenantId: tenantId,
+          tenantId: destTenantId,
         });
         await destInventory.save();
       }
@@ -603,13 +693,13 @@ export class TransferOrdersService {
       destInventory.totalQuantity = (destInventory.totalQuantity ?? 0) + qty;
       await destInventory.save();
 
-      // Create IN movement
+      // Create IN movement (in destination tenant)
       const unitCost =
         orderItem.unitCost || destInventory.averageCostPrice || 0;
 
       await this.movementModel.create({
         inventoryId: destInventory._id,
-        productId: orderItem.productId,
+        productId: destProductId,
         productSku: orderItem.productSku || destInventory.productSku,
         warehouseId: order.destinationWarehouseId,
         movementType: "TRANSFER",
@@ -628,7 +718,7 @@ export class TransferOrdersService {
           averageCostPrice: destInventory.averageCostPrice,
         },
         createdBy: userOid,
-        tenantId: tenantOid,
+        tenantId: destTenantOid,
       });
     }
 

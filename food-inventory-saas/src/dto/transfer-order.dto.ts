@@ -58,21 +58,25 @@ class TransferOrderItemDto {
 // --- Create ---
 
 export class CreateTransferOrderDto {
+  @IsOptional()
   @IsMongoId()
-  @IsNotEmpty()
-  sourceLocationId: string;
+  sourceLocationId?: string;
 
   @IsMongoId()
   @IsNotEmpty()
   sourceWarehouseId: string;
 
+  @IsOptional()
   @IsMongoId()
-  @IsNotEmpty()
-  destinationLocationId: string;
+  destinationLocationId?: string;
 
   @IsMongoId()
   @IsNotEmpty()
   destinationWarehouseId: string;
+
+  @IsOptional()
+  @IsMongoId()
+  destinationTenantId?: string;
 
   @IsArray()
   @ValidateNested({ each: true })

@@ -42,6 +42,30 @@ export class ProductsController {
     private readonly priceHistoryService: PriceHistoryService,
   ) { }
 
+  /**
+   * Returns the tenantId that owns the product catalog.
+   * For subsidiary tenants, products live in the parent tenant.
+   * For parent/standalone tenants, products live in their own tenant.
+   */
+  private getCatalogTenantId(req: any): string {
+    const tenant = req.tenant;
+    if (tenant?.isSubsidiary && tenant?.parentTenantId) {
+      return tenant.parentTenantId.toString();
+    }
+    return req.user.tenantId;
+  }
+
+  /**
+   * Returns a user-like object with tenantId pointing to the catalog owner.
+   * Used for create/update operations that need the full user context.
+   */
+  private getCatalogUser(req: any): any {
+    return {
+      ...req.user,
+      tenantId: this.getCatalogTenantId(req),
+    };
+  }
+
   private ensureTenantConfirmed(req: any) {
     if (shouldBypassTenantConfirmation()) {
       return;
@@ -68,7 +92,7 @@ export class ProductsController {
     this.ensureTenantConfirmed(req);
     const product = await this.productsService.createWithInitialPurchase(
       createDto,
-      req.user,
+      this.getCatalogUser(req),
     );
     return { success: true, data: product };
   }
@@ -79,7 +103,7 @@ export class ProductsController {
     this.ensureTenantConfirmed(req);
     const product = await this.productsService.create(
       createProductDto,
-      req.user,
+      this.getCatalogUser(req),
     );
     return { success: true, data: product };
   }
@@ -93,7 +117,7 @@ export class ProductsController {
     this.ensureTenantConfirmed(req);
     const result = await this.productsService.bulkCreate(
       bulkCreateProductsDto,
-      req.user,
+      this.getCatalogUser(req),
     );
     return { success: true, data: result };
   }
@@ -102,7 +126,7 @@ export class ProductsController {
   @Permissions("products_read")
   async findAll(@Query() query: ProductQueryDto, @Request() req) {
     console.log(`GET /products called with query:`, query, `User:`, req.user.email);
-    const result = await this.productsService.findAll(query, req.user.tenantId);
+    const result = await this.productsService.findAll(query, this.getCatalogTenantId(req));
     return {
       success: true,
       data: result.products,
@@ -118,7 +142,7 @@ export class ProductsController {
   @Get(":id")
   @Permissions("products_read")
   async findOne(@Param("id") id: string, @Request() req) {
-    const product = await this.productsService.findOne(id, req.user.tenantId);
+    const product = await this.productsService.findOne(id, this.getCatalogTenantId(req));
     return { success: true, data: product };
   }
 
@@ -127,7 +151,7 @@ export class ProductsController {
   async findByBarcode(@Param("barcode") barcode: string, @Request() req) {
     const result = await this.productsService.findByBarcode(
       barcode,
-      req.user.tenantId,
+      this.getCatalogTenantId(req),
     );
     return { success: true, data: result };
   }
@@ -142,7 +166,7 @@ export class ProductsController {
     const product = await this.productsService.update(
       id,
       updateProductDto,
-      req.user,
+      this.getCatalogUser(req),
     );
     return { success: true, data: product };
   }
@@ -150,7 +174,7 @@ export class ProductsController {
   @Delete(":id")
   @Permissions("products_delete")
   async remove(@Param("id") id: string, @Request() req) {
-    const result = await this.productsService.remove(id, req.user.tenantId);
+    const result = await this.productsService.remove(id, this.getCatalogTenantId(req));
     return { success: true, data: result };
   }
 
@@ -161,7 +185,7 @@ export class ProductsController {
     @Body() dto: any, // Typed as AddSupplierToProductDto but using any to avoid import loop for now if DTO not exported yet
     @Request() req,
   ) {
-    const product = await this.productsService.addSupplier(id, dto, req.user);
+    const product = await this.productsService.addSupplier(id, dto, this.getCatalogUser(req));
     return { success: true, data: product };
   }
 
@@ -169,7 +193,7 @@ export class ProductsController {
   @Permissions("products_read")
   async getCategories(@Request() req) {
     const categories = await this.productsService.getCategories(
-      req.user.tenantId,
+      this.getCatalogTenantId(req),
     );
     return { success: true, data: categories };
   }
@@ -178,7 +202,7 @@ export class ProductsController {
   @Permissions("products_read")
   async getSubcategories(@Query("category") category: string, @Request() req) {
     const subcategories = await this.productsService.getSubcategories(
-      req.user.tenantId,
+      this.getCatalogTenantId(req),
       category,
     );
     return { success: true, data: subcategories };
@@ -211,7 +235,7 @@ export class ProductsController {
     }
 
     const images = files.map((f) => ({ buffer: f.buffer, mimetype: f.mimetype }));
-    const result = await this.productsService.scanProductLabel(images, req.user.tenantId);
+    const result = await this.productsService.scanProductLabel(images, this.getCatalogTenantId(req));
 
     return {
       success: true,
@@ -231,7 +255,7 @@ export class ProductsController {
 
     const history = await this.priceHistoryService.getProductPriceHistory(
       id,
-      req.user.tenantId,
+      this.getCatalogTenantId(req),
       limit ? parseInt(limit) : 50,
     );
 
@@ -253,7 +277,7 @@ export class ProductsController {
   ) {
     this.ensureTenantConfirmed(req);
 
-    const product = await this.productsService.findOne(id, req.user.tenantId);
+    const product = await this.productsService.findOne(id, this.getCatalogTenantId(req));
     if (!product) {
       throw new NotFoundException("Producto no encontrado");
     }

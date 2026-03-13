@@ -8,6 +8,7 @@ import {
   InventoryMovementDocument,
 } from "../../schemas/inventory.schema";
 import { Product, ProductDocument } from "../../schemas/product.schema";
+import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import {
   CreateInventoryDto,
   InventoryMovementDto,
@@ -31,6 +32,7 @@ export class InventoryService {
     @InjectModel(InventoryMovement.name)
     private movementModel: Model<InventoryMovementDocument>,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     private readonly eventsService: EventsService,
     @InjectConnection() private connection: Connection,
   ) {
@@ -43,6 +45,22 @@ export class InventoryService {
           );
         }
       });
+  }
+
+  /**
+   * Returns the tenantId that owns the product catalog.
+   * For subsidiary tenants, products live in the parent tenant.
+   */
+  private async getCatalogTenantId(tenantId: string | Types.ObjectId): Promise<Types.ObjectId> {
+    const tenant = await this.tenantModel
+      .findById(tenantId)
+      .select("parentTenantId isSubsidiary")
+      .lean()
+      .exec();
+    if (tenant?.isSubsidiary && tenant?.parentTenantId) {
+      return new Types.ObjectId(tenant.parentTenantId.toString());
+    }
+    return new Types.ObjectId(tenantId.toString());
   }
 
   async create(
@@ -559,6 +577,7 @@ export class InventoryService {
       const alertsToCheck: InventoryDocument[] = [];
 
       const tenantId = this.buildTenantFilter(user.tenantId);
+      const catalogTenantId = await this.getCatalogTenantId(user.tenantId);
       const skus = bulkAdjustDto.items.map(i => i.SKU);
 
       // Pre-fetch all relevant inventories and products to avoid N+1 queries
@@ -566,8 +585,9 @@ export class InventoryService {
         .find({ productSku: { $in: skus }, tenantId })
         .session(session);
 
+      // Products live in the parent tenant (shared catalog)
       const existingProductsArr = await this.productModel
-        .find({ sku: { $in: skus }, tenantId })
+        .find({ sku: { $in: skus }, tenantId: catalogTenantId })
         .session(session);
 
       const inventoriesBySkuVariant = new Map<string, InventoryDocument>();
