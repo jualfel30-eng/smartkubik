@@ -15,6 +15,8 @@ import { Connection } from "mongoose";
  * 2. Updates the variant SKU to match the product SKU
  * 3. Updates matching inventory records' variantSku field
  * 4. Updates matching inventory records' barcode if it also had the wrong SKU
+ *
+ * Idempotent — safe to run multiple times.
  */
 @Injectable()
 export class FixVariantSkusMigration {
@@ -23,15 +25,11 @@ export class FixVariantSkusMigration {
   constructor(@InjectConnection() private readonly connection: Connection) {}
 
   async run() {
-    const session = await this.connection.startSession();
-    session.startTransaction();
-
     let productsFixed = 0;
     let inventoriesFixed = 0;
 
     try {
       // Find all products that have a variant with SKU ending in "-VAR1"
-      // where the product's own SKU is the prefix
       const products = await this.connection
         .collection("products")
         .find({
@@ -71,7 +69,6 @@ export class FixVariantSkusMigration {
         await this.connection.collection("products").updateOne(
           { _id: product._id },
           { $set: { variants: updatedVariants } },
-          { session },
         );
         productsFixed++;
 
@@ -90,7 +87,6 @@ export class FixVariantSkusMigration {
               variantSku: expectedBadSku,
             },
             { $set: { variantSku: productSku } },
-            { session },
           );
 
         inventoriesFixed += invResult.modifiedCount;
@@ -100,18 +96,14 @@ export class FixVariantSkusMigration {
         );
       }
 
-      await session.commitTransaction();
       this.logger.log(
         `Migration completed: ${productsFixed} products fixed, ${inventoriesFixed} inventory records updated`,
       );
 
       return { productsFixed, inventoriesFixed };
     } catch (error) {
-      await session.abortTransaction();
       this.logger.error("Failed to fix variant SKUs", error.stack);
       throw error;
-    } finally {
-      session.endSession();
     }
   }
 }
