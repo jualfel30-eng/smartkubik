@@ -298,7 +298,14 @@ export default function SubsidiariesPanel() {
                     </div>
                     {sede.contactInfo?.address && (
                       <CardDescription className="text-xs mt-1">
-                        {sede.contactInfo.address}
+                        {typeof sede.contactInfo.address === 'string'
+                          ? sede.contactInfo.address
+                          : [
+                              sede.contactInfo.address.street,
+                              sede.contactInfo.address.city,
+                              sede.contactInfo.address.state,
+                              sede.contactInfo.address.country
+                            ].filter(Boolean).join(', ')}
                       </CardDescription>
                     )}
                   </CardHeader>

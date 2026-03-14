@@ -18,6 +18,7 @@ import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
 import { CreateWarehouseDto, UpdateWarehouseDto } from "../../dto/warehouse.dto";
 import { FeatureFlagsService } from "../../config/feature-flags.service";
+import { OrganizationsService } from "../organizations/organizations.service";
 
 @Controller("warehouses")
 @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
@@ -25,6 +26,7 @@ export class WarehousesController {
   constructor(
     private readonly warehousesService: WarehousesService,
     private readonly featureFlagsService: FeatureFlagsService,
+    private readonly organizationsService: OrganizationsService,
   ) {}
 
   private async ensureMultiWarehouseEnabled() {
@@ -41,9 +43,29 @@ export class WarehousesController {
   async findAll(
     @Request() req,
     @Query("includeInactive") includeInactive?: string,
+    @Query("tenantId") targetTenantId?: string,
   ) {
+    let effectiveTenantId = req.user.tenantId;
+
+    // If requesting warehouses from a different tenant, validate it's in the same family
+    if (targetTenantId && targetTenantId !== req.user.tenantId) {
+      const familyIds =
+        await this.organizationsService.getFamilyTenantIds(req.user.tenantId);
+      const isInFamily = familyIds.some(
+        (fid) => fid.toString() === targetTenantId,
+      );
+
+      if (!isInFamily) {
+        throw new BadRequestException(
+          "Solo puedes acceder a almacenes de sedes vinculadas.",
+        );
+      }
+
+      effectiveTenantId = targetTenantId;
+    }
+
     return this.warehousesService.findAll(
-      req.user.tenantId,
+      effectiveTenantId,
       includeInactive === "true",
     );
   }

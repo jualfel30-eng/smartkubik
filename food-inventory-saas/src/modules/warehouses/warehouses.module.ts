@@ -10,6 +10,7 @@ import { WarehousesService } from "./warehouses.service";
 import { WarehousesController } from "./warehouses.controller";
 import { BinLocationsService } from "./bin-locations.service";
 import { BinLocationsController } from "./bin-locations.controller";
+import { OrganizationsModule } from "../organizations/organizations.module";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { BinLocationsController } from "./bin-locations.controller";
       { name: Warehouse.name, schema: WarehouseSchema },
       { name: BinLocation.name, schema: BinLocationSchema },
     ]),
+    OrganizationsModule,
   ],
   controllers: [WarehousesController, BinLocationsController],
   providers: [WarehousesService, BinLocationsService],

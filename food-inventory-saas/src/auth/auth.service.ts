@@ -394,6 +394,8 @@ export class AuthService {
       enabledModules: effectiveModules,
       subscriptionPlan: tenant.subscriptionPlan,
       isConfirmed: tenant.isConfirmed,
+      parentTenantId: (tenant as any).parentTenantId?.toString() || null,
+      isSubsidiary: (tenant as any).isSubsidiary || false,
       aiAssistant: tenant.aiAssistant ?? {
         autoReplyEnabled: false,
         knowledgeBaseTenantId: "",

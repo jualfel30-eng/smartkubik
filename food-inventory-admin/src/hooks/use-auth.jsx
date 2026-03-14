@@ -56,6 +56,9 @@ function normalizeTenant(rawTenant) {
     onboardingStep: rawTenant.onboardingStep ?? 0,
     onboardingStepsCompleted: rawTenant.onboardingStepsCompleted ?? [],
     logo: rawTenant.logo || null,
+    // Multi-sede
+    parentTenantId: rawTenant.parentTenantId || null,
+    isSubsidiary: rawTenant.isSubsidiary || false,
   };
 }
 

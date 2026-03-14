@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { OrganizationsController } from "./organizations.controller";
-import { SubsidiariesController } from "./subsidiaries.controller";
 import { OrganizationsService } from "./organizations.service";
 import {
   Organization,
@@ -24,7 +23,7 @@ import { Inventory, InventorySchema } from "../../schemas/inventory.schema";
     ]),
     MembershipsModule,
   ],
-  controllers: [OrganizationsController, SubsidiariesController],
+  controllers: [OrganizationsController],
   providers: [OrganizationsService],
   exports: [OrganizationsService],
 })
