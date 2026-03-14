@@ -984,6 +984,27 @@ export class CustomersService {
     return customer as CustomerDocument;
   }
 
+  /**
+   * Find a supplier customer by RIF digits (ignoring format differences).
+   * E.g. searching "413164663" matches both "J413164663" and "J-413164663".
+   */
+  async findByTaxIdDigits(
+    digits: string,
+    tenantId: string,
+  ): Promise<CustomerDocument | null> {
+    if (!digits) return null;
+    const tenantCandidates = Types.ObjectId.isValid(tenantId)
+      ? [tenantId, new Types.ObjectId(tenantId)]
+      : [tenantId];
+    return this.customerModel
+      .findOne({
+        tenantId: { $in: tenantCandidates },
+        customerType: "supplier",
+        "taxInfo.taxId": { $regex: new RegExp(digits) },
+      })
+      .exec();
+  }
+
   async findByEmail(email: string, tenantId: string) {
     if (!email) {
       return null;

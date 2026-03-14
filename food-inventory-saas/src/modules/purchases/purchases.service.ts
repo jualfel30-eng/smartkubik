@@ -65,36 +65,68 @@ export class PurchasesService {
           "Para un nuevo proveedor, se requiere Nombre, RIF y Nombre del Contacto.",
         );
       }
-      const newCustomerDto: CreateCustomerDto = {
-        name: dto.newSupplierContactName,
-        companyName: dto.newSupplierName,
-        customerType: "supplier",
-        taxInfo: {
-          taxId: dto.newSupplierRif,
-          taxType: dto.newSupplierRif.charAt(0),
-        },
-        contacts: [
-          {
-            type: "phone",
-            value: dto.newSupplierContactPhone ?? "",
-            isPrimary: true,
+
+      // Normalize RIF format (e.g. "J413164663" → "J-413164663")
+      const rawRif = (dto.newSupplierRif || '').trim().toUpperCase();
+      const rifMatch = rawRif.match(/^([JVGEPNC])?[-\s]*(\d+)$/);
+      const normalizedRif = rifMatch
+        ? `${rifMatch[1] || 'J'}-${rifMatch[2]}`
+        : rawRif;
+      dto.newSupplierRif = normalizedRif;
+
+      // Check if supplier already exists by RIF (digits only) before creating
+      const rifDigits = normalizedRif.replace(/[^0-9]/g, '');
+      const { Types } = require("mongoose");
+      const tenantObjectId = Types.ObjectId.isValid(user.tenantId)
+        ? new Types.ObjectId(user.tenantId)
+        : user.tenantId;
+      let existingCustomer: any = null;
+      if (rifDigits) {
+        existingCustomer = await this.customersService.findByTaxIdDigits(
+          rifDigits,
+          user.tenantId,
+        );
+      }
+
+      if (existingCustomer) {
+        // Supplier already exists — reuse it instead of creating a duplicate
+        supplierId = existingCustomer._id.toString();
+        supplierName = existingCustomer.companyName || existingCustomer.name;
+        this.logger.log(
+          `Found existing supplier by RIF ${normalizedRif}: ${supplierName} (${supplierId})`,
+        );
+      } else {
+        const newCustomerDto: CreateCustomerDto = {
+          name: dto.newSupplierContactName,
+          companyName: dto.newSupplierName,
+          customerType: "supplier",
+          taxInfo: {
+            taxId: normalizedRif,
+            taxType: normalizedRif.charAt(0),
           },
-          {
-            type: "email",
-            value: dto.newSupplierContactEmail ?? "",
-            isPrimary: false,
-          },
-        ].filter((c) => c.value),
-      };
-      const newSupplier = await this.customersService.create(
-        newCustomerDto,
-        user,
-      );
-      supplierId = newSupplier._id.toString();
-      supplierName = newSupplier.companyName || newSupplier.name;
-      this.logger.log(
-        `New supplier (as customer) created: ${supplierName} (${supplierId})`,
-      );
+          contacts: [
+            {
+              type: "phone",
+              value: dto.newSupplierContactPhone ?? "",
+              isPrimary: true,
+            },
+            {
+              type: "email",
+              value: dto.newSupplierContactEmail ?? "",
+              isPrimary: false,
+            },
+          ].filter((c) => c.value),
+        };
+        const newSupplier = await this.customersService.create(
+          newCustomerDto,
+          user,
+        );
+        supplierId = newSupplier._id.toString();
+        supplierName = newSupplier.companyName || newSupplier.name;
+        this.logger.log(
+          `New supplier (as customer) created: ${supplierName} (${supplierId})`,
+        );
+      }
     } else {
       const existingSupplier = await this.customersService.findOne(
         supplierId,

@@ -335,12 +335,39 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="rif">RIF / Tax ID</Label>
-                                <Input
-                                    id="rif"
-                                    value={formData.rif}
-                                    onChange={(e) => handleChange('rif', e.target.value)}
-                                    placeholder="J-12345678-9"
-                                />
+                                <div className="flex gap-2">
+                                    <Select
+                                        value={(() => {
+                                            const match = (formData.rif || '').match(/^([JVGEPNC])/i);
+                                            return match ? match[1].toUpperCase() : 'J';
+                                        })()}
+                                        onValueChange={(prefix) => {
+                                            const digits = (formData.rif || '').replace(/[^0-9]/g, '');
+                                            handleChange('rif', `${prefix}-${digits}`);
+                                        }}
+                                    >
+                                        <SelectTrigger className="w-[80px]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {['J', 'V', 'G', 'E', 'P', 'N', 'C'].map(t => (
+                                                <SelectItem key={t} value={t}>{t}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Input
+                                        id="rif"
+                                        value={(formData.rif || '').replace(/^[JVGEPNC][-\s]*/i, '')}
+                                        onChange={(e) => {
+                                            const digits = e.target.value.replace(/[^0-9]/g, '');
+                                            const match = (formData.rif || '').match(/^([JVGEPNC])/i);
+                                            const prefix = match ? match[1].toUpperCase() : 'J';
+                                            handleChange('rif', `${prefix}-${digits}`);
+                                        }}
+                                        placeholder="12345678"
+                                        className="flex-1"
+                                    />
+                                </div>
                             </div>
                         </div>
 

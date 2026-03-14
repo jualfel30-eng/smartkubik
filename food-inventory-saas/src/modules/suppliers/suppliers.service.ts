@@ -31,19 +31,47 @@ export class SuppliersService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
   ) { }
 
+  /**
+   * Normalize a RIF/TaxID to canonical format: "X-123456789"
+   * Handles inputs like "J413164663", "j-413164663", "J-413164663", "413164663"
+   */
+  private normalizeRif(rif: string): string {
+    if (!rif) return '';
+    const cleaned = rif.trim().toUpperCase();
+    // Extract letter prefix and digits
+    const match = cleaned.match(/^([JVGEPNC])?[-\s]*(\d+)$/);
+    if (!match) return cleaned; // Can't parse, return as-is
+    const prefix = match[1] || 'J'; // Default to J if no prefix
+    const digits = match[2];
+    return `${prefix}-${digits}`;
+  }
+
   async create(
     createSupplierDto: CreateSupplierDto,
     user: any,
   ): Promise<any> {
+    // Normalize RIF to canonical format (e.g. "J413164663" → "J-413164663")
+    createSupplierDto.rif = this.normalizeRif(createSupplierDto.rif);
+
     this.logger.log(
       `Initiating creation for supplier with RIF: ${createSupplierDto.rif}`,
     );
 
     // Step 1: Find or Create the corresponding Customer entity
+    // Search by normalized RIF digits to find existing regardless of format
+    const rifDigits = createSupplierDto.rif.replace(/[^0-9]/g, '');
     let customer = await this.customerModel.findOne({
       "taxInfo.taxId": createSupplierDto.rif,
       tenantId: user.tenantId,
     });
+    // Fallback: search by digits only (handles format mismatches like "J413164663" vs "J-413164663")
+    if (!customer && rifDigits) {
+      customer = await this.customerModel.findOne({
+        "taxInfo.taxId": { $regex: new RegExp(rifDigits) },
+        tenantId: user.tenantId,
+        customerType: "supplier",
+      });
+    }
 
     if (!customer) {
       this.logger.log(
