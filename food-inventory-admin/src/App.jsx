@@ -93,6 +93,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { CrmProvider } from './context/CrmContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
 import { NotificationProvider, useNotification } from './context/NotificationContext.jsx';
+import { useFeatureFlags } from './hooks/use-feature-flags.jsx';
 import { CashRegisterProvider } from './contexts/CashRegisterContext.jsx';
 import { BusinessLocationProvider } from './context/BusinessLocationContext.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
@@ -305,6 +306,7 @@ function TenantLayout() {
     try {
       await selectTenant(membershipId, { rememberAsDefault });
       setTenantDialogOpen(false);
+      window.location.reload();
     } catch (err) {
       console.error('Tenant switch failed:', err);
       setTenantDialogError(
@@ -402,7 +404,7 @@ function TenantLayout() {
             { name: 'Reportes', href: 'inventory-management?tab=inventory-reports', icon: AreaChart },
           ],
         },
-        { name: 'Transferencias', href: 'inventory-management?tab=transfers', icon: ArrowRightLeft, permission: 'transfer_orders_read' },
+        { name: 'Transferencias', href: 'inventory-management?tab=transfers', icon: ArrowRightLeft, requiresFeatureFlag: 'MULTI_LOCATION' },
         { name: 'Compras', href: 'inventory-management?tab=purchases', icon: PackagePlus },
         { name: 'Proveedores', href: 'inventory-management?tab=suppliers', icon: UserCheck },
         { name: 'Control de Mermas', href: 'waste-control', icon: Trash2, permission: 'inventory_read' },
@@ -609,6 +611,7 @@ function TenantLayout() {
     const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
     const { unreadCount } = useNotification();
     const tipsLabels = useTipsLabels();
+    const { isFeatureEnabled } = useFeatureFlags();
 
     const currentBasePath = activeTab.split('?')[0];
 
@@ -783,6 +786,10 @@ function TenantLayout() {
         if (!isParent && !tenant?.isSubsidiary) {
           return null;
         }
+      }
+
+      if (item.requiresFeatureFlag && !isFeatureEnabled(item.requiresFeatureFlag)) {
+        return null;
       }
 
       if (item.permission && !hasPermission(item.permission)) {
