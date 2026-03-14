@@ -125,6 +125,9 @@ export default function ComprasManagement() {
   const [poLoading, setPoLoading] = useState(false);
   const [supplierNameInput, setSupplierNameInput] = useState('');
   const [supplierRifInput, setSupplierRifInput] = useState('');
+  const [rifDropdownOpen, setRifDropdownOpen] = useState(false);
+  const rifInputRef = useRef(null);
+  const rifDropdownRef = useRef(null);
   const [variantSelection, setVariantSelection] = useState(null);
   const [additionalVariants, setAdditionalVariants] = useState([]);
 
@@ -364,10 +367,20 @@ export default function ComprasManagement() {
       const name = trimmedName !== '' ? trimmedName : fallbackName;
 
       const normalizedVariantSku = (variant.sku || '').trim();
-      const generatedSku =
-        normalizedVariantSku !== ''
-          ? normalizedVariantSku
-          : `${normalizedSku || 'SKU'}-VAR${index}`;
+      let generatedSku;
+      if (normalizedVariantSku !== '') {
+        // User provided an explicit variant SKU
+        generatedSku = normalizedVariantSku;
+      } else if (index === 1) {
+        // Primary variant uses the base product SKU
+        generatedSku = normalizedSku || 'SKU';
+      } else {
+        // Additional variants: baseSku-variantName (sanitized)
+        const nameSuffix = trimmedName !== ''
+          ? trimmedName.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/-+$/, '')
+          : `VAR${index}`;
+        generatedSku = `${normalizedSku || 'SKU'}-${nameSuffix}`;
+      }
 
       const normalizedBarcode = (variant.barcode || '').trim();
       const barcode = normalizedBarcode !== '' ? normalizedBarcode : generatedSku;
@@ -729,6 +742,7 @@ export default function ComprasManagement() {
   const handleSupplierSelection = (selectedOption) => {
     if (!selectedOption) {
       setSupplierNameInput('');
+      setSupplierRifInput('');
       setPo(prev => ({
         ...prev,
         supplierId: '',
@@ -754,6 +768,7 @@ export default function ComprasManagement() {
 
       const normalizedTaxType =
         (taxType || customer.taxInfo?.taxType || 'J').toUpperCase();
+      setSupplierRifInput(rifNumber);
       setPo(prev => ({
         ...prev,
         supplierId: customer._id,
@@ -770,12 +785,16 @@ export default function ComprasManagement() {
   const handleRifSelection = (selectedOption) => {
     if (!selectedOption) {
       setSupplierRifInput('');
+      setSupplierNameInput('');
       setPo(prev => ({
         ...prev,
         supplierId: '',
         supplierName: '',
         supplierRif: '',
         taxType: 'J',
+        contactName: '',
+        contactPhone: '',
+        contactEmail: '',
       }));
       return;
     }
@@ -801,8 +820,9 @@ export default function ComprasManagement() {
       const [taxType, ...rifParts] = fullRif.split('-');
       const rifNumber = rifParts.join('').replace(/[^0-9]/g, '');
 
-      // Actualizar el input para mostrar el RIF del proveedor seleccionado
+      // Actualizar los inputs para mostrar datos del proveedor seleccionado
       setSupplierRifInput(rifNumber);
+      setSupplierNameInput('');
       setPo(prev => ({
         ...prev,
         supplierId: customer._id,
@@ -890,6 +910,32 @@ export default function ComprasManagement() {
       }));
     return options;
   }, [suppliers]);
+
+  // Filtrar proveedores por RIF mientras el usuario escribe
+  const rifSuggestions = useMemo(() => {
+    const currentRif = po.supplierRif?.replace(/[^0-9]/g, '') || '';
+    if (!currentRif || currentRif.length < 2 || po.supplierId) return [];
+    return suppliers
+      .filter(s => {
+        const taxId = (s.taxInfo?.taxId || '').replace(/[^0-9]/g, '');
+        return taxId && taxId.includes(currentRif);
+      })
+      .slice(0, 5);
+  }, [po.supplierRif, po.supplierId, suppliers]);
+
+  // Cerrar dropdown de RIF al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        rifDropdownRef.current && !rifDropdownRef.current.contains(e.target) &&
+        rifInputRef.current && !rifInputRef.current.contains(e.target)
+      ) {
+        setRifDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const supplierOptions = useMemo(() =>
     suppliers.map(s => ({
@@ -1099,8 +1145,8 @@ export default function ComprasManagement() {
 
     setPoLoading(true);
 
-    // Calculate total amount for advance payment
-    const totalAmount = po.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.costPrice)), 0);
+    // Calculate total amount for advance payment (with discounts)
+    const totalAmount = po.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.costPrice) * (1 - (Number(item.discount) || 0) / 100)), 0);
     const advancePaymentAmount = po.paymentTerms.requiresAdvancePayment
       ? (totalAmount * (po.paymentTerms.advancePaymentPercentage / 100))
       : 0;
@@ -1122,6 +1168,7 @@ export default function ComprasManagement() {
         productSku: item.productSku,
         quantity: Number(item.quantity) || 0,
         costPrice: Number(item.costPrice) || 0,
+        discount: Number(item.discount) || 0,
         lotNumber: item.lotNumber || undefined,
         expirationDate: item.expirationDate || undefined,
         ...(item.variantId
@@ -1291,36 +1338,76 @@ export default function ComprasManagement() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>RIF / C.I. del Proveedor</Label>
-                    <div className="flex items-center border border-input rounded-md">
-                      <Select
-                        value={po.taxType}
-                        onValueChange={(value) => handleFieldChange('taxType', value)}
-                      >
-                        <SelectTrigger className="w-[70px] !h-10 !min-h-10 !py-2 rounded-l-md rounded-r-none !border-0 !border-r !border-input focus:z-10">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="V">V</SelectItem>
-                          <SelectItem value="E">E</SelectItem>
-                          <SelectItem value="J">J</SelectItem>
-                          <SelectItem value="G">G</SelectItem>
-                          <SelectItem value="P">P</SelectItem>
-                          <SelectItem value="N">N</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        value={po.supplierRif || ''}
-                        onChange={(e) => {
-                          const formatted = formatRifInput(e.target.value, po.taxType);
-                          setPo(prev => ({
-                            ...prev,
-                            supplierRif: formatted.replace(/[^0-9-]/g, ''),
-                            supplierId: '', // Reset supplier ID when typing
-                          }));
-                        }}
-                        placeholder="12345678-9"
-                        className="flex-1 rounded-l-none !border-0"
-                      />
+                    <div className="relative">
+                      <div className="flex items-center border border-input rounded-md">
+                        <Select
+                          value={po.taxType}
+                          onValueChange={(value) => handleFieldChange('taxType', value)}
+                        >
+                          <SelectTrigger className="w-[70px] !h-10 !min-h-10 !py-2 rounded-l-md rounded-r-none !border-0 !border-r !border-input focus:z-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="V">V</SelectItem>
+                            <SelectItem value="E">E</SelectItem>
+                            <SelectItem value="J">J</SelectItem>
+                            <SelectItem value="G">G</SelectItem>
+                            <SelectItem value="P">P</SelectItem>
+                            <SelectItem value="N">N</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          ref={rifInputRef}
+                          value={po.supplierRif || ''}
+                          onChange={(e) => {
+                            const formatted = formatRifInput(e.target.value, po.taxType);
+                            setPo(prev => ({
+                              ...prev,
+                              supplierRif: formatted.replace(/[^0-9-]/g, ''),
+                              supplierId: '',
+                            }));
+                            setRifDropdownOpen(true);
+                          }}
+                          onFocus={() => { if (rifSuggestions.length > 0) setRifDropdownOpen(true); }}
+                          placeholder="12345678-9"
+                          className="flex-1 rounded-l-none !border-0"
+                        />
+                      </div>
+                      {rifDropdownOpen && rifSuggestions.length > 0 && (
+                        <div
+                          ref={rifDropdownRef}
+                          className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
+                        >
+                          {rifSuggestions.map(s => (
+                            <button
+                              key={s._id}
+                              type="button"
+                              className="w-full text-left rounded-sm px-2 py-1.5 text-sm hover:bg-primary/25 cursor-default"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                const fullRif = s.taxInfo?.taxId || '';
+                                const [taxType, ...rifParts] = fullRif.split('-');
+                                const rifNumber = rifParts.join('').replace(/[^0-9]/g, '');
+                                setSupplierRifInput(rifNumber);
+                                setRifDropdownOpen(false);
+                                setPo(prev => ({
+                                  ...prev,
+                                  supplierId: s._id,
+                                  supplierName: s.companyName || s.name,
+                                  supplierRif: rifNumber,
+                                  taxType: (taxType || s.taxInfo?.taxType || 'J').toUpperCase(),
+                                  contactName: s.contacts?.[0]?.name || s.name || '',
+                                  contactPhone: s.contacts?.find(c => c.type === 'phone')?.value || '',
+                                  contactEmail: s.contacts?.find(c => c.type === 'email')?.value || '',
+                                }));
+                              }}
+                            >
+                              <span className="font-medium">{s.taxInfo?.taxId}</span>
+                              <span className="ml-2 text-muted-foreground">{s.companyName || s.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -1555,6 +1642,31 @@ export default function ComprasManagement() {
                     ))}
                   </TableBody>
                 </Table>
+                {po.items.length > 0 && (() => {
+                  const subtotal = po.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.costPrice)), 0);
+                  const totalDiscount = po.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.costPrice) * (Number(item.discount) || 0) / 100), 0);
+                  const total = subtotal - totalDiscount;
+                  return (
+                    <div className="flex justify-end mt-2">
+                      <div className="w-64 space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Subtotal:</span>
+                          <span>${subtotal.toFixed(2)}</span>
+                        </div>
+                        {totalDiscount > 0 && (
+                          <div className="flex justify-between text-green-600">
+                            <span>Descuentos:</span>
+                            <span>-${totalDiscount.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-base border-t pt-1">
+                          <span>Total:</span>
+                          <span>${total.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1788,7 +1900,7 @@ export default function ComprasManagement() {
                             <Input
                               value={variant.sku}
                               onChange={(e) => updateAdditionalVariantField(index, 'sku', e.target.value)}
-                              placeholder={getPlaceholder('variantAdditionalSku', `Ej: ${newProduct.sku || 'SKU'}-VAR${index + 2}`)}
+                              placeholder={getPlaceholder('variantAdditionalSku', `Ej: ${newProduct.sku || 'SKU'}-${(variant.name || `VAR${index + 2}`).toUpperCase().replace(/[^A-Z0-9]+/g, '-')}`)}
                             />
                           </div>
                           <div className="space-y-2">
