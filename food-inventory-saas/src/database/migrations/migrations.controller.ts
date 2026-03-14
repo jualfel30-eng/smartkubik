@@ -8,6 +8,7 @@ import { SeedDefaultWarehousesMigration } from "./seed-default-warehouses.migrat
 import { LinkPaymentsToOrdersMigration } from "./link-payments-to-orders.migration";
 import { AddCountryCodeMigration } from "./add-country-code.migration";
 import { SeedDefaultBusinessLocationsMigration } from "./seed-default-business-locations.migration";
+import { FixVariantSkusMigration } from "./fix-variant-skus.migration";
 
 @ApiTags("Migrations")
 @Controller("migrations")
@@ -21,6 +22,7 @@ export class MigrationsController {
     private readonly linkPaymentsToOrdersMigration: LinkPaymentsToOrdersMigration,
     private readonly addCountryCodeMigration: AddCountryCodeMigration,
     private readonly seedDefaultBusinessLocationsMigration: SeedDefaultBusinessLocationsMigration,
+    private readonly fixVariantSkusMigration: FixVariantSkusMigration,
   ) {}
 
   @Post("add-marketing-permissions")
@@ -147,6 +149,24 @@ export class MigrationsController {
     return {
       success: true,
       message: `Business locations migration completed: ${result.created} created, ${result.skipped} skipped, ${result.total} tenants processed`,
+    };
+  }
+
+  @Post("fix-variant-skus")
+  @ApiOperation({
+    summary: "[SUPER ADMIN] Fix variant SKUs that were incorrectly generated as -VAR1",
+    description:
+      "Fixes primary variant SKUs that were generated as '{baseSku}-VAR1' instead of using the base product SKU directly. Also updates corresponding inventory records.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Variant SKUs fixed successfully",
+  })
+  async fixVariantSkus() {
+    const result = await this.fixVariantSkusMigration.run();
+    return {
+      success: true,
+      message: `Variant SKU migration completed: ${result.productsFixed} products fixed, ${result.inventoriesFixed} inventory records updated`,
     };
   }
 }
