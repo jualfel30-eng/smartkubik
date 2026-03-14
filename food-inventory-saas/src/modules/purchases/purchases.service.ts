@@ -342,37 +342,6 @@ export class PurchasesService {
         user,
         session,
       );
-
-      // Registrar movimiento IN con referencia a la PO
-      const inv =
-        (await this.inventoryService.findByProductSku(
-          item.productSku,
-          user.tenantId,
-        )) ||
-        (await this.inventoryService.findByProductId(
-          item.productId.toString(),
-          user.tenantId,
-        ));
-      if (inv) {
-        await this.inventoryMovementsService.create(
-          {
-            inventoryId: inv._id.toString(),
-            movementType: MovementType.IN,
-            quantity: item.quantity,
-            unitCost: item.costPrice || inv.averageCostPrice || 0,
-            reason: "Recepción de compra",
-            warehouseId: inv.warehouseId?.toString(),
-          },
-          user.tenantId,
-          user.id,
-          false,
-          { origin: "purchase", orderId: purchaseOrder._id.toString() },
-        );
-      } else {
-        this.logger.warn(
-          `No se pudo registrar movimiento IN: inventario no encontrado para SKU ${item.productSku}`,
-        );
-      }
     }
 
     // --- GAP 2: Link each purchased product to the supplier in Product.suppliers[] ---

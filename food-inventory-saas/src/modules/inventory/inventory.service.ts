@@ -1347,12 +1347,24 @@ export class InventoryService {
         ? new Types.ObjectId(item.variantId)
         : undefined;
 
+    // Search by productId first to avoid cross-product collisions
+    // (e.g. two different products both having variantSku "-VAR1")
     let inventory = await this.inventoryModel
       .findOne({
-        productSku: sku,
+        productId: item.productId,
         tenantId: this.buildTenantFilter(user.tenantId),
       })
       .session(session ?? null);
+
+    // Fallback: search by SKU for backwards compatibility
+    if (!inventory) {
+      inventory = await this.inventoryModel
+        .findOne({
+          productSku: sku,
+          tenantId: this.buildTenantFilter(user.tenantId),
+        })
+        .session(session ?? null);
+    }
 
     if (!inventory) {
       this.logger.log(
