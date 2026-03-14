@@ -208,8 +208,9 @@ export class ProductsService {
     }
     if (dto.product.variants && dto.product.variants.length > 0) {
       dto.product.variants.forEach((v, index) => {
-        if (!v.sku) {
-          v.sku = `${dto.product.sku}-VAR${index + 1}`;
+        if (!v.sku || v.sku === 'SKU') {
+          // Primary variant (index 0) uses the product SKU directly
+          v.sku = index === 0 ? dto.product.sku : `${dto.product.sku}-VAR${index + 1}`;
         }
       });
     }
@@ -396,8 +397,9 @@ export class ProductsService {
     }
     if (createProductDto.variants && createProductDto.variants.length > 0) {
       createProductDto.variants.forEach((v, index) => {
-        if (!v.sku) {
-          v.sku = `${createProductDto.sku}-VAR${index + 1}`;
+        if (!v.sku || v.sku === 'SKU') {
+          // Primary variant (index 0) uses the product SKU directly
+          v.sku = index === 0 ? createProductDto.sku : `${createProductDto.sku}-VAR${index + 1}`;
         }
       });
     }

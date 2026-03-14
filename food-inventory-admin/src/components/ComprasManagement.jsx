@@ -372,14 +372,15 @@ export default function ComprasManagement() {
         // User provided an explicit variant SKU
         generatedSku = normalizedVariantSku;
       } else if (index === 1) {
-        // Primary variant uses the base product SKU
-        generatedSku = normalizedSku || 'SKU';
+        // Primary variant: use product SKU if available, otherwise leave empty
+        // (backend will assign the auto-generated product SKU)
+        generatedSku = normalizedSku || '';
       } else {
         // Additional variants: baseSku-variantName (sanitized)
         const nameSuffix = trimmedName !== ''
           ? trimmedName.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/-+$/, '')
           : `VAR${index}`;
-        generatedSku = `${normalizedSku || 'SKU'}-${nameSuffix}`;
+        generatedSku = normalizedSku ? `${normalizedSku}-${nameSuffix}` : '';
       }
 
       const normalizedBarcode = (variant.barcode || '').trim();

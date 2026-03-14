@@ -1178,7 +1178,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       const trimmedSku =
         variant.sku && typeof variant.sku === 'string' && variant.sku.trim().length > 0
           ? variant.sku.trim()
-          : `${newProduct.sku}-VAR${position}`;
+          : position === 1
+            ? (newProduct.sku || '')
+            : (newProduct.sku ? `${newProduct.sku}-VAR${position}` : '');
 
       const normalizedVariant = {
         ...variant,
