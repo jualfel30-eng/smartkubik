@@ -3,18 +3,18 @@ import { InjectConnection } from "@nestjs/mongoose";
 import { Connection } from "mongoose";
 
 /**
- * Migration: Fix variant SKUs that were generated as "{baseSku}-VAR1" instead
- * of using the base product SKU directly.
+ * Migration: Fix variant SKUs that were generated incorrectly.
  *
- * Bug: buildVariantPayload always appended "-VAR{index}" to the base SKU,
- * even for the primary (standard) variant. This caused all primary variants
- * to have SKUs like "TIE-1550-VAR1" instead of just "TIE-1550".
+ * Bug: When products are created via "Compra de Producto Nuevo", the backend
+ * assigns the SKU sequentially AFTER creation. At frontend build time the SKU
+ * field is empty, so buildVariantPayload produced "-VAR1" (empty prefix + suffix)
+ * instead of the product's actual SKU.
  *
  * This migration:
- * 1. Finds products where the primary variant SKU = "{productSku}-VAR1"
- * 2. Updates the variant SKU to match the product SKU
+ * 1. Finds products where any variant SKU is "-VAR1" (literally)
+ *    OR matches the pattern "-VAR{N}" with no base-SKU prefix
+ * 2. Sets those variant SKUs to the product's actual SKU
  * 3. Updates matching inventory records' variantSku field
- * 4. Updates matching inventory records' barcode if it also had the wrong SKU
  *
  * Idempotent — safe to run multiple times.
  */
@@ -29,33 +29,38 @@ export class FixVariantSkusMigration {
     let inventoriesFixed = 0;
 
     try {
-      // Find all products that have a variant with SKU ending in "-VAR1"
+      // Find products where any variant has SKU exactly "-VAR1", "-VAR2", etc.
+      // (i.e. starts with "-VAR" — no base SKU prefix)
       const products = await this.connection
         .collection("products")
         .find({
-          "variants.sku": { $regex: /-VAR1$/ },
+          sku: { $exists: true, $ne: "" },
+          "variants.sku": { $regex: /^-VAR\d+$/ },
         })
         .project({ _id: 1, sku: 1, variants: 1, tenantId: 1 })
         .toArray();
 
       this.logger.log(
-        `Found ${products.length} products with potential -VAR1 variant SKUs`,
+        `Found ${products.length} products with broken variant SKUs (literal -VAR{N})`,
       );
 
       for (const product of products) {
         const productSku = product.sku;
         if (!productSku) continue;
 
-        const expectedBadSku = `${productSku}-VAR1`;
         const variants = product.variants || [];
         let needsUpdate = false;
+        const badSkus: string[] = [];
 
         const updatedVariants = variants.map((variant: any) => {
-          if (variant.sku === expectedBadSku) {
+          // Match variant SKUs that are literally "-VAR1", "-VAR2", etc.
+          if (variant.sku && /^-VAR\d+$/.test(variant.sku)) {
             needsUpdate = true;
+            const oldSku = variant.sku;
+            badSkus.push(oldSku);
             const updated: any = { ...variant, sku: productSku };
-            // Also fix barcode if it was auto-generated from the bad SKU
-            if (variant.barcode === expectedBadSku) {
+            // Also fix barcode if it matches the bad pattern
+            if (variant.barcode && /^-VAR\d+$/.test(variant.barcode)) {
               updated.barcode = productSku;
             }
             return updated;
@@ -72,27 +77,23 @@ export class FixVariantSkusMigration {
         );
         productsFixed++;
 
-        // Find the variant _id that was fixed (to update inventory)
-        const fixedVariant = variants.find(
-          (v: any) => v.sku === expectedBadSku,
-        );
-        if (!fixedVariant?._id) continue;
+        // Update inventory records that reference any of the bad SKUs
+        for (const badSku of badSkus) {
+          const invResult = await this.connection
+            .collection("inventories")
+            .updateMany(
+              {
+                productId: product._id,
+                variantSku: badSku,
+              },
+              { $set: { variantSku: productSku } },
+            );
 
-        // Update inventory records that reference this variant
-        const invResult = await this.connection
-          .collection("inventories")
-          .updateMany(
-            {
-              productId: product._id,
-              variantSku: expectedBadSku,
-            },
-            { $set: { variantSku: productSku } },
-          );
-
-        inventoriesFixed += invResult.modifiedCount;
+          inventoriesFixed += invResult.modifiedCount;
+        }
 
         this.logger.log(
-          `Fixed product ${productSku} (tenant ${product.tenantId}): variant SKU "${expectedBadSku}" → "${productSku}" | ${invResult.modifiedCount} inventory record(s) updated`,
+          `Fixed product ${productSku} (tenant ${product.tenantId}): variant SKU "${badSkus.join(", ")}" → "${productSku}"`,
         );
       }
 
