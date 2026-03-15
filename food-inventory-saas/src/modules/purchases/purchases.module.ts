@@ -3,7 +3,8 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { ScheduleModule } from "@nestjs/schedule";
 import { PurchasesController } from "./purchases.controller";
 import { PurchasesService } from "./purchases.service";
-import { AutoGeneratePOsJob } from "./auto-generate-pos.job";
+// AutoGeneratePOsJob disabled — was auto-creating draft POs for all tenants without consent
+// import { AutoGeneratePOsJob } from "./auto-generate-pos.job";
 import { ProductsModule } from "../products/products.module";
 import {
   PurchaseOrder,
@@ -41,7 +42,7 @@ import { OpenaiModule } from "../openai/openai.module";
     forwardRef(() => OpenaiModule),
   ],
   controllers: [PurchasesController],
-  providers: [PurchasesService, AutoGeneratePOsJob],
+  providers: [PurchasesService],
   exports: [PurchasesService],
 })
 export class PurchasesModule {}
