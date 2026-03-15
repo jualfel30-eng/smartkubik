@@ -1408,13 +1408,7 @@ export class InventoryService {
       }
     }
 
-    if (product.isPerishable) {
-      if (!item.lotNumber || !item.expirationDate) {
-        this.logger.warn(
-          `Lot number or expiration date missing for perishable product SKU: ${sku}. Stock not updated.`,
-        );
-        return; // Or throw a BadRequestException
-      }
+    if (product.isPerishable && item.lotNumber && item.expirationDate) {
       const newLot = {
         lotNumber: item.lotNumber,
         quantity: item.quantity,
