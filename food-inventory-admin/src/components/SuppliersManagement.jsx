@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.j
 import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.jsx';
 import { Plus, Search, Edit, Trash2, Phone, Mail, FileText, Star } from 'lucide-react';
 // ... (existing imports)
 
@@ -34,6 +35,8 @@ export default function SuppliersManagement() {
     const [search, setSearch] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedSupplier, setSelectedSupplier] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     const loadSuppliers = useCallback(async () => {
         try {
@@ -61,6 +64,22 @@ export default function SuppliersManagement() {
     const handleEdit = (supplier) => {
         setSelectedSupplier(supplier);
         setIsDialogOpen(true);
+    };
+
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        try {
+            setDeleting(true);
+            await fetchApi(`/suppliers/${deleteTarget._id}`, { method: 'DELETE' });
+            toast.success('Proveedor eliminado correctamente');
+            setDeleteTarget(null);
+            loadSuppliers();
+        } catch (error) {
+            console.error('Error deleting supplier:', error);
+            toast.error('Error al eliminar proveedor');
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const handleSaveSuccess = async () => {
@@ -178,6 +197,9 @@ export default function SuppliersManagement() {
                                             <Button variant="ghost" size="icon" onClick={() => handleEdit(supplier)}>
                                                 <Edit className="h-4 w-4" />
                                             </Button>
+                                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget(supplier)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -193,6 +215,33 @@ export default function SuppliersManagement() {
                 supplier={selectedSupplier}
                 onSuccess={handleSaveSuccess}
             />
+
+            <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Eliminar proveedor</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            {deleteTarget && (
+                                <>
+                                    Se eliminará permanentemente el proveedor <strong>{deleteTarget.name}</strong>
+                                    {deleteTarget.taxInfo?.rif ? ` (${deleteTarget.taxInfo.rif})` : ''}.
+                                    También se desvinculará de todos los productos asociados. Esta acción no se puede deshacer.
+                                </>
+                            )}
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            {deleting ? 'Eliminando...' : 'Eliminar'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

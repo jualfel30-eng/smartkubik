@@ -8,6 +8,7 @@ import {
   UseGuards,
   Req,
   Patch,
+  Delete,
 } from "@nestjs/common";
 import { SuppliersService, SupplierPaymentCurrency } from "./suppliers.service";
 import { CreateSupplierDto } from "../../dto/supplier.dto";
@@ -110,5 +111,10 @@ export class SuppliersController {
   @UseGuards(JwtAuthGuard)
   update(@Param("id") id: string, @Body() updateSupplierDto: any, @Req() req) {
     return this.suppliersService.update(id, updateSupplierDto, req.user);
+  }
+
+  @Delete(":id")
+  async delete(@Param("id") id: string, @Req() req) {
+    return this.suppliersService.delete(id, req.user.tenantId);
   }
 }

@@ -579,6 +579,54 @@ export class SuppliersService {
     return null;
   }
 
+  async delete(id: string, tenantId: string): Promise<{ deleted: boolean; message: string }> {
+    // 1. Try to find the Supplier document
+    const supplier = await this.supplierModel
+      .findOne({ _id: id, tenantId: String(tenantId) })
+      .exec();
+
+    if (!supplier) {
+      // Check if it's a virtual supplier (Customer)
+      const customer = await this.customerModel
+        .findOne({ _id: id, tenantId: new Types.ObjectId(tenantId), customerType: 'supplier' })
+        .exec();
+
+      if (!customer) {
+        throw new NotFoundException(`Proveedor con ID ${id} no encontrado`);
+      }
+
+      // Remove the supplier reference from all products
+      await this.productModel.updateMany(
+        { tenantId: new Types.ObjectId(tenantId), 'suppliers.supplierId': new Types.ObjectId(id) },
+        { $pull: { suppliers: { supplierId: new Types.ObjectId(id) } } },
+      );
+
+      // Delete the Customer entity
+      await this.customerModel.deleteOne({ _id: id });
+      this.logger.log(`Deleted virtual supplier (Customer) ${id}`);
+      return { deleted: true, message: 'Proveedor virtual eliminado correctamente' };
+    }
+
+    // 2. Remove supplier references from products
+    const supplierId = supplier._id;
+    await this.productModel.updateMany(
+      { tenantId: new Types.ObjectId(tenantId), 'suppliers.supplierId': supplierId },
+      { $pull: { suppliers: { supplierId: supplierId } } },
+    );
+
+    // 3. Delete the linked Customer entity if it exists
+    if (supplier.customerId) {
+      await this.customerModel.deleteOne({ _id: supplier.customerId });
+      this.logger.log(`Deleted linked Customer ${supplier.customerId} for supplier ${id}`);
+    }
+
+    // 4. Delete the Supplier document
+    await this.supplierModel.deleteOne({ _id: id });
+    this.logger.log(`Deleted supplier ${id} (${supplier.name})`);
+
+    return { deleted: true, message: 'Proveedor eliminado correctamente' };
+  }
+
   private async generateSupplierNumber(tenantId: string): Promise<string> {
     const count = await this.supplierModel.countDocuments({ tenantId: String(tenantId) });
     return `PROV-${(count + 1).toString().padStart(6, "0")}`;
