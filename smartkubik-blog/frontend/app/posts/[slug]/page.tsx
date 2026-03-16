@@ -93,10 +93,19 @@ export async function generateMetadata(props: Props, parent: ResolvingMetadata):
   const previousImages = (await parent).openGraph?.images || []
   const ogImage = post?.mainImage?.asset?.url ? post.mainImage.asset.url : null
 
+  // Find first content block (skip metadata blocks for OG description)
+  const firstContentBlock = post?.body?.find((block: any) => {
+    if (block._type === 'block' && block.children) {
+      const text = block.children.map((child: any) => child.text).join('').toUpperCase();
+      return !text.includes('METADATA START') && !text.includes('AI METADATA');
+    }
+    return false;
+  });
+
   return {
     authors: post?.authorName ? [{ name: post.authorName }] : [],
     title: post?.title,
-    description: post?.body?.[0]?.children?.[0]?.text?.substring(0, 160),
+    description: firstContentBlock?.children?.[0]?.text?.substring(0, 160),
     openGraph: {
       images: ogImage ? [ogImage, ...previousImages] : previousImages,
     },
@@ -160,30 +169,32 @@ export default async function PostPage(props: Props) {
 
   const primaryTag = post?.tags?.[0]?.title || null;
 
-  // Filter out AI Metadata blocks (Range Filtering)
+  // Filter out metadata blocks
+  // Old posts (Oct-Dec 2025): all metadata in block[0] as <!-- METADATA START -->
+  // New posts (Jan 2026+): AI METADATA / END AI METADATA range across blocks
   let isAiMetadata = false;
   const filteredBody = post.body?.filter((block: any) => {
     if (block._type === 'block' && block.children) {
       const text = block.children.map((child: any) => child.text).join('').toUpperCase();
 
-      // Start of metadata block
+      // Old format: HTML comment metadata (single block)
+      if (text.includes('METADATA START')) {
+        return false;
+      }
+
+      // New format: AI METADATA range (multiple blocks)
       if (text.includes('AI METADATA') && !text.includes('END AI METADATA')) {
-        console.log('Filtering AI Metadata Start:', text);
         isAiMetadata = true;
         return false;
       }
 
-      // End of metadata block
       if (text.includes('END AI METADATA')) {
-        console.log('Filtering AI Metadata End:', text);
         isAiMetadata = false;
         return false;
       }
     }
 
-    // If we are currently inside an AI metadata block, filter it out
     if (isAiMetadata) {
-      // Optional: Log hidden content? Too verbose.
       return false;
     }
     return true;

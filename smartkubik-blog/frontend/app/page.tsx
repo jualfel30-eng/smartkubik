@@ -39,7 +39,31 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
 
   // Process posts (calculate reading time and excerpt) - matching BlogIndex.jsx logic
   const posts = allPosts.map((post: any) => {
-    const text = post.body?.map((block: any) => {
+    // Filter out metadata blocks before generating excerpt
+    // Old posts (Oct-Dec 2025): all metadata in block[0] as <!-- METADATA START -->
+    // New posts (Jan 2026+): AI METADATA / END AI METADATA range across blocks
+    let isAiMetadata = false;
+    const filteredBody = (post.body || []).filter((block: any) => {
+      if (block._type === 'block' && block.children) {
+        const blockText = block.children.map((child: any) => child.text).join('').toUpperCase();
+        // Old format: HTML comment metadata (single block)
+        if (blockText.includes('METADATA START')) {
+          return false;
+        }
+        // New format: AI METADATA range (multiple blocks)
+        if (blockText.includes('AI METADATA') && !blockText.includes('END AI METADATA')) {
+          isAiMetadata = true;
+          return false;
+        }
+        if (blockText.includes('END AI METADATA')) {
+          isAiMetadata = false;
+          return false;
+        }
+      }
+      return !isAiMetadata;
+    });
+
+    const text = filteredBody.map((block: any) => {
       if (block._type === 'block' && block.children) {
         return block.children.map((child: any) => child.text).join('')
       }
