@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocat
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet.jsx';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth, AuthProvider } from './hooks/use-auth.jsx';
 import { useShift, ShiftProvider } from './context/ShiftContext.jsx';
@@ -194,7 +195,8 @@ const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage.jsx'));
 const MarketingPage = lazy(() => import('./pages/MarketingPage.jsx'));
 const WasteManagementPage = lazy(() => import('./pages/WasteManagementPage.jsx'));
 const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
-const AssistantChatWidget = lazy(() => import('@/components/AssistantChatWidget.jsx'));
+const AssistantChatPanel = lazy(() => import('@/components/AssistantChatWidget.jsx'));
+const AssistantPage = lazy(() => import('@/components/AssistantPage.jsx'));
 const PaymentsManagementDashboard = lazy(() => import('@/components/hospitality/PaymentsManagementDashboard.jsx'));
 const HospitalityOperationsDashboard = lazy(() => import('@/components/hospitality/HospitalityOperationsDashboard.jsx'));
 const HotelFloorPlanPage = lazy(() => import('@/components/hospitality/HotelFloorPlanPage.jsx'));
@@ -226,6 +228,7 @@ function TenantLayout() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isTenantDialogOpen, setTenantDialogOpen] = useState(false);
   const [tenantDialogError, setTenantDialogError] = useState('');
+  const [isAssistantSheetOpen, setAssistantSheetOpen] = useState(false);
   const {
     user,
     tenant,
@@ -605,6 +608,9 @@ function TenantLayout() {
         { name: 'Configuración', href: 'calendar?tab=management', icon: Settings },
       ]
     },
+
+    // 5. Asistente
+    { name: 'Asistente', href: 'assistant', icon: Sparkles, permission: 'dashboard_read' },
   ];
 
   const SidebarNavigation = () => {
@@ -1036,6 +1042,9 @@ function TenantLayout() {
             </div>
             <div className="flex items-center gap-2">
               <ShiftTimer />
+              <Button variant="ghost" size="icon" onClick={() => setAssistantSheetOpen(true)} title="Asistente">
+                <Sparkles className="h-5 w-5" />
+              </Button>
               <ThemeToggle />
               <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
                 <Settings className="h-5 w-5" />
@@ -1075,6 +1084,9 @@ function TenantLayout() {
               )}
               <BusinessLocationSelector />
               <NotificationCenter />
+              <Button variant="outline" size="icon" onClick={() => setAssistantSheetOpen(true)} title="Asistente">
+                <Sparkles size={12} />
+              </Button>
               <ThemeToggle />
               <Button id="settings-button" variant="outline" size="icon" onClick={() => navigate('/settings')}>
                 <Settings size={12} />
@@ -1245,6 +1257,7 @@ function TenantLayout() {
                 <Route path="subsidiaries" element={<SubsidiariesPanel />} />
                 <Route path="data-import" element={<DataImportPage />} />
                 <Route path="reports" element={<ReportsPage />} />
+                <Route path="assistant" element={<AssistantPage />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
@@ -1260,9 +1273,19 @@ function TenantLayout() {
           errorMessage={tenantDialogError}
         />
       </SidebarInset>
-      <Suspense fallback={null}>
-        <AssistantChatWidget />
-      </Suspense>
+      <Sheet open={isAssistantSheetOpen} onOpenChange={setAssistantSheetOpen}>
+        <SheetContent side="right" className="flex flex-col p-0 sm:max-w-md">
+          <SheetHeader className="border-b border-border px-4 py-3">
+            <SheetTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Asistente SmartKubik
+            </SheetTitle>
+          </SheetHeader>
+          <Suspense fallback={null}>
+            <AssistantChatPanel />
+          </Suspense>
+        </SheetContent>
+      </Sheet>
     </SidebarProvider>
   );
 }

@@ -1,8 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { MessageSquare, X, SendHorizonal, Sparkles } from 'lucide-react';
+import { SendHorizonal, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
 
@@ -19,18 +18,18 @@ const bubbleStyles = {
   info: 'bg-muted text-muted-foreground border border-border',
 };
 
-const AssistantChatWidget = ({
-  title = 'Asistente SmartKubik',
+/**
+ * Reusable assistant chat panel — no fixed positioning.
+ * Used inside Sheet (header) and AssistantPage (full page).
+ */
+const AssistantChatPanel = ({
   placeholder = 'Escribe tu pregunta…',
   className = '',
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([DEFAULT_WELCOME]);
   const [pendingQuestion, setPendingQuestion] = useState('');
   const [isSending, setIsSending] = useState(false);
   const scrollRef = useRef(null);
-
-  const toggleWidget = () => setIsOpen((prev) => !prev);
 
   const scrollToBottom = () => {
     requestAnimationFrame(() => {
@@ -41,10 +40,7 @@ const AssistantChatWidget = ({
   };
 
   const appendMessage = (message) => {
-    setMessages((prev) => {
-      const next = [...prev, message];
-      return next;
-    });
+    setMessages((prev) => [...prev, message]);
     scrollToBottom();
   };
 
@@ -106,44 +102,25 @@ const AssistantChatWidget = ({
   };
 
   return (
-    <div className={`fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 ${className}`}>
-      {isOpen && (
-        <Card className="flex w-80 flex-col overflow-hidden shadow-2xl">
-          <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3">
-            <div className="flex items-center gap-2 font-semibold">
-              <Sparkles className="h-4 w-4 text-primary" />
-              {title}
-            </div>
-            <Button variant="ghost" size="icon" onClick={toggleWidget} className="h-8 w-8">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
+    <div className={`flex flex-col h-full ${className}`}>
+      <div ref={scrollRef} className="flex flex-1 flex-col gap-3 overflow-y-auto bg-muted/50 px-4 py-3">
+        {messages.map(renderMessage)}
+        {isSending && <div className="text-xs text-muted-foreground">Pensando…</div>}
+      </div>
 
-          <div ref={scrollRef} className="flex max-h-80 flex-col gap-3 overflow-y-auto bg-muted/50 px-4 py-3">
-            {messages.map(renderMessage)}
-            {isSending && <div className="text-xs text-muted-foreground">Pensando…</div>}
-          </div>
-
-          <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-border bg-card px-3 py-3">
-            <Input
-              value={pendingQuestion}
-              onChange={(event) => setPendingQuestion(event.target.value)}
-              placeholder={placeholder}
-              disabled={isSending}
-            />
-            <Button type="submit" size="icon" disabled={isSending || !pendingQuestion.trim()}>
-              <SendHorizonal className="h-4 w-4" />
-            </Button>
-          </form>
-        </Card>
-      )}
-
-      <Button size="lg" className="rounded-full shadow-lg" onClick={toggleWidget}>
-        <MessageSquare className="mr-2 h-4 w-4" />
-        Asistente
-      </Button>
+      <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-border bg-card px-3 py-3">
+        <Input
+          value={pendingQuestion}
+          onChange={(event) => setPendingQuestion(event.target.value)}
+          placeholder={placeholder}
+          disabled={isSending}
+        />
+        <Button type="submit" size="icon" disabled={isSending || !pendingQuestion.trim()}>
+          <SendHorizonal className="h-4 w-4" />
+        </Button>
+      </form>
     </div>
   );
 };
 
-export default AssistantChatWidget;
+export default AssistantChatPanel;
