@@ -42,7 +42,24 @@ const BlogIndex = () => {
         }`;
         const result = await sanityClient.fetch(query);
         const postsWithDetails = result.map(post => {
-          const text = post.body.map(block => {
+          // Filter out AI Metadata blocks before generating excerpt
+          let isAiMetadata = false;
+          const filteredBody = (post.body || []).filter((block) => {
+            if (block._type === 'block' && block.children) {
+              const blockText = block.children.map((child) => child.text).join('').toUpperCase();
+              if (blockText.includes('AI METADATA') && !blockText.includes('END AI METADATA')) {
+                isAiMetadata = true;
+                return false;
+              }
+              if (blockText.includes('END AI METADATA')) {
+                isAiMetadata = false;
+                return false;
+              }
+            }
+            return !isAiMetadata;
+          });
+
+          const text = filteredBody.map(block => {
             if (block._type === 'block' && block.children) {
               return block.children.map(child => child.text).join('');
             }
