@@ -1,21 +1,30 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 const BlogNavbar = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const [mounted, setMounted] = useState(false)
+    const { resolvedTheme } = useTheme()
+
+    useEffect(() => setMounted(true), [])
+
+    // Default to light logo (matches defaultTheme="dark")
+    // After mount, use resolvedTheme for accurate detection
+    const logoSrc = !mounted || resolvedTheme === 'dark'
+        ? '/blog/logo-smartkubik-light.png'
+        : '/blog/logo-smartkubik.png'
 
     return (
         <nav className="fixed top-0 w-full bg-background/95 backdrop-blur-sm border-b border-border z-50 transition-colors duration-200">
             <div className="max-w-7xl mx-auto px-6">
                 <div className="flex justify-between items-center h-16">
                     <Link href="/" className="flex items-center space-x-3 animate-fadeIn">
-                        {/* CSS-based theme switching: no JS needed, no hydration flash */}
-                        <img src="/blog/logo-smartkubik.png" alt="Smart Kubik" className="h-10 w-auto dark:hidden" />
-                        <img src="/blog/logo-smartkubik-light.png" alt="Smart Kubik" className="h-10 w-auto hidden dark:block" />
+                        <img src={logoSrc} alt="Smart Kubik" className="h-10 w-auto" />
                     </Link>
 
                     <div className="hidden md:flex items-center space-x-8">

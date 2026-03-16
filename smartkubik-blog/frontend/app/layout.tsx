@@ -52,6 +52,12 @@ export async function generateMetadata(): Promise<Metadata> {
       default: 'SmartKubik Blog',
     },
     description: toPlainText(description),
+    icons: {
+      icon: [
+        { url: '/favicon-light.png', media: '(prefers-color-scheme: light)' },
+        { url: '/favicon-smartkubik.png', media: '(prefers-color-scheme: dark)' },
+      ],
+    },
     openGraph: {
       images: ogImage ? [ogImage] : [],
     },
