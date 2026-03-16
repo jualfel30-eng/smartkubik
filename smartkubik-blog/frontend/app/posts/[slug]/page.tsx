@@ -94,19 +94,52 @@ export async function generateMetadata(props: Props, parent: ResolvingMetadata):
   const ogImage = post?.mainImage?.asset?.url ? post.mainImage.asset.url : null
 
   // Find first content block (skip metadata blocks for OG description)
+  // Must handle multi-block AI METADATA ranges, not just individual markers
+  let ogIsAiMetadata = false;
   const firstContentBlock = post?.body?.find((block: any) => {
     if (block._type === 'block' && block.children) {
       const text = block.children.map((child: any) => child.text).join('').toUpperCase();
-      return !text.includes('METADATA START') && !text.includes('AI METADATA');
+
+      // Old format: HTML comment metadata (single block)
+      if (text.includes('METADATA START')) {
+        return false;
+      }
+
+      // New format: AI METADATA range start
+      if (text.includes('AI METADATA') && !text.includes('END AI METADATA')) {
+        ogIsAiMetadata = true;
+        return false;
+      }
+
+      // New format: AI METADATA range end
+      if (text.includes('END AI METADATA')) {
+        ogIsAiMetadata = false;
+        return false;
+      }
+
+      // Skip blocks inside AI METADATA range
+      if (ogIsAiMetadata) {
+        return false;
+      }
+
+      return true;
     }
     return false;
   });
 
+  const ogDescription = firstContentBlock?.children
+    ?.map((child: any) => child.text)
+    .join('')
+    .substring(0, 160) || '';
+
   return {
     authors: post?.authorName ? [{ name: post.authorName }] : [],
     title: post?.title,
-    description: firstContentBlock?.children?.[0]?.text?.substring(0, 160),
+    description: ogDescription,
     openGraph: {
+      title: post?.title,
+      description: ogDescription,
+      type: 'article',
       images: ogImage ? [ogImage, ...previousImages] : previousImages,
     },
   } satisfies Metadata
