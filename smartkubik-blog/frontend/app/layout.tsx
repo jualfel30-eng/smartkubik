@@ -54,8 +54,8 @@ export async function generateMetadata(): Promise<Metadata> {
     description: toPlainText(description),
     icons: {
       icon: [
-        { url: '/favicon-light.png', media: '(prefers-color-scheme: light)' },
-        { url: '/favicon-smartkubik.png', media: '(prefers-color-scheme: dark)' },
+        { url: '/blog/favicon-light.png', media: '(prefers-color-scheme: light)' },
+        { url: '/blog/favicon-smartkubik.png', media: '(prefers-color-scheme: dark)' },
       ],
     },
     openGraph: {

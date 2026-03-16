@@ -13,9 +13,8 @@ const BlogNavbar = () => {
 
     useEffect(() => setMounted(true), [])
 
-    // Default to light logo (matches defaultTheme="dark")
-    // After mount, use resolvedTheme for accurate detection
-    const logoSrc = !mounted || resolvedTheme === 'dark'
+    // Default to dark logo (matches defaultTheme="dark" in ThemeProvider)
+    const logoSrc = mounted && resolvedTheme === 'light'
         ? '/blog/logo-smartkubik-light.png'
         : '/blog/logo-smartkubik.png'
 
@@ -24,7 +23,13 @@ const BlogNavbar = () => {
             <div className="max-w-7xl mx-auto px-6">
                 <div className="flex justify-between items-center h-16">
                     <Link href="/" className="flex items-center space-x-3 animate-fadeIn">
-                        <img src={logoSrc} alt="Smart Kubik" className="h-10 w-auto" />
+                        <img
+                            src={logoSrc}
+                            alt="Smart Kubik"
+                            width={228}
+                            height={28}
+                            style={{ height: '28px', width: 'auto' }}
+                        />
                     </Link>
 
                     <div className="hidden md:flex items-center space-x-8">

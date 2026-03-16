@@ -224,9 +224,9 @@ if [[ "$BLOG_PM2_STATUS" == "NOT_RUNNING" ]]; then
   ssh $SERVER "pm2 save"
   echo -e "${GREEN}✅ Blog started with PM2${NC}"
 else
-  echo -e "${YELLOW}🔄 Reloading blog...${NC}"
-  ssh $SERVER "cd $BLOG_REMOTE && PORT=$BLOG_PORT HOST=0.0.0.0 NEXT_PUBLIC_SITE_URL=$BLOG_SITE_URL NEXT_PUBLIC_BLOG_BASE_PATH=$BLOG_BASE_PATH pm2 reload $BLOG_PM2_NAME"
-  echo -e "${GREEN}✅ Blog PM2 reloaded${NC}"
+  echo -e "${YELLOW}🔄 Restarting blog (full restart to clear Next.js cache)...${NC}"
+  ssh $SERVER "cd $BLOG_REMOTE && PORT=$BLOG_PORT HOST=0.0.0.0 NEXT_PUBLIC_SITE_URL=$BLOG_SITE_URL NEXT_PUBLIC_BLOG_BASE_PATH=$BLOG_BASE_PATH pm2 restart $BLOG_PM2_NAME"
+  echo -e "${GREEN}✅ Blog PM2 restarted${NC}"
 fi
 
 # Step 6: Verify
