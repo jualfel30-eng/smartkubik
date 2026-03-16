@@ -159,28 +159,31 @@ const BlogPost = () => {
     );
   }
 
-  // Filter out AI Metadata blocks (Range Filtering)
+  // Filter out metadata blocks
+  // Old posts (Oct-Dec 2025): all metadata in block[0] as <!-- METADATA START -->
+  // New posts (Jan 2026+): AI METADATA / END AI METADATA range across blocks
   let isAiMetadata = false;
   const filteredBody = post.body?.filter((block) => {
     if (block._type === 'block' && block.children) {
       const text = block.children.map((child) => child.text).join('').toUpperCase();
 
-      // Start of metadata block
+      // Old format: HTML comment metadata (single block)
+      if (text.includes('METADATA START')) {
+        return false;
+      }
+
+      // New format: AI METADATA range (multiple blocks)
       if (text.includes('AI METADATA') && !text.includes('END AI METADATA')) {
-        console.log('Filtering AI Metadata Start:', text);
         isAiMetadata = true;
         return false;
       }
 
-      // End of metadata block
       if (text.includes('END AI METADATA')) {
-        console.log('Filtering AI Metadata End:', text);
         isAiMetadata = false;
         return false;
       }
     }
 
-    // If we are currently inside an AI metadata block, filter it out
     if (isAiMetadata) {
       return false;
     }
