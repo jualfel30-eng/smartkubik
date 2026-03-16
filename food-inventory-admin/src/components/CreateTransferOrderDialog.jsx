@@ -244,6 +244,8 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
         notes: form.notes || undefined,
         items: form.items.map((i) => ({
           productId: i.productId,
+          productName: i.productName,
+          productSku: i.productSku,
           requestedQuantity: i.quantity,
         })),
       };

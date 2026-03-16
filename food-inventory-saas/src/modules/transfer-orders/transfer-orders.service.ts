@@ -267,6 +267,15 @@ export class TransferOrdersService {
       );
     }
 
+    // Bulk-lookup product names/SKUs for items missing them
+    const productIds = dto.items.map((i) => new Types.ObjectId(i.productId));
+    const products = await this.productModel
+      .find({ _id: { $in: productIds } }, { name: 1, sku: 1 })
+      .lean();
+    const productMap = new Map(
+      products.map((p) => [p._id.toString(), p]),
+    );
+
     const orderNumber = await this.generateOrderNumber(tenantId);
     const userOid = new Types.ObjectId(userId);
 
@@ -276,19 +285,22 @@ export class TransferOrdersService {
       sourceWarehouseId: new Types.ObjectId(dto.sourceWarehouseId),
       destinationWarehouseId: new Types.ObjectId(dto.destinationWarehouseId),
       sourceTenantId: new Types.ObjectId(tenantId),
-      items: dto.items.map((item) => ({
-        productId: new Types.ObjectId(item.productId),
-        productSku: item.productSku,
-        productName: item.productName,
-        variantId: item.variantId
-          ? new Types.ObjectId(item.variantId)
-          : undefined,
-        variantSku: item.variantSku,
-        requestedQuantity: item.requestedQuantity,
-        unitCost: item.unitCost ?? 0,
-        notes: item.notes,
-        lotNumber: item.lotNumber,
-      })),
+      items: dto.items.map((item) => {
+        const product = productMap.get(item.productId);
+        return {
+          productId: new Types.ObjectId(item.productId),
+          productSku: item.productSku || product?.sku,
+          productName: item.productName || product?.name,
+          variantId: item.variantId
+            ? new Types.ObjectId(item.variantId)
+            : undefined,
+          variantSku: item.variantSku,
+          requestedQuantity: item.requestedQuantity,
+          unitCost: item.unitCost ?? 0,
+          notes: item.notes,
+          lotNumber: item.lotNumber,
+        };
+      }),
       notes: dto.notes,
       reference: dto.reference,
       tenantId,

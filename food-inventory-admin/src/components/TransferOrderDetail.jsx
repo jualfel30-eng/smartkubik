@@ -88,10 +88,10 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
     setReceiveItems(
       order.items.map((item) => ({
         productId: item.productId?._id || item.productId,
-        productName: item.productId?.name || 'Producto',
-        quantity: item.quantity,
-        receivedQuantity: item.quantity - (item.receivedQuantity || 0),
-        maxQuantity: item.quantity - (item.receivedQuantity || 0),
+        productName: item.productName || 'Producto',
+        quantity: item.requestedQuantity,
+        receivedQuantity: item.requestedQuantity - (item.receivedQuantity || 0),
+        maxQuantity: item.requestedQuantity - (item.receivedQuantity || 0),
       })),
     );
     setReceiveDialogOpen(true);
@@ -284,12 +284,12 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
               {(order.items || []).map((item, idx) => (
                 <TableRow key={idx}>
                   <TableCell>
-                    <span className="font-medium">{item.productId?.name || 'Producto'}</span>
-                    {item.productId?.sku && (
-                      <span className="text-xs text-muted-foreground ml-2">({item.productId.sku})</span>
+                    <span className="font-medium">{item.productName || 'Producto'}</span>
+                    {item.productSku && (
+                      <span className="text-xs text-muted-foreground ml-2">({item.productSku})</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">{item.quantity}</TableCell>
+                  <TableCell className="text-right">{item.requestedQuantity}</TableCell>
                   <TableCell className="text-right">{item.approvedQuantity ?? '-'}</TableCell>
                   <TableCell className="text-right">
                     {item.receivedQuantity != null ? (
