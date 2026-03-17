@@ -132,11 +132,17 @@ export async function generateMetadata(props: Props, parent: ResolvingMetadata):
     .join('')
     .substring(0, 160) || '';
 
+  // Construct canonical URL for og:url
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://smartkubik.com';
+  const basePath = process.env.NEXT_PUBLIC_BLOG_BASE_PATH || '/blog';
+  const canonicalUrl = `${siteUrl}${basePath}/posts/${params.slug}`;
+
   return {
     authors: post?.authorName ? [{ name: post.authorName }] : [],
     title: post?.title,
     description: ogDescription,
     openGraph: {
+      url: canonicalUrl,
       title: post?.title,
       description: ogDescription,
       type: 'article',
