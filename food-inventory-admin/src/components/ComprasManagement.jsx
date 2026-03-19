@@ -1106,11 +1106,10 @@ export default function ComprasManagement() {
   const fetchSupplierPaymentMethods = async (supplierId) => {
     try {
       // CRÍTICO: Usar endpoint /suppliers para obtener paymentSettings
-      const response = await fetchApi(`/suppliers/${supplierId}`);
-      const supplier = response.data;
+      const supplier = await fetchApi(`/suppliers/${supplierId}`);
 
       // Obtener configuración de pago del proveedor
-      const paymentSettings = supplier.paymentSettings || {};
+      const paymentSettings = supplier?.paymentSettings || {};
       const acceptedMethods = paymentSettings.acceptedPaymentMethods || [];
       const acceptsCredit = paymentSettings.acceptsCredit ?? false;
       const defaultCreditDays = paymentSettings.defaultCreditDays || 0;
@@ -1159,9 +1158,8 @@ export default function ComprasManagement() {
     try {
       // Obtener métodos actuales del proveedor
       // CRÍTICO: Usar endpoint /suppliers para obtener paymentSettings
-      const response = await fetchApi(`/suppliers/${supplierId}`);
-      const supplier = response.data;
-      const currentMethods = supplier.paymentSettings?.acceptedPaymentMethods || [];
+      const supplier = await fetchApi(`/suppliers/${supplierId}`);
+      const currentMethods = supplier?.paymentSettings?.acceptedPaymentMethods || [];
 
       // Detectar métodos nuevos (que el proveedor NO tiene)
       const methodsToAdd = newPaymentMethods.filter(m => !currentMethods.includes(m));
