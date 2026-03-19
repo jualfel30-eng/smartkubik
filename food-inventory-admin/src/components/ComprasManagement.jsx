@@ -21,6 +21,47 @@ import { SearchableSelect } from './orders/v2/custom/SearchableSelect';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { TagInput } from '@/components/ui/tag-input.jsx';
 
+/**
+ * Helper: Parse taxId/RIF to extract taxType and rifNumber
+ * Handles multiple formats:
+ * - "J-123456789" → { taxType: "J", rifNumber: "123456789" }
+ * - "123456789" → { taxType: fallbackType, rifNumber: "123456789" }
+ * - "J123456789" → { taxType: "J", rifNumber: "123456789" }
+ * - "502100652" → { taxType: fallbackType, rifNumber: "502100652" }
+ */
+const parseTaxId = (taxId, fallbackTaxType = 'J') => {
+  if (!taxId) {
+    return { taxType: fallbackTaxType, rifNumber: '' };
+  }
+
+  const cleaned = String(taxId).trim();
+
+  // Case 1: Has hyphen (e.g., "J-123456789")
+  if (cleaned.includes('-')) {
+    const [taxType, ...rifParts] = cleaned.split('-');
+    const rifNumber = rifParts.join('').replace(/[^0-9]/g, '');
+    return {
+      taxType: taxType.toUpperCase() || fallbackTaxType,
+      rifNumber
+    };
+  }
+
+  // Case 2: Starts with letter (e.g., "J123456789")
+  const firstChar = cleaned[0];
+  if (/[A-Za-z]/.test(firstChar)) {
+    return {
+      taxType: firstChar.toUpperCase(),
+      rifNumber: cleaned.slice(1).replace(/[^0-9]/g, '')
+    };
+  }
+
+  // Case 3: Only numbers (e.g., "123456789" or "502100652")
+  return {
+    taxType: fallbackTaxType,
+    rifNumber: cleaned.replace(/[^0-9]/g, '')
+  };
+};
+
 const initialNewProductState = {
   productType: 'simple',
   sku: '',
@@ -839,20 +880,20 @@ export default function ComprasManagement() {
     } else {
       setSupplierNameInput('');
       const { customer } = selectedOption;
-      // Extract tax type and RIF number from taxId (format: "J-12345678")
-      const fullRif = customer.taxInfo?.taxId || '';
-      const [taxType, ...rifParts] = fullRif.split('-');
-      const rifNumber = rifParts.join('').replace(/[^0-9]/g, '');
 
-      const normalizedTaxType =
-        (taxType || customer.taxInfo?.taxType || 'J').toUpperCase();
+      // Parse taxId usando helper que maneja múltiples formatos
+      const { taxType, rifNumber } = parseTaxId(
+        customer.taxInfo?.taxId,
+        customer.taxInfo?.taxType || 'J'
+      );
+
       setSupplierRifInput(rifNumber);
       setPo(prev => ({
         ...prev,
         supplierId: customer._id,
         supplierName: customer.companyName || customer.name,
         supplierRif: rifNumber,
-        taxType: normalizedTaxType,
+        taxType: taxType,
         contactName: customer.contacts?.[0]?.name || customer.name || '',
         contactPhone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
         contactEmail: customer.contacts?.find(c => c.type === 'email')?.value || '',
@@ -880,26 +921,26 @@ export default function ComprasManagement() {
       return;
     }
     if (selectedOption.__isNew__) {
-      const [type, ...rifParts] = selectedOption.label.split('-');
+      // Parse el label del nuevo RIF
+      const { taxType, rifNumber } = parseTaxId(selectedOption.label, po.taxType || 'J');
+
       // NO limpiar supplierRifInput aquí - mantener el valor visible para el usuario
-      const cleanRif = rifParts.join('').replace(/[^0-9]/g, '');
-      setPo(prev => {
-        const normalizedTaxType = (type || prev.taxType || 'J').toUpperCase();
-        return {
-          ...prev,
-          supplierId: '',
-          supplierName: '',
-          taxType: normalizedTaxType,
-          supplierRif: cleanRif,
-        };
-      });
+      setPo(prev => ({
+        ...prev,
+        supplierId: '',
+        supplierName: '',
+        taxType: taxType,
+        supplierRif: rifNumber,
+      }));
     } else {
       // Solo limpiar cuando se selecciona un proveedor existente
       const { customer } = selectedOption;
-      // Extract tax type and RIF number from taxId (format: "J-12345678")
-      const fullRif = customer.taxInfo?.taxId || '';
-      const [taxType, ...rifParts] = fullRif.split('-');
-      const rifNumber = rifParts.join('').replace(/[^0-9]/g, '');
+
+      // Parse taxId usando helper que maneja múltiples formatos
+      const { taxType, rifNumber } = parseTaxId(
+        customer.taxInfo?.taxId,
+        customer.taxInfo?.taxType || 'J'
+      );
 
       // Actualizar los inputs para mostrar datos del proveedor seleccionado
       setSupplierRifInput(rifNumber);
@@ -909,7 +950,7 @@ export default function ComprasManagement() {
         supplierId: customer._id,
         supplierName: customer.companyName || customer.name,
         supplierRif: rifNumber,
-        taxType: (taxType || customer.taxInfo?.taxType || 'J').toUpperCase(),
+        taxType: taxType,
         contactName: customer.contacts?.[0]?.name || customer.name || '',
         contactPhone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
         contactEmail: customer.contacts?.find(c => c.type === 'email')?.value || '',
@@ -1575,9 +1616,13 @@ export default function ComprasManagement() {
                               className="w-full text-left rounded-sm px-2 py-1.5 text-sm hover:bg-primary/25 cursor-default"
                               onMouseDown={(e) => {
                                 e.preventDefault();
-                                const fullRif = s.taxInfo?.taxId || '';
-                                const [taxType, ...rifParts] = fullRif.split('-');
-                                const rifNumber = rifParts.join('').replace(/[^0-9]/g, '');
+
+                                // Parse taxId usando helper que maneja múltiples formatos
+                                const { taxType, rifNumber } = parseTaxId(
+                                  s.taxInfo?.taxId,
+                                  s.taxInfo?.taxType || 'J'
+                                );
+
                                 setSupplierRifInput(rifNumber);
                                 setRifDropdownOpen(false);
                                 setPo(prev => ({
@@ -1585,7 +1630,7 @@ export default function ComprasManagement() {
                                   supplierId: s._id,
                                   supplierName: s.companyName || s.name,
                                   supplierRif: rifNumber,
-                                  taxType: (taxType || s.taxInfo?.taxType || 'J').toUpperCase(),
+                                  taxType: taxType,
                                   contactName: s.contacts?.[0]?.name || s.name || '',
                                   contactPhone: s.contacts?.find(c => c.type === 'phone')?.value || '',
                                   contactEmail: s.contacts?.find(c => c.type === 'email')?.value || '',
