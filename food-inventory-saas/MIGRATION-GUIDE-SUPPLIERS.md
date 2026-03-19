@@ -49,8 +49,10 @@ cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO/fo
 
 ### Paso 2: Ejecutar el script de migración
 ```bash
-npx ts-node src/scripts/migrate-virtual-suppliers-to-suppliers.ts
+node src/scripts/migrate-suppliers-direct.js
 ```
+
+**IMPORTANTE**: Usa `migrate-suppliers-direct.js` (versión con MongoDB directo), NO `migrate-virtual-suppliers-to-suppliers.ts` (versión con NestJS), para evitar problemas con path aliases.
 
 ### Paso 3: Ver el progreso
 El script mostrará en tiempo real:
@@ -216,6 +218,18 @@ Asegúrate de que MongoDB esté corriendo y que las variables de entorno estén 
 - Revisa los mensajes de error arriba en el log
 - Probablemente algunos proveedores tienen datos incompletos
 - Los errores NO afectan el resto de la migración
+
+### Las condiciones de pago NO cargan después de la migración
+**Causa**: tenantId almacenado como ObjectId en lugar de String
+
+**Síntoma**: La migración se ejecuta exitosamente pero las condiciones de pago no se cargan al seleccionar proveedores en el frontend.
+
+**Solución**: Ejecutar el script de corrección global:
+```bash
+node src/scripts/fix-all-supplier-tenantids.js
+```
+
+Este script convierte todos los `tenantId` ObjectId a String, asegurando que las queries del backend funcionen correctamente.
 
 ---
 
