@@ -781,6 +781,9 @@ export default function ComprasManagement() {
         contactPhone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
         contactEmail: customer.contacts?.find(c => c.type === 'email')?.value || '',
       }));
+
+      // CRÍTICO: Cargar condiciones de pago del proveedor
+      fetchSupplierPaymentMethods(customer._id);
     }
   };
 
@@ -835,6 +838,9 @@ export default function ComprasManagement() {
         contactPhone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
         contactEmail: customer.contacts?.find(c => c.type === 'email')?.value || '',
       }));
+
+      // CRÍTICO: Cargar condiciones de pago del proveedor
+      fetchSupplierPaymentMethods(customer._id);
     }
   };
 
