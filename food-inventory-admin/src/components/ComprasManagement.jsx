@@ -1105,7 +1105,8 @@ export default function ComprasManagement() {
 
   const fetchSupplierPaymentMethods = async (supplierId) => {
     try {
-      const response = await fetchApi(`/customers/${supplierId}`);
+      // CRÍTICO: Usar endpoint /suppliers para obtener paymentSettings
+      const response = await fetchApi(`/suppliers/${supplierId}`);
       const supplier = response.data;
 
       // Obtener configuración de pago del proveedor
@@ -1157,7 +1158,8 @@ export default function ComprasManagement() {
   const syncPaymentMethodsToSupplier = async (supplierId, newPaymentMethods) => {
     try {
       // Obtener métodos actuales del proveedor
-      const response = await fetchApi(`/customers/${supplierId}`);
+      // CRÍTICO: Usar endpoint /suppliers para obtener paymentSettings
+      const response = await fetchApi(`/suppliers/${supplierId}`);
       const supplier = response.data;
       const currentMethods = supplier.paymentSettings?.acceptedPaymentMethods || [];
 
@@ -1296,6 +1298,15 @@ export default function ComprasManagement() {
       dto.newSupplierContactName = contactNameTrimmed;
       dto.newSupplierContactPhone = contactPhoneTrimmed;
       dto.newSupplierContactEmail = contactEmailTrimmed || undefined;
+
+      // CRÍTICO: También enviar paymentSettings para el nuevo proveedor
+      dto.newSupplierPaymentSettings = {
+        acceptedPaymentMethods: allPaymentMethods,
+        acceptsCredit: po.paymentTerms.isCredit,
+        defaultCreditDays: creditDays,
+        requiresAdvancePayment: po.paymentTerms.requiresAdvancePayment,
+        advancePaymentPercentage: po.paymentTerms.advancePaymentPercentage
+      };
     }
 
     try {
