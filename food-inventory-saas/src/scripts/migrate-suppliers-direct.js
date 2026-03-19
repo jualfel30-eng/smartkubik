@@ -107,6 +107,7 @@ async function migrate() {
         const newSupplier = new Supplier({
           customerId: customer._id,
           supplierNumber: supplierNumber,
+          supplierType: 'distributor',
           name: customer.companyName || customer.name,
           contactInfo: {
             phone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
@@ -124,7 +125,7 @@ async function migrate() {
             requiresAdvancePayment: false,
             advancePaymentPercentage: 0,
           },
-          tenantId: customer.tenantId,
+          tenantId: customer.tenantId.toString(), // FIX: Convert ObjectId to string
           createdAt: new Date(),
           updatedAt: new Date(),
         });

@@ -186,7 +186,7 @@ export class SuppliersService {
       ] : [],
 
       createdBy: user.id,
-      tenantId: user.tenantId,
+      tenantId: String(user.tenantId), // Ensure string (not ObjectId)
       paymentSettings: createSupplierDto.paymentSettings || {},
     };
 
@@ -221,7 +221,7 @@ export class SuppliersService {
           name: customer.companyName || customer.name,
           paymentSettings: updateSupplierDto.paymentSettings || {}, // Use incoming settings
           createdBy: user.id,
-          tenantId: user.tenantId,
+          tenantId: String(user.tenantId), // Ensure string (not ObjectId)
           taxInfo: { // Defaults from Customer
             rif: customer.taxInfo?.taxId,
             businessName: customer.taxInfo?.taxName,
