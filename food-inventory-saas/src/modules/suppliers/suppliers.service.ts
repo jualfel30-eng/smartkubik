@@ -524,10 +524,7 @@ export class SuppliersService {
       })),
       address: customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0],
       metrics: customer.metrics, // Fix: Include metrics for virtual suppliers
-      paymentSettings: { // Defaults
-        defaultCreditDays: 0,
-        acceptsCredit: false
-      }
+      paymentSettings: customer.paymentSettings || {} // Read from Customer, not hardcoded defaults
     }));
 
     // Combine and sort by name
@@ -552,7 +549,7 @@ export class SuppliersService {
     const customer = await this.customerModel.findOne({ _id: id, tenantId: new Types.ObjectId(tenantId), customerType: 'supplier' }).exec();
 
     if (customer) {
-      // Return mapped virtual supplier
+      // Return mapped virtual supplier with paymentSettings from Customer
       return {
         _id: customer._id,
         isVirtual: true,
@@ -572,7 +569,7 @@ export class SuppliersService {
         })),
         address: customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0],
         metrics: customer.metrics,
-        paymentSettings: {}
+        paymentSettings: customer.paymentSettings || {}
       };
     }
 
