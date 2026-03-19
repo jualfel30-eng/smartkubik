@@ -17,10 +17,15 @@ import { PermissionsGuard } from "../../guards/permissions.guard";
 import { Permissions } from "../../decorators/permissions.decorator";
 import {
   CreateTransferOrderDto,
+  CreateTransferRequestDto,
   UpdateTransferOrderDto,
   ApproveTransferOrderDto,
+  ApproveRequestDto,
+  RejectRequestDto,
+  PrepareTransferOrderDto,
   ShipTransferOrderDto,
   ReceiveTransferOrderDto,
+  ReportDiscrepancyDto,
   CancelTransferOrderDto,
   TransferOrderFilterDto,
 } from "../../dto/transfer-order.dto";
@@ -94,6 +99,73 @@ export class TransferOrdersController {
     );
   }
 
+  // ─── PULL Flow Endpoints ────────────────────────────────
+
+  @Post("requests")
+  @Permissions("transfer_orders_write")
+  async createRequest(@Body() dto: CreateTransferRequestDto, @Request() req) {
+    return this.transferOrdersService.createRequest(
+      dto,
+      req.user.tenantId,
+      req.user.id,
+    );
+  }
+
+  @Post(":id/submit")
+  @Permissions("transfer_orders_write")
+  async submitRequest(@Param("id") id: string, @Request() req) {
+    return this.transferOrdersService.submitRequest(
+      id,
+      req.user.tenantId,
+      req.user.id,
+    );
+  }
+
+  @Post(":id/approve-request")
+  @Permissions("transfer_orders_approve")
+  async approveRequest(
+    @Param("id") id: string,
+    @Body() dto: ApproveRequestDto,
+    @Request() req,
+  ) {
+    return this.transferOrdersService.approveRequest(
+      id,
+      dto,
+      req.user.tenantId,
+      req.user.id,
+    );
+  }
+
+  @Post(":id/reject-request")
+  @Permissions("transfer_orders_approve")
+  async rejectRequest(
+    @Param("id") id: string,
+    @Body() dto: RejectRequestDto,
+    @Request() req,
+  ) {
+    return this.transferOrdersService.rejectRequest(
+      id,
+      dto,
+      req.user.tenantId,
+      req.user.id,
+    );
+  }
+
+  @Post(":id/prepare")
+  @Permissions("transfer_orders_write")
+  async markAsInPreparation(
+    @Param("id") id: string,
+    @Body() dto: PrepareTransferOrderDto,
+    @Request() req,
+  ) {
+    return this.transferOrdersService.markAsInPreparation(
+      id,
+      dto,
+      req.user.tenantId,
+      req.user.id,
+    );
+  }
+
   @Post(":id/ship")
   @Permissions("transfer_orders_write")
   async ship(
@@ -117,6 +189,21 @@ export class TransferOrdersController {
     @Request() req,
   ) {
     return this.transferOrdersService.receive(
+      id,
+      dto,
+      req.user.tenantId,
+      req.user.id,
+    );
+  }
+
+  @Post(":id/report-discrepancy")
+  @Permissions("transfer_orders_write")
+  async reportDiscrepancy(
+    @Param("id") id: string,
+    @Body() dto: ReportDiscrepancyDto,
+    @Request() req,
+  ) {
+    return this.transferOrdersService.reportDiscrepancy(
       id,
       dto,
       req.user.tenantId,

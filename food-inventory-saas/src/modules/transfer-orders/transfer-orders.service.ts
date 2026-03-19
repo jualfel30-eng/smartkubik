@@ -10,6 +10,7 @@ import {
   TransferOrder,
   TransferOrderDocument,
   TransferOrderStatus,
+  TransferRequestType,
 } from "../../schemas/transfer-order.schema";
 import {
   BusinessLocation,
@@ -29,10 +30,15 @@ import { Product, ProductDocument } from "../../schemas/product.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import {
   CreateTransferOrderDto,
+  CreateTransferRequestDto,
   UpdateTransferOrderDto,
   ApproveTransferOrderDto,
+  ApproveRequestDto,
+  RejectRequestDto,
+  PrepareTransferOrderDto,
   ShipTransferOrderDto,
   ReceiveTransferOrderDto,
+  ReportDiscrepancyDto,
   CancelTransferOrderDto,
   TransferOrderFilterDto,
 } from "../../dto/transfer-order.dto";
@@ -112,6 +118,175 @@ export class TransferOrdersService {
     );
   }
 
+  /**
+   * Get allowed state transitions based on current status and type
+   */
+  private getAllowedTransitions(
+    currentStatus: TransferOrderStatus,
+    type: string,
+  ): TransferOrderStatus[] {
+    const transitions = {
+      push: {
+        [TransferOrderStatus.DRAFT]: [
+          TransferOrderStatus.PUSH_REQUESTED,
+          TransferOrderStatus.CANCELLED,
+        ],
+        [TransferOrderStatus.PUSH_REQUESTED]: [
+          TransferOrderStatus.PUSH_APPROVED,
+          TransferOrderStatus.CANCELLED,
+        ],
+        [TransferOrderStatus.PUSH_APPROVED]: [
+          TransferOrderStatus.IN_PREPARATION,
+          TransferOrderStatus.CANCELLED,
+        ],
+        [TransferOrderStatus.IN_PREPARATION]: [
+          TransferOrderStatus.IN_TRANSIT,
+          TransferOrderStatus.CANCELLED,
+        ],
+        [TransferOrderStatus.IN_TRANSIT]: [
+          TransferOrderStatus.RECEIVED,
+          TransferOrderStatus.PARTIALLY_RECEIVED,
+          TransferOrderStatus.DELIVERED,
+        ],
+        [TransferOrderStatus.DELIVERED]: [
+          TransferOrderStatus.RECEIVED,
+          TransferOrderStatus.PARTIALLY_RECEIVED,
+        ],
+        [TransferOrderStatus.PARTIALLY_RECEIVED]: [
+          TransferOrderStatus.RECEIVED,
+        ],
+        [TransferOrderStatus.RECEIVED]: [],
+        [TransferOrderStatus.CANCELLED]: [],
+      },
+      pull: {
+        [TransferOrderStatus.DRAFT]: [
+          TransferOrderStatus.PULL_REQUESTED,
+          TransferOrderStatus.CANCELLED,
+        ],
+        [TransferOrderStatus.PULL_REQUESTED]: [
+          TransferOrderStatus.PULL_APPROVED,
+          TransferOrderStatus.PULL_REJECTED,
+          TransferOrderStatus.CANCELLED,
+        ],
+        [TransferOrderStatus.PULL_APPROVED]: [
+          TransferOrderStatus.IN_PREPARATION,
+        ],
+        [TransferOrderStatus.PULL_REJECTED]: [],
+        [TransferOrderStatus.IN_PREPARATION]: [
+          TransferOrderStatus.IN_TRANSIT,
+        ],
+        [TransferOrderStatus.IN_TRANSIT]: [
+          TransferOrderStatus.RECEIVED,
+          TransferOrderStatus.PARTIALLY_RECEIVED,
+          TransferOrderStatus.DELIVERED,
+        ],
+        [TransferOrderStatus.DELIVERED]: [
+          TransferOrderStatus.RECEIVED,
+          TransferOrderStatus.PARTIALLY_RECEIVED,
+        ],
+        [TransferOrderStatus.PARTIALLY_RECEIVED]: [
+          TransferOrderStatus.RECEIVED,
+        ],
+        [TransferOrderStatus.RECEIVED]: [],
+        [TransferOrderStatus.CANCELLED]: [],
+      },
+    };
+
+    return transitions[type]?.[currentStatus] || [];
+  }
+
+  /**
+   * Validate workflow transition with tenant/user authorization
+   */
+  private validateWorkflowTransition(
+    order: TransferOrderDocument,
+    targetStatus: TransferOrderStatus,
+    currentTenantId: string,
+    action: string,
+  ): void {
+    const isSource =
+      order.tenantId.toString() === currentTenantId ||
+      order.sourceTenantId?.toString() === currentTenantId;
+    const isDestination =
+      order.destinationTenantId?.toString() === currentTenantId;
+    const isPush = order.type === "push";
+    const isPull = order.type === "pull";
+
+    // Validaciones específicas PUSH
+    if (isPush) {
+      if (
+        targetStatus === TransferOrderStatus.PUSH_REQUESTED &&
+        !isSource
+      ) {
+        throw new BadRequestException(
+          "Solo la sede origen puede solicitar aprobación",
+        );
+      }
+      if (
+        targetStatus === TransferOrderStatus.PUSH_APPROVED &&
+        !isSource
+      ) {
+        throw new BadRequestException("Solo la sede origen puede aprobar");
+      }
+    }
+
+    // Validaciones específicas PULL
+    if (isPull) {
+      if (
+        targetStatus === TransferOrderStatus.PULL_REQUESTED &&
+        !isDestination
+      ) {
+        throw new BadRequestException(
+          "Solo la sede destino puede enviar solicitud",
+        );
+      }
+      if (
+        [
+          TransferOrderStatus.PULL_APPROVED,
+          TransferOrderStatus.PULL_REJECTED,
+        ].includes(targetStatus) &&
+        !isSource
+      ) {
+        throw new BadRequestException(
+          "Solo la sede origen puede aprobar/rechazar solicitudes",
+        );
+      }
+    }
+
+    // Validaciones compartidas
+    if (
+      [
+        TransferOrderStatus.IN_PREPARATION,
+        TransferOrderStatus.IN_TRANSIT,
+      ].includes(targetStatus) &&
+      !isSource
+    ) {
+      throw new BadRequestException("Solo la sede origen puede despachar");
+    }
+    if (
+      [
+        TransferOrderStatus.RECEIVED,
+        TransferOrderStatus.PARTIALLY_RECEIVED,
+      ].includes(targetStatus) &&
+      !isDestination
+    ) {
+      throw new BadRequestException(
+        "Solo la sede destino puede confirmar recepción",
+      );
+    }
+
+    // Validar transiciones permitidas
+    const allowedTransitions = this.getAllowedTransitions(
+      order.status,
+      order.type,
+    );
+    if (!allowedTransitions.includes(targetStatus)) {
+      throw new BadRequestException(
+        `No se puede ${action} una orden de transferencia desde estado "${order.status}" a "${targetStatus}". Transiciones permitidas: ${allowedTransitions.join(", ")}`,
+      );
+    }
+  }
+
   // ─── CRUD ───────────────────────────────────────────────
 
   async findAll(tenantId: string, filters: TransferOrderFilterDto) {
@@ -127,6 +302,7 @@ export class TransferOrdersService {
       isDeleted: false,
     };
 
+    if (filters.type) query.type = filters.type;
     if (filters.status) query.status = filters.status;
     if (filters.sourceLocationId)
       query.sourceLocationId = new Types.ObjectId(filters.sourceLocationId);
@@ -282,6 +458,7 @@ export class TransferOrdersService {
     const orderData: any = {
       orderNumber,
       status: TransferOrderStatus.DRAFT,
+      type: dto.type || TransferRequestType.PUSH,
       sourceWarehouseId: new Types.ObjectId(dto.sourceWarehouseId),
       destinationWarehouseId: new Types.ObjectId(dto.destinationWarehouseId),
       sourceTenantId: new Types.ObjectId(tenantId),
@@ -403,7 +580,15 @@ export class TransferOrdersService {
       );
     }
 
-    order.status = TransferOrderStatus.REQUESTED;
+    // Determine target status based on type
+    const targetStatus =
+      order.type === TransferRequestType.PUSH
+        ? TransferOrderStatus.PUSH_REQUESTED
+        : TransferOrderStatus.PULL_REQUESTED;
+
+    this.validateWorkflowTransition(order, targetStatus, tenantId, "solicitar");
+
+    order.status = targetStatus;
     order.requestedBy = new Types.ObjectId(userId);
     order.requestedAt = new Date();
     order.updatedBy = new Types.ObjectId(userId);
@@ -418,7 +603,14 @@ export class TransferOrdersService {
     userId: string,
   ): Promise<TransferOrderDocument> {
     const order = await this.findOrderOrFail(id, tenantId);
-    this.assertStatus(order, [TransferOrderStatus.REQUESTED], "aprobar");
+    this.assertStatus(
+      order,
+      [TransferOrderStatus.PUSH_REQUESTED],
+      "aprobar",
+    );
+
+    const targetStatus = TransferOrderStatus.PUSH_APPROVED;
+    this.validateWorkflowTransition(order, targetStatus, tenantId, "aprobar");
 
     // If items with adjusted quantities are provided, apply them
     if (dto.items && dto.items.length > 0) {
@@ -447,9 +639,280 @@ export class TransferOrdersService {
         : `[Aprobación] ${dto.notes}`;
     }
 
-    order.status = TransferOrderStatus.APPROVED;
+    order.status = targetStatus;
     order.approvedBy = new Types.ObjectId(userId);
     order.approvedAt = new Date();
+    order.updatedBy = new Types.ObjectId(userId);
+
+    return order.save();
+  }
+
+  // ─── PULL Flow Methods ──────────────────────────────────
+
+  /**
+   * Create transfer request (PULL flow - destino solicita)
+   */
+  async createRequest(
+    dto: CreateTransferRequestDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<TransferOrderDocument> {
+    const isCrossTenant = dto.sourceTenantId && dto.sourceTenantId !== tenantId;
+
+    // For cross-tenant: validate both tenants belong to the same family
+    if (isCrossTenant) {
+      const familyIds =
+        await this.organizationsService.getFamilyTenantIds(tenantId);
+      const sourceInFamily = familyIds.some(
+        (fid) => fid.toString() === dto.sourceTenantId,
+      );
+      if (!sourceInFamily) {
+        throw new BadRequestException(
+          "El tenant origen no pertenece al mismo grupo de sedes.",
+        );
+      }
+    }
+
+    // Validate source warehouse exists in source tenant
+    const sourceTenantId = isCrossTenant ? dto.sourceTenantId : tenantId;
+    const sourceWarehouse = await this.warehouseModel
+      .findOne({
+        _id: dto.sourceWarehouseId,
+        tenantId: sourceTenantId,
+        isDeleted: { $ne: true },
+      })
+      .lean();
+    if (!sourceWarehouse)
+      throw new NotFoundException("Almacén origen no encontrado.");
+
+    // Validate destination warehouse exists in current tenant (requester)
+    const destWarehouse = await this.warehouseModel
+      .findOne({
+        _id: dto.destinationWarehouseId,
+        tenantId,
+        isDeleted: { $ne: true },
+      })
+      .lean();
+    if (!destWarehouse)
+      throw new NotFoundException("Almacén destino no encontrado.");
+
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException(
+        "Debe incluir al menos un producto en la solicitud.",
+      );
+    }
+
+    // Bulk-lookup product names/SKUs
+    const productIds = dto.items.map((i) => new Types.ObjectId(i.productId));
+    const products = await this.productModel
+      .find({ _id: { $in: productIds } }, { name: 1, sku: 1 })
+      .lean();
+    const productMap = new Map(
+      products.map((p) => [p._id.toString(), p]),
+    );
+
+    const orderNumber = await this.generateOrderNumber(tenantId);
+    const userOid = new Types.ObjectId(userId);
+
+    const orderData: any = {
+      orderNumber,
+      status: TransferOrderStatus.DRAFT,
+      type: TransferRequestType.PULL,
+      sourceWarehouseId: new Types.ObjectId(dto.sourceWarehouseId),
+      destinationWarehouseId: new Types.ObjectId(dto.destinationWarehouseId),
+      sourceTenantId: new Types.ObjectId(sourceTenantId),
+      destinationTenantId: new Types.ObjectId(tenantId),
+      items: dto.items.map((item) => {
+        const product = productMap.get(item.productId);
+        return {
+          productId: new Types.ObjectId(item.productId),
+          productSku: item.productSku || product?.sku,
+          productName: item.productName || product?.name,
+          variantId: item.variantId
+            ? new Types.ObjectId(item.variantId)
+            : undefined,
+          variantSku: item.variantSku,
+          requestedQuantity: item.requestedQuantity,
+          unitCost: item.unitCost ?? 0,
+          notes: item.notes,
+          lotNumber: item.lotNumber,
+        };
+      }),
+      notes: dto.notes,
+      reference: dto.reference,
+      tenantId, // Request creator is the destination
+      createdBy: userOid,
+    };
+
+    const order = new this.transferOrderModel(orderData);
+    return order.save();
+  }
+
+  /**
+   * Submit transfer request (DRAFT -> PULL_REQUESTED)
+   */
+  async submitRequest(
+    id: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<TransferOrderDocument> {
+    const order = await this.findOrderOrFail(id, tenantId);
+    this.assertStatus(order, [TransferOrderStatus.DRAFT], "enviar solicitud");
+
+    if (order.type !== TransferRequestType.PULL) {
+      throw new BadRequestException(
+        "Solo las solicitudes de tipo PULL pueden ser enviadas.",
+      );
+    }
+
+    if (!order.items || order.items.length === 0) {
+      throw new BadRequestException(
+        "No se puede enviar una solicitud sin productos.",
+      );
+    }
+
+    const targetStatus = TransferOrderStatus.PULL_REQUESTED;
+    this.validateWorkflowTransition(
+      order,
+      targetStatus,
+      tenantId,
+      "enviar solicitud",
+    );
+
+    order.status = targetStatus;
+    order.requestedBy = new Types.ObjectId(userId);
+    order.requestedAt = new Date();
+    order.updatedBy = new Types.ObjectId(userId);
+
+    return order.save();
+  }
+
+  /**
+   * Approve transfer request (PULL_REQUESTED -> PULL_APPROVED)
+   */
+  async approveRequest(
+    id: string,
+    dto: ApproveRequestDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<TransferOrderDocument> {
+    const order = await this.findOrderOrFail(id, tenantId);
+    this.assertStatus(
+      order,
+      [TransferOrderStatus.PULL_REQUESTED],
+      "aprobar solicitud",
+    );
+
+    const targetStatus = TransferOrderStatus.PULL_APPROVED;
+    this.validateWorkflowTransition(
+      order,
+      targetStatus,
+      tenantId,
+      "aprobar solicitud",
+    );
+
+    // If items with adjusted quantities are provided, apply them
+    if (dto.items && dto.items.length > 0) {
+      for (const approveItem of dto.items) {
+        const orderItem = order.items.find((i) => {
+          const match = i.productId.toString() === approveItem.productId;
+          if (approveItem.variantId) {
+            return match && i.variantId?.toString() === approveItem.variantId;
+          }
+          return match;
+        });
+        if (orderItem) {
+          orderItem.approvedQuantity = approveItem.approvedQuantity;
+        }
+      }
+    } else {
+      // Auto-approve all items at requested quantities
+      for (const item of order.items) {
+        item.approvedQuantity = item.requestedQuantity;
+      }
+    }
+
+    if (dto.approvalNotes) {
+      order.approvalNotes = dto.approvalNotes;
+    }
+
+    order.status = targetStatus;
+    order.approvalReviewedBy = new Types.ObjectId(userId);
+    order.approvalReviewedAt = new Date();
+    order.approvalDecision = "approved";
+    order.updatedBy = new Types.ObjectId(userId);
+
+    return order.save();
+  }
+
+  /**
+   * Reject transfer request (PULL_REQUESTED -> PULL_REJECTED)
+   */
+  async rejectRequest(
+    id: string,
+    dto: RejectRequestDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<TransferOrderDocument> {
+    const order = await this.findOrderOrFail(id, tenantId);
+    this.assertStatus(
+      order,
+      [TransferOrderStatus.PULL_REQUESTED],
+      "rechazar solicitud",
+    );
+
+    const targetStatus = TransferOrderStatus.PULL_REJECTED;
+    this.validateWorkflowTransition(
+      order,
+      targetStatus,
+      tenantId,
+      "rechazar solicitud",
+    );
+
+    order.status = targetStatus;
+    order.approvalReviewedBy = new Types.ObjectId(userId);
+    order.approvalReviewedAt = new Date();
+    order.approvalDecision = "rejected";
+    order.approvalNotes = dto.approvalNotes || dto.reason;
+    order.cancellationReason = dto.reason;
+    order.updatedBy = new Types.ObjectId(userId);
+
+    return order.save();
+  }
+
+  /**
+   * Mark as in preparation (PUSH_APPROVED/PULL_APPROVED -> IN_PREPARATION)
+   */
+  async markAsInPreparation(
+    id: string,
+    dto: PrepareTransferOrderDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<TransferOrderDocument> {
+    const order = await this.findOrderOrFail(id, tenantId);
+    this.assertStatus(
+      order,
+      [TransferOrderStatus.PUSH_APPROVED, TransferOrderStatus.PULL_APPROVED],
+      "marcar como en preparación",
+    );
+
+    const targetStatus = TransferOrderStatus.IN_PREPARATION;
+    this.validateWorkflowTransition(
+      order,
+      targetStatus,
+      tenantId,
+      "marcar como en preparación",
+    );
+
+    if (dto.notes) {
+      order.notes = order.notes
+        ? `${order.notes}\n[Preparación] ${dto.notes}`
+        : `[Preparación] ${dto.notes}`;
+    }
+
+    order.status = targetStatus;
+    order.inPreparationBy = new Types.ObjectId(userId);
+    order.inPreparationAt = new Date();
     order.updatedBy = new Types.ObjectId(userId);
 
     return order.save();
@@ -462,9 +925,20 @@ export class TransferOrdersService {
     userId: string,
   ): Promise<TransferOrderDocument> {
     const order = await this.findOrderOrFail(id, tenantId);
-    this.assertStatus(order, [TransferOrderStatus.APPROVED], "despachar");
+    this.assertStatus(
+      order,
+      [
+        TransferOrderStatus.PUSH_APPROVED,
+        TransferOrderStatus.PULL_APPROVED,
+        TransferOrderStatus.IN_PREPARATION,
+      ],
+      "despachar",
+    );
 
-    // Source tenant is always the order's tenantId (the creator)
+    const targetStatus = TransferOrderStatus.IN_TRANSIT;
+    this.validateWorkflowTransition(order, targetStatus, tenantId, "despachar");
+
+    // Source tenant is always the order's tenantId (the creator for PUSH, source for PULL)
     const sourceTenantId = order.tenantId.toString();
     const sourceTenantOid = new Types.ObjectId(sourceTenantId);
     const userOid = new Types.ObjectId(userId);
@@ -550,7 +1024,18 @@ export class TransferOrdersService {
         : `[Despacho] ${dto.notes}`;
     }
 
-    order.status = TransferOrderStatus.IN_TRANSIT;
+    // Save tracking info
+    if (dto.trackingNumber) {
+      order.trackingNumber = dto.trackingNumber;
+    }
+    if (dto.carrier) {
+      order.carrier = dto.carrier;
+    }
+    if (dto.estimatedArrival) {
+      order.estimatedArrival = new Date(dto.estimatedArrival);
+    }
+
+    order.status = targetStatus;
     order.shippedBy = userOid;
     order.shippedAt = new Date();
     order.updatedBy = userOid;
@@ -567,9 +1052,13 @@ export class TransferOrdersService {
     const order = await this.findOrderOrFail(id, tenantId);
     this.assertStatus(
       order,
-      [TransferOrderStatus.IN_TRANSIT],
+      [TransferOrderStatus.IN_TRANSIT, TransferOrderStatus.DELIVERED],
       "recibir",
     );
+
+    // Validate that only destination can receive
+    const targetStatus = TransferOrderStatus.RECEIVED; // Will be adjusted to PARTIALLY_RECEIVED if needed
+    this.validateWorkflowTransition(order, targetStatus, tenantId, "recibir");
 
     const crossTenant = this.isCrossTenant(order);
 
@@ -740,12 +1229,91 @@ export class TransferOrdersService {
         : `[Recepción] ${dto.notes}`;
     }
 
+    if (dto.receiptNotes) {
+      order.receiptNotes = dto.receiptNotes;
+    }
+
+    // Detect discrepancies (received < shipped)
+    const discrepancies: any[] = [];
+    for (const item of order.items) {
+      const shipped = item.shippedQuantity ?? 0;
+      const received = item.receivedQuantity ?? 0;
+      if (received > 0 && received < shipped) {
+        discrepancies.push({
+          productId: item.productId,
+          variantId: item.variantId,
+          expectedQuantity: shipped,
+          receivedQuantity: received,
+          reason: `Faltante: ${shipped - received} unidades`,
+        });
+      }
+    }
+
+    if (discrepancies.length > 0) {
+      order.hasDiscrepancies = true;
+      order.discrepancies = discrepancies;
+    }
+
     order.status = allFullyReceived
       ? TransferOrderStatus.RECEIVED
       : TransferOrderStatus.PARTIALLY_RECEIVED;
     order.receivedBy = userOid;
     order.receivedAt = new Date();
     order.updatedBy = userOid;
+
+    return order.save();
+  }
+
+  /**
+   * Report discrepancies in received items
+   */
+  async reportDiscrepancy(
+    id: string,
+    dto: ReportDiscrepancyDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<TransferOrderDocument> {
+    const order = await this.findOrderOrFail(id, tenantId);
+    this.assertStatus(
+      order,
+      [
+        TransferOrderStatus.RECEIVED,
+        TransferOrderStatus.PARTIALLY_RECEIVED,
+      ],
+      "reportar discrepancia",
+    );
+
+    // Validate that only destination can report discrepancies
+    const isDestination =
+      order.destinationTenantId?.toString() === tenantId;
+    if (!isDestination) {
+      throw new BadRequestException(
+        "Solo la sede destino puede reportar discrepancias",
+      );
+    }
+
+    if (dto.notes) {
+      order.notes = order.notes
+        ? `${order.notes}\n[Discrepancia] ${dto.notes}`
+        : `[Discrepancia] ${dto.notes}`;
+    }
+
+    // Convert DTO to schema format (string IDs to ObjectIds)
+    const newDiscrepancies = dto.discrepancies.map((d) => ({
+      productId: new Types.ObjectId(d.productId),
+      variantId: d.variantId ? new Types.ObjectId(d.variantId) : undefined,
+      expectedQuantity: d.expectedQuantity,
+      receivedQuantity: d.receivedQuantity,
+      reason: d.reason,
+      images: d.images || [],
+    }));
+
+    order.hasDiscrepancies = true;
+    order.discrepancies = [
+      ...(order.discrepancies || []),
+      ...newDiscrepancies,
+    ];
+    order.updatedBy = new Types.ObjectId(userId);
 
     return order.save();
   }
@@ -759,11 +1327,21 @@ export class TransferOrdersService {
     const order = await this.findOrderOrFail(id, tenantId);
     this.assertStatus(
       order,
-      [TransferOrderStatus.DRAFT, TransferOrderStatus.REQUESTED, TransferOrderStatus.APPROVED],
+      [
+        TransferOrderStatus.DRAFT,
+        TransferOrderStatus.PUSH_REQUESTED,
+        TransferOrderStatus.PUSH_APPROVED,
+        TransferOrderStatus.PULL_REQUESTED,
+        TransferOrderStatus.PULL_APPROVED,
+        TransferOrderStatus.IN_PREPARATION,
+      ],
       "cancelar",
     );
 
-    order.status = TransferOrderStatus.CANCELLED;
+    const targetStatus = TransferOrderStatus.CANCELLED;
+    this.validateWorkflowTransition(order, targetStatus, tenantId, "cancelar");
+
+    order.status = targetStatus;
     order.cancelledBy = new Types.ObjectId(userId);
     order.cancelledAt = new Date();
     order.cancellationReason = dto.reason;

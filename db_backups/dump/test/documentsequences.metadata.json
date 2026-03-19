@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"tenantId":{"$numberInt":"1"},"name":{"$numberInt":"1"},"channel":{"$numberInt":"1"}},"name":"tenantId_1_name_1_channel_1","background":true,"unique":true}],"uuid":"97d509a9122b4520a546c845741e7e88","collectionName":"documentsequences","type":"collection"}

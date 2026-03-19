@@ -3,15 +3,56 @@ import { Document, Types } from "mongoose";
 
 export type TransferOrderDocument = TransferOrder & Document;
 
+export enum TransferRequestType {
+  PUSH = "push", // Iniciada por origen (reabastecimiento)
+  PULL = "pull", // Iniciada por destino (solicitud)
+}
+
 export enum TransferOrderStatus {
   DRAFT = "draft",
-  REQUESTED = "requested",
-  APPROVED = "approved",
-  IN_TRANSIT = "in_transit",
-  RECEIVED = "received",
+
+  // Estados específicos PUSH
+  PUSH_REQUESTED = "push_requested", // Origen solicita aprobación interna
+  PUSH_APPROVED = "push_approved", // Aprobada por supervisor origen
+
+  // Estados específicos PULL
+  PULL_REQUESTED = "pull_requested", // Destino solicita inventario
+  PULL_APPROVED = "pull_approved", // Origen aprueba solicitud
+  PULL_REJECTED = "pull_rejected", // Origen rechaza solicitud
+
+  // Estados compartidos (post-aprobación)
+  IN_PREPARATION = "in_preparation", // Origen preparando despacho
+  IN_TRANSIT = "in_transit", // Despachado y en camino
+  DELIVERED = "delivered", // Entregado físicamente (opcional)
   PARTIALLY_RECEIVED = "partially_received",
+  RECEIVED = "received", // Confirmado por destino
   CANCELLED = "cancelled",
 }
+
+@Schema({ _id: false })
+export class TransferOrderDiscrepancy {
+  @Prop({ type: Types.ObjectId, ref: "Product", required: true })
+  productId: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId })
+  variantId?: Types.ObjectId;
+
+  @Prop({ type: Number, required: true })
+  expectedQuantity: number;
+
+  @Prop({ type: Number, required: true })
+  receivedQuantity: number;
+
+  @Prop({ type: String, required: true })
+  reason: string;
+
+  @Prop({ type: [String], default: [] })
+  images?: string[];
+}
+
+const TransferOrderDiscrepancySchema = SchemaFactory.createForClass(
+  TransferOrderDiscrepancy,
+);
 
 @Schema({ _id: false })
 export class TransferOrderItem {
@@ -66,6 +107,13 @@ export class TransferOrder {
     default: TransferOrderStatus.DRAFT,
   })
   status: TransferOrderStatus;
+
+  @Prop({
+    type: String,
+    enum: Object.values(TransferRequestType),
+    default: TransferRequestType.PUSH,
+  })
+  type: TransferRequestType;
 
   // Cross-tenant transfer support (optional — backwards compatible)
   @Prop({ type: Types.ObjectId, ref: "Tenant" })
@@ -123,6 +171,46 @@ export class TransferOrder {
   @Prop({ type: String })
   cancellationReason?: string;
 
+  // Aprobación de solicitud PULL
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  approvalReviewedBy?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  approvalReviewedAt?: Date;
+
+  @Prop({ type: String, enum: ["approved", "rejected"] })
+  approvalDecision?: string;
+
+  @Prop({ type: String })
+  approvalNotes?: string;
+
+  // Preparación antes de despacho
+  @Prop({ type: Types.ObjectId, ref: "User" })
+  inPreparationBy?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  inPreparationAt?: Date;
+
+  // Tracking información
+  @Prop({ type: String })
+  trackingNumber?: string;
+
+  @Prop({ type: String })
+  carrier?: string;
+
+  @Prop({ type: Date })
+  estimatedArrival?: Date;
+
+  // Recepción con validaciones
+  @Prop({ type: String })
+  receiptNotes?: string;
+
+  @Prop({ type: Boolean, default: false })
+  hasDiscrepancies: boolean;
+
+  @Prop({ type: [TransferOrderDiscrepancySchema], default: [] })
+  discrepancies: TransferOrderDiscrepancy[];
+
   @Prop({ type: String })
   notes?: string;
 
@@ -159,3 +247,4 @@ TransferOrderSchema.index(
   { destinationTenantId: 1, status: 1 },
   { sparse: true },
 );
+TransferOrderSchema.index({ tenantId: 1, type: 1, status: 1 });

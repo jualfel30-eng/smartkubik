@@ -2610,6 +2610,49 @@ export const deleteTransferOrder = (id) => {
   });
 };
 
+// --- PULL Flow APIs ---
+
+export const createTransferRequest = (data) => {
+  return fetchApi('/transfer-orders/requests', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const submitTransferRequest = (id) => {
+  return fetchApi(`/transfer-orders/${id}/submit`, {
+    method: 'POST',
+  });
+};
+
+export const approveTransferRequest = (id, data = {}) => {
+  return fetchApi(`/transfer-orders/${id}/approve-request`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const rejectTransferRequest = (id, data) => {
+  return fetchApi(`/transfer-orders/${id}/reject-request`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const prepareTransferOrder = (id, data = {}) => {
+  return fetchApi(`/transfer-orders/${id}/prepare`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const reportTransferDiscrepancy = (id, data) => {
+  return fetchApi(`/transfer-orders/${id}/report-discrepancy`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
 // ==================== Product Deduplication API ====================
 
 export const scanDuplicates = (params = {}) => {

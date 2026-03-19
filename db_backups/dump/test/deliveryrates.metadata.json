@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"tenantId":{"$numberInt":"1"}},"name":"tenantId_1","background":true,"unique":true}],"uuid":"b4a7b10d90da4257a74399b35dd7b40c","collectionName":"deliveryrates","type":"collection"}

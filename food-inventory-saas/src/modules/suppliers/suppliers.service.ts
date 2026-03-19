@@ -502,6 +502,21 @@ export class SuppliersService {
 
     const mappedHelpers = suppliers.map(supplier => this.mapSupplier(supplier, supplier.customerId));
 
+    // Get linked Supplier records for CRM-only suppliers to access paymentSettings
+    const customerIds = crmSuppliers.map(c => c._id);
+    const linkedSuppliers = await this.supplierModel.find({
+      customerId: { $in: customerIds },
+      tenantId: String(tenantId)
+    }).select('customerId paymentSettings').exec();
+
+    // Create a lookup map for fast access
+    const paymentSettingsMap = new Map();
+    linkedSuppliers.forEach(s => {
+      if (s.customerId) {
+        paymentSettingsMap.set(s.customerId.toString(), s.paymentSettings);
+      }
+    });
+
     // Map CRM-only suppliers as "Virtual" suppliers
     // We treat them as if they were suppliers, using their Customer ID as their "ID" for now.
     // NOTE: When editing these, the backend must handle that the ID is a Customer ID, not a Supplier ID.
@@ -524,7 +539,7 @@ export class SuppliersService {
       })),
       address: customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0],
       metrics: customer.metrics, // Fix: Include metrics for virtual suppliers
-      paymentSettings: customer.paymentSettings || {} // Read from Customer, not hardcoded defaults
+      paymentSettings: paymentSettingsMap.get(customer._id.toString()) || {} // Read from linked Supplier
     }));
 
     // Combine and sort by name
@@ -549,7 +564,13 @@ export class SuppliersService {
     const customer = await this.customerModel.findOne({ _id: id, tenantId: new Types.ObjectId(tenantId), customerType: 'supplier' }).exec();
 
     if (customer) {
-      // Return mapped virtual supplier with paymentSettings from Customer
+      // Try to find a linked Supplier record to get paymentSettings
+      const linkedSupplier = await this.supplierModel.findOne({
+        customerId: customer._id,
+        tenantId: String(tenantId)
+      }).exec();
+
+      // Return mapped virtual supplier with paymentSettings from linked Supplier (if exists)
       return {
         _id: customer._id,
         isVirtual: true,
@@ -569,7 +590,7 @@ export class SuppliersService {
         })),
         address: customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0],
         metrics: customer.metrics,
-        paymentSettings: customer.paymentSettings || {}
+        paymentSettings: linkedSupplier?.paymentSettings || {}
       };
     }
 
