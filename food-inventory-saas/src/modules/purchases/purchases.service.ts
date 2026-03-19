@@ -328,7 +328,7 @@ export class PurchasesService {
 
   async receivePurchaseOrder(
     id: string,
-    dto: { receivedBy?: string },
+    dto: { receivedBy?: string; invoiceDate?: string },
     user: any,
     session?: ClientSession,
   ): Promise<PurchaseOrderDocument> {
@@ -398,6 +398,9 @@ export class PurchasesService {
     purchaseOrder.receivedDate = new Date();
     if (dto.receivedBy) {
       purchaseOrder.receivedBy = dto.receivedBy;
+    }
+    if (dto.invoiceDate) {
+      purchaseOrder.invoiceDate = new Date(dto.invoiceDate);
     }
     purchaseOrder.history.push({
       status: "received",

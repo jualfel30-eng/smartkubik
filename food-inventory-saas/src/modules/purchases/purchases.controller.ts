@@ -69,7 +69,7 @@ export class PurchasesController {
   @Patch(":id/receive")
   async receive(
     @Param("id") id: string,
-    @Body() dto: { receivedBy?: string },
+    @Body() dto: { receivedBy?: string; invoiceDate?: string },
     @Req() req,
   ) {
     const purchaseOrder = await this.purchasesService.receivePurchaseOrder(

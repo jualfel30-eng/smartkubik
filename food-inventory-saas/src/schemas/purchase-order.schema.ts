@@ -135,6 +135,12 @@ export class PurchaseOrder {
   @Prop({ type: String })
   receivedBy?: string;
 
+  @Prop({ type: Date })
+  invoiceDate?: Date;
+
+  @Prop({ type: String, enum: ['nota_entrega', 'factura_fiscal'], default: 'factura_fiscal' })
+  documentType?: string;
+
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 

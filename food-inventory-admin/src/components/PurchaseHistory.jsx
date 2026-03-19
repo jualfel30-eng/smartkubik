@@ -72,7 +72,10 @@ export default function PurchaseHistory() {
 
       await fetchApi(`/purchases/${ratingData.purchaseOrderId}/receive`, {
         method: 'PATCH',
-        body: JSON.stringify({ receivedBy: ratingData.receivedBy })
+        body: JSON.stringify({
+          receivedBy: ratingData.receivedBy,
+          invoiceDate: ratingData.invoiceDate
+        })
       });
       toast.success('Orden Recibida', { description: 'El inventario ha sido actualizado correctamente.' });
 
@@ -114,13 +117,13 @@ export default function PurchaseHistory() {
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Historial de Órdenes de Compra</CardTitle>
+            <CardTitle>Historial de Compras</CardTitle>
             <Button onClick={() => loadPurchases(currentPage, pageLimit)} disabled={loading} variant="outline" size="sm">
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               {loading ? 'Actualizando...' : 'Actualizar'}
             </Button>
           </div>
-          <CardDescription>Gestiona y da seguimiento a tus órdenes de compra.</CardDescription>
+          <CardDescription>Gestiona y da seguimiento a tus compras.</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -166,7 +169,7 @@ export default function PurchaseHistory() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan="5" className="text-center">No se encontraron órdenes de compra.</TableCell>
+                  <TableCell colSpan="5" className="text-center">No se encontraron compras.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -176,7 +179,7 @@ export default function PurchaseHistory() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
               <div className="flex items-center gap-2">
                 <p className="text-sm text-muted-foreground">
-                  Mostrando {purchases.length} de {totalPurchases} órdenes de compra
+                  Mostrando {purchases.length} de {totalPurchases} compras
                 </p>
               </div>
               <div className="flex items-center gap-4">
@@ -232,7 +235,7 @@ export default function PurchaseHistory() {
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Resumen de Orden de Compra #{selectedPurchaseOrder?.poNumber}</DialogTitle>
+            <DialogTitle>Resumen de Compra #{selectedPurchaseOrder?.poNumber}</DialogTitle>
             <DialogDescription>
               Proveedor: {selectedPurchaseOrder?.supplierName}
             </DialogDescription>
@@ -242,8 +245,18 @@ export default function PurchaseHistory() {
               <div className="grid grid-cols-2 gap-4">
                 <div><p className="font-semibold">Fecha de Compra:</p><p>{new Date(selectedPurchaseOrder.purchaseDate).toLocaleDateString()}</p></div>
                 <div><p className="font-semibold">Estado:</p><p><Badge variant={getStatusVariant(selectedPurchaseOrder.status)}>{selectedPurchaseOrder.status}</Badge></p></div>
+                {selectedPurchaseOrder.documentType && (
+                  <div>
+                    <p className="font-semibold">Tipo de Documento:</p>
+                    <p>
+                      {selectedPurchaseOrder.documentType === 'factura_fiscal'
+                        ? 'Factura Fiscal'
+                        : 'Nota de Entrega'}
+                    </p>
+                  </div>
+                )}
               </div>
-              <h4 className="font-semibold mt-4">Items de la Orden</h4>
+              <h4 className="font-semibold mt-4">Items de la Compra</h4>
               <Table>
                 <TableHeader><TableRow><TableHead>Producto</TableHead><TableHead>Cantidad</TableHead><TableHead>Costo Unit.</TableHead><TableHead>Costo Total</TableHead></TableRow></TableHeader>
                 <TableBody>
