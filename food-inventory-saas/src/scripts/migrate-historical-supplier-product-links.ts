@@ -55,10 +55,10 @@ async function bootstrap() {
             },
           );
 
-          if (result.isNew) {
+          if (result && result.isNew) {
             totalLinksCreated++;
             console.log(`  ✅ Nuevo enlace: ${item.productName} → ${order.supplierName}`);
-          } else {
+          } else if (result) {
             totalLinksUpdated++;
             console.log(`  🔄 Actualizado: ${item.productName} → ${order.supplierName}`);
           }

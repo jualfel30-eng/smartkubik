@@ -81,6 +81,15 @@ export class PurchaseOrder {
   @Prop({ type: [PurchaseOrderItemSchema] })
   items: PurchaseOrderItem[];
 
+  @Prop({ type: Number })
+  subtotal: number;
+
+  @Prop({ type: Number, default: 0 })
+  ivaTotal: number;
+
+  @Prop({ type: Number, default: 0 })
+  igtfTotal: number;
+
   @Prop({ type: Number, required: true })
   totalAmount: number;
 

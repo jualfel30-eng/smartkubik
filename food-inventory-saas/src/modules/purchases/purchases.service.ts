@@ -141,12 +141,14 @@ export class PurchasesService {
     }
 
     const { Types } = require("mongoose");
-    let totalAmount = 0;
+
+    // Calculate totals from items (fallback if not provided by frontend)
+    let calculatedTotal = 0;
     const poItems = dto.items.map((item) => {
       // Calculate discount multiplier (1 - discount/100)
       const discountMultiplier = 1 - (item.discount || 0) / 100;
       const totalCost = item.costPrice * item.quantity * discountMultiplier;
-      totalAmount += totalCost;
+      calculatedTotal += totalCost;
 
       const resolvedVariantId =
         item.variantId && Types.ObjectId.isValid(item.variantId)
@@ -163,13 +165,24 @@ export class PurchasesService {
     });
 
     const poNumber = await this.generatePoNumber(user.tenantId);
+
+    // Use provided totals from frontend or fallback to calculated
+    const subtotal = dto.subtotal ?? calculatedTotal;
+    const ivaTotal = dto.ivaTotal ?? 0;
+    const igtfTotal = dto.igtfTotal ?? 0;
+    const totalAmount = dto.totalAmount ?? calculatedTotal;
+
     const poData = {
       poNumber,
       supplierId,
       supplierName,
       purchaseDate: dto.purchaseDate,
       items: poItems,
+      subtotal,
+      ivaTotal,
+      igtfTotal,
       totalAmount,
+      documentType: dto.documentType || 'factura_fiscal',
       status: "pending",
       history: [
         {

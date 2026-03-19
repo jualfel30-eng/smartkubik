@@ -166,6 +166,32 @@ export class CreatePurchaseOrderDto {
   @SanitizeText()
   notes?: string;
 
+  @IsOptional()
+  @IsEnum(['factura_fiscal', 'nota_entrega'], {
+    message: 'Tipo de documento debe ser "factura_fiscal" o "nota_entrega"'
+  })
+  documentType?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  subtotal?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  ivaTotal?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  igtfTotal?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalAmount?: number;
+
   @IsNotEmpty({ message: "Los términos de pago son obligatorios" })
   @ValidateNested()
   @Type(() => PaymentTermsDto)

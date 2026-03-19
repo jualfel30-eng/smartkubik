@@ -139,6 +139,26 @@ export class CreateProductWithPurchaseDto {
   @IsOptional()
   notes?: string;
 
+  @IsOptional()
+  @IsString()
+  documentType?: string;
+
+  @IsOptional()
+  @IsNumber()
+  subtotal?: number;
+
+  @IsOptional()
+  @IsNumber()
+  ivaTotal?: number;
+
+  @IsOptional()
+  @IsNumber()
+  igtfTotal?: number;
+
+  @IsOptional()
+  @IsNumber()
+  totalAmount?: number;
+
   @ValidateNested()
   @Type(() => PaymentTermsDto)
   paymentTerms: PaymentTermsDto;

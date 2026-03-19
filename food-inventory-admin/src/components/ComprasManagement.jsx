@@ -72,6 +72,7 @@ const initialNewProductState = {
     rifPrefix: 'J',
   },
   purchaseDate: new Date(),
+  documentType: 'factura_fiscal',
   paymentTerms: {
     isCredit: false,
     paymentDueDate: null,
@@ -104,6 +105,42 @@ const initialPoState = {
     requiresAdvancePayment: false,
     advancePaymentPercentage: 0,
   }
+};
+
+/**
+ * Calcula IVA e IGTF para una compra
+ * @param {number} subtotal - Subtotal de la compra (sin impuestos)
+ * @param {string} documentType - 'factura_fiscal' o 'nota_entrega'
+ * @param {array} paymentMethods - Array de métodos de pago seleccionados
+ * @returns {object} - { iva, igtf, total }
+ */
+const calculatePurchaseTaxes = (subtotal, documentType, paymentMethods = []) => {
+  // Si es nota de entrega, no aplicar impuestos
+  if (documentType === 'nota_entrega') {
+    return {
+      iva: 0,
+      igtf: 0,
+      total: subtotal
+    };
+  }
+
+  // Calcular IVA (16%)
+  const iva = subtotal * 0.16;
+
+  // Calcular IGTF (3%) solo si hay métodos de pago en dólares
+  const dollarPaymentMethods = ['zelle', 'binance', 'paypal', 'efectivo_usd', 'transferencia_usd'];
+  const hasDollarPayment = paymentMethods.some(method =>
+    dollarPaymentMethods.includes(method.toLowerCase())
+  );
+  const igtf = hasDollarPayment ? (subtotal + iva) * 0.03 : 0;
+
+  const total = subtotal + iva + igtf;
+
+  return {
+    iva,
+    igtf,
+    total
+  };
 };
 
 export default function ComprasManagement() {
@@ -178,6 +215,40 @@ export default function ComprasManagement() {
     inventorySupportsLots && inventoryAlerts.includes('nearExpiration');
   const showLotFields = inventorySupportsLots && !isNonFoodRetailVertical;
   const showExpirationFields = showLotFields && inventorySupportsExpiration;
+
+  // Calcular totales con impuestos para el formulario principal de Nueva Compra
+  const poTotals = useMemo(() => {
+    const subtotal = po.items.reduce((sum, item) => {
+      const itemTotal = Number(item.quantity) * Number(item.costPrice) * (1 - (Number(item.discount) || 0) / 100);
+      return sum + itemTotal;
+    }, 0);
+
+    const taxes = calculatePurchaseTaxes(subtotal, po.documentType, po.paymentTerms.paymentMethods);
+
+    return {
+      subtotal,
+      iva: taxes.iva,
+      igtf: taxes.igtf,
+      total: taxes.total
+    };
+  }, [po.items, po.documentType, po.paymentTerms.paymentMethods]);
+
+  // Calcular totales con impuestos para el formulario de Compra de Producto Nuevo
+  const newProductTotals = useMemo(() => {
+    const quantity = Number(newProduct.inventory.quantity) || 0;
+    const costPrice = Number(newProduct.inventory.costPrice) || 0;
+    const discount = Number(newProduct.inventory.discount) || 0;
+    const subtotal = quantity * costPrice * (1 - discount / 100);
+
+    const taxes = calculatePurchaseTaxes(subtotal, newProduct.documentType, newProduct.paymentTerms.paymentMethods);
+
+    return {
+      subtotal,
+      iva: taxes.iva,
+      igtf: taxes.igtf,
+      total: taxes.total
+    };
+  }, [newProduct.inventory.quantity, newProduct.inventory.costPrice, newProduct.inventory.discount, newProduct.documentType, newProduct.paymentTerms.paymentMethods]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -529,6 +600,11 @@ export default function ComprasManagement() {
       supplier: supplierPayload,
       inventory: inventoryPayload,
       purchaseDate: format(newProduct.purchaseDate, 'yyyy-MM-dd'), // Send only date part
+      documentType: newProduct.documentType,
+      subtotal: newProductTotals.subtotal,
+      ivaTotal: newProductTotals.iva,
+      igtfTotal: newProductTotals.igtf,
+      totalAmount: newProductTotals.total,
       notes: 'Creación de producto con compra inicial.',
       paymentTerms: {
         isCredit: newProduct.paymentTerms.isCredit,
@@ -1239,8 +1315,8 @@ export default function ComprasManagement() {
 
     setPoLoading(true);
 
-    // Calculate total amount for advance payment (with discounts)
-    const totalAmount = po.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.costPrice) * (1 - (Number(item.discount) || 0) / 100)), 0);
+    // Use calculated totals with taxes
+    const totalAmount = poTotals.total;
     const advancePaymentAmount = po.paymentTerms.requiresAdvancePayment
       ? (totalAmount * (po.paymentTerms.advancePaymentPercentage / 100))
       : 0;
@@ -1257,6 +1333,10 @@ export default function ComprasManagement() {
     const dto = {
       purchaseDate: format(po.purchaseDate, 'yyyy-MM-dd'),
       documentType: po.documentType,
+      subtotal: poTotals.subtotal,
+      ivaTotal: poTotals.iva,
+      igtfTotal: poTotals.igtf,
+      totalAmount: poTotals.total,
       items: po.items.map(item => ({
         productId: item.productId,
         productName: item.productName,
@@ -1794,31 +1874,37 @@ export default function ComprasManagement() {
                     ))}
                   </TableBody>
                 </Table>
-                {po.items.length > 0 && (() => {
-                  const subtotal = po.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.costPrice)), 0);
-                  const totalDiscount = po.items.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.costPrice) * (Number(item.discount) || 0) / 100), 0);
-                  const total = subtotal - totalDiscount;
-                  return (
-                    <div className="flex justify-end mt-2">
-                      <div className="w-64 space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Subtotal:</span>
-                          <span>${subtotal.toFixed(2)}</span>
+                {po.items.length > 0 && (
+                  <div className="flex justify-end mt-2">
+                    <div className="w-64 space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Subtotal:</span>
+                        <span>${poTotals.subtotal.toFixed(2)}</span>
+                      </div>
+                      {po.documentType === 'factura_fiscal' && poTotals.iva > 0 && (
+                        <div className="flex justify-between text-blue-600">
+                          <span>IVA (16%):</span>
+                          <span>${poTotals.iva.toFixed(2)}</span>
                         </div>
-                        {totalDiscount > 0 && (
-                          <div className="flex justify-between text-green-600">
-                            <span>Descuentos:</span>
-                            <span>-${totalDiscount.toFixed(2)}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between font-bold text-base border-t pt-1">
-                          <span>Total:</span>
-                          <span>${total.toFixed(2)}</span>
+                      )}
+                      {po.documentType === 'factura_fiscal' && poTotals.igtf > 0 && (
+                        <div className="flex justify-between text-orange-600">
+                          <span>IGTF (3%):</span>
+                          <span>${poTotals.igtf.toFixed(2)}</span>
                         </div>
+                      )}
+                      {po.documentType === 'nota_entrega' && (
+                        <div className="flex justify-between text-amber-600 text-xs">
+                          <span>Sin IVA/IGTF (Nota de Entrega)</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-bold text-base border-t pt-1">
+                        <span>Total:</span>
+                        <span>${poTotals.total.toFixed(2)}</span>
                       </div>
                     </div>
-                  );
-                })()}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2"><Label>Notas</Label><Textarea value={po.notes} onChange={e => setPo(prev => ({ ...prev, notes: e.target.value }))} /></div>
@@ -2766,6 +2852,33 @@ export default function ComprasManagement() {
                       <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={newProduct.purchaseDate} onSelect={(date) => setNewProduct({ ...newProduct, purchaseDate: date })} initialFocus /></PopoverContent>
                     </Popover>
                   </div>
+                  <div className="space-y-2">
+                    <Label className="dark:text-gray-200">
+                      Tipo de Documento <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={newProduct.documentType}
+                      onValueChange={(value) => setNewProduct(prev => ({
+                        ...prev,
+                        documentType: value
+                      }))}
+                    >
+                      <SelectTrigger className="dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100">
+                        <SelectValue placeholder="Selecciona tipo de documento" />
+                      </SelectTrigger>
+                      <SelectContent className="dark:bg-slate-900 dark:border-slate-700">
+                        <SelectItem value="factura_fiscal" className="dark:text-gray-100">
+                          Factura Fiscal
+                        </SelectItem>
+                        <SelectItem value="nota_entrega" className="dark:text-gray-100">
+                          Nota de Entrega
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Factura Fiscal incluye IVA (16%) e IGTF (3% si pago es en $)
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -2912,6 +3025,42 @@ export default function ComprasManagement() {
                   )}
                 </div>
               </div>
+
+              {/* Resumen de Compra */}
+              {newProductTotals.subtotal > 0 && (
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex justify-end">
+                    <div className="w-64 space-y-1 text-sm bg-muted/30 p-4 rounded-lg">
+                      <h4 className="font-semibold mb-2">Resumen de Compra</h4>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Subtotal:</span>
+                        <span>${newProductTotals.subtotal.toFixed(2)}</span>
+                      </div>
+                      {newProduct.documentType === 'factura_fiscal' && newProductTotals.iva > 0 && (
+                        <div className="flex justify-between text-blue-600">
+                          <span>IVA (16%):</span>
+                          <span>${newProductTotals.iva.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {newProduct.documentType === 'factura_fiscal' && newProductTotals.igtf > 0 && (
+                        <div className="flex justify-between text-orange-600">
+                          <span>IGTF (3%):</span>
+                          <span>${newProductTotals.igtf.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {newProduct.documentType === 'nota_entrega' && (
+                        <div className="flex justify-between text-amber-600 text-xs">
+                          <span>Sin IVA/IGTF (Nota de Entrega)</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-bold text-base border-t pt-1 mt-1">
+                        <span>Total:</span>
+                        <span>${newProductTotals.total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
             </div>
             <DialogFooter className="px-6 pb-6 pt-4 border-t">

@@ -323,6 +323,11 @@ export class ProductsService {
       const purchaseDto: any = {
         supplierId: supplierId,
         purchaseDate: dto.purchaseDate,
+        documentType: dto.documentType || 'factura_fiscal',
+        subtotal: dto.subtotal,
+        ivaTotal: dto.ivaTotal,
+        igtfTotal: dto.igtfTotal,
+        totalAmount: dto.totalAmount,
         items: [
           {
             productId: savedProduct._id.toString(),
