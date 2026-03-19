@@ -360,19 +360,20 @@ export class NotificationCenterListener {
     );
 
     try {
+      const amount = payload.amount ?? 0;
       await this.notificationService.create(
         {
           category: "finance",
           type: NOTIFICATION_TYPES.PAYABLE_DUE,
           title: "Pago proximo a vencer",
-          message: `${payload.supplierName} - $${payload.amount.toFixed(2)} (Vence: ${new Date(payload.dueDate).toLocaleDateString("es")})`,
+          message: `${payload.supplierName} - $${amount.toFixed(2)} (Vence: ${new Date(payload.dueDate).toLocaleDateString("es")})`,
           priority: "high",
           entityType: "payable",
           entityId: payload.payableId,
           navigateTo: `/accounting/payables/${payload.payableId}`,
           metadata: {
             supplierName: payload.supplierName,
-            amount: payload.amount,
+            amount: amount,
             dueDate: payload.dueDate,
           },
         },
@@ -382,6 +383,7 @@ export class NotificationCenterListener {
     } catch (error) {
       this.logger.error(
         `Failed to create notification for payable.due.approaching: ${error.message}`,
+        { stack: error.stack },
       );
     }
   }

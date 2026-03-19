@@ -377,7 +377,7 @@ export class PurchasesService {
     }
 
     // --- GAP 2: Link each purchased product to the supplier in Product.suppliers[] ---
-    for (const item of purchaseOrder.items) {
+    const linkPromises = purchaseOrder.items.map(item =>
       this.suppliersService.linkProductToSupplier(
         item.productId.toString(),
         purchaseOrder.supplierId.toString(),
@@ -391,8 +391,12 @@ export class PurchasesService {
         this.logger.error(
           `Failed to link product ${item.productSku} to supplier: ${err.message}`,
         );
-      });
-    }
+        return null; // Return null on error so Promise.all doesn't fail
+      })
+    );
+
+    await Promise.all(linkPromises);
+    this.logger.log(`Linked ${purchaseOrder.items.length} products to supplier ${purchaseOrder.supplierName}`);
 
     purchaseOrder.status = "received";
     purchaseOrder.receivedDate = new Date();

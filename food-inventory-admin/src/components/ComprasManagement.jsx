@@ -1102,27 +1102,49 @@ export default function ComprasManagement() {
       const response = await fetchApi(`/customers/${supplierId}`);
       const supplier = response.data;
 
-      // Obtener métodos de pago aceptados por el proveedor
-      const acceptedMethods = supplier.paymentSettings?.acceptedPaymentMethods || [];
+      // Obtener configuración de pago del proveedor
+      const paymentSettings = supplier.paymentSettings || {};
+      const acceptedMethods = paymentSettings.acceptedPaymentMethods || [];
+      const acceptsCredit = paymentSettings.acceptsCredit ?? false;
+      const defaultCreditDays = paymentSettings.defaultCreditDays || 0;
+      const requiresAdvancePayment = paymentSettings.requiresAdvancePayment ?? false;
+      const advancePaymentPercentage = paymentSettings.advancePaymentPercentage || 0;
 
-      if (acceptedMethods.length > 0) {
-        // Pre-seleccionar los métodos de pago
-        setPo(prev => ({
-          ...prev,
-          paymentTerms: {
-            ...prev.paymentTerms,
-            paymentMethods: acceptedMethods
-          }
-        }));
+      // Calcular fecha de vencimiento si acepta crédito
+      let paymentDueDate = null;
+      if (acceptsCredit && defaultCreditDays > 0) {
+        const dueDate = new Date(po.purchaseDate);
+        dueDate.setDate(dueDate.getDate() + defaultCreditDays);
+        paymentDueDate = dueDate;
+      }
 
-        // Mostrar notificación informativa
-        toast.info('Métodos de Pago Cargados', {
-          description: `Se han pre-seleccionado ${acceptedMethods.length} método(s) de pago del proveedor.`
+      // Pre-cargar todas las condiciones de pago del proveedor
+      setPo(prev => ({
+        ...prev,
+        paymentTerms: {
+          ...prev.paymentTerms,
+          paymentMethods: acceptedMethods,
+          isCredit: acceptsCredit,
+          paymentDueDate: paymentDueDate,
+          requiresAdvancePayment: requiresAdvancePayment,
+          advancePaymentPercentage: advancePaymentPercentage
+        }
+      }));
+
+      // Mostrar notificación informativa
+      const features = [];
+      if (acceptedMethods.length > 0) features.push(`${acceptedMethods.length} método(s) de pago`);
+      if (acceptsCredit) features.push(`crédito a ${defaultCreditDays} días`);
+      if (requiresAdvancePayment) features.push(`adelanto del ${advancePaymentPercentage}%`);
+
+      if (features.length > 0) {
+        toast.info('Condiciones de Pago Cargadas', {
+          description: `Se han pre-configurado: ${features.join(', ')}`
         });
       }
     } catch (error) {
       // Fallar silenciosamente - no debe bloquear el flujo
-      console.error('Error cargando métodos de pago del proveedor:', error);
+      console.error('Error cargando condiciones de pago del proveedor:', error);
     }
   };
 
@@ -1503,6 +1525,46 @@ export default function ComprasManagement() {
                   </div>
                   <div className="space-y-2"><Label>Teléfono del Contacto</Label><Input value={po.contactPhone} onChange={e => handleFieldChange('contactPhone', e.target.value)} /></div>
                 </div>
+
+                {/* Fecha de Compra y Tipo de Documento */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div className="space-y-2">
+                    <Label>Fecha de Compra <span className="text-red-500">*</span></Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{po.purchaseDate ? format(po.purchaseDate, "PPP") : <span>Selecciona una fecha</span>}</Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={po.purchaseDate} onSelect={(date) => setPo(prev => ({ ...prev, purchaseDate: date }))} initialFocus /></PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="dark:text-gray-200">
+                      Tipo de Documento <span className="text-red-500">*</span>
+                    </Label>
+                    <Select
+                      value={po.documentType}
+                      onValueChange={(value) => setPo(prev => ({
+                        ...prev,
+                        documentType: value
+                      }))}
+                    >
+                      <SelectTrigger className="dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100">
+                        <SelectValue placeholder="Selecciona tipo de documento" />
+                      </SelectTrigger>
+                      <SelectContent className="dark:bg-slate-900 dark:border-slate-700">
+                        <SelectItem value="factura_fiscal" className="dark:text-gray-100">
+                          Factura Fiscal
+                        </SelectItem>
+                        <SelectItem value="nota_entrega" className="dark:text-gray-100">
+                          Nota de Entrega
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Selecciona el tipo de comprobante que respalda esta compra
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="p-4 border rounded-lg space-y-4 dark:border-slate-700 dark:bg-slate-800/50">
@@ -1744,44 +1806,6 @@ export default function ComprasManagement() {
                 })()}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Fecha de Compra</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{po.purchaseDate ? format(po.purchaseDate, "PPP") : <span>Selecciona una fecha</span>}</Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={po.purchaseDate} onSelect={(date) => setPo(prev => ({ ...prev, purchaseDate: date }))} initialFocus /></PopoverContent>
-                  </Popover>
-                </div>
-                <div className="space-y-2">
-                  <Label className="dark:text-gray-200">
-                    Tipo de Documento <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={po.documentType}
-                    onValueChange={(value) => setPo(prev => ({
-                      ...prev,
-                      documentType: value
-                    }))}
-                  >
-                    <SelectTrigger className="dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100">
-                      <SelectValue placeholder="Selecciona tipo de documento" />
-                    </SelectTrigger>
-                    <SelectContent className="dark:bg-slate-900 dark:border-slate-700">
-                      <SelectItem value="factura_fiscal" className="dark:text-gray-100">
-                        Factura Fiscal
-                      </SelectItem>
-                      <SelectItem value="nota_entrega" className="dark:text-gray-100">
-                        Nota de Entrega
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Selecciona el tipo de comprobante que respalda esta compra
-                  </p>
-                </div>
-              </div>
               <div className="space-y-2"><Label>Notas</Label><Textarea value={po.notes} onChange={e => setPo(prev => ({ ...prev, notes: e.target.value }))} /></div>
             </div>
 
