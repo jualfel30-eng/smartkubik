@@ -1204,7 +1204,7 @@ export class SuppliersService {
       costPrice: number;
       productSku: string;
     },
-  ): Promise<void> {
+  ): Promise<{ isNew: boolean; supplierId: string } | null> {
     try {
       // Resolve the actual Supplier document ID (supplierId might be a Customer ID)
       let actualSupplierId = supplierId;
@@ -1232,7 +1232,7 @@ export class SuppliersService {
 
       if (!product) {
         this.logger.warn(`linkProductToSupplier: Product ${productId} not found`);
-        return;
+        return null;
       }
 
       const existingLink = product.suppliers?.find(
@@ -1255,43 +1255,46 @@ export class SuppliersService {
 
         await product.save();
         this.logger.log(`linkProductToSupplier: Updated existing link for product ${productId} → supplier ${actualSupplierId}`);
-      } else {
-        // Add new supplier link
-        const hasExistingSuppliers = product.suppliers && product.suppliers.length > 0;
-
-        const newSupplierEntry: any = {
-          supplierId: supplierObjId,
-          supplierName: supplierData.supplierName,
-          supplierSku: supplierData.productSku,
-          costPrice: supplierData.costPrice,
-          leadTimeDays: 1,
-          minimumOrderQuantity: 1,
-          isPreferred: !hasExistingSuppliers, // First supplier is preferred by default
-          lastUpdated: new Date(),
-        };
-
-        // Sync payment config from supplier if available
-        if (supplier?.paymentSettings) {
-          newSupplierEntry.paymentCurrency = this.inferPaymentCurrency(supplier.paymentSettings?.preferredPaymentMethod);
-          newSupplierEntry.preferredPaymentMethod = supplier.paymentSettings?.preferredPaymentMethod;
-          newSupplierEntry.acceptedPaymentMethods = supplier.paymentSettings?.acceptedPaymentMethods || [];
-          newSupplierEntry.usesParallelRate = this.inferUsesParallelRate(supplier.paymentSettings?.preferredPaymentMethod);
-          newSupplierEntry.paymentConfigSyncedAt = new Date();
-        }
-
-        if (!product.suppliers) {
-          product.suppliers = [];
-        }
-        product.suppliers.push(newSupplierEntry);
-        await product.save();
-        this.logger.log(`linkProductToSupplier: Created new link for product ${productId} → supplier ${actualSupplierId}`);
+        return { isNew: false, supplierId: actualSupplierId };
       }
+
+      // Add new supplier link
+      const hasExistingSuppliers = product.suppliers && product.suppliers.length > 0;
+
+      const newSupplierEntry: any = {
+        supplierId: supplierObjId,
+        supplierName: supplierData.supplierName,
+        supplierSku: supplierData.productSku,
+        costPrice: supplierData.costPrice,
+        leadTimeDays: 1,
+        minimumOrderQuantity: 1,
+        isPreferred: !hasExistingSuppliers, // First supplier is preferred by default
+        lastUpdated: new Date(),
+      };
+
+      // Sync payment config from supplier if available
+      if (supplier?.paymentSettings) {
+        newSupplierEntry.paymentCurrency = this.inferPaymentCurrency(supplier.paymentSettings?.preferredPaymentMethod);
+        newSupplierEntry.preferredPaymentMethod = supplier.paymentSettings?.preferredPaymentMethod;
+        newSupplierEntry.acceptedPaymentMethods = supplier.paymentSettings?.acceptedPaymentMethods || [];
+        newSupplierEntry.usesParallelRate = this.inferUsesParallelRate(supplier.paymentSettings?.preferredPaymentMethod);
+        newSupplierEntry.paymentConfigSyncedAt = new Date();
+      }
+
+      if (!product.suppliers) {
+        product.suppliers = [];
+      }
+      product.suppliers.push(newSupplierEntry);
+      await product.save();
+      this.logger.log(`linkProductToSupplier: Created new link for product ${productId} → supplier ${actualSupplierId}`);
+      return { isNew: true, supplierId: actualSupplierId };
     } catch (error) {
       this.logger.error(
         `linkProductToSupplier: Error linking product ${productId} to supplier ${supplierId}: ${error.message}`,
         error.stack,
       );
       // Don't re-throw — linking failures shouldn't block the purchase flow
+      return null;
     }
   }
 }
