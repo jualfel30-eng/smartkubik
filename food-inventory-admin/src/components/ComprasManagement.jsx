@@ -94,6 +94,7 @@ const initialPoState = {
   purchaseDate: new Date(),
   items: [],
   notes: '',
+  documentType: 'factura_fiscal',
   paymentTerms: {
     isCredit: false,
     paymentDueDate: null,
@@ -1096,6 +1097,70 @@ export default function ComprasManagement() {
     setPo({ ...po, items: newItems });
   };
 
+  const fetchSupplierPaymentMethods = async (supplierId) => {
+    try {
+      const response = await fetchApi(`/customers/${supplierId}`);
+      const supplier = response.data;
+
+      // Obtener métodos de pago aceptados por el proveedor
+      const acceptedMethods = supplier.paymentSettings?.acceptedPaymentMethods || [];
+
+      if (acceptedMethods.length > 0) {
+        // Pre-seleccionar los métodos de pago
+        setPo(prev => ({
+          ...prev,
+          paymentTerms: {
+            ...prev.paymentTerms,
+            paymentMethods: acceptedMethods
+          }
+        }));
+
+        // Mostrar notificación informativa
+        toast.info('Métodos de Pago Cargados', {
+          description: `Se han pre-seleccionado ${acceptedMethods.length} método(s) de pago del proveedor.`
+        });
+      }
+    } catch (error) {
+      // Fallar silenciosamente - no debe bloquear el flujo
+      console.error('Error cargando métodos de pago del proveedor:', error);
+    }
+  };
+
+  const syncPaymentMethodsToSupplier = async (supplierId, newPaymentMethods) => {
+    try {
+      // Obtener métodos actuales del proveedor
+      const response = await fetchApi(`/customers/${supplierId}`);
+      const supplier = response.data;
+      const currentMethods = supplier.paymentSettings?.acceptedPaymentMethods || [];
+
+      // Detectar métodos nuevos (que el proveedor NO tiene)
+      const methodsToAdd = newPaymentMethods.filter(m => !currentMethods.includes(m));
+
+      if (methodsToAdd.length === 0) {
+        return; // No hay métodos nuevos, no hacer nada
+      }
+
+      // Hacer merge (no reemplazar)
+      const mergedMethods = [...new Set([...currentMethods, ...methodsToAdd])];
+
+      // Actualizar proveedor
+      await fetchApi(`/suppliers/${supplierId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          paymentSettings: {
+            ...supplier.paymentSettings,
+            acceptedPaymentMethods: mergedMethods
+          }
+        })
+      });
+
+      console.log(`✅ Synced ${methodsToAdd.length} new payment method(s) to supplier ${supplierId}`);
+    } catch (error) {
+      // Fallar silenciosamente - no debe bloquear el flujo principal
+      console.error('Error sincronizando métodos de pago al proveedor:', error);
+    }
+  };
+
   const handlePoSubmit = async () => {
     const supplierNameTrimmed = po.supplierName?.trim() || '';
     const supplierRifTrimmed = po.supplierRif?.toString().trim() || '';
@@ -1163,6 +1228,7 @@ export default function ComprasManagement() {
 
     const dto = {
       purchaseDate: format(po.purchaseDate, 'yyyy-MM-dd'),
+      documentType: po.documentType,
       items: po.items.map(item => ({
         productId: item.productId,
         productName: item.productName,
@@ -1206,14 +1272,20 @@ export default function ComprasManagement() {
 
     try {
       await fetchApi('/purchases', { method: 'POST', body: JSON.stringify(dto) });
-      toast.success('Orden de Compra creada exitosamente');
+      toast.success('Compra creada exitosamente');
+
+      // NUEVO: Sincronizar métodos de pago al proveedor si hay nuevos
+      if (po.supplierId && allPaymentMethods.length > 0) {
+        await syncPaymentMethodsToSupplier(po.supplierId, allPaymentMethods);
+      }
+
       setIsNewPurchaseDialogOpen(false);
       setPo(initialPoState);
       setSupplierNameInput('');
       setSupplierRifInput('');
       fetchData();
     } catch (error) {
-      toast.error('Error al crear la Orden de Compra', { description: error.message });
+      toast.error('Error al crear la Compra', { description: error.message });
     } finally {
       setPoLoading(false);
     }
@@ -1280,8 +1352,8 @@ export default function ComprasManagement() {
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <DialogTitle>Nueva Orden de Compra</DialogTitle>
-                  <DialogDescription>Crea una nueva orden de compra para reabastecer tu inventario.</DialogDescription>
+                  <DialogTitle>Nueva Compra</DialogTitle>
+                  <DialogDescription>Registra una nueva compra para reabastecer tu inventario.</DialogDescription>
                 </div>
                 <div className="flex-shrink-0 ml-4">
                   <input
@@ -1401,6 +1473,8 @@ export default function ComprasManagement() {
                                   contactPhone: s.contacts?.find(c => c.type === 'phone')?.value || '',
                                   contactEmail: s.contacts?.find(c => c.type === 'email')?.value || '',
                                 }));
+                                // NUEVO: Cargar métodos de pago del proveedor
+                                fetchSupplierPaymentMethods(s._id);
                               }}
                             >
                               <span className="font-medium">{s.taxInfo?.taxId}</span>
@@ -1680,13 +1754,40 @@ export default function ComprasManagement() {
                     <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={po.purchaseDate} onSelect={(date) => setPo(prev => ({ ...prev, purchaseDate: date }))} initialFocus /></PopoverContent>
                   </Popover>
                 </div>
-                <div className="space-y-2"><Label>Notas</Label><Textarea value={po.notes} onChange={e => setPo(prev => ({ ...prev, notes: e.target.value }))} /></div>
+                <div className="space-y-2">
+                  <Label className="dark:text-gray-200">
+                    Tipo de Documento <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={po.documentType}
+                    onValueChange={(value) => setPo(prev => ({
+                      ...prev,
+                      documentType: value
+                    }))}
+                  >
+                    <SelectTrigger className="dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100">
+                      <SelectValue placeholder="Selecciona tipo de documento" />
+                    </SelectTrigger>
+                    <SelectContent className="dark:bg-slate-900 dark:border-slate-700">
+                      <SelectItem value="factura_fiscal" className="dark:text-gray-100">
+                        Factura Fiscal
+                      </SelectItem>
+                      <SelectItem value="nota_entrega" className="dark:text-gray-100">
+                        Nota de Entrega
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Selecciona el tipo de comprobante que respalda esta compra
+                  </p>
+                </div>
               </div>
+              <div className="space-y-2"><Label>Notas</Label><Textarea value={po.notes} onChange={e => setPo(prev => ({ ...prev, notes: e.target.value }))} /></div>
             </div>
 
             <DialogFooter className="flex-shrink-0">
               <Button variant="outline" onClick={() => setIsNewPurchaseDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={handlePoSubmit} disabled={poLoading}>{poLoading ? 'Creando...' : 'Crear Orden de Compra'}</Button>
+              <Button onClick={handlePoSubmit} disabled={poLoading}>{poLoading ? 'Creando...' : 'Crear Compra'}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

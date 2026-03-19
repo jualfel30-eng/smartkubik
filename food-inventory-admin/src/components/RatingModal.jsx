@@ -5,7 +5,11 @@ import { Input } from '@/components/ui/input.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Label } from '@/components/ui/label.jsx';
-import { Star } from 'lucide-react';
+import { Star, Calendar as CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Calendar } from '@/components/ui/calendar.jsx';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
 
 export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }) {
   const [rating, setRating] = useState(0);
@@ -13,10 +17,13 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
   const [reason, setReason] = useState('');
   const [comments, setComments] = useState('');
   const [receivedBy, setReceivedBy] = useState('');
+  const [invoiceDate, setInvoiceDate] = useState(null);
 
   const isOneStar = rating === 1;
   const isOtherReason = reason === 'Otro';
-  const canSubmit = rating > 0 && (!isOneStar || (isOneStar && reason && (!isOtherReason || (isOtherReason && comments))));
+  const canSubmit = rating > 0 &&
+    invoiceDate &&
+    (!isOneStar || (isOneStar && reason && (!isOtherReason || (isOtherReason && comments))));
 
   const handleSubmit = () => {
     onSubmit({
@@ -26,6 +33,7 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
       reason: isOneStar ? reason : undefined,
       comments,
       receivedBy,
+      invoiceDate: invoiceDate ? format(invoiceDate, 'yyyy-MM-dd') : null,
     });
     resetState();
   };
@@ -41,6 +49,7 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
     setReason('');
     setComments('');
     setReceivedBy('');
+    setInvoiceDate(null);
   };
 
   return (
@@ -50,9 +59,41 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
           <DialogTitle>Calificar Compra #{purchaseOrder?.poNumber}</DialogTitle>
           <DialogDescription>
             Proveedor: {purchaseOrder?.supplierName}
+            {purchaseOrder?.documentType && (
+              <span className="block mt-1 text-sm">
+                Documento: <span className="font-medium">
+                  {purchaseOrder.documentType === 'factura_fiscal' ? 'Factura Fiscal' : 'Nota de Entrega'}
+                </span>
+              </span>
+            )}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {/* NUEVO CAMPO: Fecha de Factura - PRIMERO */}
+          <div className="space-y-2">
+            <Label>Fecha de Factura <span className="text-red-500">*</span></Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {invoiceDate ? format(invoiceDate, "PPP", { locale: es }) : <span>Selecciona fecha de factura</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={invoiceDate}
+                  onSelect={setInvoiceDate}
+                  disabled={(date) => date > new Date()}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           <div className="space-y-2">
             <Label>Calificación (1-5 estrellas)</Label>
             <div className="flex items-center space-x-1">
