@@ -376,10 +376,15 @@ export class InventoryQueryDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ description: "Almacén" })
+  @ApiPropertyOptional({ description: "Almacén (nombre)" })
   @IsOptional()
   @IsString()
   warehouse?: string;
+
+  @ApiPropertyOptional({ description: "ID del almacén" })
+  @IsOptional()
+  @IsString()
+  warehouseId?: string;
 
   @ApiPropertyOptional({ description: "Solo productos con stock bajo" })
   @IsOptional()

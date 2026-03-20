@@ -1196,6 +1196,7 @@ export class InventoryService {
       limit = 20,
       search,
       warehouse,
+      warehouseId,
       lowStock,
       nearExpiration,
       expired,
@@ -1219,6 +1220,7 @@ export class InventoryService {
     }
 
     if (warehouse) filter["location.warehouse"] = warehouse;
+    if (warehouseId) filter.warehouseId = warehouseId;
     if (lowStock) filter["alerts.lowStock"] = true;
     if (nearExpiration) filter["alerts.nearExpiration"] = true;
     if (expired) filter["alerts.expired"] = true;
