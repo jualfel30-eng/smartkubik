@@ -565,8 +565,9 @@ export class SuppliersService {
 
     if (customer) {
       // Try to find a linked Supplier record to get paymentSettings
+      // CRITICAL: Convert customer._id to ObjectId explicitly for query
       const linkedSupplier = await this.supplierModel.findOne({
-        customerId: customer._id,
+        customerId: new Types.ObjectId(customer._id),
         tenantId: String(tenantId)
       }).exec();
 
