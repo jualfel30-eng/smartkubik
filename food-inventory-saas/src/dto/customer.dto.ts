@@ -154,6 +154,39 @@ export class CustomerCreditInfoDto {
   acceptsCredit?: boolean;
 }
 
+export class CustomerPaymentSettingsDto {
+  @ApiPropertyOptional({ description: "Acepta crédito", default: false })
+  @IsOptional()
+  @IsBoolean()
+  acceptsCredit?: boolean;
+
+  @ApiPropertyOptional({ description: "Días de crédito por defecto", default: 0 })
+  @IsOptional()
+  @IsNumber()
+  defaultCreditDays?: number;
+
+  @ApiPropertyOptional({ description: "Límite de crédito", default: 0 })
+  @IsOptional()
+  @IsNumber()
+  creditLimit?: number;
+
+  @ApiPropertyOptional({ description: "Métodos de pago aceptados", type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  acceptedPaymentMethods?: string[];
+
+  @ApiPropertyOptional({ description: "Requiere pago adelantado", default: false })
+  @IsOptional()
+  @IsBoolean()
+  requiresAdvancePayment?: boolean;
+
+  @ApiPropertyOptional({ description: "Porcentaje de pago adelantado", default: 0 })
+  @IsOptional()
+  @IsNumber()
+  advancePaymentPercentage?: number;
+}
+
 // --- DTOs Principales ---
 
 export class CreateCustomerDto {
@@ -245,6 +278,15 @@ export class CreateCustomerDto {
   @IsString()
   @SanitizeText()
   notes?: string;
+
+  @ApiPropertyOptional({
+    description: "Condiciones de pago (solo para proveedores)",
+    type: CustomerPaymentSettingsDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CustomerPaymentSettingsDto)
+  paymentSettings?: CustomerPaymentSettingsDto;
 }
 
 export class UpdateCustomerDto {

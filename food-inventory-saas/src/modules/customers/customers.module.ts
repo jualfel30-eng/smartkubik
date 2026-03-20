@@ -10,6 +10,7 @@ import {
   EmployeeProfile,
   EmployeeProfileSchema,
 } from "../../schemas/employee-profile.schema";
+import { Supplier, SupplierSchema } from "../../schemas/supplier.schema";
 import {
   PurchaseOrder,
   PurchaseOrderSchema,
@@ -34,6 +35,7 @@ import { OrdersModule } from "../orders/orders.module";
       { name: Customer.name, schema: CustomerSchema },
       { name: Order.name, schema: OrderSchema },
       { name: EmployeeProfile.name, schema: EmployeeProfileSchema },
+      { name: Supplier.name, schema: SupplierSchema },
       { name: PurchaseOrder.name, schema: PurchaseOrderSchema },
       { name: PurchaseOrderRating.name, schema: PurchaseOrderRatingSchema },
     ]),

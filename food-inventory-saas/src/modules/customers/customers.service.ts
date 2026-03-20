@@ -8,6 +8,7 @@ import {
   EmployeeProfile,
   EmployeeProfileDocument,
 } from "../../schemas/employee-profile.schema";
+import { Supplier, SupplierDocument } from "../../schemas/supplier.schema";
 import {
   CreateCustomerDto,
   UpdateCustomerDto,
@@ -44,6 +45,7 @@ export class CustomersService {
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     @InjectModel(EmployeeProfile.name)
     private employeeProfileModel: Model<EmployeeProfileDocument>,
+    @InjectModel(Supplier.name) private supplierModel: Model<SupplierDocument>,
     private readonly loyaltyService: LoyaltyService,
   ) { }
 
@@ -104,6 +106,72 @@ export class CustomersService {
     }
   }
 
+  /**
+   * Crea automáticamente un Supplier vinculado cuando se crea un Customer con customerType='supplier'
+   * Esto permite que los proveedores creados desde CRM tengan paymentSettings
+   */
+  private async createLinkedSupplierForCustomer(
+    customer: CustomerDocument,
+    tenantId: string,
+    paymentSettings?: any,
+  ): Promise<void> {
+    try {
+      // Generar número de proveedor
+      const lastSupplier = await this.supplierModel
+        .findOne({ tenantId: String(tenantId) })
+        .sort({ supplierNumber: -1 })
+        .exec();
+
+      let supplierNumber = 'PROV-000001';
+      if (lastSupplier?.supplierNumber) {
+        const match = lastSupplier.supplierNumber.match(/PROV-(\d+)/);
+        if (match) {
+          const nextNumber = parseInt(match[1]) + 1;
+          supplierNumber = `PROV-${String(nextNumber).padStart(6, '0')}`;
+        }
+      }
+
+      // Crear Supplier vinculado con paymentSettings
+      await this.supplierModel.create({
+        customerId: customer._id,
+        name: customer.companyName || customer.name,
+        supplierNumber,
+        supplierType: 'distributor',
+        taxInfo: {
+          rif: customer.taxInfo?.taxId || '',
+          businessName: customer.taxInfo?.taxName || customer.companyName || customer.name,
+          isRetentionAgent: false,
+        },
+        contacts: customer.contacts?.map(c => ({
+          name: customer.name,
+          email: c.type === 'email' ? c.value : undefined,
+          phone: c.type === 'phone' ? c.value : undefined,
+          isPrimary: c.isPrimary || false,
+        })).filter(c => c.email || c.phone) || [],
+        address: customer.addresses?.[0] || {},
+        paymentSettings: paymentSettings || {
+          acceptsCredit: customer.creditInfo?.acceptsCredit || false,
+          defaultCreditDays: customer.creditInfo?.paymentTerms || 0,
+          creditLimit: customer.creditInfo?.creditLimit || 0,
+          acceptedPaymentMethods: [],
+          requiresAdvancePayment: false,
+          advancePaymentPercentage: 0,
+        },
+        status: 'active',
+        tenantId: String(tenantId),
+      });
+
+      this.logger.log(
+        `Linked Supplier created automatically for customer ${customer._id} with number ${supplierNumber}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to create linked Supplier for customer ${customer._id}: ${error.message}`,
+      );
+      // No lanzamos el error para no fallar la creación del customer
+    }
+  }
+
   async create(
     createCustomerDto: CreateCustomerDto,
     user: any,
@@ -156,6 +224,15 @@ export class CustomersService {
       await this.createEmployeeProfileForCustomer(
         savedCustomer._id,
         user.tenantId,
+      );
+    }
+
+    // Si es un proveedor, crear automáticamente el Supplier vinculado con paymentSettings
+    if (createCustomerDto.customerType === "supplier") {
+      await this.createLinkedSupplierForCustomer(
+        savedCustomer,
+        user.tenantId,
+        createCustomerDto.paymentSettings,
       );
     }
 
