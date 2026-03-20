@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
 import { getBusinessLocations, getSubsidiaries, createTransferOrder } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
-import { Plus, Trash2, Loader2, Search, MapPin, Building2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, Search, MapPin, Building2, PackageOpen } from 'lucide-react';
 
 export default function CreateTransferOrderDialog({ open, onOpenChange, onCreated }) {
   const { tenant } = useAuth();
@@ -25,9 +25,10 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
   const [locations, setLocations] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [destinationWarehouses, setDestinationWarehouses] = useState([]);
-  const [products, setProducts] = useState([]);
+  const [inventoryItems, setInventoryItems] = useState([]);
   const [productSearch, setProductSearch] = useState('');
   const [filteredProducts, setFilteredProducts] = useState([]);
+  const [loadingInventory, setLoadingInventory] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
@@ -49,12 +50,6 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     const load = async () => {
       setLoading(true);
       try {
-        // Fetch products (always needed)
-        const prods = await fetchApi('/products?limit=500');
-        const productList = Array.isArray(prods) ? prods : prods?.data || [];
-        setProducts(productList);
-        setFilteredProducts(productList.slice(0, 20));
-
         // Fetch source warehouses (current tenant)
         const whs = await fetchApi('/warehouses');
         setWarehouses(Array.isArray(whs) ? whs : whs?.data || []);
@@ -115,25 +110,59 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
       destinationLocationId: '',
     });
     setProductSearch('');
+    setInventoryItems([]);
+    setFilteredProducts([]);
     setDestinationWarehouses([]);
   }, [open]);
 
+  // Fetch inventory when source warehouse changes
+  useEffect(() => {
+    if (!form.sourceWarehouseId) {
+      setInventoryItems([]);
+      setFilteredProducts([]);
+      return;
+    }
+
+    const fetchInventory = async () => {
+      setLoadingInventory(true);
+      try {
+        const res = await fetchApi(
+          `/inventory?warehouseId=${form.sourceWarehouseId}&minAvailable=1&limit=5000`,
+        );
+        const items = res?.data || [];
+        setInventoryItems(items);
+        setFilteredProducts(items.slice(0, 20));
+      } catch (err) {
+        console.error('Error fetching inventory:', err);
+        setInventoryItems([]);
+        setFilteredProducts([]);
+      } finally {
+        setLoadingInventory(false);
+      }
+    };
+
+    fetchInventory();
+    setProductSearch('');
+    // Clear selected items since they belong to the previous warehouse's inventory
+    setForm((f) => ({ ...f, items: [] }));
+  }, [form.sourceWarehouseId]);
+
   useEffect(() => {
     if (!productSearch.trim()) {
-      setFilteredProducts(products.slice(0, 20));
+      setFilteredProducts(inventoryItems.slice(0, 20));
       return;
     }
     const search = productSearch.toLowerCase();
     setFilteredProducts(
-      products
+      inventoryItems
         .filter(
-          (p) =>
-            p.name?.toLowerCase().includes(search) ||
-            p.sku?.toLowerCase().includes(search),
+          (inv) =>
+            inv.productName?.toLowerCase().includes(search) ||
+            inv.productSku?.toLowerCase().includes(search),
         )
         .slice(0, 20),
     );
-  }, [productSearch, products]);
+  }, [productSearch, inventoryItems]);
 
   // Fetch destination warehouses when destination tenant changes (multi-sede mode)
   useEffect(() => {
@@ -168,20 +197,25 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     return warehouses.filter((w) => warehouseIds.includes(w._id || w.id));
   };
 
-  const addItem = (product) => {
-    const productId = product._id || product.id;
+  const addItem = (invRecord) => {
+    const productId = typeof invRecord.productId === 'object'
+      ? (invRecord.productId._id || invRecord.productId.id || String(invRecord.productId))
+      : invRecord.productId;
     if (form.items.some((i) => i.productId === productId)) {
       toast.error('Producto ya agregado');
       return;
     }
+    const populatedProduct = typeof invRecord.productId === 'object' ? invRecord.productId : null;
     setForm((f) => ({
       ...f,
       items: [
         ...f.items,
         {
           productId,
-          productName: product.name,
-          productSku: product.sku,
+          productName: invRecord.productName,
+          productSku: invRecord.productSku,
+          brand: populatedProduct?.brand || '',
+          availableQuantity: invRecord.availableQuantity,
           quantity: 1,
         },
       ],
@@ -196,12 +230,13 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
   };
 
   const updateItemQty = (productId, qty) => {
-    const quantity = Math.max(1, parseInt(qty) || 1);
     setForm((f) => ({
       ...f,
-      items: f.items.map((i) =>
-        i.productId === productId ? { ...i, quantity } : i,
-      ),
+      items: f.items.map((i) => {
+        if (i.productId !== productId) return i;
+        const quantity = Math.max(1, Math.min(parseInt(qty) || 1, i.availableQuantity));
+        return { ...i, quantity };
+      }),
     }));
   };
 
@@ -291,7 +326,7 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Nueva Transferencia de Inventario
@@ -467,40 +502,78 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           {/* Product search */}
           <div>
             <Label>Agregar productos</Label>
-            <div className="relative mt-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                className="pl-9"
-                placeholder="Buscar por nombre o SKU..."
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-              />
-            </div>
-            {productSearch.trim() && filteredProducts.length > 0 && (
-              <div className="border rounded-md mt-1 max-h-40 overflow-y-auto">
-                {filteredProducts.map((p) => {
-                  const pid = p._id || p.id;
-                  const alreadyAdded = form.items.some((i) => i.productId === pid);
-                  return (
-                    <button
-                      key={pid}
-                      className="w-full text-left px-3 py-2 hover:bg-muted text-sm flex justify-between items-center disabled:opacity-50"
-                      onClick={() => addItem(p)}
-                      disabled={alreadyAdded}
-                    >
-                      <span>
-                        {p.name}
-                        {p.sku && <span className="text-muted-foreground ml-2">({p.sku})</span>}
-                      </span>
-                      {alreadyAdded ? (
-                        <span className="text-xs text-muted-foreground">Agregado</span>
-                      ) : (
-                        <Plus className="h-3 w-3" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+            {!form.sourceWarehouseId ? (
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                <PackageOpen className="h-3.5 w-3.5" />
+                Selecciona un almacén de origen para ver productos disponibles
+              </p>
+            ) : (
+              <>
+                <div className="relative mt-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    placeholder="Buscar por nombre o SKU..."
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    disabled={loadingInventory}
+                  />
+                  {loadingInventory && (
+                    <Loader2 className="absolute right-2.5 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+                {inventoryItems.length > 0 && !loadingInventory && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {inventoryItems.length} producto{inventoryItems.length !== 1 ? 's' : ''} con inventario disponible
+                  </p>
+                )}
+                {inventoryItems.length === 0 && !loadingInventory && form.sourceWarehouseId && (
+                  <p className="text-xs text-orange-500 mt-1">
+                    No hay productos con inventario en este almacén
+                  </p>
+                )}
+                {productSearch.trim() && filteredProducts.length > 0 && (
+                  <div className="border rounded-md mt-1 max-h-48 overflow-y-auto">
+                    {filteredProducts.map((inv) => {
+                      const pid = typeof inv.productId === 'object'
+                        ? (inv.productId._id || inv.productId.id || String(inv.productId))
+                        : inv.productId;
+                      const alreadyAdded = form.items.some((i) => i.productId === pid);
+                      const populatedProduct = typeof inv.productId === 'object' ? inv.productId : null;
+                      return (
+                        <button
+                          key={inv._id || pid}
+                          className="w-full text-left px-3 py-2 hover:bg-muted text-sm flex justify-between items-center gap-2 disabled:opacity-50"
+                          onClick={() => addItem(inv)}
+                          disabled={alreadyAdded}
+                        >
+                          <div className="flex flex-col min-w-0">
+                            <span className="truncate">
+                              {inv.productName}
+                              {inv.productSku && (
+                                <span className="text-muted-foreground ml-1.5">({inv.productSku})</span>
+                              )}
+                            </span>
+                            {populatedProduct?.brand && (
+                              <span className="text-xs text-muted-foreground">{populatedProduct.brand}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">
+                              {inv.availableQuantity} disp.
+                            </Badge>
+                            {alreadyAdded ? (
+                              <span className="text-xs text-muted-foreground">Agregado</span>
+                            ) : (
+                              <Plus className="h-3 w-3" />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -510,6 +583,8 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
               <TableHeader>
                 <TableRow>
                   <TableHead>Producto</TableHead>
+                  <TableHead>Marca</TableHead>
+                  <TableHead className="w-[80px] text-center">Disp.</TableHead>
                   <TableHead className="w-[100px]">Cantidad</TableHead>
                   <TableHead className="w-[60px]"></TableHead>
                 </TableRow>
@@ -524,9 +599,18 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
                       )}
                     </TableCell>
                     <TableCell>
+                      <span className="text-sm text-muted-foreground">{item.brand || '—'}</span>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className="text-[10px] font-mono">
+                        {item.availableQuantity}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
                       <Input
                         type="number"
                         min="1"
+                        max={item.availableQuantity}
                         value={item.quantity}
                         onChange={(e) => updateItemQty(item.productId, e.target.value)}
                         className="w-20 h-8 text-sm"
