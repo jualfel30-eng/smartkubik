@@ -1455,11 +1455,16 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       contactsPayload.push({ type: 'phone', value: newContact.phone, isPrimary: !newContact.email });
     }
 
+    // CRÍTICO: Normalizar taxId al formato estándar "J-12345678" (igual que en Compras)
+    const normalizedTaxType = (newContact.taxType || 'J').toUpperCase();
+    const taxIdDigits = (newContact.taxId || '').replace(/[^0-9]/g, '');
+    const normalizedTaxId = taxIdDigits ? `${normalizedTaxType}-${taxIdDigits}` : '';
+
     const payload = {
       name: newContact.name,
       customerType: newContact.customerType,
       companyName: newContact.companyName,
-      taxInfo: { taxId: newContact.taxId, taxType: newContact.taxType },
+      taxInfo: { taxId: normalizedTaxId, taxType: normalizedTaxType },
       addresses: [{ type: 'shipping', street: newContact.address, city: newContact.city, state: newContact.state, isDefault: true }],
       contacts: contactsPayload,
       notes: newContact.notes,
@@ -1578,13 +1583,19 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
 
     const oldTaxType = originalContact.taxInfo?.taxType || 'V';
     const oldTaxId = originalContact.taxInfo?.taxId || '';
+
+    // CRÍTICO: Normalizar taxId al formato estándar "J-12345678" (igual que en Compras)
+    const normalizedEditTaxType = (editingFormState.taxType || 'V').toUpperCase();
+    const editTaxIdDigits = (editingFormState.taxId || '').replace(/[^0-9]/g, '');
+    const normalizedEditTaxId = editTaxIdDigits ? `${normalizedEditTaxType}-${editTaxIdDigits}` : '';
+
     if (
-      editingFormState.taxType !== oldTaxType ||
-      (editingFormState.taxId || '') !== oldTaxId
+      normalizedEditTaxType !== oldTaxType ||
+      normalizedEditTaxId !== oldTaxId
     ) {
       changedFields.taxInfo = {
-        taxType: editingFormState.taxType,
-        taxId: editingFormState.taxId,
+        taxType: normalizedEditTaxType,
+        taxId: normalizedEditTaxId,
       };
     }
 
