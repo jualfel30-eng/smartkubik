@@ -606,7 +606,9 @@ export class ProductsService {
       filter.productType = productType;
     }
     if (supplierId && Types.ObjectId.isValid(supplierId)) {
-      filter["suppliers.supplierId"] = new Types.ObjectId(supplierId);
+      // Support both String and ObjectId types for backward compatibility
+      // Some products have supplierId as String, others as ObjectId
+      filter["suppliers.supplierId"] = { $in: [supplierId, new Types.ObjectId(supplierId)] };
     }
     if (query.excludeProductIds?.length) {
       const ids = query.excludeProductIds
