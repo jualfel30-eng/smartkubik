@@ -1480,6 +1480,14 @@ export class InventoryService {
       }
 
       product.markModified('variants');
+      // Sanitize legacy supplier entries missing required fields
+      if (product.suppliers?.length) {
+        for (const s of product.suppliers) {
+          if (!s.supplierSku) s.supplierSku = '-';
+          if (s.leadTimeDays == null) s.leadTimeDays = 1;
+          if (s.minimumOrderQuantity == null) s.minimumOrderQuantity = 1;
+        }
+      }
       await product.save({ session });
     }
 

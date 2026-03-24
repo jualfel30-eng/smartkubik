@@ -1272,6 +1272,8 @@ export class SuppliersService {
           existingLink.paymentConfigSyncedAt = new Date();
         }
 
+        // Sanitize legacy supplier entries missing required fields
+        this.sanitizeSupplierEntries(product);
         await product.save();
         this.logger.log(`linkProductToSupplier: Updated existing link for product ${productId} → supplier ${actualSupplierId}`);
         return { isNew: false, supplierId: actualSupplierId };
@@ -1304,6 +1306,8 @@ export class SuppliersService {
         product.suppliers = [];
       }
       product.suppliers.push(newSupplierEntry);
+      // Sanitize legacy supplier entries missing required fields
+      this.sanitizeSupplierEntries(product);
       await product.save();
       this.logger.log(`linkProductToSupplier: Created new link for product ${productId} → supplier ${actualSupplierId}`);
       return { isNew: true, supplierId: actualSupplierId };
@@ -1314,6 +1318,16 @@ export class SuppliersService {
       );
       // Don't re-throw — linking failures shouldn't block the purchase flow
       return null;
+    }
+  }
+
+  /** Fill in missing required fields on legacy supplier entries so product.save() won't fail */
+  private sanitizeSupplierEntries(product: any): void {
+    if (!product.suppliers?.length) return;
+    for (const s of product.suppliers) {
+      if (!s.supplierSku) s.supplierSku = '-';
+      if (s.leadTimeDays == null) s.leadTimeDays = 1;
+      if (s.minimumOrderQuantity == null) s.minimumOrderQuantity = 1;
     }
   }
 }
