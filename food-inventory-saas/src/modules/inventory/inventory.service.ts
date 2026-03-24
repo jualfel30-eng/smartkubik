@@ -1220,7 +1220,20 @@ export class InventoryService {
     }
 
     if (warehouse) filter["location.warehouse"] = warehouse;
-    if (warehouseId) filter.warehouseId = warehouseId;
+    if (warehouseId) {
+      // Match records assigned to this warehouse OR with no warehouse (legacy records)
+      const whOid = new Types.ObjectId(warehouseId);
+      filter.$and = [
+        ...(filter.$and || []),
+        {
+          $or: [
+            { warehouseId: whOid },
+            { warehouseId: null },
+            { warehouseId: { $exists: false } },
+          ],
+        },
+      ];
+    }
     if (lowStock) filter["alerts.lowStock"] = true;
     if (nearExpiration) filter["alerts.nearExpiration"] = true;
     if (expired) filter["alerts.expired"] = true;

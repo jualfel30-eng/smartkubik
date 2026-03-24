@@ -12,6 +12,8 @@ import {
   getTransferOrder,
   requestTransferOrder,
   approveTransferOrder,
+  approveTransferRequest,
+  prepareTransferOrder,
   shipTransferOrder,
   receiveTransferOrder,
   cancelTransferOrder,
@@ -27,20 +29,43 @@ import {
   Clock,
   ArrowRight,
   MapPin,
+  ClipboardList,
   Warehouse,
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
   draft: { label: 'Borrador', variant: 'outline', icon: Clock },
-  requested: { label: 'Solicitado', variant: 'secondary', icon: Send },
-  approved: { label: 'Aprobado', variant: 'default', icon: CheckCircle },
+  // PUSH flow
+  push_requested: { label: 'Solicitado', variant: 'secondary', icon: Send },
+  push_approved: { label: 'Aprobado', variant: 'default', icon: CheckCircle },
+  // PULL flow
+  pull_requested: { label: 'Solicitado', variant: 'secondary', icon: Send },
+  pull_approved: { label: 'Aprobado', variant: 'default', icon: CheckCircle },
+  pull_rejected: { label: 'Rechazado', variant: 'destructive', icon: XCircle },
+  // Shared statuses
+  in_preparation: { label: 'En Preparacion', variant: 'outline', icon: Clock },
   in_transit: { label: 'En Transito', variant: 'default', icon: Truck },
+  delivered: { label: 'Entregado', variant: 'default', icon: PackageCheck },
   received: { label: 'Recibido', variant: 'secondary', icon: PackageCheck },
   partially_received: { label: 'Parcialmente Recibido', variant: 'outline', icon: PackageCheck },
   cancelled: { label: 'Cancelado', variant: 'destructive', icon: XCircle },
 };
 
-const TIMELINE_STEPS = ['draft', 'requested', 'approved', 'in_transit', 'received'];
+// Normalize push/pull-specific statuses for timeline display
+const normalizeStatus = (status) => {
+  if (status?.includes('requested')) return 'requested';
+  if (status?.includes('approved')) return 'approved';
+  return status;
+};
+
+const TIMELINE_STEPS_DISPLAY = [
+  { key: 'draft', label: 'Borrador' },
+  { key: 'requested', label: 'Solicitado' },
+  { key: 'approved', label: 'Aprobado' },
+  { key: 'in_preparation', label: 'Preparacion' },
+  { key: 'in_transit', label: 'En Transito' },
+  { key: 'received', label: 'Recibido' },
+];
 
 export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
   const [order, setOrder] = useState(null);
@@ -163,12 +188,14 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
 
   const statusConfig = STATUS_CONFIG[order.status] || STATUS_CONFIG.draft;
   const StatusIcon = statusConfig.icon;
-  const currentStepIdx = TIMELINE_STEPS.indexOf(order.status);
+  const normalizedStatus = normalizeStatus(order.status);
+  const currentStepIdx = TIMELINE_STEPS_DISPLAY.findIndex((s) => s.key === normalizedStatus);
   const canRequest = order.status === 'draft';
-  const canApprove = order.status === 'requested';
-  const canShip = order.status === 'approved';
-  const canReceive = order.status === 'in_transit';
-  const canCancel = ['draft', 'requested', 'approved'].includes(order.status);
+  const canApprove = ['push_requested', 'pull_requested', 'requested'].includes(order.status);
+  const canPrepare = ['push_approved', 'pull_approved', 'approved'].includes(order.status);
+  const canShip = order.status === 'in_preparation';
+  const canReceive = ['in_transit', 'delivered'].includes(order.status);
+  const canCancel = ['draft', 'push_requested', 'pull_requested', 'push_approved', 'pull_approved', 'in_preparation', 'requested', 'approved'].includes(order.status);
 
   return (
     <div className="space-y-6">
@@ -197,12 +224,11 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
-            {TIMELINE_STEPS.map((step, idx) => {
-              const config = STATUS_CONFIG[step];
+            {TIMELINE_STEPS_DISPLAY.map((step, idx) => {
               const isActive = idx <= currentStepIdx && order.status !== 'cancelled';
-              const isCurrent = step === order.status;
+              const isCurrent = step.key === normalizedStatus;
               return (
-                <div key={step} className="flex items-center flex-1">
+                <div key={step.key} className="flex items-center flex-1">
                   <div className={`flex flex-col items-center ${isCurrent ? 'scale-110' : ''}`}>
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
@@ -214,10 +240,10 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
                       {idx + 1}
                     </div>
                     <span className={`text-[10px] mt-1 ${isActive ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                      {config.label}
+                      {step.label}
                     </span>
                   </div>
-                  {idx < TIMELINE_STEPS.length - 1 && (
+                  {idx < TIMELINE_STEPS_DISPLAY.length - 1 && (
                     <div className={`flex-1 h-0.5 mx-2 ${idx < currentStepIdx && order.status !== 'cancelled' ? 'bg-primary' : 'bg-muted'}`} />
                   )}
                 </div>
@@ -332,9 +358,18 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
           </Button>
         )}
         {canApprove && (
-          <Button variant="outline" size="sm" onClick={() => handleAction(approveTransferOrder, 'Transferencia aprobada')} disabled={actionLoading}>
+          <Button variant="outline" size="sm" onClick={() => {
+            const approveFn = order.type === 'pull' ? approveTransferRequest : approveTransferOrder;
+            handleAction(approveFn, 'Transferencia aprobada');
+          }} disabled={actionLoading}>
             {actionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-1" />}
             Aprobar
+          </Button>
+        )}
+        {canPrepare && (
+          <Button variant="outline" size="sm" onClick={() => handleAction(prepareTransferOrder, 'Transferencia en preparacion')} disabled={actionLoading}>
+            {actionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ClipboardList className="h-4 w-4 mr-1" />}
+            Preparar
           </Button>
         )}
         {canShip && (

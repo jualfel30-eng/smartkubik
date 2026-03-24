@@ -12,9 +12,14 @@ import TransferOrderDetail from '@/components/TransferOrderDetail.jsx';
 
 const STATUS_CONFIG = {
   draft: { label: 'Borrador', variant: 'outline' },
-  requested: { label: 'Solicitado', variant: 'secondary' },
-  approved: { label: 'Aprobado', variant: 'default' },
+  push_requested: { label: 'Solicitado', variant: 'secondary' },
+  pull_requested: { label: 'Solicitado', variant: 'secondary' },
+  push_approved: { label: 'Aprobado', variant: 'default' },
+  pull_approved: { label: 'Aprobado', variant: 'default' },
+  pull_rejected: { label: 'Rechazado', variant: 'destructive' },
+  in_preparation: { label: 'En Preparacion', variant: 'outline' },
   in_transit: { label: 'En Transito', variant: 'default' },
+  delivered: { label: 'Entregado', variant: 'default' },
   received: { label: 'Recibido', variant: 'secondary' },
   partially_received: { label: 'Parcial', variant: 'outline' },
   cancelled: { label: 'Cancelado', variant: 'destructive' },

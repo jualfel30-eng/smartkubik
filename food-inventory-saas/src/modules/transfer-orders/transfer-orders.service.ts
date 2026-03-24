@@ -925,6 +925,17 @@ export class TransferOrdersService {
     userId: string,
   ): Promise<TransferOrderDocument> {
     const order = await this.findOrderOrFail(id, tenantId);
+
+    // Normalize legacy statuses from before push/pull refactor
+    const legacyMap: Record<string, TransferOrderStatus> = {
+      approved: TransferOrderStatus.PUSH_APPROVED,
+      requested: TransferOrderStatus.PUSH_REQUESTED,
+    };
+    if (legacyMap[order.status as string]) {
+      order.status = legacyMap[order.status as string];
+      await order.save();
+    }
+
     this.assertStatus(
       order,
       [
@@ -965,11 +976,33 @@ export class TransferOrdersService {
       const qty = item.shippedQuantity;
       if (!qty || qty <= 0) continue;
 
-      const sourceInventory = await this.inventoryModel.findOne({
+      const sourceWarehouseOid = new Types.ObjectId(
+        order.sourceWarehouseId.toString(),
+      );
+
+      // Try warehouse-specific first, then fallback to unassigned inventory
+      let sourceInventory = await this.inventoryModel.findOne({
         productId: item.productId,
-        warehouseId: order.sourceWarehouseId,
+        warehouseId: sourceWarehouseOid,
         tenantId: { $in: [sourceTenantId, sourceTenantOid] },
       });
+
+      if (!sourceInventory) {
+        // Fallback: find inventory without warehouseId (pre-warehouse records)
+        sourceInventory = await this.inventoryModel.findOne({
+          productId: item.productId,
+          $or: [
+            { warehouseId: null },
+            { warehouseId: { $exists: false } },
+          ],
+          tenantId: { $in: [sourceTenantId, sourceTenantOid] },
+        });
+
+        // Assign warehouse to the record for future consistency
+        if (sourceInventory) {
+          sourceInventory.warehouseId = sourceWarehouseOid;
+        }
+      }
 
       if (!sourceInventory) {
         throw new NotFoundException(
