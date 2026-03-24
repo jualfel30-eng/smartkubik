@@ -37,14 +37,32 @@ export class RatingsService {
     session.startTransaction();
 
     try {
-      const ratingData = {
-        ...createRatingDto,
-        createdBy: user.id,
-        tenantId: user.tenantId,
-      };
+      // Check for existing rating to avoid E11000 duplicate key error
+      const existingRating = await this.ratingModel.findOne({
+        purchaseOrderId: createRatingDto.purchaseOrderId,
+      }).session(session);
 
-      const rating = new this.ratingModel(ratingData);
-      const savedRating = await rating.save({ session });
+      let savedRating: PurchaseOrderRatingDocument;
+
+      if (existingRating) {
+        this.logger.log(`Rating already exists for PO ${createRatingDto.purchaseOrderId}, updating...`);
+        existingRating.rating = createRatingDto.rating;
+        if (createRatingDto.reason !== undefined) {
+          existingRating.reason = createRatingDto.reason;
+        }
+        if (createRatingDto.comments !== undefined) {
+          existingRating.comments = createRatingDto.comments;
+        }
+        savedRating = await existingRating.save({ session });
+      } else {
+        const ratingData = {
+          ...createRatingDto,
+          createdBy: user.id,
+          tenantId: user.tenantId,
+        };
+        const rating = new this.ratingModel(ratingData);
+        savedRating = await rating.save({ session });
+      }
 
       // Fix: Handle mixed BSON types for tenantId
       const tenantObjectId = new Types.ObjectId(user.tenantId);
