@@ -104,7 +104,8 @@ describe('Products E2E', () => {
     });
 
     it('should filter products by search', async () => {
-      const res = await authGet(ctx, '/products?search=Atún').expect(200);
+      const searchTerm = encodeURIComponent('Atún');
+      const res = await authGet(ctx, `/products?search=${searchTerm}`).expect(200);
       const products = res.body.data || res.body;
       expect(products.length).toBeGreaterThanOrEqual(1);
     });

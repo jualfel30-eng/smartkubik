@@ -31,7 +31,7 @@ describe('Inventory Movements E2E', () => {
     // Create some movements
     await authPost(ctx, '/inventory/movements', {
       inventoryId,
-      movementType: 'in',
+      movementType: 'IN',
       quantity: 30,
       unitCost: 5,
       reason: 'Restock',
@@ -40,7 +40,7 @@ describe('Inventory Movements E2E', () => {
 
     await authPost(ctx, '/inventory/movements', {
       inventoryId,
-      movementType: 'out',
+      movementType: 'OUT',
       quantity: 10,
       unitCost: 5,
       reason: 'Sale',
@@ -57,7 +57,7 @@ describe('Inventory Movements E2E', () => {
       const res = await authPost(ctx, '/inventory-movements', {
         inventoryId,
         productId,
-        movementType: 'in',
+        movementType: 'IN',
         quantity: 15,
         unitCost: 5,
         reason: 'Additional restock',

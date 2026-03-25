@@ -143,6 +143,9 @@ export class ProductsController {
   @Permissions("products_read")
   async findOne(@Param("id") id: string, @Request() req) {
     const product = await this.productsService.findOne(id, this.getCatalogTenantId(req));
+    if (!product) {
+      throw new NotFoundException('Producto no encontrado');
+    }
     return { success: true, data: product };
   }
 

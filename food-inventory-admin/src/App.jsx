@@ -149,7 +149,8 @@ const PayablesManagement = lazy(() => import('@/components/PayablesManagement.js
 const AccountingManagement = lazy(() => import('@/components/AccountingManagement.jsx'));
 const AccountsReceivableReport = lazy(() => import('@/components/AccountsReceivableReport.jsx'));
 const ElectronicInvoicesManager = lazy(() => import('@/components/accounting/ElectronicInvoicesManager.jsx'));
-const IslrWithholdingList = lazy(() => import('@/components/accounting/IslrWithholdingList.jsx'));
+// DEPRECATED: Legacy ISLR module - replaced by unified WithholdingManagement
+// const IslrWithholdingList = lazy(() => import('@/components/accounting/IslrWithholdingList.jsx'));
 const TrialBalance = lazy(() => import('@/components/accounting/TrialBalance.jsx'));
 const GeneralLedger = lazy(() => import('@/components/accounting/GeneralLedger.jsx'));
 const AccountingPeriods = lazy(() => import('@/components/accounting/AccountingPeriods.jsx'));
@@ -210,6 +211,7 @@ const BillingDashboard = lazy(() => import('@/components/billing/BillingDashboar
 const BillingCreateForm = lazy(() => import('@/components/billing/BillingCreateForm.jsx'));
 const BillingDocumentDetail = lazy(() => import('@/components/billing/BillingDocumentDetail.jsx'));
 const BillingSequencesManager = lazy(() => import('@/components/billing/BillingSequencesManager.jsx'));
+const WithholdingManagement = lazy(() => import('@/components/billing/WithholdingManagement.jsx'));
 const FulfillmentDashboard = lazy(() => import('@/components/fulfillment/FulfillmentDashboard.jsx').then(module => ({ default: module.FulfillmentDashboard })));
 const CashRegisterPage = lazy(() => import('./pages/CashRegisterPage.jsx'));
 const DataImportPage = lazy(() => import('./components/data-import/DataImportPage.jsx'));
@@ -524,11 +526,11 @@ function TenantLayout() {
       children: [
         { name: 'Facturación Electrónica', href: 'accounting?tab=electronic-invoices', icon: Receipt },
         { name: 'Series de Facturación', href: 'billing/sequences', icon: List, permission: 'billing_read' },
+        { name: 'Retenciones Fiscales (IVA e ISLR)', href: 'billing/retenciones', icon: Receipt, permission: 'billing_read' },
         { name: 'Libro Diario', href: 'accounting?tab=journal', icon: FileText },
         { name: 'Libro Mayor', href: 'accounting?tab=general-ledger', icon: BookOpen },
         { name: 'Libro de Ventas', href: 'accounting?tab=sales-book', icon: BookOpen },
         { name: 'Declaración IVA', href: 'accounting?tab=iva-declaration', icon: FileText },
-        { name: 'Retenciones ISLR', href: 'accounting?tab=islr-withholding', icon: FileText },
         { name: 'Balance de Comprobación', href: 'accounting?tab=trial-balance', icon: BarChart3 },
         { name: 'Estado de Resultados', href: 'accounting?tab=profit-loss', icon: TrendingUp },
         { name: 'Balance General', href: 'accounting?tab=balance-sheet', icon: AreaChart },
@@ -1194,11 +1196,13 @@ function TenantLayout() {
                 <Route path="accounting/periods" element={<AccountingPeriods />} />
                 <Route path="accounting/recurring-entries" element={<RecurringEntries />} />
                 <Route path="accounting/electronic-invoices" element={<ElectronicInvoicesManager />} />
-                <Route path="accounting/islr-withholding" element={<IslrWithholdingList />} />
+                {/* DEPRECATED: Legacy ISLR module - replaced by unified WithholdingManagement */}
+                {/* <Route path="accounting/islr-withholding" element={<IslrWithholdingList />} /> */}
                 <Route path="billing" element={<Navigate to="/accounting?tab=electronic-invoices" replace />} />
                 <Route path="billing/create" element={<BillingCreateForm />} />
                 <Route path="billing/sequences" element={<BillingSequencesManager />} />
                 <Route path="billing/documents/:id" element={<BillingDocumentDetail />} />
+                <Route path="billing/retenciones" element={<WithholdingManagement />} />
                 <Route path="cash-register" element={<CashRegisterPage />} />
                 <Route path="fixed-assets" element={<FixedAssetsView />} />
                 <Route path="investments" element={<InvestmentsView />} />

@@ -56,7 +56,11 @@ describe('Pricing E2E', () => {
         ],
         paymentMethod: 'efectivo',
         currency: 'VES',
+        ivaApplicable: true,
       });
+      if (res.status !== 200 && res.status !== 201) {
+        console.log('Pricing test error:', JSON.stringify(res.body, null, 2));
+      }
       expect([200, 201]).toContain(res.status);
       if (res.status === 200) {
         const result = res.body.data || res.body;

@@ -1221,18 +1221,14 @@ export class InventoryService {
 
     if (warehouse) filter["location.warehouse"] = warehouse;
     if (warehouseId) {
-      // Match records assigned to this warehouse OR with no warehouse (legacy records)
-      const whOid = new Types.ObjectId(warehouseId);
-      filter.$and = [
-        ...(filter.$and || []),
-        {
-          $or: [
-            { warehouseId: whOid },
-            { warehouseId: null },
-            { warehouseId: { $exists: false } },
-          ],
-        },
-      ];
+      // Match records assigned to this warehouse (support both String and ObjectId)
+      try {
+        const whOid = new Types.ObjectId(warehouseId);
+        filter.warehouseId = { $in: [warehouseId, whOid] };
+      } catch (e) {
+        // If warehouseId is not a valid ObjectId, just match as string
+        filter.warehouseId = warehouseId;
+      }
     }
     if (lowStock) filter["alerts.lowStock"] = true;
     if (nearExpiration) filter["alerts.nearExpiration"] = true;

@@ -33,22 +33,20 @@ export class CreateInventoryLotDto {
   @Min(0)
   costPrice: number;
 
-  @ApiProperty({ description: "Fecha de recepción" })
-  @IsDate()
-  @Type(() => Date)
-  receivedDate: Date;
+  @ApiPropertyOptional({ description: "Fecha de recepción" })
+  @IsOptional()
+  @IsDateString()
+  receivedDate?: string | Date;
 
   @ApiPropertyOptional({ description: "Fecha de vencimiento" })
   @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  expirationDate?: Date;
+  @IsDateString()
+  expirationDate?: string | Date;
 
   @ApiPropertyOptional({ description: "Fecha de fabricación" })
   @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  manufacturingDate?: Date;
+  @IsDateString()
+  manufacturingDate?: string | Date;
 
   @ApiPropertyOptional({ description: "ID del proveedor" })
   @IsOptional()
@@ -504,15 +502,13 @@ export class InventoryLotDto {
 
   @ApiPropertyOptional({ description: "Fecha de vencimiento" })
   @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  expirationDate?: Date;
+  @IsDateString()
+  expirationDate?: string | Date;
 
   @ApiPropertyOptional({ description: "Fecha de fabricación" })
   @IsOptional()
-  @IsDate()
-  @Type(() => Date)
-  manufacturingDate?: Date;
+  @IsDateString()
+  manufacturingDate?: string | Date;
 
   @ApiPropertyOptional({ description: "ID del proveedor" })
   @IsOptional()
