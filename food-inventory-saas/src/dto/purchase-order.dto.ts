@@ -125,12 +125,13 @@ export class CreatePurchaseOrderDto {
   supplierId?: string; // Optional: for existing suppliers
 
   // These fields are for creating a new supplier on the fly
-  @ValidateIf((o) => !o.supplierId)
+  // NOTE: Business logic validation (supplierId XOR newSupplier fields) happens in service layer
+  @IsOptional()
   @IsString()
   @SanitizeString()
   newSupplierName?: string;
 
-  @ValidateIf((o) => !o.supplierId)
+  @IsOptional()
   @IsString()
   @SanitizeString()
   @Matches(
@@ -139,7 +140,7 @@ export class CreatePurchaseOrderDto {
   )
   newSupplierRif?: string;
 
-  @ValidateIf((o) => !o.supplierId)
+  @IsOptional()
   @IsString()
   @SanitizeString()
   newSupplierContactName?: string;

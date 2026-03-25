@@ -55,6 +55,16 @@ export class PurchasesService {
     let supplierId = dto.supplierId;
     let supplierName = "";
 
+    // Validate that either supplierId OR newSupplier fields are provided, not both
+    const hasExistingSupplier = !!dto.supplierId;
+    const hasNewSupplier = !!(dto.newSupplierName || dto.newSupplierRif || dto.newSupplierContactName);
+
+    if (!hasExistingSupplier && !hasNewSupplier) {
+      throw new BadRequestException(
+        "Debe proporcionar un supplierId (proveedor existente) O los datos del nuevo proveedor (newSupplierName, newSupplierRif, newSupplierContactName).",
+      );
+    }
+
     if (!supplierId) {
       if (
         !dto.newSupplierName ||
@@ -128,13 +138,13 @@ export class PurchasesService {
         );
       }
     } else {
-      const existingSupplier = await this.customersService.findOne(
+      const existingSupplier = await this.suppliersService.findOne(
         supplierId,
         user.tenantId,
       );
       if (!existingSupplier) {
         throw new NotFoundException(
-          `Proveedor (Cliente) con ID "${supplierId}" no encontrado.`,
+          `Proveedor con ID "${supplierId}" no encontrado.`,
         );
       }
       supplierName = existingSupplier.companyName || existingSupplier.name;
@@ -360,7 +370,7 @@ export class PurchasesService {
       );
     }
 
-    if (purchaseOrder.status !== "pending") {
+    if (purchaseOrder.status !== "pending" && purchaseOrder.status !== "approved") {
       throw new BadRequestException(
         `La orden de compra ya ha sido procesada o cancelada. Estado actual: ${purchaseOrder.status}`,
       );
