@@ -75,7 +75,7 @@ describe('Inventory E2E', () => {
     it('should register IN movement (stock increases)', async () => {
       const res = await authPost(ctx, '/inventory/movements', {
         inventoryId,
-        movementType: 'IN',
+        movementType: 'in',
         quantity: 50,
         unitCost: 5,
         reason: 'Restock',
@@ -93,7 +93,7 @@ describe('Inventory E2E', () => {
     it('should register OUT movement (stock decreases)', async () => {
       await authPost(ctx, '/inventory/movements', {
         inventoryId,
-        movementType: 'OUT',
+        movementType: 'out',
         quantity: 20,
         unitCost: 5,
         reason: 'Sale',
@@ -110,7 +110,7 @@ describe('Inventory E2E', () => {
     it('should reject OUT movement exceeding available stock', async () => {
       const res = await authPost(ctx, '/inventory/movements', {
         inventoryId,
-        movementType: 'OUT',
+        movementType: 'out',
         quantity: 99999,
         unitCost: 5,
         reason: 'Impossible',
