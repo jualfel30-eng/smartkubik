@@ -198,11 +198,38 @@ describe('Products E2E', () => {
 
   describe('Bulk Create', () => {
     it('should bulk create products', async () => {
+      const n1 = Math.floor(Date.now() / 1000);
+      const n2 = n1 + 1;
       const products = [
-        buildProductDto({ name: 'Bulk Product 1' }),
-        buildProductDto({ name: 'Bulk Product 2' }),
+        {
+          sku: `BULK-${n1}`,
+          name: 'Bulk Product 1',
+          category: ['Alimentos'],
+          isPerishable: false,
+          ivaApplicable: true,
+          variantName: 'Unidad',
+          variantUnit: 'unidad',
+          variantUnitSize: 1,
+          variantBasePrice: 10,
+          variantCostPrice: 5,
+        },
+        {
+          sku: `BULK-${n2}`,
+          name: 'Bulk Product 2',
+          category: ['Bebidas'],
+          isPerishable: false,
+          ivaApplicable: true,
+          variantName: 'Unidad',
+          variantUnit: 'unidad',
+          variantUnitSize: 1,
+          variantBasePrice: 15,
+          variantCostPrice: 8,
+        },
       ];
       const res = await authPost(ctx, '/products/bulk', { products });
+      if (res.status !== 200 && res.status !== 201) {
+        console.log('Bulk create error:', JSON.stringify(res.body, null, 2));
+      }
       expect([200, 201]).toContain(res.status);
     });
   });
