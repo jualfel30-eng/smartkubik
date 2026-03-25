@@ -158,6 +158,7 @@ export class CreatePurchaseOrderDto {
   purchaseDate: string;
 
   @IsArray()
+  @ArrayMinSize(1, { message: 'Purchase order must have at least one item' })
   @ValidateNested({ each: true })
   @Type(() => PurchaseOrderItemDto)
   items: PurchaseOrderItemDto[];
