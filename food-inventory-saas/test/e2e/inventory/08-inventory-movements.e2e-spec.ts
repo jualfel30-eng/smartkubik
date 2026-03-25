@@ -29,14 +29,18 @@ describe('Inventory Movements E2E', () => {
     inventoryId = (invRes.body.data || invRes.body)._id;
 
     // Create some movements
-    await authPost(ctx, '/inventory/movements', {
+    const mov1Res = await authPost(ctx, '/inventory/movements', {
       inventoryId,
       movementType: 'in',
       quantity: 30,
       unitCost: 5,
       reason: 'Restock',
       reference: 'MOV-TEST-001',
-    }).expect(201);
+    });
+    if (mov1Res.status !== 201) {
+      console.log('Movement 1 creation failed:', JSON.stringify(mov1Res.body, null, 2));
+    }
+    expect(mov1Res.status).toBe(201);
 
     await authPost(ctx, '/inventory/movements', {
       inventoryId,

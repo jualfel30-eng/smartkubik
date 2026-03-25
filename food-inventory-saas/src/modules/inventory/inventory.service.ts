@@ -304,6 +304,7 @@ export class InventoryService {
       {
         ...movementDto,
         productId: inventory.productId.toString(),
+        productSku: inventory.productSku,
         totalCost: movementDto.quantity * movementDto.unitCost,
         balanceAfter: {
           totalQuantity: updatedInventory.totalQuantity,
