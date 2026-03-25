@@ -51,7 +51,7 @@ describe('Pricing E2E', () => {
             productId,
             variantSku,
             quantity: 1,
-            unitPrice: 20,
+            ivaApplicable: true,
           },
         ],
         paymentMethod: 'efectivo',
