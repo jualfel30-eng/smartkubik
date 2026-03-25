@@ -49,7 +49,7 @@ describe('Purchases E2E (CRITICAL)', () => {
     it('should create a supplier', async () => {
       const dto = buildSupplierDto({
         name: 'Proveedor Compras Test',
-        rif: 'J-50501111-0',
+        // Let factory generate unique RIF
         contactName: 'Juan Perez',
         contactPhone: '04141234567',
       });

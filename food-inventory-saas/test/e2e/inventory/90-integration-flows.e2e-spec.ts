@@ -50,7 +50,7 @@ describe('Integration Flows E2E (CRITICAL)', () => {
     it('Step 1: Create supplier with payment settings', async () => {
       const dto = buildSupplierDto({
         name: 'Distribuidora El Sol',
-        rif: 'J-41001001-0',
+        // Let factory generate unique RIF
         contactName: 'Maria Garcia',
         contactPhone: '04121234567',
       });
@@ -342,10 +342,7 @@ describe('Integration Flows E2E (CRITICAL)', () => {
     let productId: string;
 
     it('Step 1: Create supplier', async () => {
-      const dto = buildSupplierDto({
-        name: 'Proveedor Sync Test',
-        rif: 'J-44004004-0',
-      });
+      const dto = buildSupplierDto({ name: 'Proveedor Sync Test' }); // Let factory generate unique RIF
       const res = await authPost(ctx, '/suppliers', dto).expect(201);
       supplierId = (res.body.data || res.body)._id;
     });
@@ -366,8 +363,10 @@ describe('Integration Flows E2E (CRITICAL)', () => {
     });
 
     it('Step 3: Edit supplier RIF (Tenant problem #5)', async () => {
+      // Use unique RIF for editing
+      const uniqueNum = Date.now().toString().slice(-7);
       const res = await authPatch(ctx, `/suppliers/${supplierId}`, {
-        rif: 'J-44004005-0',
+        rif: `J-${uniqueNum}-9`,
       });
       expect([200, 201]).toContain(res.status);
 

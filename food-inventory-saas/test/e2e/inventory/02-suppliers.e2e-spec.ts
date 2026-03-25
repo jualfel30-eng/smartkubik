@@ -25,14 +25,11 @@ describe('Suppliers E2E', () => {
 
   describe('Supplier CRUD', () => {
     it('should create a supplier with valid RIF', async () => {
-      const dto = buildSupplierDto({
-        name: 'Distribuidora Central',
-        rif: 'J-40112233-0',
-      });
+      const dto = buildSupplierDto({ name: 'Distribuidora Central' }); // Let factory generate unique RIF
       const res = await authPost(ctx, '/suppliers', dto).expect(201);
       const supplier = res.body.data || res.body;
       supplierId = supplier._id;
-      supplierRif = 'J-40112233-0';
+      supplierRif = supplier.rif || supplier.taxInfo?.taxId || supplier.taxInfo?.rif;
       expect(supplierId).toBeDefined();
     });
 
@@ -72,7 +69,7 @@ describe('Suppliers E2E', () => {
     });
 
     it('should delete a supplier', async () => {
-      const dto = buildSupplierDto({ name: 'Para Borrar', rif: 'J-99990001-0' });
+      const dto = buildSupplierDto({ name: 'Para Borrar' }); // Let factory generate unique RIF
       const createRes = await authPost(ctx, '/suppliers', dto).expect(201);
       const deleteId = (createRes.body.data || createRes.body)._id;
       await authDelete(ctx, `/suppliers/${deleteId}`).expect(200);
@@ -83,9 +80,11 @@ describe('Suppliers E2E', () => {
 
   describe('RIF Normalization', () => {
     it('should normalize RIF on create (strip extra formatting)', async () => {
+      // Use unique number to avoid collisions on test reruns
+      const uniqueNum = Date.now().toString().slice(-7);
       const dto = buildSupplierDto({
         name: 'Proveedor RIF Test',
-        rif: 'J30445566',
+        rif: `J${uniqueNum}`, // Non-normalized format to test normalization
       });
       const res = await authPost(ctx, '/suppliers', dto);
       if (res.status === 201) {
@@ -100,16 +99,16 @@ describe('Suppliers E2E', () => {
     });
 
     it('should be able to edit RIF (Tenant problem #5)', async () => {
-      const dto = buildSupplierDto({
-        name: 'Proveedor Editar RIF',
-        rif: 'J-55667788-0',
-      });
+      const dto = buildSupplierDto({ name: 'Proveedor Editar RIF' }); // Let factory generate unique RIF
       const createRes = await authPost(ctx, '/suppliers', dto).expect(201);
       const id = (createRes.body.data || createRes.body)._id;
+      const originalRif = (createRes.body.data || createRes.body).rif;
 
       // Edit RIF - this was broken for the tenant
+      // Change last digit to create a different but valid RIF
+      const uniqueNum = Date.now().toString().slice(-7);
       const updateRes = await authPatch(ctx, `/suppliers/${id}`, {
-        rif: 'J-55667789-0',
+        rif: `J-${uniqueNum}-9`,
       });
       expect([200, 201]).toContain(updateRes.status);
     });

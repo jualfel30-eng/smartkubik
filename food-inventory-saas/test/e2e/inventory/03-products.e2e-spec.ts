@@ -21,7 +21,7 @@ describe('Products E2E', () => {
     ctx = await bootstrapTestApp();
 
     // Create a supplier for linking tests
-    const supDto = buildSupplierDto({ name: 'Supplier For Products', rif: 'J-80801111-0' });
+    const supDto = buildSupplierDto({ name: 'Supplier For Products' }); // Let factory generate unique RIF
     const supRes = await authPost(ctx, '/suppliers', supDto).expect(201);
     supplierId = (supRes.body.data || supRes.body)._id;
   }, 60000);
