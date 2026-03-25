@@ -29,18 +29,14 @@ describe('Inventory Movements E2E', () => {
     inventoryId = (invRes.body.data || invRes.body)._id;
 
     // Create some movements
-    const mov1Res = await authPost(ctx, '/inventory/movements', {
+    await authPost(ctx, '/inventory/movements', {
       inventoryId,
       movementType: 'in',
       quantity: 30,
       unitCost: 5,
       reason: 'Restock',
       reference: 'MOV-TEST-001',
-    });
-    if (mov1Res.status !== 201) {
-      console.log('Movement 1 creation failed:', JSON.stringify(mov1Res.body, null, 2));
-    }
-    expect(mov1Res.status).toBe(201);
+    }).expect(201);
 
     await authPost(ctx, '/inventory/movements', {
       inventoryId,
@@ -61,7 +57,7 @@ describe('Inventory Movements E2E', () => {
       const res = await authPost(ctx, '/inventory-movements', {
         inventoryId,
         productId,
-        movementType: 'in',
+        movementType: 'IN',
         quantity: 15,
         unitCost: 5,
         reason: 'Additional restock',
@@ -77,11 +73,11 @@ describe('Inventory Movements E2E', () => {
     });
 
     it('should filter movements by type', async () => {
-      const res = await authGet(ctx, '/inventory-movements?movementType=in').expect(200);
+      const res = await authGet(ctx, '/inventory-movements?movementType=IN').expect(200);
       const data = res.body.data || res.body;
       const movements = Array.isArray(data) ? data : data.items || data.movements || [];
       movements.forEach((m: any) => {
-        expect(m.movementType).toMatch(/in/i);
+        expect(m.movementType).toMatch(/IN/i);
       });
     });
   });
