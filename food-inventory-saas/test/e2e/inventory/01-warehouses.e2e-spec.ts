@@ -13,6 +13,7 @@ describe('Warehouses E2E', () => {
   let ctx: TestContext;
   let warehouseId: string;
   let warehouseId2: string;
+  let warehouseCode: string;
   let binLocationId: string;
 
   beforeAll(async () => {
@@ -33,8 +34,10 @@ describe('Warehouses E2E', () => {
         console.log('Response body:', res.body);
       }
       expect(res.status).toBe(201);
-      expect(res.body.data || res.body).toHaveProperty('_id');
-      warehouseId = (res.body.data || res.body)._id;
+      const warehouse = res.body.data || res.body;
+      expect(warehouse).toHaveProperty('_id');
+      warehouseId = warehouse._id;
+      warehouseCode = warehouse.code;
     });
 
     it('should create a second warehouse', async () => {
@@ -44,11 +47,8 @@ describe('Warehouses E2E', () => {
     });
 
     it('should reject duplicate warehouse code', async () => {
-      // Get the code from the first warehouse we created
-      const getRes = await authGet(ctx, `/warehouses/${warehouseId}`).expect(200);
-      const existingCode = (getRes.body.data || getRes.body).code;
-
-      const dto = buildWarehouseDto({ name: 'Duplicado', code: existingCode });
+      // Use the code from the first warehouse we created
+      const dto = buildWarehouseDto({ name: 'Duplicado', code: warehouseCode });
       await authPost(ctx, '/warehouses', dto).expect((res) => {
         expect([400, 409, 422]).toContain(res.status);
       });
