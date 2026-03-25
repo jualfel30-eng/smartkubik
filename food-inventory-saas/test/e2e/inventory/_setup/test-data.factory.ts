@@ -1,8 +1,10 @@
 import { Types } from 'mongoose';
 
+// Use timestamp to ensure uniqueness across test runs (prevents data pollution)
+const runId = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
 let counter = 0;
 function seq() {
-  return ++counter;
+  return `${runId}${String(++counter).padStart(3, '0')}`;
 }
 
 export function buildProductDto(overrides: Record<string, any> = {}) {
@@ -44,11 +46,12 @@ export function buildProductDto(overrides: Record<string, any> = {}) {
 
 export function buildSupplierDto(overrides: Record<string, any> = {}) {
   const n = seq();
+  const numOnly = parseInt(n.toString()) % 100000; // Get last 5 digits for RIF
   return {
     name: `Proveedor Test ${n}`,
-    rif: `J-${String(10000000 + n).padStart(8, '0')}-${n % 10}`,
+    rif: `J-${String(10000000 + numOnly).padStart(8, '0')}-${numOnly % 10}`,
     contactName: `Contacto ${n}`,
-    contactPhone: `04141234${String(n).padStart(3, '0')}`,
+    contactPhone: `04141234${String(numOnly).padStart(3, '0')}`,
     contactEmail: `proveedor${n}@test.com`,
     ...overrides,
   };

@@ -26,7 +26,13 @@ describe('Warehouses E2E', () => {
   describe('Warehouse CRUD', () => {
     it('should create a warehouse', async () => {
       const dto = buildWarehouseDto({ name: 'Almacén Principal' }); // Let factory generate unique code
-      const res = await authPost(ctx, '/warehouses', dto).expect(201);
+      console.log('Creating warehouse with DTO:', dto);
+      const res = await authPost(ctx, '/warehouses', dto);
+      if (res.status !== 201) {
+        console.log('Warehouse creation failed. Status:', res.status);
+        console.log('Response body:', res.body);
+      }
+      expect(res.status).toBe(201);
       expect(res.body.data || res.body).toHaveProperty('_id');
       warehouseId = (res.body.data || res.body)._id;
     });
