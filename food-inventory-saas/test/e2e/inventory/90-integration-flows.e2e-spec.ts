@@ -425,13 +425,13 @@ describe('Integration Flows E2E (CRITICAL)', () => {
     let transferId: string;
 
     it('Step 1: Create warehouse A (source)', async () => {
-      const dto = buildWarehouseDto({ name: 'Sede Principal', code: 'INT-A' });
+      const dto = buildWarehouseDto({ name: 'Sede Principal' }); // Let factory generate unique code
       const res = await authPost(ctx, '/warehouses', dto).expect(201);
       warehouseAId = (res.body.data || res.body)._id;
     });
 
     it('Step 2: Create warehouse B (destination)', async () => {
-      const dto = buildWarehouseDto({ name: 'Sucursal Norte', code: 'INT-B' });
+      const dto = buildWarehouseDto({ name: 'Sucursal Norte' }); // Let factory generate unique code
       const res = await authPost(ctx, '/warehouses', dto).expect(201);
       warehouseBId = (res.body.data || res.body)._id;
     });
@@ -537,11 +537,11 @@ describe('Integration Flows E2E (CRITICAL)', () => {
     let transferId: string;
 
     it('Setup: Create warehouses, product, and inventory', async () => {
-      const whA = buildWarehouseDto({ name: 'Disc Source', code: 'DISC-A' });
+      const whA = buildWarehouseDto({ name: 'Disc Source' }); // Let factory generate unique code
       const resA = await authPost(ctx, '/warehouses', whA).expect(201);
       warehouseAId = (resA.body.data || resA.body)._id;
 
-      const whB = buildWarehouseDto({ name: 'Disc Dest', code: 'DISC-B' });
+      const whB = buildWarehouseDto({ name: 'Disc Dest' }); // Let factory generate unique code
       const resB = await authPost(ctx, '/warehouses', whB).expect(201);
       warehouseBId = (resB.body.data || resB.body)._id;
 

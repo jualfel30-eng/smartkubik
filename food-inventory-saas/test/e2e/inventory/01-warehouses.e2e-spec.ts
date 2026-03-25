@@ -25,20 +25,24 @@ describe('Warehouses E2E', () => {
 
   describe('Warehouse CRUD', () => {
     it('should create a warehouse', async () => {
-      const dto = buildWarehouseDto({ name: 'Almacén Principal', code: 'AP-01' });
+      const dto = buildWarehouseDto({ name: 'Almacén Principal' }); // Let factory generate unique code
       const res = await authPost(ctx, '/warehouses', dto).expect(201);
       expect(res.body.data || res.body).toHaveProperty('_id');
       warehouseId = (res.body.data || res.body)._id;
     });
 
     it('should create a second warehouse', async () => {
-      const dto = buildWarehouseDto({ name: 'Almacén Secundario', code: 'AS-02' });
+      const dto = buildWarehouseDto({ name: 'Almacén Secundario' }); // Let factory generate unique code
       const res = await authPost(ctx, '/warehouses', dto).expect(201);
       warehouseId2 = (res.body.data || res.body)._id;
     });
 
     it('should reject duplicate warehouse code', async () => {
-      const dto = buildWarehouseDto({ name: 'Duplicado', code: 'AP-01' });
+      // Get the code from the first warehouse we created
+      const getRes = await authGet(ctx, `/warehouses/${warehouseId}`).expect(200);
+      const existingCode = (getRes.body.data || getRes.body).code;
+
+      const dto = buildWarehouseDto({ name: 'Duplicado', code: existingCode });
       await authPost(ctx, '/warehouses', dto).expect((res) => {
         expect([400, 409, 422]).toContain(res.status);
       });
@@ -61,7 +65,7 @@ describe('Warehouses E2E', () => {
 
     it('should delete a warehouse', async () => {
       // Create one to delete
-      const dto = buildWarehouseDto({ name: 'Para Borrar', code: 'DEL-01' });
+      const dto = buildWarehouseDto({ name: 'Para Borrar' }); // Let factory generate unique code
       const createRes = await authPost(ctx, '/warehouses', dto).expect(201);
       const deleteId = (createRes.body.data || createRes.body)._id;
 
@@ -73,9 +77,10 @@ describe('Warehouses E2E', () => {
 
   describe('Bin Locations CRUD', () => {
     it('should create a bin location', async () => {
+      const uniqueCode = `A-01-${Date.now().toString().slice(-6)}`; // Generate unique code
       const res = await authPost(ctx, '/bin-locations', {
         warehouseId,
-        code: 'A-01-01',
+        code: uniqueCode,
         zone: 'A',
         aisle: '01',
         shelf: '01',
