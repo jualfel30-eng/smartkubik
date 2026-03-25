@@ -733,6 +733,21 @@ export class OrderCalculationDto {
   @IsNumber()
   @Min(0)
   shippingCost?: number = 0;
+
+  @ApiPropertyOptional({ description: "Aplicar IVA", default: true })
+  @IsOptional()
+  @IsBoolean()
+  ivaApplicable?: boolean = true;
+
+  @ApiPropertyOptional({ description: "Método de pago" })
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
+
+  @ApiPropertyOptional({ description: "Moneda" })
+  @IsOptional()
+  @IsString()
+  currency?: string;
 }
 
 export class BulkRegisterPaymentsDto {
