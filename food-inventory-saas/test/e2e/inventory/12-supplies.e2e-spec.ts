@@ -9,17 +9,11 @@ import { buildProductDto } from './_setup/test-data.factory';
 
 describe('Supplies E2E', () => {
   let ctx: TestContext;
-  let mainProductId: string;
   let supplyProductId: string;
   let configId: string;
 
   beforeAll(async () => {
     ctx = await bootstrapTestApp();
-
-    // Create main product
-    const mainDto = buildProductDto({ name: 'Main Product (Supplies)' });
-    const mainRes = await authPost(ctx, '/products', mainDto).expect(201);
-    mainProductId = (mainRes.body.data || mainRes.body)._id;
 
     // Create supply product
     const supplyDto = buildProductDto({
@@ -37,12 +31,15 @@ describe('Supplies E2E', () => {
   describe('Supply Configs', () => {
     it('should create supply config', async () => {
       const res = await authPost(ctx, '/supplies/configs', {
-        productId: mainProductId,
-        supplyId: supplyProductId,
-        quantityRequired: 1,
-        unit: 'unidad',
-        costPerUnit: 0.2,
+        productId: supplyProductId,
+        supplyCategory: 'Embalaje',
+        supplySubcategory: 'Cajas',
+        requiresTracking: true,
+        usageDepartment: 'Empaque',
       });
+      if (res.status !== 200 && res.status !== 201) {
+        console.log('Supply config creation error:', JSON.stringify(res.body, null, 2));
+      }
       expect([200, 201]).toContain(res.status);
       configId = (res.body.data || res.body)._id;
     });
@@ -55,7 +52,7 @@ describe('Supplies E2E', () => {
     it('should get config by product', async () => {
       const res = await authGet(
         ctx,
-        `/supplies/configs/product/${mainProductId}`,
+        `/supplies/configs/product/${supplyProductId}`,
       );
       expect([200, 404]).toContain(res.status);
     });
@@ -63,7 +60,7 @@ describe('Supplies E2E', () => {
     it('should update supply config', async () => {
       if (!configId) return;
       const res = await authPatch(ctx, `/supplies/configs/${configId}`, {
-        quantityRequired: 2,
+        estimatedMonthlyConsumption: 100,
       });
       expect([200, 201]).toContain(res.status);
     });
@@ -75,12 +72,15 @@ describe('Supplies E2E', () => {
     it('should log supply consumption', async () => {
       const res = await authPost(ctx, '/supplies/consumption', {
         supplyId: supplyProductId,
-        productId: mainProductId,
         quantityConsumed: 5,
-        unit: 'unidad',
+        unitOfMeasure: 'unidad',
+        consumptionType: 'manual',
         department: 'Empaque',
         notes: 'Consumo diario',
       });
+      if (res.status !== 200 && res.status !== 201) {
+        console.log('Supply consumption error:', JSON.stringify(res.body, null, 2));
+      }
       expect([200, 201]).toContain(res.status);
     });
 
