@@ -22,6 +22,7 @@
     "test:security:unit": "jest test/unit/sanitization.spec.ts --coverage",
     "test:security:integration": "jest test/integration/rate-limiting.spec.ts --verbose",
     "test:security:e2e": "jest --config ./test/jest-e2e.json --testPathPattern='(ownership-validation|csp-headers)' --verbose",
+    "test:e2e:inventory": "jest --config ./test/jest-e2e.json --testPathPattern='e2e/inventory' --runInBand --verbose --forceExit",
     "test:all": "npm run test && npm run test:e2e",
     "db:seed": "ts-node -r dotenv/config scripts/seed-database.ts",
     "db:migrate:weight-selling": "ts-node -r dotenv/config scripts/migrate-products-for-weight-selling.ts",
