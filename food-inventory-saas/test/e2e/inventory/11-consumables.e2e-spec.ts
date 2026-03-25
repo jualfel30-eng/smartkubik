@@ -39,11 +39,14 @@ describe('Consumables E2E', () => {
   describe('Consumable Configs', () => {
     it('should create consumable config', async () => {
       const res = await authPost(ctx, '/consumables/configs', {
-        productId: mainProductId,
-        consumableId: consumableProductId,
-        quantityRequired: 2,
-        frequency: 'per_order',
+        productId: consumableProductId,
+        consumableType: 'napkin',
+        isAutoDeducted: true,
+        defaultQuantity: 2,
       });
+      if (res.status !== 200 && res.status !== 201) {
+        console.log('Consumable config error:', JSON.stringify(res.body, null, 2));
+      }
       expect([200, 201]).toContain(res.status);
       configId = (res.body.data || res.body)._id;
     });
