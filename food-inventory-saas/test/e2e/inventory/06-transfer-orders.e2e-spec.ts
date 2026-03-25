@@ -42,14 +42,14 @@ describe('Transfer Orders E2E (CRITICAL)', () => {
 
   describe('SETUP: Create warehouses, product, and inventory', () => {
     it('should create source warehouse A', async () => {
-      const dto = buildWarehouseDto({ name: 'Almacén Origen', code: 'XFER-A' });
+      const dto = buildWarehouseDto({ name: 'Almacén Origen' }); // Let factory generate unique code
       const res = await authPost(ctx, '/warehouses', dto).expect(201);
       warehouseAId = (res.body.data || res.body)._id;
       expect(warehouseAId).toBeDefined();
     });
 
     it('should create destination warehouse B', async () => {
-      const dto = buildWarehouseDto({ name: 'Almacén Destino', code: 'XFER-B' });
+      const dto = buildWarehouseDto({ name: 'Almacén Destino' }); // Let factory generate unique code
       const res = await authPost(ctx, '/warehouses', dto).expect(201);
       warehouseBId = (res.body.data || res.body)._id;
       expect(warehouseBId).toBeDefined();
