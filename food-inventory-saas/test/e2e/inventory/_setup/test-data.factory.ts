@@ -195,10 +195,8 @@ export function buildInventoryDto(
 
 export function buildAlertRuleDto(overrides: Record<string, any> = {}) {
   return {
-    alertType: 'low_stock',
-    threshold: 10,
+    minQuantity: 10,
     isActive: true,
-    notificationChannels: ['dashboard'],
     ...overrides,
   };
 }
