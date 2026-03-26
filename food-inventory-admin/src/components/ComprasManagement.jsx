@@ -114,6 +114,7 @@ const initialNewProductState = {
   },
   purchaseDate: new Date(),
   documentType: 'factura_fiscal',
+  actualPaymentMethod: 'efectivo_usd', // Método de pago REAL para esta compra específica
   paymentTerms: {
     isCredit: false,
     paymentDueDate: null,
@@ -137,6 +138,7 @@ const initialPoState = {
   items: [],
   notes: '',
   documentType: 'factura_fiscal',
+  actualPaymentMethod: 'efectivo_usd', // Método de pago REAL para esta compra específica
   paymentTerms: {
     isCredit: false,
     paymentDueDate: null,
@@ -152,10 +154,10 @@ const initialPoState = {
  * Calcula IVA e IGTF para una compra
  * @param {number} subtotal - Subtotal de la compra (sin impuestos)
  * @param {string} documentType - 'factura_fiscal' o 'nota_entrega'
- * @param {array} paymentMethods - Array de métodos de pago seleccionados
+ * @param {string} actualPaymentMethod - Método de pago real que se usará
  * @returns {object} - { iva, igtf, total }
  */
-const calculatePurchaseTaxes = (subtotal, documentType, paymentMethods = []) => {
+const calculatePurchaseTaxes = (subtotal, documentType, actualPaymentMethod = 'efectivo_usd') => {
   // Si es nota de entrega, no aplicar impuestos
   if (documentType === 'nota_entrega') {
     return {
@@ -168,12 +170,11 @@ const calculatePurchaseTaxes = (subtotal, documentType, paymentMethods = []) => 
   // Calcular IVA (16%)
   const iva = subtotal * 0.16;
 
-  // Calcular IGTF (3%) solo si hay métodos de pago en dólares
-  const dollarPaymentMethods = ['zelle', 'binance', 'paypal', 'efectivo_usd', 'transferencia_usd'];
-  const hasDollarPayment = paymentMethods.some(method =>
-    dollarPaymentMethods.includes(method.toLowerCase())
-  );
-  const igtf = hasDollarPayment ? (subtotal + iva) * 0.03 : 0;
+  // Calcular IGTF (3%) solo si el método de pago es en divisas (USD)
+  // Basado en ve-payment-methods.js: solo efectivo_usd, zelle, transferencia_int, binance, paypal aplican IGTF
+  const igtfMethods = ['efectivo_usd', 'zelle', 'transferencia_int', 'binance', 'paypal'];
+  const requiresIgtf = igtfMethods.includes(actualPaymentMethod);
+  const igtf = requiresIgtf ? (subtotal + iva) * 0.03 : 0;
 
   const total = subtotal + iva + igtf;
 
@@ -264,7 +265,7 @@ export default function ComprasManagement() {
       return sum + itemTotal;
     }, 0);
 
-    const taxes = calculatePurchaseTaxes(subtotal, po.documentType, po.paymentTerms.paymentMethods);
+    const taxes = calculatePurchaseTaxes(subtotal, po.documentType, po.actualPaymentMethod);
 
     return {
       subtotal,
@@ -272,7 +273,7 @@ export default function ComprasManagement() {
       igtf: taxes.igtf,
       total: taxes.total
     };
-  }, [po.items, po.documentType, po.paymentTerms.paymentMethods]);
+  }, [po.items, po.documentType, po.actualPaymentMethod]);
 
   // Calcular totales con impuestos para el formulario de Compra de Producto Nuevo
   const newProductTotals = useMemo(() => {
@@ -281,7 +282,7 @@ export default function ComprasManagement() {
     const discount = Number(newProduct.inventory.discount) || 0;
     const subtotal = quantity * costPrice * (1 - discount / 100);
 
-    const taxes = calculatePurchaseTaxes(subtotal, newProduct.documentType, newProduct.paymentTerms.paymentMethods);
+    const taxes = calculatePurchaseTaxes(subtotal, newProduct.documentType, newProduct.actualPaymentMethod);
 
     return {
       subtotal,
@@ -289,7 +290,7 @@ export default function ComprasManagement() {
       igtf: taxes.igtf,
       total: taxes.total
     };
-  }, [newProduct.inventory.quantity, newProduct.inventory.costPrice, newProduct.inventory.discount, newProduct.documentType, newProduct.paymentTerms.paymentMethods]);
+  }, [newProduct.inventory.quantity, newProduct.inventory.costPrice, newProduct.inventory.discount, newProduct.documentType, newProduct.actualPaymentMethod]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1241,9 +1242,14 @@ export default function ComprasManagement() {
         paymentDueDate = dueDate;
       }
 
+      // Cargar el último método de pago usado con este proveedor (si existe)
+      const lastMethod = loadLastPaymentMethod(supplierId);
+      const methodToUse = lastMethod || acceptedMethods[0] || 'efectivo_usd';
+
       // Pre-cargar todas las condiciones de pago del proveedor
       setPo(prev => ({
         ...prev,
+        actualPaymentMethod: methodToUse,
         paymentTerms: {
           ...prev.paymentTerms,
           paymentMethods: acceptedMethods,
@@ -1268,6 +1274,38 @@ export default function ComprasManagement() {
     } catch (error) {
       // Fallar silenciosamente - no debe bloquear el flujo
       console.error('Error cargando condiciones de pago del proveedor:', error);
+    }
+  };
+
+  // Helper: Guardar el último método de pago usado para un proveedor
+  const saveLastPaymentMethod = (supplierId, paymentMethod) => {
+    if (!supplierId || !paymentMethod) return;
+    try {
+      const key = `lastPaymentMethod_${supplierId}`;
+      localStorage.setItem(key, paymentMethod);
+    } catch (error) {
+      console.error('Error guardando último método de pago:', error);
+    }
+  };
+
+  // Helper: Cargar el último método de pago usado para un proveedor
+  const loadLastPaymentMethod = (supplierId) => {
+    if (!supplierId) return null;
+    try {
+      const key = `lastPaymentMethod_${supplierId}`;
+      return localStorage.getItem(key);
+    } catch (error) {
+      console.error('Error cargando último método de pago:', error);
+      return null;
+    }
+  };
+
+  // Handler: Cambiar método de pago actual
+  const handleActualPaymentMethodChange = (method) => {
+    setPo(prev => ({ ...prev, actualPaymentMethod: method }));
+    // Guardar para el proveedor actual
+    if (po.supplierId) {
+      saveLastPaymentMethod(po.supplierId, method);
     }
   };
 
@@ -1923,8 +1961,41 @@ export default function ComprasManagement() {
                   </TableBody>
                 </Table>
                 {po.items.length > 0 && (
-                  <div className="flex justify-end mt-2">
-                    <div className="w-64 space-y-1 text-sm">
+                  <>
+                    {/* Selector de Método de Pago Real */}
+                    <div className="flex justify-end mt-4 mb-3">
+                      <div className="w-96 p-3 border rounded-lg space-y-2 bg-slate-50 dark:bg-slate-900/50 dark:border-slate-700">
+                        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                          ¿Cómo pagará esta compra?
+                        </Label>
+                        <Select value={po.actualPaymentMethod} onValueChange={handleActualPaymentMethodChange}>
+                          <SelectTrigger className="bg-white dark:bg-slate-800">
+                            <SelectValue placeholder="Seleccione método de pago" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="efectivo_usd">Efectivo USD</SelectItem>
+                            <SelectItem value="zelle">Zelle</SelectItem>
+                            <SelectItem value="bolivares_bcv">$ BCV</SelectItem>
+                            <SelectItem value="euro_bcv">€ BCV</SelectItem>
+                            <SelectItem value="pago_movil">Pago Móvil</SelectItem>
+                            <SelectItem value="transferencia_ves">Transf. Bancaria VES</SelectItem>
+                            <SelectItem value="transferencia_int">Transf. Internacional</SelectItem>
+                            <SelectItem value="binance">Binance</SelectItem>
+                            <SelectItem value="paypal">PayPal</SelectItem>
+                            <SelectItem value="pos">Punto de Venta</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {['efectivo_usd', 'zelle', 'transferencia_int', 'binance', 'paypal'].includes(po.actualPaymentMethod) && (
+                          <p className="text-xs text-orange-600 dark:text-orange-400">
+                            ⚠️ Este método aplica IGTF (3%) por ser en divisas
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Resumen de Totales */}
+                    <div className="flex justify-end mt-2">
+                      <div className="w-64 space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Subtotal:</span>
                         <span>${poTotals.subtotal.toFixed(2)}</span>
@@ -1952,6 +2023,7 @@ export default function ComprasManagement() {
                       </div>
                     </div>
                   </div>
+                  </>
                 )}
               </div>
 
