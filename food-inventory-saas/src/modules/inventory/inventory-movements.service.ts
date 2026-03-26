@@ -232,7 +232,7 @@ export class InventoryMovementsService {
                       { $ifNull: ["$reference", false] },
                       {
                         $concat: [
-                          "$reference",
+                          { $toString: "$reference" },
                           "-",
                           { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }
                         ]
@@ -295,7 +295,7 @@ export class InventoryMovementsService {
           documentReference: {
             $cond: [
               { $ifNull: ["$poNumber", false] },
-              { $concat: ["Orden #", "$poNumber"] },
+              { $concat: ["Orden #", { $toString: "$poNumber" }] },
               {
                 $cond: [
                   { $ifNull: ["$reference", false] },

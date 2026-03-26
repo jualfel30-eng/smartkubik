@@ -1198,15 +1198,36 @@ export class InventoryService {
   async getExpirationAlerts(tenantId: string, days: number = 7) {
     const alertDate = new Date();
     alertDate.setDate(alertDate.getDate() + days);
-    return this.inventoryModel
-      .find({
-        tenantId: this.buildTenantFilter(tenantId),
-        "lots.expirationDate": { $lte: alertDate },
-        "lots.status": "available",
-        isActive: { $ne: false },
-      })
-      .populate("productId", "name category")
-      .exec();
+    return this.inventoryModel.aggregate([
+      {
+        $match: {
+          tenantId: this.buildTenantFilter(tenantId),
+          "lots.expirationDate": { $exists: true, $type: "date", $lte: alertDate },
+          "lots.status": "available",
+          isActive: { $ne: false },
+        },
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "productId",
+          foreignField: "_id",
+          as: "productData",
+        },
+      },
+      {
+        $addFields: {
+          productId: {
+            $mergeObjects: [
+              { _id: { $arrayElemAt: ["$productData._id", 0] } },
+              { name: { $arrayElemAt: ["$productData.name", 0] } },
+              { category: { $arrayElemAt: ["$productData.category", 0] } },
+            ],
+          },
+        },
+      },
+      { $project: { productData: 0 } },
+    ]);
   }
 
   async getInventorySummary(tenantId: string) {
