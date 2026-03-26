@@ -180,6 +180,9 @@ export class PurchasesService {
       totalAmount,
       documentType: dto.documentType || 'factura_fiscal',
       actualPaymentMethod: dto.actualPaymentMethod || 'efectivo_usd',
+      exchangeRateSnapshot: dto.exchangeRateSnapshot,
+      eurExchangeRateSnapshot: dto.eurExchangeRateSnapshot,
+      totalAmountVes: dto.totalAmountVes,
       status: "pending",
       history: [
         {

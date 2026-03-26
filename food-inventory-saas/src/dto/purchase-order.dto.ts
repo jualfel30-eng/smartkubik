@@ -182,6 +182,21 @@ export class CreatePurchaseOrderDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
+  exchangeRateSnapshot?: number; // USD→VES rate at moment of purchase
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  eurExchangeRateSnapshot?: number; // EUR→VES rate at moment of purchase
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalAmountVes?: number; // Total in Bs calculated with snapshot rate
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   subtotal?: number;
 
   @IsOptional()

@@ -1432,9 +1432,26 @@ export default function ComprasManagement() {
       creditDays = Math.ceil((dueDate - purchaseDate) / (1000 * 60 * 60 * 24));
     }
 
+    // Prepare exchange rate snapshots for BCV payment methods
+    let exchangeRateSnapshot = undefined;
+    let eurExchangeRateSnapshot = undefined;
+    let totalAmountVes = undefined;
+
+    if (po.actualPaymentMethod === 'bolivares_bcv' && usdRate) {
+      exchangeRateSnapshot = usdRate;
+      totalAmountVes = poTotals.total * usdRate;
+    } else if (po.actualPaymentMethod === 'euro_bcv' && eurRate) {
+      eurExchangeRateSnapshot = eurRate;
+      totalAmountVes = poTotals.total * eurRate;
+    }
+
     const dto = {
       purchaseDate: format(po.purchaseDate, 'yyyy-MM-dd'),
       documentType: po.documentType,
+      actualPaymentMethod: po.actualPaymentMethod,
+      exchangeRateSnapshot,
+      eurExchangeRateSnapshot,
+      totalAmountVes,
       subtotal: poTotals.subtotal,
       ivaTotal: poTotals.iva,
       igtfTotal: poTotals.igtf,

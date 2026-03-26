@@ -157,11 +157,16 @@ export default function PurchaseHistory() {
             <TableBody>
               {purchases.length > 0 ? (
                 purchases.map(po => {
-                  // Determine which rate to use based on payment method
+                  // Determine which rate to use: saved snapshot (historical) or current rate (fallback)
                   const isBcvUsd = po.actualPaymentMethod === 'bolivares_bcv';
                   const isBcvEur = po.actualPaymentMethod === 'euro_bcv';
-                  const shouldShowBs = (isBcvUsd && usdRate) || (isBcvEur && eurRate);
-                  const bsAmount = isBcvUsd ? po.totalAmount * usdRate : po.totalAmount * eurRate;
+
+                  // Use saved snapshot if available (historical accuracy), otherwise use current rate
+                  const effectiveUsdRate = po.exchangeRateSnapshot || usdRate;
+                  const effectiveEurRate = po.eurExchangeRateSnapshot || eurRate;
+
+                  const shouldShowBs = (isBcvUsd && effectiveUsdRate) || (isBcvEur && effectiveEurRate);
+                  const bsAmount = isBcvUsd ? po.totalAmount * effectiveUsdRate : po.totalAmount * effectiveEurRate;
 
                   return (
                     <TableRow key={po._id}>
@@ -309,16 +314,24 @@ export default function PurchaseHistory() {
                 <div className="font-bold text-lg">
                   Monto Total: ${selectedPurchaseOrder.totalAmount.toFixed(2)}
                 </div>
-                {selectedPurchaseOrder.actualPaymentMethod === 'bolivares_bcv' && usdRate && (
-                  <div className="text-sm text-green-600 dark:text-green-400">
-                    Total en Bs (Tasa $ BCV): Bs. {(selectedPurchaseOrder.totalAmount * usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                )}
-                {selectedPurchaseOrder.actualPaymentMethod === 'euro_bcv' && eurRate && (
-                  <div className="text-sm text-green-600 dark:text-green-400">
-                    Total en Bs (Tasa € BCV): Bs. {(selectedPurchaseOrder.totalAmount * eurRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                )}
+                {selectedPurchaseOrder.actualPaymentMethod === 'bolivares_bcv' && (() => {
+                  const rate = selectedPurchaseOrder.exchangeRateSnapshot || usdRate;
+                  if (!rate) return null;
+                  return (
+                    <div className="text-sm text-green-600 dark:text-green-400">
+                      Total en Bs (Tasa $ BCV{selectedPurchaseOrder.exchangeRateSnapshot ? ' histórica' : ''}): Bs. {(selectedPurchaseOrder.totalAmount * rate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  );
+                })()}
+                {selectedPurchaseOrder.actualPaymentMethod === 'euro_bcv' && (() => {
+                  const rate = selectedPurchaseOrder.eurExchangeRateSnapshot || eurRate;
+                  if (!rate) return null;
+                  return (
+                    <div className="text-sm text-green-600 dark:text-green-400">
+                      Total en Bs (Tasa € BCV{selectedPurchaseOrder.eurExchangeRateSnapshot ? ' histórica' : ''}): Bs. {(selectedPurchaseOrder.totalAmount * rate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  );
+                })()}
               </div>
               {selectedPurchaseOrder.notes && <div><p className="font-semibold">Notas:</p><p className="p-2 bg-muted rounded">{selectedPurchaseOrder.notes}</p></div>}
             </div>

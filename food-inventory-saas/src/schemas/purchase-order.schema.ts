@@ -153,6 +153,15 @@ export class PurchaseOrder {
   @Prop({ type: String })
   actualPaymentMethod?: string; // The actual payment method used for this purchase (for IGTF calculation and Bs conversion)
 
+  @Prop({ type: Number })
+  exchangeRateSnapshot?: number; // USD→VES exchange rate at the moment of purchase (for historical accuracy)
+
+  @Prop({ type: Number })
+  eurExchangeRateSnapshot?: number; // EUR→VES exchange rate at the moment of purchase (for historical accuracy)
+
+  @Prop({ type: Number })
+  totalAmountVes?: number; // Total amount in Bs calculated with the exchange rate at the moment of purchase
+
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
