@@ -342,6 +342,10 @@ export class SuppliersService {
     // Ensure tenantId is preserved/correct (String)
     if (!supplier.tenantId) supplier.tenantId = String(user.tenantId);
 
+    // Ensure required fields exist for legacy suppliers (backward compatibility)
+    if (!supplier.createdBy) supplier.createdBy = user.id;
+    if (!supplier.supplierType) supplier.supplierType = 'distributor'; // Default type
+
     try {
       const updatedSupplier = await supplier.save();
 
