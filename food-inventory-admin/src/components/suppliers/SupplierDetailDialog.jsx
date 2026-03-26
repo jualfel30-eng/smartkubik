@@ -38,11 +38,14 @@ const initialFormState = {
 const PAYMENT_METHODS = [
     { id: 'efectivo_usd', label: 'Efectivo USD' },
     { id: 'zelle', label: 'Zelle' },
-    { id: 'bolivares_bcv', label: '$ BCV' }, // Previously 'Bolívares (Tasa BCV)'
-    { id: 'euro_bcv', label: '€ BCV' }, // New Addition
+    { id: 'bolivares_bcv', label: '$ BCV' },
+    { id: 'euro_bcv', label: '€ BCV' },
     { id: 'pago_movil', label: 'Pago Móvil' },
     { id: 'transferencia_ves', label: 'Transf. Bancaria VES' },
     { id: 'transferencia_int', label: 'Transf. Internacional' },
+    { id: 'binance', label: 'Binance' },
+    { id: 'paypal', label: 'PayPal' },
+    { id: 'pos', label: 'Punto de Venta' },
 ];
 
 export default function SupplierDetailDialog({ open, onOpenChange, supplier, onSuccess }) {

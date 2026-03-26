@@ -1780,13 +1780,16 @@ export default function ComprasManagement() {
                       : 'dark:border-slate-700 dark:bg-slate-900/50'
                       }`}>
                       {[
-                        { value: 'efectivo', label: 'Efectivo' },
-                        { value: 'transferencia', label: 'Transferencia Bancaria' },
-                        { value: 'pago_movil', label: 'Pago Móvil' },
-                        { value: 'pos', label: 'Punto de Venta' },
+                        { value: 'efectivo_usd', label: 'Efectivo USD' },
                         { value: 'zelle', label: 'Zelle' },
+                        { value: 'bolivares_bcv', label: '$ BCV' },
+                        { value: 'euro_bcv', label: '€ BCV' },
+                        { value: 'pago_movil', label: 'Pago Móvil' },
+                        { value: 'transferencia_ves', label: 'Transf. Bancaria VES' },
+                        { value: 'transferencia_int', label: 'Transf. Internacional' },
                         { value: 'binance', label: 'Binance' },
                         { value: 'paypal', label: 'PayPal' },
+                        { value: 'pos', label: 'Punto de Venta' },
                       ].map(method => (
                         <div key={method.value} className="flex items-center space-x-2">
                           <Checkbox
@@ -3000,13 +3003,16 @@ export default function ComprasManagement() {
                       : 'dark:border-slate-700 dark:bg-slate-900/50'
                       }`}>
                       {[
-                        { value: 'efectivo', label: 'Efectivo' },
-                        { value: 'transferencia', label: 'Transferencia Bancaria' },
-                        { value: 'pago_movil', label: 'Pago Móvil' },
-                        { value: 'pos', label: 'Punto de Venta' },
+                        { value: 'efectivo_usd', label: 'Efectivo USD' },
                         { value: 'zelle', label: 'Zelle' },
+                        { value: 'bolivares_bcv', label: '$ BCV' },
+                        { value: 'euro_bcv', label: '€ BCV' },
+                        { value: 'pago_movil', label: 'Pago Móvil' },
+                        { value: 'transferencia_ves', label: 'Transf. Bancaria VES' },
+                        { value: 'transferencia_int', label: 'Transf. Internacional' },
                         { value: 'binance', label: 'Binance' },
                         { value: 'paypal', label: 'PayPal' },
+                        { value: 'pos', label: 'Punto de Venta' },
                       ].map(method => (
                         <div key={method.value} className="flex items-center space-x-2">
                           <Checkbox
