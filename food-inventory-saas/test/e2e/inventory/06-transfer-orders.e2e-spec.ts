@@ -169,7 +169,9 @@ describe('Transfer Orders E2E (CRITICAL)', () => {
       const items = Array.isArray(data) ? data : data.items || data.inventory || [];
       const productInv = items.find(
         (i: any) =>
-          i.productId?.toString() === productId || i.productId === productId,
+          i.productId?._id?.toString() === productId ||
+          i.productId?.toString() === productId ||
+          i.productId === productId,
       );
       expect(productInv).toBeDefined();
       if (productInv) {
@@ -243,7 +245,14 @@ describe('Transfer Orders E2E (CRITICAL)', () => {
       expect([200, 201]).toContain(res.status);
     });
 
-    it('Step 4: should ship and receive PULL transfer', async () => {
+    it('Step 4: should prepare, ship, and receive PULL transfer', async () => {
+      // Prepare (required before ship)
+      await authPost(ctx, `/transfer-orders/${pullTransferOrderId}/prepare`, {
+        notes: 'Preparing PULL',
+      }).expect((res) => {
+        expect([200, 201]).toContain(res.status);
+      });
+
       // Ship
       await authPost(ctx, `/transfer-orders/${pullTransferOrderId}/ship`, {
         items: [{ productId: pullProductId, shippedQuantity: 30 }],
@@ -340,6 +349,7 @@ describe('Transfer Orders E2E (CRITICAL)', () => {
 
       await authPost(ctx, `/transfer-orders/${discTransferId}/request`, {});
       await authPost(ctx, `/transfer-orders/${discTransferId}/approve`, {});
+      await authPost(ctx, `/transfer-orders/${discTransferId}/prepare`, { notes: 'Preparing' });
       await authPost(ctx, `/transfer-orders/${discTransferId}/ship`, {
         items: [{ productId: discProductId, shippedQuantity: 40 }],
       });

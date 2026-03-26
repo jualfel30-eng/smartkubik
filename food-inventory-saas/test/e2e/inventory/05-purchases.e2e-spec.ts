@@ -36,6 +36,8 @@ describe('Purchases E2E (CRITICAL)', () => {
   let poId: string;
   let poWithNewSupplierIdGlobal: string;
   let newSupplierId: string;
+  const newSupplierRifNum = Date.now().toString().slice(-8);
+  const newSupplierRif = `J-${newSupplierRifNum}-0`;
 
   beforeAll(async () => {
     ctx = await bootstrapTestApp();
@@ -169,7 +171,7 @@ describe('Purchases E2E (CRITICAL)', () => {
     it('should NOT have double-stocked (only 1 IN movement per product)', async () => {
       const res = await authGet(
         ctx,
-        `/inventory-movements?productSku=${product1Sku}&movementType=in`,
+        `/inventory-movements?productSku=${product1Sku}&movementType=IN`,
       ).expect(200);
       const data = res.body.data || res.body;
       const movements = Array.isArray(data) ? data : data.items || data.movements || [];
@@ -214,8 +216,8 @@ describe('Purchases E2E (CRITICAL)', () => {
   describe('PO with New Supplier On-The-Fly', () => {
     it('should create PO with new supplier (newSupplierName + newSupplierRif)', async () => {
       const dto = buildNewSupplierPurchaseOrderDto(
-        'Proveedor Nuevo Desde Compras',
-        'J-60601111-0',
+        `Proveedor Nuevo Desde Compras ${newSupplierRifNum}`,
+        newSupplierRif,
         [
           {
             productId: product1Id,
@@ -246,7 +248,7 @@ describe('Purchases E2E (CRITICAL)', () => {
     });
 
     it('should have created the supplier in the suppliers module', async () => {
-      const res = await authGet(ctx, '/suppliers?search=Proveedor Nuevo Desde Compras').expect(200);
+      const res = await authGet(ctx, `/suppliers?search=Proveedor Nuevo Desde Compras ${newSupplierRifNum}`).expect(200);
       const suppliers = res.body.data || res.body;
       const found = Array.isArray(suppliers) ? suppliers : suppliers.items || [];
       // Should find the supplier
@@ -257,13 +259,13 @@ describe('Purchases E2E (CRITICAL)', () => {
     });
 
     it('should NOT have duplicated the supplier (RIF consistency - Tenant problem #1)', async () => {
-      const res = await authGet(ctx, '/suppliers').expect(200);
+      const res = await authGet(ctx, `/suppliers?limit=500`).expect(200);
       const suppliers = res.body.data || res.body;
       const allSuppliers = Array.isArray(suppliers) ? suppliers : suppliers.items || [];
       // Count suppliers with matching RIF digits
       const matching = allSuppliers.filter((s: any) => {
-        const rif = s.rif || s.taxInfo?.taxId || '';
-        return rif.replace(/[^0-9]/g, '').includes('60601111');
+        const rif = s.rif || s.taxInfo?.rif || s.taxInfo?.taxId || '';
+        return rif.replace(/[^0-9]/g, '').includes(newSupplierRifNum);
       });
       expect(matching.length).toBe(1);
     });

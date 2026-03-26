@@ -267,12 +267,14 @@ describe('Integration Flows E2E (CRITICAL)', () => {
   // ═══════════════════════════════════════════════════════════
 
   describe('Flow 3: RIF Consistency - No Supplier Duplication', () => {
-    const testRif = 'J-43003003-0';
+    // Use unique RIF per test run to avoid collisions with previous runs
+    const rifNum = Date.now().toString().slice(-8);
+    const testRif = `J-${rifNum}-0`;
     let originalSupplierId: string;
 
     it('Step 1: Create supplier with RIF from Suppliers module', async () => {
       const dto = buildSupplierDto({
-        name: 'Proveedor RIF Unique',
+        name: `Proveedor RIF Unique ${rifNum}`,
         rif: testRif,
       });
       const res = await authPost(ctx, '/suppliers', dto).expect(201);
@@ -291,13 +293,12 @@ describe('Integration Flows E2E (CRITICAL)', () => {
     });
 
     it('Step 3: Verify NO supplier duplication', async () => {
-      const res = await authGet(ctx, '/suppliers').expect(200);
+      const res = await authGet(ctx, `/suppliers?limit=500`).expect(200);
       const suppliers = res.body.data || res.body;
       const allSuppliers = Array.isArray(suppliers) ? suppliers : suppliers.items || [];
-      const rifDigits = testRif.replace(/[^0-9]/g, '');
       const matching = allSuppliers.filter((s: any) => {
-        const sRif = s.rif || s.taxInfo?.taxId || '';
-        return sRif.replace(/[^0-9]/g, '').includes(rifDigits);
+        const sRif = s.rif || s.taxInfo?.rif || s.taxInfo?.taxId || '';
+        return sRif.replace(/[^0-9]/g, '').includes(rifNum);
       });
       expect(matching.length).toBe(1);
     });
@@ -309,8 +310,8 @@ describe('Integration Flows E2E (CRITICAL)', () => {
 
       // Use RIF without dashes - should normalize to same supplier
       const poDto = buildNewSupplierPurchaseOrderDto(
-        'Proveedor RIF Unique',  // Same name
-        'J43003003',              // Same digits, no dash, no check digit
+        `Proveedor RIF Unique ${rifNum}`,  // Same name
+        `J${rifNum}`,                       // Same digits, no dash, no check digit
         [{ productId: prod._id, productName: prod.name, productSku: prod.sku, quantity: 5, costPrice: 1 }],
       );
       const res = await authPost(ctx, '/purchases', poDto);
@@ -319,13 +320,12 @@ describe('Integration Flows E2E (CRITICAL)', () => {
     });
 
     it('Step 5: Verify STILL no duplication', async () => {
-      const res = await authGet(ctx, '/suppliers').expect(200);
+      const res = await authGet(ctx, `/suppliers?limit=500`).expect(200);
       const suppliers = res.body.data || res.body;
       const allSuppliers = Array.isArray(suppliers) ? suppliers : suppliers.items || [];
-      const rifDigits = '43003003';
       const matching = allSuppliers.filter((s: any) => {
-        const sRif = s.rif || s.taxInfo?.taxId || '';
-        return sRif.replace(/[^0-9]/g, '').includes(rifDigits);
+        const sRif = s.rif || s.taxInfo?.rif || s.taxInfo?.taxId || '';
+        return sRif.replace(/[^0-9]/g, '').includes(rifNum);
       });
       // Should be 1 (no duplication) or at most 2 if formats truly differ
       expect(matching.length).toBeLessThanOrEqual(2);
@@ -366,16 +366,16 @@ describe('Integration Flows E2E (CRITICAL)', () => {
       // Use unique RIF for editing
       const uniqueNum = Date.now().toString().slice(-7);
       const res = await authPatch(ctx, `/suppliers/${supplierId}`, {
-        rif: `J-${uniqueNum}-9`,
+        taxInfo: { rif: `J-${uniqueNum}-9` },
       });
       expect([200, 201]).toContain(res.status);
 
       // Verify RIF was updated
       const checkRes = await authGet(ctx, `/suppliers/${supplierId}`).expect(200);
       const supplier = checkRes.body.data || checkRes.body;
-      const savedRif = supplier.rif || supplier.taxInfo?.taxId || '';
+      const savedRif = supplier.rif || supplier.taxInfo?.rif || supplier.taxInfo?.taxId || '';
       // Should contain the new RIF digits
-      expect(savedRif.replace(/[^0-9]/g, '')).toContain('44004005');
+      expect(savedRif.replace(/[^0-9]/g, '')).toContain(uniqueNum);
     });
 
     it('Step 4: Update supplier payment settings', async () => {
@@ -510,7 +510,9 @@ describe('Integration Flows E2E (CRITICAL)', () => {
       const items = Array.isArray(data) ? data : data.items || data.inventory || [];
       const productInv = items.find(
         (i: any) =>
-          i.productId?.toString() === productId || i.productId === productId,
+          i.productId?._id?.toString() === productId ||
+          i.productId?.toString() === productId ||
+          i.productId === productId,
       );
       expect(productInv).toBeDefined();
       if (productInv) {
@@ -567,9 +569,10 @@ describe('Integration Flows E2E (CRITICAL)', () => {
       const createRes = await authPost(ctx, '/transfer-orders', dto).expect(201);
       transferId = (createRes.body.data || createRes.body)._id;
 
-      // Request → Approve → Ship
+      // Request → Approve → Prepare → Ship
       await authPost(ctx, `/transfer-orders/${transferId}/request`, {});
       await authPost(ctx, `/transfer-orders/${transferId}/approve`, {});
+      await authPost(ctx, `/transfer-orders/${transferId}/prepare`, { notes: 'Preparing' });
       await authPost(ctx, `/transfer-orders/${transferId}/ship`, {
         items: [{ productId, shippedQuantity: 50 }],
       });
