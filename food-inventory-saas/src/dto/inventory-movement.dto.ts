@@ -62,6 +62,10 @@ export class InventoryMovementFilterDto {
   productId?: string;
 
   @IsOptional()
+  @IsString()
+  productSku?: string;
+
+  @IsOptional()
   @IsMongoId()
   warehouseId?: string;
 

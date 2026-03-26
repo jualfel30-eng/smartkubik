@@ -156,6 +156,7 @@ export class InventoryMovementsService {
     const query: any = { tenantId: new Types.ObjectId(tenantId) };
     if (filters.movementType) query.movementType = filters.movementType;
     if (filters.productId) query.productId = new Types.ObjectId(filters.productId);
+    if (filters.productSku) query.productSku = filters.productSku;
     if (filters.warehouseId) query.warehouseId = new Types.ObjectId(filters.warehouseId);
 
     // Filter by supplier: find inventory lot IDs belonging to this supplier
@@ -202,6 +203,7 @@ export class InventoryMovementsService {
     const query: any = { tenantId: new Types.ObjectId(tenantId) };
     if (filters.movementType) query.movementType = filters.movementType;
     if (filters.productId) query.productId = new Types.ObjectId(filters.productId);
+    if (filters.productSku) query.productSku = filters.productSku;
     if (filters.warehouseId) query.warehouseId = new Types.ObjectId(filters.warehouseId);
 
     if (filters.dateFrom || filters.dateTo) {

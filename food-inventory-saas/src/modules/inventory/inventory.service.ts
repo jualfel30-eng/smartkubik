@@ -319,6 +319,75 @@ export class InventoryService {
     return movement;
   }
 
+  /**
+   * Updates inventory quantities based on movement type.
+   * @param inventory - The inventory document to update
+   * @param movementDto - The movement data
+   * @param session - Optional MongoDB session for transactions
+   * @returns Updated inventory document
+   */
+  private async updateInventoryQuantities(
+    inventory: InventoryDocument,
+    movementDto: InventoryMovementDto,
+    session?: ClientSession,
+  ): Promise<InventoryDocument> {
+    const { movementType, quantity, unitCost } = movementDto;
+    const quantityNum = Number(quantity);
+
+    switch (movementType?.toLowerCase()) {
+      case 'in':
+        // Add stock for IN movements
+        inventory.totalQuantity += quantityNum;
+        inventory.availableQuantity += quantityNum;
+        // Update average cost price using weighted average
+        if (unitCost && inventory.totalQuantity > 0) {
+          const oldValue = inventory.averageCostPrice * (inventory.totalQuantity - quantityNum);
+          const newValue = unitCost * quantityNum;
+          inventory.averageCostPrice = (oldValue + newValue) / inventory.totalQuantity;
+        }
+        break;
+
+      case 'out':
+        // Subtract stock for OUT movements
+        // Validate sufficient stock
+        if (inventory.availableQuantity < quantityNum) {
+          throw new Error(
+            `Stock insuficiente. Disponible: ${inventory.availableQuantity}, Solicitado: ${quantityNum}`
+          );
+        }
+        inventory.totalQuantity -= quantityNum;
+        inventory.availableQuantity -= quantityNum;
+        break;
+
+      case 'adjustment':
+        // For adjustments, the quantity represents the absolute change
+        const difference = quantityNum;
+        inventory.totalQuantity += difference;
+        inventory.availableQuantity += difference;
+        if (unitCost) {
+          inventory.averageCostPrice = unitCost;
+        }
+        break;
+
+      case 'transfer':
+        // Transfers are handled separately via transfer-orders service
+        // This shouldn't be called for transfers
+        break;
+
+      default:
+        throw new Error(`Tipo de movimiento no soportado: ${movementType}`);
+    }
+
+    // Ensure quantities don't go negative
+    inventory.totalQuantity = Math.max(0, inventory.totalQuantity);
+    inventory.availableQuantity = Math.max(0, inventory.availableQuantity);
+
+    // Save the updated inventory
+    await inventory.save({ session });
+
+    return inventory;
+  }
+
   async reserveInventory(
     reserveDto: ReserveInventoryDto,
     user: any,
@@ -1299,7 +1368,7 @@ export class InventoryService {
         _id: id,
         tenantId: this.buildTenantFilter(tenantId),
       })
-      .populate("productId", "name category brand isPerishable")
+      .lean()
       .exec();
   }
 
