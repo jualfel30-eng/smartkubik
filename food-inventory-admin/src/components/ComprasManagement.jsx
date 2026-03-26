@@ -17,6 +17,7 @@ import { Calendar } from '@/components/ui/calendar.jsx';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
+import { useExchangeRate } from '@/hooks/useExchangeRate.js';
 import { SearchableSelect } from './orders/v2/custom/SearchableSelect';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { TagInput } from '@/components/ui/tag-input.jsx';
@@ -186,6 +187,9 @@ const calculatePurchaseTaxes = (subtotal, documentType, actualPaymentMethod = 'e
 };
 
 export default function ComprasManagement() {
+  const { rate: exchangeRate } = useExchangeRate(); // USD rate (backward compat)
+  const [usdRate, setUsdRate] = useState(null);
+  const [eurRate, setEurRate] = useState(null);
   const [lowStockProducts, setLowStockProducts] = useState([]);
   const [expiringProducts, setExpiringProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -318,6 +322,25 @@ export default function ComprasManagement() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Fetch both USD and EUR exchange rates from BCV
+  useEffect(() => {
+    const fetchBCVRates = async () => {
+      try {
+        const response = await fetchApi('/exchange-rate/bcv');
+        setUsdRate(response.usd?.rate || exchangeRate || null);
+        setEurRate(response.eur?.rate || null);
+      } catch (error) {
+        console.error('Error fetching BCV rates:', error);
+        // Fallback to useExchangeRate hook value (USD only)
+        setUsdRate(exchangeRate);
+      }
+    };
+    fetchBCVRates();
+    // Refetch every hour
+    const interval = setInterval(fetchBCVRates, 3600000);
+    return () => clearInterval(interval);
+  }, [exchangeRate]);
 
   // --- Handlers for New Product Dialog ---
   const handleDragStart = (index) => { dragImageIndex.current = index; };
@@ -1704,8 +1727,8 @@ export default function ComprasManagement() {
                   <div className="space-y-2"><Label>Teléfono del Contacto</Label><Input value={po.contactPhone} onChange={e => handleFieldChange('contactPhone', e.target.value)} /></div>
                 </div>
 
-                {/* Fecha de Compra y Tipo de Documento */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                {/* Fecha de Compra */}
+                <div className="mt-4">
                   <div className="space-y-2">
                     <Label>Fecha de Compra <span className="text-red-500">*</span></Label>
                     <Popover>
@@ -1714,33 +1737,6 @@ export default function ComprasManagement() {
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={po.purchaseDate} onSelect={(date) => setPo(prev => ({ ...prev, purchaseDate: date }))} initialFocus /></PopoverContent>
                     </Popover>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="dark:text-gray-200">
-                      Tipo de Documento <span className="text-red-500">*</span>
-                    </Label>
-                    <Select
-                      value={po.documentType}
-                      onValueChange={(value) => setPo(prev => ({
-                        ...prev,
-                        documentType: value
-                      }))}
-                    >
-                      <SelectTrigger className="dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100">
-                        <SelectValue placeholder="Selecciona tipo de documento" />
-                      </SelectTrigger>
-                      <SelectContent className="dark:bg-slate-900 dark:border-slate-700">
-                        <SelectItem value="factura_fiscal" className="dark:text-gray-100">
-                          Factura Fiscal
-                        </SelectItem>
-                        <SelectItem value="nota_entrega" className="dark:text-gray-100">
-                          Nota de Entrega
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Selecciona el tipo de comprobante que respalda esta compra
-                    </p>
                   </div>
                 </div>
               </div>
@@ -1962,9 +1958,31 @@ export default function ComprasManagement() {
                 </Table>
                 {po.items.length > 0 && (
                   <>
-                    {/* Selector de Método de Pago Real */}
-                    <div className="flex justify-end mt-4 mb-3">
-                      <div className="w-96 p-3 border rounded-lg space-y-2 bg-slate-50 dark:bg-slate-900/50 dark:border-slate-700">
+                    {/* Selector de Tipo de Documento y Método de Pago */}
+                    <div className="flex justify-end mt-4 mb-3 gap-3">
+                      {/* Tipo de Documento */}
+                      <div className="w-64 p-3 border rounded-lg space-y-2 bg-slate-50 dark:bg-slate-900/50 dark:border-slate-700">
+                        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                          Tipo de Documento
+                        </Label>
+                        <Select value={po.documentType} onValueChange={(val) => setPo(prev => ({ ...prev, documentType: val }))}>
+                          <SelectTrigger className="bg-white dark:bg-slate-800">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="factura_fiscal">Factura</SelectItem>
+                            <SelectItem value="nota_entrega">Nota de Entrega</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {po.documentType === 'nota_entrega' && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400">
+                            ℹ️ Sin IVA ni IGTF
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Método de Pago */}
+                      <div className="w-80 p-3 border rounded-lg space-y-2 bg-slate-50 dark:bg-slate-900/50 dark:border-slate-700">
                         <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                           ¿Cómo pagará esta compra?
                         </Label>
@@ -1985,9 +2003,9 @@ export default function ComprasManagement() {
                             <SelectItem value="pos">Punto de Venta</SelectItem>
                           </SelectContent>
                         </Select>
-                        {['efectivo_usd', 'zelle', 'transferencia_int', 'binance', 'paypal'].includes(po.actualPaymentMethod) && (
+                        {po.documentType === 'factura_fiscal' && ['efectivo_usd', 'zelle', 'transferencia_int', 'binance', 'paypal'].includes(po.actualPaymentMethod) && (
                           <p className="text-xs text-orange-600 dark:text-orange-400">
-                            ⚠️ Este método aplica IGTF (3%) por ser en divisas
+                            ⚠️ Este método aplica IGTF (3%)
                           </p>
                         )}
                       </div>
@@ -2021,6 +2039,18 @@ export default function ComprasManagement() {
                         <span>Total:</span>
                         <span>${poTotals.total.toFixed(2)}</span>
                       </div>
+                      {po.actualPaymentMethod === 'bolivares_bcv' && usdRate && (
+                        <div className="flex justify-between text-sm text-green-600 dark:text-green-400 border-t pt-1 mt-1">
+                          <span>Total en Bs (Tasa $ BCV):</span>
+                          <span>Bs. {(poTotals.total * usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+                      {po.actualPaymentMethod === 'euro_bcv' && eurRate && (
+                        <div className="flex justify-between text-sm text-green-600 dark:text-green-400 border-t pt-1 mt-1">
+                          <span>Total en Bs (Tasa € BCV):</span>
+                          <span>Bs. {(poTotals.total * eurRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   </>
