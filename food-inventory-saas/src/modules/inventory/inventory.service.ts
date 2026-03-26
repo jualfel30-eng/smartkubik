@@ -1251,15 +1251,6 @@ export class InventoryService {
     };
   }
 
-  private async updateInventoryQuantities(
-    inventory: InventoryDocument,
-    movementDto: InventoryMovementDto,
-    session?: ClientSession,
-  ): Promise<InventoryDocument> {
-    // ... (implementation remains the same)
-    return inventory.save({ session });
-  }
-
   async findAll(query: InventoryQueryDto, tenantId: string) {
     const {
       page = 1,
