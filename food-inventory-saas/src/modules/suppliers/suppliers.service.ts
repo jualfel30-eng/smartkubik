@@ -252,32 +252,42 @@ export class SuppliersService {
         .exec();
 
       if (customer) {
-        // Create the Supplier profile on the fly
-        const supplierNumber = await this.generateSupplierNumber(user.tenantId);
-        const supplierData = {
-          supplierNumber,
-          supplierType: "distributor",
-          customerId: customer._id,
-          name: customer.companyName || customer.name,
-          paymentSettings: updateSupplierDto.paymentSettings || {}, // Use incoming settings
-          createdBy: user.id,
-          tenantId: String(user.tenantId), // Ensure string (not ObjectId)
-          taxInfo: { // Defaults from Customer
-            rif: customer.taxInfo?.taxId,
-            businessName: customer.taxInfo?.taxName,
-          },
-          contacts: customer.contacts?.map(c => ({
-            name: c.name || customer.name || 'Contacto',
-            email: c.type === 'email' ? c.value : undefined,
-            phone: c.type === 'phone' ? c.value : undefined,
-            position: 'Principal',
-            isPrimary: c.isPrimary
-          })) || []
-        };
-        const newSupplier = new this.supplierModel(supplierData);
-        supplier = await newSupplier.save();
+        // First check if a Supplier profile already exists for this Customer (race condition prevention)
+        const existingSupplier = await this.supplierModel
+          .findOne({ customerId: customer._id, tenantId: String(user.tenantId) })
+          .exec();
 
-        // Now 'supplier' is the real document. 
+        if (existingSupplier) {
+          // Use the existing Supplier profile instead of creating a duplicate
+          supplier = existingSupplier;
+        } else {
+          // Create the Supplier profile on the fly
+          const supplierNumber = await this.generateSupplierNumber(user.tenantId);
+          const supplierData = {
+            supplierNumber,
+            supplierType: "distributor",
+            customerId: customer._id,
+            name: customer.companyName || customer.name,
+            paymentSettings: updateSupplierDto.paymentSettings || {}, // Use incoming settings
+            createdBy: user.id,
+            tenantId: String(user.tenantId), // Ensure string (not ObjectId)
+            taxInfo: { // Defaults from Customer
+              rif: customer.taxInfo?.taxId,
+              businessName: customer.taxInfo?.taxName,
+            },
+            contacts: customer.contacts?.map(c => ({
+              name: c.name || customer.name || 'Contacto',
+              email: c.type === 'email' ? c.value : undefined,
+              phone: c.type === 'phone' ? c.value : undefined,
+              position: 'Principal',
+              isPrimary: c.isPrimary
+            })) || []
+          };
+          const newSupplier = new this.supplierModel(supplierData);
+          supplier = await newSupplier.save();
+        }
+
+        // Now 'supplier' is the real document.
         // We continue to update it with the incoming DTO below.
       } else {
         throw new NotFoundException(`Proveedor con ID ${id} no encontrado`);
@@ -442,6 +452,12 @@ export class SuppliersService {
       await updatedSupplier.populate('customerId');
       return this.mapSupplier(updatedSupplier, updatedSupplier.customerId);
     } catch (error) {
+      // Handle duplicate key errors (race conditions)
+      if (error.code === 11000 && error.message.includes('supplierNumber')) {
+        this.logger.error(`Duplicate supplierNumber detected for supplier ${id}. This may be caused by concurrent requests.`);
+        throw new InternalServerErrorException('Error: El número de proveedor ya existe. Por favor intente nuevamente.');
+      }
+
       this.logger.error(`Error updating supplier ${id}: ${error.message}`, error.stack);
       throw new InternalServerErrorException(`Error al actualizar proveedor: ${error.message}`);
     }
@@ -467,6 +483,15 @@ export class SuppliersService {
 
     if (!customer) {
       throw new NotFoundException(`Proveedor (o Cliente CRM) con ID ${id} no encontrado`);
+    }
+
+    // 2.5. Check if Supplier profile already exists for this Customer (race condition prevention)
+    const existingSupplier = await this.supplierModel
+      .findOne({ customerId: customer._id, tenantId: String(user.tenantId) })
+      .exec();
+
+    if (existingSupplier) {
+      return existingSupplier;
     }
 
     // 3. Create Profile
@@ -682,8 +707,22 @@ export class SuppliersService {
   }
 
   private async generateSupplierNumber(tenantId: string): Promise<string> {
-    const count = await this.supplierModel.countDocuments({ tenantId: String(tenantId) });
-    return `PROV-${(count + 1).toString().padStart(6, "0")}`;
+    // Find the highest supplier number for this tenant to avoid race conditions
+    const lastSupplier = await this.supplierModel
+      .findOne({ tenantId: String(tenantId), supplierNumber: /^PROV-/ })
+      .sort({ supplierNumber: -1 })
+      .select('supplierNumber')
+      .exec();
+
+    let nextNumber = 1;
+    if (lastSupplier?.supplierNumber) {
+      const match = lastSupplier.supplierNumber.match(/^PROV-(\d+)$/);
+      if (match) {
+        nextNumber = parseInt(match[1], 10) + 1;
+      }
+    }
+
+    return `PROV-${nextNumber.toString().padStart(6, "0")}`;
   }
 
   private mapSupplier(supplier: any, customer: any) {
@@ -1078,47 +1117,57 @@ export class SuppliersService {
           return;
         }
 
-        // Ensure customer is marked as supplier
-        if (customer.customerType !== 'supplier') {
-          customer.customerType = 'supplier';
-          await customer.save();
+        // Check if Supplier profile already exists for this Customer (race condition prevention)
+        const existingSupplier = await this.supplierModel
+          .findOne({ customerId: customer._id, tenantId: String(user.tenantId) })
+          .exec();
+
+        if (existingSupplier) {
+          supplier = existingSupplier;
+          this.logger.log(`syncFromPurchaseOrder: Using existing Supplier profile ${supplier.supplierNumber} for Customer ${supplierId}`);
+        } else {
+          // Ensure customer is marked as supplier
+          if (customer.customerType !== 'supplier') {
+            customer.customerType = 'supplier';
+            await customer.save();
+          }
+
+          const supplierNumber = await this.generateSupplierNumber(String(user.tenantId));
+          const supplierData = {
+            supplierNumber,
+            supplierType: 'distributor',
+            customerId: customer._id,
+            name: customer.companyName || customer.name,
+            createdBy: user.id,
+            tenantId: String(user.tenantId),
+            taxInfo: {
+              rif: customer.taxInfo?.taxId,
+              businessName: customer.taxInfo?.taxName || customer.companyName,
+              isRetentionAgent: false,
+            },
+            contacts: customer.contacts?.map(c => ({
+              name: c.name || customer.name || 'Contacto',
+              email: c.type === 'email' ? c.value : undefined,
+              phone: c.type === 'phone' ? c.value : undefined,
+              position: 'Principal',
+              isPrimary: c.isPrimary,
+            })) || [],
+            metrics: {
+              totalOrders: 0,
+              totalPurchased: 0,
+              averageOrderValue: 0,
+              onTimeDeliveryRate: 0,
+              qualityIssueRate: 0,
+              returnRate: 0,
+              paymentDelayDays: 0,
+            },
+            paymentSettings: {},
+          };
+
+          const newSupplier = new this.supplierModel(supplierData);
+          supplier = await newSupplier.save();
+          this.logger.log(`syncFromPurchaseOrder: Created Supplier profile ${supplier.supplierNumber} for Customer ${supplierId}`);
         }
-
-        const supplierNumber = await this.generateSupplierNumber(String(user.tenantId));
-        const supplierData = {
-          supplierNumber,
-          supplierType: 'distributor',
-          customerId: customer._id,
-          name: customer.companyName || customer.name,
-          createdBy: user.id,
-          tenantId: String(user.tenantId),
-          taxInfo: {
-            rif: customer.taxInfo?.taxId,
-            businessName: customer.taxInfo?.taxName || customer.companyName,
-            isRetentionAgent: false,
-          },
-          contacts: customer.contacts?.map(c => ({
-            name: c.name || customer.name || 'Contacto',
-            email: c.type === 'email' ? c.value : undefined,
-            phone: c.type === 'phone' ? c.value : undefined,
-            position: 'Principal',
-            isPrimary: c.isPrimary,
-          })) || [],
-          metrics: {
-            totalOrders: 0,
-            totalPurchased: 0,
-            averageOrderValue: 0,
-            onTimeDeliveryRate: 0,
-            qualityIssueRate: 0,
-            returnRate: 0,
-            paymentDelayDays: 0,
-          },
-          paymentSettings: {},
-        };
-
-        const newSupplier = new this.supplierModel(supplierData);
-        supplier = await newSupplier.save();
-        this.logger.log(`syncFromPurchaseOrder: Created Supplier profile ${supplier.supplierNumber} for Customer ${supplierId}`);
 
         // --- GAP 5: Sync contact data back to Customer if provided ---
         if (purchaseData.newSupplierContactName) {
