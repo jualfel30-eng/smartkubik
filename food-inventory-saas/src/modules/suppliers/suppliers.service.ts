@@ -40,6 +40,38 @@ export class SuppliersService {
   }
 
   /**
+   * Merge Customer contacts (separate email/phone entries) into unified contact objects.
+   * Customer stores: [{ name, type: "email", value }, { name, type: "phone", value }]
+   * Frontend expects: [{ name, email, phone, isPrimary }]
+   */
+  private mergeCustomerContacts(contacts: any[]): any[] {
+    if (!contacts || contacts.length === 0) return [];
+
+    // Group by name (case-insensitive)
+    const contactMap = new Map<string, any>();
+
+    for (const c of contacts) {
+      const key = (c.name || '').toLowerCase().trim() || 'default';
+
+      if (!contactMap.has(key)) {
+        contactMap.set(key, {
+          name: c.name || 'Contacto',
+          email: undefined,
+          phone: undefined,
+          isPrimary: c.isPrimary || false
+        });
+      }
+
+      const contact = contactMap.get(key);
+      if (c.type === 'email') contact.email = c.value;
+      if (c.type === 'phone') contact.phone = c.value;
+      if (c.isPrimary) contact.isPrimary = true; // Preserve isPrimary from any entry
+    }
+
+    return Array.from(contactMap.values());
+  }
+
+  /**
    * Normalize a RIF/TaxID to canonical format: "X-123456789"
    * Handles inputs like "J413164663", "j-413164663", "J-413164663", "413164663"
    */
@@ -591,12 +623,7 @@ export class SuppliersService {
           rif: customer.taxInfo?.taxId || '',
           businessName: customer.taxInfo?.taxName || ''
         },
-        contacts: customer.contacts?.map(c => ({
-          name: c.name,
-          email: c.type === 'email' ? c.value : '',
-          phone: c.type === 'phone' ? c.value : '',
-          isPrimary: c.isPrimary
-        })),
+        contacts: this.mergeCustomerContacts(customer.contacts),
         address: customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0],
         metrics: customer.metrics,
         paymentSettings: linkedSupplier?.paymentSettings || {}
@@ -680,12 +707,7 @@ export class SuppliersService {
           businessName: plainCustomer.taxInfo?.taxName,
         },
         address: plainCustomer.addresses?.find((a: any) => a.isDefault) || plainCustomer.addresses?.[0] || plainSupplier.address,
-        contacts: plainCustomer.contacts?.map((c: any) => ({
-          name: c.name,
-          email: c.type === 'email' ? c.value : undefined,
-          phone: c.type === 'phone' ? c.value : undefined,
-          isPrimary: c.isPrimary
-        })) || plainSupplier.contacts,
+        contacts: this.mergeCustomerContacts(plainCustomer.contacts) || plainSupplier.contacts,
         customer: plainCustomer, // Include full customer object for reference
         metrics: plainCustomer.metrics || plainSupplier.metrics // fallback
       };
