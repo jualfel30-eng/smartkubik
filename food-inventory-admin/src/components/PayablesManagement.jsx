@@ -270,6 +270,8 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedPayable, setSelectedPayable] = useState(null);
+  const [usdRate, setUsdRate] = useState(null);
+  const [eurRate, setEurRate] = useState(null);
 
   const supplierOptions = useMemo(() =>
     suppliers.map(supplier => ({
@@ -281,6 +283,22 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
   const pendingPayables = useMemo(() => {
     return payables.filter(payable => !['paid', 'void'].includes(payable.status));
   }, [payables]);
+
+  // Fetch BCV exchange rates for Bs conversion
+  useEffect(() => {
+    const fetchBCVRates = async () => {
+      try {
+        const response = await fetchApi('/exchange-rate/bcv');
+        setUsdRate(response.usd?.rate || null);
+        setEurRate(response.eur?.rate || null);
+      } catch (error) {
+        console.error('Error fetching BCV rates:', error);
+      }
+    };
+    fetchBCVRates();
+    const interval = setInterval(fetchBCVRates, 3600000); // Refresh every hour
+    return () => clearInterval(interval);
+  }, []);
 
   const handleOpenPaymentDialog = (payable) => {
     setSelectedPayable(payable);
@@ -536,12 +554,29 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pendingPayables.map((payable) => (
-                <TableRow key={payable._id}>
-                  <TableCell>{payable.payeeName || 'N/A'}</TableCell>
-                  <TableCell>{new Date(payable.issueDate).toLocaleDateString()}</TableCell>
-                  <TableCell>${getTotalAmount(payable.lines).toFixed(2)}</TableCell>
-                  <TableCell>${(payable.paidAmount || 0).toFixed(2)}</TableCell>
+              {pendingPayables.map((payable) => {
+                // Check if payable should show Bs conversion based on expectedCurrency or expectedPaymentMethods
+                const isBcvUsd = payable.expectedCurrency === 'USD_BCV' || payable.expectedPaymentMethods?.includes('bolivares_bcv');
+                const isBcvEur = payable.expectedCurrency === 'EUR_BCV' || payable.expectedPaymentMethods?.includes('euro_bcv');
+                const shouldShowBs = (isBcvUsd && usdRate) || (isBcvEur && eurRate);
+                const totalAmount = getTotalAmount(payable.lines);
+                const bsAmount = isBcvUsd ? totalAmount * usdRate : totalAmount * eurRate;
+
+                return (
+                  <TableRow key={payable._id}>
+                    <TableCell>{payable.payeeName || 'N/A'}</TableCell>
+                    <TableCell>{new Date(payable.issueDate).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span>${totalAmount.toFixed(2)}</span>
+                        {shouldShowBs && (
+                          <span className="text-xs text-green-600 dark:text-green-400">
+                            Bs. {bsAmount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>${(payable.paidAmount || 0).toFixed(2)}</TableCell>
                   <TableCell>
                     {payable.expectedPaymentMethods?.length > 0
                       ? payable.expectedPaymentMethods.join(', ')
@@ -957,6 +992,22 @@ const PayablesHistory = ({ payables, fetchPayables }) => {
     return lines.reduce((sum, line) => sum + Number(line.amount || 0), 0);
   };
 
+  // Fetch BCV exchange rates for Bs conversion
+  useEffect(() => {
+    const fetchBCVRates = async () => {
+      try {
+        const response = await fetchApi('/exchange-rate/bcv');
+        setUsdRate(response.usd?.rate || null);
+        setEurRate(response.eur?.rate || null);
+      } catch (error) {
+        console.error('Error fetching BCV rates:', error);
+      }
+    };
+    fetchBCVRates();
+    const interval = setInterval(fetchBCVRates, 3600000); // Refresh every hour
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <>
       <Card>
@@ -994,13 +1045,30 @@ const PayablesHistory = ({ payables, fetchPayables }) => {
                   <TableCell colSpan="7" className="text-center">No hay payables registrados</TableCell>
                 </TableRow>
               ) : (
-                paginatedPayables.map((payable) => (
-                  <TableRow key={payable._id}>
-                    <TableCell>{payable.payeeName || 'N/A'}</TableCell>
-                    <TableCell>{new Date(payable.issueDate).toLocaleDateString()}</TableCell>
-                    <TableCell>${getTotalAmount(payable.lines).toFixed(2)}</TableCell>
-                    <TableCell>${(payable.paidAmount || 0).toFixed(2)}</TableCell>
-                    <TableCell>
+                paginatedPayables.map((payable) => {
+                  // Check if payable should show Bs conversion
+                  const isBcvUsd = payable.expectedCurrency === 'USD_BCV' || payable.expectedPaymentMethods?.includes('bolivares_bcv');
+                  const isBcvEur = payable.expectedCurrency === 'EUR_BCV' || payable.expectedPaymentMethods?.includes('euro_bcv');
+                  const shouldShowBs = (isBcvUsd && usdRate) || (isBcvEur && eurRate);
+                  const totalAmount = getTotalAmount(payable.lines);
+                  const bsAmount = isBcvUsd ? totalAmount * usdRate : totalAmount * eurRate;
+
+                  return (
+                    <TableRow key={payable._id}>
+                      <TableCell>{payable.payeeName || 'N/A'}</TableCell>
+                      <TableCell>{new Date(payable.issueDate).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span>${totalAmount.toFixed(2)}</span>
+                          {shouldShowBs && (
+                            <span className="text-xs text-green-600 dark:text-green-400">
+                              Bs. {bsAmount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>${(payable.paidAmount || 0).toFixed(2)}</TableCell>
+                      <TableCell>
                       <Badge variant={getStatusBadgeVariant(payable.status)}>
                         {getStatusLabel(payable.status)}
                       </Badge>
@@ -1020,8 +1088,9 @@ const PayablesHistory = ({ payables, fetchPayables }) => {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
-                  </TableRow>
-                ))
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -1058,6 +1127,8 @@ const PayablesHistory = ({ payables, fetchPayables }) => {
           isOpen={isViewDialogOpen}
           onOpenChange={setIsViewDialogOpen}
           payable={selectedPayable}
+          usdRate={usdRate}
+          eurRate={eurRate}
         />
       )}
     </>

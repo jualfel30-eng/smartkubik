@@ -22,6 +22,8 @@ export default function PurchaseHistory() {
   const [pageLimit, setPageLimit] = useState(25);
   const [totalPurchases, setTotalPurchases] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [usdRate, setUsdRate] = useState(null);
+  const [eurRate, setEurRate] = useState(null);
 
   const loadPurchases = useCallback(async (page = 1, limit = pageLimit) => {
     setLoading(true);
@@ -58,6 +60,22 @@ export default function PurchaseHistory() {
       loadPurchases(1, pageLimit);
     }
   }, [currentPage, pageLimit, loadPurchases]);
+
+  // Fetch BCV exchange rates for Bs conversion
+  useEffect(() => {
+    const fetchBCVRates = async () => {
+      try {
+        const response = await fetchApi('/exchange-rate/bcv');
+        setUsdRate(response.usd?.rate || null);
+        setEurRate(response.eur?.rate || null);
+      } catch (error) {
+        console.error('Error fetching BCV rates:', error);
+      }
+    };
+    fetchBCVRates();
+    const interval = setInterval(fetchBCVRates, 3600000); // Refresh every hour
+    return () => clearInterval(interval);
+  }, []);
 
   const handleStatusChange = (purchaseOrder, newStatus) => {
     if (newStatus !== 'received') return;
@@ -138,12 +156,28 @@ export default function PurchaseHistory() {
             </TableHeader>
             <TableBody>
               {purchases.length > 0 ? (
-                purchases.map(po => (
-                  <TableRow key={po._id}>
-                    <TableCell className="font-medium">{po.poNumber}</TableCell>
-                    <TableCell>{po.supplierName}</TableCell>
-                    <TableCell>{new Date(po.purchaseDate).toLocaleDateString()}</TableCell>
-                    <TableCell>${po.totalAmount.toFixed(2)}</TableCell>
+                purchases.map(po => {
+                  // Determine which rate to use based on payment method
+                  const isBcvUsd = po.actualPaymentMethod === 'bolivares_bcv';
+                  const isBcvEur = po.actualPaymentMethod === 'euro_bcv';
+                  const shouldShowBs = (isBcvUsd && usdRate) || (isBcvEur && eurRate);
+                  const bsAmount = isBcvUsd ? po.totalAmount * usdRate : po.totalAmount * eurRate;
+
+                  return (
+                    <TableRow key={po._id}>
+                      <TableCell className="font-medium">{po.poNumber}</TableCell>
+                      <TableCell>{po.supplierName}</TableCell>
+                      <TableCell>{new Date(po.purchaseDate).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span>${po.totalAmount.toFixed(2)}</span>
+                          {shouldShowBs && (
+                            <span className="text-xs text-green-600 dark:text-green-400">
+                              Bs. {bsAmount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
                         <Select
@@ -165,8 +199,9 @@ export default function PurchaseHistory() {
                         </Button>
                       </div>
                     </TableCell>
-                  </TableRow>
-                ))
+                    </TableRow>
+                  );
+                })
               ) : (
                 <TableRow>
                   <TableCell colSpan="5" className="text-center">No se encontraron compras.</TableCell>
@@ -270,8 +305,20 @@ export default function PurchaseHistory() {
                   ))}
                 </TableBody>
               </Table>
-              <div className="text-right font-bold text-lg">
-                Monto Total: ${selectedPurchaseOrder.totalAmount.toFixed(2)}
+              <div className="text-right space-y-1">
+                <div className="font-bold text-lg">
+                  Monto Total: ${selectedPurchaseOrder.totalAmount.toFixed(2)}
+                </div>
+                {selectedPurchaseOrder.actualPaymentMethod === 'bolivares_bcv' && usdRate && (
+                  <div className="text-sm text-green-600 dark:text-green-400">
+                    Total en Bs (Tasa $ BCV): Bs. {(selectedPurchaseOrder.totalAmount * usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                )}
+                {selectedPurchaseOrder.actualPaymentMethod === 'euro_bcv' && eurRate && (
+                  <div className="text-sm text-green-600 dark:text-green-400">
+                    Total en Bs (Tasa € BCV): Bs. {(selectedPurchaseOrder.totalAmount * eurRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                )}
               </div>
               {selectedPurchaseOrder.notes && <div><p className="font-semibold">Notas:</p><p className="p-2 bg-muted rounded">{selectedPurchaseOrder.notes}</p></div>}
             </div>

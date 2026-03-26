@@ -175,6 +175,11 @@ export class CreatePurchaseOrderDto {
   documentType?: string;
 
   @IsOptional()
+  @IsString()
+  @SanitizeString()
+  actualPaymentMethod?: string; // The actual payment method used (efectivo_usd, zelle, bolivares_bcv, euro_bcv, etc.)
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   subtotal?: number;

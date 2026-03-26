@@ -179,6 +179,7 @@ export class PurchasesService {
       igtfTotal,
       totalAmount,
       documentType: dto.documentType || 'factura_fiscal',
+      actualPaymentMethod: dto.actualPaymentMethod || 'efectivo_usd',
       status: "pending",
       history: [
         {

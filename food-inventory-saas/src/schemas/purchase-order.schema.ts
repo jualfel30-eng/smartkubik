@@ -150,6 +150,9 @@ export class PurchaseOrder {
   @Prop({ type: String, enum: ['nota_entrega', 'factura_fiscal'], default: 'factura_fiscal' })
   documentType?: string;
 
+  @Prop({ type: String })
+  actualPaymentMethod?: string; // The actual payment method used for this purchase (for IGTF calculation and Bs conversion)
+
   @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
