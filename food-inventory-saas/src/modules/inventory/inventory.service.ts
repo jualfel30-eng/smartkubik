@@ -9,6 +9,7 @@ import {
 } from "../../schemas/inventory.schema";
 import { Product, ProductDocument } from "../../schemas/product.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
+import { Warehouse, WarehouseDocument } from "../../schemas/warehouse.schema";
 import {
   CreateInventoryDto,
   InventoryMovementDto,
@@ -33,6 +34,7 @@ export class InventoryService {
     private movementModel: Model<InventoryMovementDocument>,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
+    @InjectModel(Warehouse.name) private warehouseModel: Model<WarehouseDocument>,
     private readonly eventsService: EventsService,
     @InjectConnection() private connection: Connection,
   ) {
@@ -1463,6 +1465,12 @@ export class InventoryService {
       this.logger.log(
         `Inventory not found for SKU: ${sku}. Creating new inventory record.`,
       );
+
+      // Get warehouseId from item or use default warehouse
+      const warehouseId = item.warehouseId
+        ? this.toObjectIdIfValid(item.warehouseId)
+        : await this.getDefaultWarehouse(user.tenantId);
+
       const inventoryData = {
         productId: item.productId,
         productSku: sku,
@@ -1470,6 +1478,7 @@ export class InventoryService {
         variantId: resolvedVariantId,
         variantSku: item.variantSku || sku,
         tenantId: this.normalizeTenantValue(user.tenantId),
+        warehouseId: warehouseId, // ✅ Now includes warehouseId
         totalQuantity: 0,
         availableQuantity: 0,
         reservedQuantity: 0,
@@ -1614,6 +1623,38 @@ export class InventoryService {
     if (!id) return undefined;
     if (id instanceof Types.ObjectId) return id;
     return Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : undefined;
+  }
+
+  /**
+   * Get the default warehouse for a tenant
+   * Returns the primary warehouse, or the first active warehouse if no primary is set
+   */
+  private async getDefaultWarehouse(tenantId: string | Types.ObjectId): Promise<Types.ObjectId | undefined> {
+    try {
+      const tenantFilter = this.buildTenantFilter(tenantId);
+
+      // Try to find primary warehouse first
+      let warehouse = await this.warehouseModel.findOne({
+        tenantId: tenantFilter,
+        isPrimary: true,
+        isActive: true,
+        isDeleted: false
+      }).select('_id');
+
+      // If no primary, get first active warehouse
+      if (!warehouse) {
+        warehouse = await this.warehouseModel.findOne({
+          tenantId: tenantFilter,
+          isActive: true,
+          isDeleted: false
+        }).select('_id');
+      }
+
+      return warehouse?._id;
+    } catch (error) {
+      this.logger.error(`Error getting default warehouse for tenant ${tenantId}:`, error);
+      return undefined;
+    }
   }
 
   async updateLots(
