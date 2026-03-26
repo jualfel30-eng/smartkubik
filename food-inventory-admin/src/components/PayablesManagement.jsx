@@ -614,7 +614,8 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
