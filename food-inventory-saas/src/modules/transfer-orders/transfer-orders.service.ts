@@ -208,7 +208,9 @@ export class TransferOrdersService {
       order.tenantId.toString() === currentTenantId ||
       order.sourceTenantId?.toString() === currentTenantId;
     const isDestination =
-      order.destinationTenantId?.toString() === currentTenantId;
+      order.destinationTenantId?.toString() === currentTenantId ||
+      // For same-tenant transfers, if destinationTenantId is not set, consider current tenant as destination
+      (!order.destinationTenantId && order.tenantId.toString() === currentTenantId);
     const isPush = order.type === "push";
     const isPull = order.type === "pull";
 
