@@ -1634,23 +1634,25 @@ export class InventoryService {
       const tenantFilter = this.buildTenantFilter(tenantId);
 
       // Try to find primary warehouse first
-      let warehouse = await this.warehouseModel.findOne({
+      const primaryWarehouse = await this.warehouseModel.findOne({
         tenantId: tenantFilter,
         isPrimary: true,
         isActive: true,
         isDeleted: false
-      }).select('_id');
+      }).select('_id').lean();
 
-      // If no primary, get first active warehouse
-      if (!warehouse) {
-        warehouse = await this.warehouseModel.findOne({
-          tenantId: tenantFilter,
-          isActive: true,
-          isDeleted: false
-        }).select('_id');
+      if (primaryWarehouse) {
+        return primaryWarehouse._id;
       }
 
-      return warehouse?._id;
+      // If no primary, get first active warehouse
+      const anyWarehouse = await this.warehouseModel.findOne({
+        tenantId: tenantFilter,
+        isActive: true,
+        isDeleted: false
+      }).select('_id').lean();
+
+      return anyWarehouse?._id;
     } catch (error) {
       this.logger.error(`Error getting default warehouse for tenant ${tenantId}:`, error);
       return undefined;
