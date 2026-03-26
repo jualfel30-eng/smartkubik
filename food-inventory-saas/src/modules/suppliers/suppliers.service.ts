@@ -32,6 +32,14 @@ export class SuppliersService {
   ) { }
 
   /**
+   * Build a tenant filter that matches both String and ObjectId tenantId values.
+   * Needed because customers collection stores tenantId inconsistently.
+   */
+  private tenantFilter(tenantId: string) {
+    return { $in: [String(tenantId), new Types.ObjectId(tenantId)] };
+  }
+
+  /**
    * Normalize a RIF/TaxID to canonical format: "X-123456789"
    * Handles inputs like "J413164663", "j-413164663", "J-413164663", "413164663"
    */
@@ -208,7 +216,7 @@ export class SuppliersService {
     // 2. If not found, check if it's a Virtual Supplier (Customer ID)
     if (!supplier) {
       const customer = await this.customerModel
-        .findOne({ _id: id, tenantId: new Types.ObjectId(user.tenantId), customerType: 'supplier' })
+        .findOne({ _id: id, tenantId: this.tenantFilter(user.tenantId), customerType: 'supplier' })
         .exec();
 
       if (customer) {
@@ -422,7 +430,7 @@ export class SuppliersService {
 
     // 2. If not found, check for Virtual Supplier (Customer)
     const customer = await this.customerModel
-      .findOne({ _id: id, tenantId: new Types.ObjectId(user.tenantId), customerType: 'supplier' })
+      .findOne({ _id: id, tenantId: this.tenantFilter(user.tenantId), customerType: 'supplier' })
       .exec();
 
     if (!customer) {
@@ -485,7 +493,7 @@ export class SuppliersService {
       .map(s => (s.customerId as any)._id ? (s.customerId as any)._id : s.customerId);
 
     const customerQuery: any = {
-      tenantId: new Types.ObjectId(tenantId),
+      tenantId: this.tenantFilter(tenantId),
       customerType: 'supplier',
       _id: { $nin: linkedCustomerIds }
     };
@@ -561,7 +569,7 @@ export class SuppliersService {
     }
 
     // 2. If not found, try finding in Customer collection (Virtual Supplier)
-    const customer = await this.customerModel.findOne({ _id: id, tenantId: new Types.ObjectId(tenantId), customerType: 'supplier' }).exec();
+    const customer = await this.customerModel.findOne({ _id: id, tenantId: this.tenantFilter(tenantId), customerType: 'supplier' }).exec();
 
     if (customer) {
       // Try to find a linked Supplier record to get paymentSettings
@@ -607,7 +615,7 @@ export class SuppliersService {
     if (!supplier) {
       // Check if it's a virtual supplier (Customer)
       const customer = await this.customerModel
-        .findOne({ _id: id, tenantId: new Types.ObjectId(tenantId), customerType: 'supplier' })
+        .findOne({ _id: id, tenantId: this.tenantFilter(tenantId), customerType: 'supplier' })
         .exec();
 
       if (!customer) {
@@ -1039,7 +1047,7 @@ export class SuppliersService {
         const customer = await this.customerModel
           .findOne({
             _id: new Types.ObjectId(supplierId),
-            tenantId: new Types.ObjectId(user.tenantId),
+            tenantId: this.tenantFilter(user.tenantId),
           })
           .exec();
 
