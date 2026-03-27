@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus,
   Trash2,
@@ -57,8 +57,11 @@ const calculateItemTotal = (item) => {
 
 const BillingCreateForm = () => {
   const navigate = useNavigate();
-  const traverse = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
+
+  // Detect quote mode from URL: /billing/create?type=quote
+  const isQuote = searchParams.get('type') === 'quote';
 
   // Country plugin for i18n
   const plugin = useCountryPlugin();
@@ -73,7 +76,7 @@ const BillingCreateForm = () => {
   // Customers/Products state removed in favor of async search
 
   const [formData, setFormData] = useState({
-    type: 'invoice',
+    type: searchParams.get('type') === 'quote' ? 'quote' : 'invoice',
     customer: null,
     customerData: {
       name: '',
@@ -316,8 +319,8 @@ const BillingCreateForm = () => {
     try {
       setLoading(true);
 
-      if (!formData.customerData.name || !formData.customerData.rif) {
-        toast.error('Complete los datos del cliente');
+      if (!formData.customerData.name || (!isQuote && !formData.customerData.rif)) {
+        toast.error(isQuote ? 'Ingrese el nombre del cliente' : 'Complete los datos del cliente');
         return;
       }
 
@@ -330,7 +333,7 @@ const BillingCreateForm = () => {
 
       const payload = {
         type: formData.type,
-        seriesId: selectedSequence,
+        ...(selectedSequence && { seriesId: selectedSequence }),
         customer: formData.customer,
         customerName: formData.customerData.name,
         customerTaxId: formData.customerData.rif,
@@ -384,8 +387,8 @@ const BillingCreateForm = () => {
     try {
       setLoading(true);
 
-      if (!formData.customerData.name || !formData.customerData.rif) {
-        toast.error('Complete los datos del cliente');
+      if (!formData.customerData.name || (!isQuote && !formData.customerData.rif)) {
+        toast.error(isQuote ? 'Ingrese el nombre del cliente' : 'Complete los datos del cliente');
         return;
       }
 
@@ -396,14 +399,14 @@ const BillingCreateForm = () => {
 
       const totals = calculateTotals();
 
-      if (!selectedSequence) {
+      if (!isQuote && !selectedSequence) {
         toast.error('Selecciona una serie de facturación');
         return;
       }
 
       const payload = {
         type: formData.type,
-        seriesId: selectedSequence,
+        ...(selectedSequence && { seriesId: selectedSequence }),
         customer: formData.customer,
         customerName: formData.customerData.name,
         customerTaxId: formData.customerData.rif,
@@ -439,19 +442,21 @@ const BillingCreateForm = () => {
         currency: formData.currency,
         paymentMethod: formData.paymentMethod,
         notes: formData.notes,
-        status: 'validated'
+        status: isQuote ? 'draft' : 'validated'
       };
 
       const response = await api.post('/billing/documents', payload);
 
-      // Emitir inmediatamente
-      await api.post(`/billing/documents/${response._id}/issue`);
+      if (!isQuote) {
+        // Emitir fiscalmente solo documentos SENIAT
+        await api.post(`/billing/documents/${response._id}/issue`);
+      }
 
-      toast.success('Documento emitido correctamente');
+      toast.success(isQuote ? 'Presupuesto generado correctamente' : 'Documento emitido correctamente');
       navigate(`/billing/documents/${response._id}`);
     } catch (error) {
       console.error('Error issuing document:', error);
-      toast.error(error.response?.data?.message || 'Error al emitir documento');
+      toast.error(error.response?.data?.message || (isQuote ? 'Error al generar presupuesto' : 'Error al emitir documento'));
     } finally {
       setLoading(false);
     }
@@ -464,13 +469,17 @@ const BillingCreateForm = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Nuevo Documento</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {isQuote ? 'Nuevo Presupuesto' : 'Nuevo Documento'}
+          </h1>
           <p className="text-muted-foreground">
-            Crear factura, nota de crédito, nota de débito o nota de entrega
+            {isQuote
+              ? 'Crear presupuesto o cotización para el cliente'
+              : 'Crear factura, nota de crédito, nota de débito o nota de entrega'}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/billing')}>
+          <Button variant="outline" onClick={() => navigate(isQuote ? '/accounting?tab=electronic-invoices' : '/billing')}>
             Cancelar
           </Button>
           <Button variant="outline" onClick={handleSaveDraft} disabled={loading}>
@@ -479,7 +488,7 @@ const BillingCreateForm = () => {
           </Button>
           <Button onClick={handleIssue} disabled={loading}>
             <Send className="mr-2 h-4 w-4" />
-            Emitir
+            {isQuote ? 'Generar Presupuesto' : 'Emitir'}
           </Button>
         </div>
       </div>
@@ -488,24 +497,26 @@ const BillingCreateForm = () => {
         {/* Document Type */}
         <Card className="md:col-span-3">
           <CardHeader>
-            <CardTitle>Tipo de Documento</CardTitle>
+            <CardTitle>{isQuote ? 'Configuración del Presupuesto' : 'Tipo de Documento'}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-4">
-              <div>
-                <Label>Tipo</Label>
-                <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="invoice">Factura</SelectItem>
-                    <SelectItem value="credit_note">Nota de Crédito</SelectItem>
-                    <SelectItem value="debit_note">Nota de Débito</SelectItem>
-                    <SelectItem value="delivery_note">Nota de Entrega</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className={`grid gap-4 ${isQuote ? 'md:grid-cols-1' : 'md:grid-cols-4'}`}>
+              {!isQuote && (
+                <div>
+                  <Label>Tipo</Label>
+                  <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="invoice">Factura</SelectItem>
+                      <SelectItem value="credit_note">Nota de Crédito</SelectItem>
+                      <SelectItem value="debit_note">Nota de Débito</SelectItem>
+                      <SelectItem value="delivery_note">Nota de Entrega</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label>Moneda</Label>
                 <Select value={formData.currency} onValueChange={handleCurrencyChange}>
@@ -524,37 +535,41 @@ const BillingCreateForm = () => {
                   </p>
                 )}
               </div>
-              <div>
-                <Label>Serie de Facturación</Label>
-                <Select value={selectedSequence || ''} onValueChange={setSelectedSequence}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar serie..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sequences.filter(s => s.type === formData.type).map(seq => (
-                      <SelectItem key={seq._id} value={seq._id}>
-                        {seq.prefix} - {seq.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Método de Pago</Label>
-                <Select value={formData.paymentMethod} onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Efectivo</SelectItem>
-                    <SelectItem value="card">Tarjeta</SelectItem>
-                    <SelectItem value="transfer">Transferencia</SelectItem>
-                    <SelectItem value="zelle">Zelle</SelectItem>
-                    <SelectItem value="paypal">PayPal</SelectItem>
-                    <SelectItem value="pago_movil">Pago Móvil</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {!isQuote && (
+                <>
+                  <div>
+                    <Label>Serie de Facturación</Label>
+                    <Select value={selectedSequence || ''} onValueChange={setSelectedSequence}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar serie..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sequences.filter(s => s.type === formData.type).map(seq => (
+                          <SelectItem key={seq._id} value={seq._id}>
+                            {seq.prefix} - {seq.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Método de Pago</Label>
+                    <Select value={formData.paymentMethod} onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Efectivo</SelectItem>
+                        <SelectItem value="card">Tarjeta</SelectItem>
+                        <SelectItem value="transfer">Transferencia</SelectItem>
+                        <SelectItem value="zelle">Zelle</SelectItem>
+                        <SelectItem value="paypal">PayPal</SelectItem>
+                        <SelectItem value="pago_movil">Pago Móvil</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -593,7 +608,7 @@ const BillingCreateForm = () => {
               </div>
 
               <div>
-                <Label>{fiscalIdLabel} *</Label>
+                <Label>{fiscalIdLabel} {isQuote ? '' : '*'}</Label>
                 <div className="flex gap-2">
                   <Select
                     value={formData.customerData.rifType || 'J'}

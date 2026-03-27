@@ -257,6 +257,12 @@ const ElectronicInvoicesManager = () => {
               Series
             </Button>
           </Link>
+          <Link to="/billing/create?type=quote">
+            <Button variant="outline" size="sm">
+              <FileText className="mr-2 h-4 w-4" />
+              Nuevo Presupuesto
+            </Button>
+          </Link>
           <Link to="/billing/create">
             <Button size="sm">
               <Plus className="mr-2 h-4 w-4" />

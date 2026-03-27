@@ -198,6 +198,10 @@ const BillingDashboard = () => {
             <Wrench className="mr-2 h-4 w-4" />
             Reparar Facturas
           </Button>
+          <Button variant="outline" onClick={() => window.location.href = '/billing/create?type=quote'}>
+            <FileQuestion className="mr-2 h-4 w-4" />
+            Nuevo Presupuesto
+          </Button>
           <Button onClick={() => window.location.href = '/billing/create'}>
             <FileText className="mr-2 h-4 w-4" />
             Nueva Factura
