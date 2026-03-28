@@ -86,7 +86,7 @@ export default function InventoryDashboard() {
         <TabsList className={`grid w-full ${multiLocationEnabled ? 'grid-cols-5' : 'grid-cols-4'} max-w-4xl`}>
           <TabsTrigger value="products">Productos</TabsTrigger>
           <TabsTrigger value="inventory">Inventario</TabsTrigger>
-          {multiLocationEnabled && <TabsTrigger value="transfers">Transferencias</TabsTrigger>}
+          {multiLocationEnabled && <TabsTrigger value="transfers">Traslados</TabsTrigger>}
           <TabsTrigger value="purchases">Compras</TabsTrigger>
           <TabsTrigger value="suppliers">Proveedores</TabsTrigger>
         </TabsList>

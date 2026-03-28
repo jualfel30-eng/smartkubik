@@ -360,7 +360,7 @@ export default function SubsidiariesPanel() {
                 onClick={() => navigate('/inventory-management?tab=transfers')}
               >
                 <ArrowRightLeft className="mr-2 h-4 w-4" />
-                Transferencias entre Sedes
+                Traslados entre Sedes
               </Button>
               {isParent && (
                 <Button variant="outline" size="sm" onClick={handleCreateSede}>

@@ -409,7 +409,7 @@ function TenantLayout() {
             { name: 'Reportes', href: 'inventory-management?tab=inventory-reports', icon: AreaChart },
           ],
         },
-        { name: 'Transferencias', href: 'inventory-management?tab=transfers', icon: ArrowRightLeft, requiresFeatureFlag: 'MULTI_LOCATION' },
+        { name: 'Traslados', href: 'inventory-management?tab=transfers', icon: ArrowRightLeft, requiresFeatureFlag: 'MULTI_LOCATION' },
         { name: 'Compras', href: 'inventory-management?tab=purchases', icon: PackagePlus },
         { name: 'Proveedores', href: 'inventory-management?tab=suppliers', icon: UserCheck },
         { name: 'Control de Mermas', href: 'waste-control', icon: Trash2, permission: 'inventory_read' },

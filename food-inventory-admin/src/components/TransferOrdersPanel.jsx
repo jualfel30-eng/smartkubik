@@ -81,7 +81,7 @@ export default function TransferOrdersPanel() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <ArrowRightLeft className="h-5 w-5" />
-              Transferencias entre Sedes
+              Traslados entre Sedes
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
               Gestiona el movimiento de inventario entre ubicaciones.

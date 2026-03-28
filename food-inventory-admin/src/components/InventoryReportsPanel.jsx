@@ -17,7 +17,7 @@ const MOVEMENT_TYPES = [
     { value: 'IN', label: 'Entradas' },
     { value: 'OUT', label: 'Salidas' },
     { value: 'ADJUSTMENT', label: 'Ajustes' },
-    { value: 'TRANSFER', label: 'Transferencias' },
+    { value: 'TRANSFER', label: 'Traslados' },
 ];
 
 const PRESETS = [
