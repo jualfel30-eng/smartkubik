@@ -471,6 +471,7 @@ export default function ComprasManagement() {
       }));
     } else {
       const { supplier } = selectedOption;
+      const addr = supplier.addresses?.find(a => a.isDefault) || supplier.addresses?.[0];
       setNewProduct(prev => ({
         ...prev,
         supplier: {
@@ -482,6 +483,12 @@ export default function ComprasManagement() {
           rifPrefix: (supplier.taxInfo?.taxId || 'J-').split('-')[0],
           newSupplierContactName: supplier.contacts?.[0]?.name || '',
           newSupplierContactPhone: supplier.contacts?.find(c => c.type === 'phone')?.value || '',
+          newSupplierContactEmail: supplier.contacts?.find(c => c.type === 'email')?.value || '',
+          newSupplierAddress: {
+            city: addr?.city || '',
+            state: addr?.state || '',
+            street: addr?.street || '',
+          },
         }
       }));
     }
@@ -916,6 +923,7 @@ export default function ComprasManagement() {
         contactName: '',
         contactPhone: '',
         contactEmail: '',
+        supplierAddress: { city: '', state: '', street: '' },
       }));
       return;
     }
@@ -932,6 +940,9 @@ export default function ComprasManagement() {
         customer.taxInfo?.taxType || 'J'
       );
 
+      // Extraer dirección del proveedor
+      const addr = customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0];
+
       setSupplierRifInput(rifNumber);
       setPo(prev => ({
         ...prev,
@@ -942,6 +953,11 @@ export default function ComprasManagement() {
         contactName: customer.contacts?.[0]?.name || customer.name || '',
         contactPhone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
         contactEmail: customer.contacts?.find(c => c.type === 'email')?.value || '',
+        supplierAddress: {
+          city: addr?.city || '',
+          state: addr?.state || '',
+          street: addr?.street || '',
+        },
       }));
 
       // CRÍTICO: Cargar condiciones de pago del proveedor
@@ -962,6 +978,7 @@ export default function ComprasManagement() {
         contactName: '',
         contactPhone: '',
         contactEmail: '',
+        supplierAddress: { city: '', state: '', street: '' },
       }));
       return;
     }
@@ -987,6 +1004,9 @@ export default function ComprasManagement() {
         customer.taxInfo?.taxType || 'J'
       );
 
+      // Extraer dirección del proveedor
+      const addr = customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0];
+
       // Actualizar los inputs para mostrar datos del proveedor seleccionado
       setSupplierRifInput(rifNumber);
       setSupplierNameInput('');
@@ -999,6 +1019,11 @@ export default function ComprasManagement() {
         contactName: customer.contacts?.[0]?.name || customer.name || '',
         contactPhone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
         contactEmail: customer.contacts?.find(c => c.type === 'email')?.value || '',
+        supplierAddress: {
+          city: addr?.city || '',
+          state: addr?.state || '',
+          street: addr?.street || '',
+        },
       }));
 
       // CRÍTICO: Cargar condiciones de pago del proveedor
@@ -1736,6 +1761,7 @@ export default function ComprasManagement() {
                                   s.taxInfo?.taxType || 'J'
                                 );
 
+                                const rifAddr = s.addresses?.find(a => a.isDefault) || s.addresses?.[0];
                                 setSupplierRifInput(rifNumber);
                                 setRifDropdownOpen(false);
                                 setPo(prev => ({
@@ -1747,6 +1773,11 @@ export default function ComprasManagement() {
                                   contactName: s.contacts?.[0]?.name || s.name || '',
                                   contactPhone: s.contacts?.find(c => c.type === 'phone')?.value || '',
                                   contactEmail: s.contacts?.find(c => c.type === 'email')?.value || '',
+                                  supplierAddress: {
+                                    city: rifAddr?.city || '',
+                                    state: rifAddr?.state || '',
+                                    street: rifAddr?.street || '',
+                                  },
                                 }));
                                 // NUEVO: Cargar métodos de pago del proveedor
                                 fetchSupplierPaymentMethods(s._id);
