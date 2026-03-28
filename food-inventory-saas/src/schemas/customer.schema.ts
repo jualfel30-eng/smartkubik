@@ -5,22 +5,22 @@ export type CustomerDocument = Customer & Document;
 
 @Schema()
 export class CustomerAddress {
-  @Prop({ type: String, required: true })
+  @Prop({ type: String, default: 'business' })
   type: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String })
   street: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String })
   city: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ type: String })
   state: string;
 
   @Prop({ type: String })
   zipCode?: string;
 
-  @Prop({ type: String, required: true, default: "Venezuela" })
+  @Prop({ type: String, default: "Venezuela" })
   country: string;
 
   @Prop({ type: Object })

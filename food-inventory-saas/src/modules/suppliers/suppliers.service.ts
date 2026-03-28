@@ -136,17 +136,23 @@ export class SuppliersService {
         } as CustomerContact);
       }
 
-      // Build addresses array if address data is provided
+      // Build addresses array if ANY address data is provided (partial addresses are OK)
       const addresses: any[] = [];
-      if (createSupplierDto.address && (createSupplierDto.address.city || createSupplierDto.address.state || createSupplierDto.address.street)) {
-        addresses.push({
+      if (createSupplierDto.address) {
+        const addr: any = {
           type: 'business',
-          street: createSupplierDto.address.street || '',
-          city: createSupplierDto.address.city || '',
-          state: createSupplierDto.address.state || '',
           country: 'Venezuela',
           isDefault: true,
-        });
+        };
+        // Only include fields that have actual values
+        if (createSupplierDto.address.street) addr.street = createSupplierDto.address.street;
+        if (createSupplierDto.address.city) addr.city = createSupplierDto.address.city;
+        if (createSupplierDto.address.state) addr.state = createSupplierDto.address.state;
+
+        // Only add address if at least one field has a value
+        if (addr.street || addr.city || addr.state) {
+          addresses.push(addr);
+        }
       }
 
       const newCustomerData = {
@@ -413,22 +419,27 @@ export class SuppliersService {
           const linkedCustomer = await this.customerModel.findById(updatedSupplier.customerId);
           if (linkedCustomer) {
             if (!linkedCustomer.addresses || linkedCustomer.addresses.length === 0) {
-              // No addresses exist, add a new one
-              linkedCustomer.addresses = [{
+              // No addresses exist, add a new one (only with fields that have values)
+              const newAddr: any = {
                 type: 'business',
-                street: updateSupplierDto.address.street || '',
-                city: updateSupplierDto.address.city || '',
-                state: updateSupplierDto.address.state || '',
                 country: 'Venezuela',
                 isDefault: true,
-              }];
+              };
+              if (updateSupplierDto.address.street) newAddr.street = updateSupplierDto.address.street;
+              if (updateSupplierDto.address.city) newAddr.city = updateSupplierDto.address.city;
+              if (updateSupplierDto.address.state) newAddr.state = updateSupplierDto.address.state;
+
+              // Only create address if at least one field has value
+              if (newAddr.street || newAddr.city || newAddr.state) {
+                linkedCustomer.addresses = [newAddr];
+              }
             } else {
-              // Update the default address or first address
+              // Update the default address or first address (merge with existing values)
               const defaultAddr = linkedCustomer.addresses.find(a => a.isDefault) || linkedCustomer.addresses[0];
               if (defaultAddr) {
-                defaultAddr.street = updateSupplierDto.address.street || defaultAddr.street;
-                defaultAddr.city = updateSupplierDto.address.city || defaultAddr.city;
-                defaultAddr.state = updateSupplierDto.address.state || defaultAddr.state;
+                if (updateSupplierDto.address.street !== undefined) defaultAddr.street = updateSupplierDto.address.street;
+                if (updateSupplierDto.address.city !== undefined) defaultAddr.city = updateSupplierDto.address.city;
+                if (updateSupplierDto.address.state !== undefined) defaultAddr.state = updateSupplierDto.address.state;
               }
             }
             await linkedCustomer.save();
