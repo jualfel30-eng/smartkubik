@@ -147,6 +147,9 @@ export class PurchaseOrder {
   @Prop({ type: Date })
   invoiceDate?: Date;
 
+  @Prop({ type: String })
+  invoiceNumber?: string;
+
   @Prop({ type: String, enum: ['nota_entrega', 'factura_fiscal'], default: 'factura_fiscal' })
   documentType?: string;
 
@@ -184,4 +187,5 @@ PurchaseOrderSchema.index({ createdBy: 1, tenantId: 1 });
 PurchaseOrderSchema.index({
   poNumber: "text",
   supplierName: "text",
+  invoiceNumber: "text",
 });

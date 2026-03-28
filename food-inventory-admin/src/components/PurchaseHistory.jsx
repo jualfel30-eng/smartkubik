@@ -148,6 +148,7 @@ export default function PurchaseHistory() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nro. Orden</TableHead>
+                <TableHead>Nº Doc.</TableHead>
                 <TableHead>Proveedor</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Monto Total</TableHead>
@@ -171,6 +172,7 @@ export default function PurchaseHistory() {
                   return (
                     <TableRow key={po._id}>
                       <TableCell className="font-medium">{po.poNumber}</TableCell>
+                      <TableCell className="text-muted-foreground">{po.invoiceNumber || '—'}</TableCell>
                       <TableCell>{po.supplierName}</TableCell>
                       <TableCell>{new Date(po.purchaseDate).toLocaleDateString()}</TableCell>
                       <TableCell>
@@ -293,6 +295,14 @@ export default function PurchaseHistory() {
                         ? 'Factura Fiscal'
                         : 'Nota de Entrega'}
                     </p>
+                  </div>
+                )}
+                {selectedPurchaseOrder.invoiceNumber && (
+                  <div>
+                    <p className="font-semibold">
+                      {selectedPurchaseOrder.documentType === 'nota_entrega' ? 'Nº Nota de Entrega:' : 'Nº Factura:'}
+                    </p>
+                    <p>{selectedPurchaseOrder.invoiceNumber}</p>
                   </div>
                 )}
               </div>

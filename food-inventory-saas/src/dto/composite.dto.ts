@@ -150,6 +150,10 @@ export class CreateProductWithPurchaseDto {
   documentType?: string;
 
   @IsOptional()
+  @IsString()
+  invoiceNumber?: string;
+
+  @IsOptional()
   @IsNumber()
   subtotal?: number;
 

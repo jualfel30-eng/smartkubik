@@ -117,6 +117,7 @@ const initialNewProductState = {
   },
   purchaseDate: new Date(),
   documentType: 'factura_fiscal',
+  invoiceNumber: '',
   actualPaymentMethod: 'efectivo_usd', // Método de pago REAL para esta compra específica
   paymentTerms: {
     isCredit: false,
@@ -142,6 +143,7 @@ const initialPoState = {
   items: [],
   notes: '',
   documentType: 'factura_fiscal',
+  invoiceNumber: '',
   actualPaymentMethod: 'efectivo_usd', // Método de pago REAL para esta compra específica
   paymentTerms: {
     isCredit: false,
@@ -684,6 +686,7 @@ export default function ComprasManagement() {
       inventory: inventoryPayload,
       purchaseDate: format(newProduct.purchaseDate, 'yyyy-MM-dd'), // Send only date part
       documentType: newProduct.documentType,
+      invoiceNumber: newProduct.invoiceNumber?.trim() || undefined,
       subtotal: newProductTotals.subtotal,
       ivaTotal: newProductTotals.iva,
       igtfTotal: newProductTotals.igtf,
@@ -1466,6 +1469,7 @@ export default function ComprasManagement() {
     const dto = {
       purchaseDate: format(po.purchaseDate, 'yyyy-MM-dd'),
       documentType: po.documentType,
+      invoiceNumber: po.invoiceNumber?.trim() || undefined,
       actualPaymentMethod: po.actualPaymentMethod,
       exchangeRateSnapshot,
       eurExchangeRateSnapshot,
@@ -2015,10 +2019,10 @@ export default function ComprasManagement() {
                 </Table>
                 {po.items.length > 0 && (
                   <>
-                    {/* Selector de Tipo de Documento y Método de Pago */}
+                    {/* Selector de Tipo de Documento, Nº Factura y Método de Pago */}
                     <div className="flex justify-end mt-4 mb-3 gap-3">
                       {/* Tipo de Documento */}
-                      <div className="w-64 p-3 border rounded-lg space-y-2 bg-slate-50 dark:bg-slate-900/50 dark:border-slate-700">
+                      <div className="w-56 p-3 border rounded-lg space-y-2 bg-slate-50 dark:bg-slate-900/50 dark:border-slate-700">
                         <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                           Tipo de Documento
                         </Label>
@@ -2033,9 +2037,22 @@ export default function ComprasManagement() {
                         </Select>
                         {po.documentType === 'nota_entrega' && (
                           <p className="text-xs text-amber-600 dark:text-amber-400">
-                            ℹ️ Sin IVA ni IGTF
+                            Sin IVA ni IGTF
                           </p>
                         )}
+                      </div>
+
+                      {/* Nº Factura / Nota de Entrega */}
+                      <div className="w-56 p-3 border rounded-lg space-y-2 bg-slate-50 dark:bg-slate-900/50 dark:border-slate-700">
+                        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                          {po.documentType === 'nota_entrega' ? 'Nº Nota de Entrega' : 'Nº Factura'}
+                        </Label>
+                        <Input
+                          placeholder="Ej: 00012345"
+                          value={po.invoiceNumber}
+                          onChange={(e) => setPo(prev => ({ ...prev, invoiceNumber: e.target.value }))}
+                          className="bg-white dark:bg-slate-800"
+                        />
                       </div>
 
                       {/* Método de Pago */}
@@ -3067,7 +3084,7 @@ export default function ComprasManagement() {
               </div>
 
               <div className="col-span-2 border-t pt-4 mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>Fecha de Compra</Label>
                     <Popover>
@@ -3103,6 +3120,17 @@ export default function ComprasManagement() {
                     <p className="text-xs text-muted-foreground">
                       Factura Fiscal incluye IVA (16%) e IGTF (3% si pago es en $)
                     </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="dark:text-gray-200">
+                      {newProduct.documentType === 'nota_entrega' ? 'Nº Nota de Entrega' : 'Nº Factura'}
+                    </Label>
+                    <Input
+                      placeholder="Ej: 00012345"
+                      value={newProduct.invoiceNumber}
+                      onChange={(e) => setNewProduct(prev => ({ ...prev, invoiceNumber: e.target.value }))}
+                      className="dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100"
+                    />
                   </div>
                 </div>
               </div>

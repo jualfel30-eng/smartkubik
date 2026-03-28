@@ -343,6 +343,7 @@ export class ProductsService {
         supplierId: supplierId,
         purchaseDate: dto.purchaseDate,
         documentType: dto.documentType || 'factura_fiscal',
+        invoiceNumber: dto.invoiceNumber || undefined,
         subtotal: dto.subtotal,
         ivaTotal: dto.ivaTotal,
         igtfTotal: dto.igtfTotal,

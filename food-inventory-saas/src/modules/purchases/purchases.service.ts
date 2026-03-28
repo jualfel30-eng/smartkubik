@@ -182,6 +182,7 @@ export class PurchasesService {
       igtfTotal,
       totalAmount,
       documentType: dto.documentType || 'factura_fiscal',
+      invoiceNumber: dto.invoiceNumber || undefined,
       actualPaymentMethod: dto.actualPaymentMethod || 'efectivo_usd',
       exchangeRateSnapshot: dto.exchangeRateSnapshot,
       eurExchangeRateSnapshot: dto.eurExchangeRateSnapshot,
