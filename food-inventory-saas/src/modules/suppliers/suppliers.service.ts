@@ -136,6 +136,19 @@ export class SuppliersService {
         } as CustomerContact);
       }
 
+      // Build addresses array if address data is provided
+      const addresses: any[] = [];
+      if (createSupplierDto.address && (createSupplierDto.address.city || createSupplierDto.address.state || createSupplierDto.address.street)) {
+        addresses.push({
+          type: 'business',
+          street: createSupplierDto.address.street || '',
+          city: createSupplierDto.address.city || '',
+          state: createSupplierDto.address.state || '',
+          country: 'Venezuela',
+          isDefault: true,
+        });
+      }
+
       const newCustomerData = {
         name: createSupplierDto.contactName || createSupplierDto.name,
         companyName: createSupplierDto.name,
@@ -146,6 +159,7 @@ export class SuppliersService {
           taxName: createSupplierDto.name,
         },
         contacts,
+        addresses,
         createdBy: user.id,
         tenantId: user.tenantId,
         metrics: {
@@ -394,12 +408,31 @@ export class SuppliersService {
           if (updateSupplierDto.taxInfo.businessName) customerUpdates['taxInfo.taxName'] = updateSupplierDto.taxInfo.businessName;
         }
 
-        // 3. Sync Address
-        if (updateSupplierDto.address) {
-          // We can't easily map a single address object to the addresses array without potentially overwriting
-          // user-managed addresses. We will only update if the address list is empty or we assume the first logical one.
-          // For safety, we skip deep syncing address for now to avoid data loss, or we could add a new address.
-          // customerUpdates['primaryLocation.address'] = `${updateSupplierDto.address.street}, ${updateSupplierDto.address.city}`;
+        // 3. Sync Address to Customer addresses array
+        if (updateSupplierDto.address && (updateSupplierDto.address.city || updateSupplierDto.address.state || updateSupplierDto.address.street)) {
+          const linkedCustomer = await this.customerModel.findById(updatedSupplier.customerId);
+          if (linkedCustomer) {
+            if (!linkedCustomer.addresses || linkedCustomer.addresses.length === 0) {
+              // No addresses exist, add a new one
+              linkedCustomer.addresses = [{
+                type: 'business',
+                street: updateSupplierDto.address.street || '',
+                city: updateSupplierDto.address.city || '',
+                state: updateSupplierDto.address.state || '',
+                country: 'Venezuela',
+                isDefault: true,
+              }];
+            } else {
+              // Update the default address or first address
+              const defaultAddr = linkedCustomer.addresses.find(a => a.isDefault) || linkedCustomer.addresses[0];
+              if (defaultAddr) {
+                defaultAddr.street = updateSupplierDto.address.street || defaultAddr.street;
+                defaultAddr.city = updateSupplierDto.address.city || defaultAddr.city;
+                defaultAddr.state = updateSupplierDto.address.state || defaultAddr.state;
+              }
+            }
+            await linkedCustomer.save();
+          }
         }
 
         // 4. Sync Payment Settings -> Credit Info
