@@ -106,13 +106,16 @@ export class PurchasesService {
         );
       } else {
         // Create new supplier using suppliersService
-        const newSupplierDto = {
+        const newSupplierDto: any = {
           name: dto.newSupplierName,
           rif: normalizedRif,
           contactName: dto.newSupplierContactName || 'Sin nombre',
           contactPhone: dto.newSupplierContactPhone || '',
           contactEmail: dto.newSupplierContactEmail || '',
         };
+        if (dto.newSupplierAddress) {
+          newSupplierDto.address = dto.newSupplierAddress;
+        }
         const newSupplier = await this.suppliersService.create(
           newSupplierDto,
           user,

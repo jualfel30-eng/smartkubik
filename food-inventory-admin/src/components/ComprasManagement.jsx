@@ -111,6 +111,8 @@ const initialNewProductState = {
     newSupplierRif: '',
     newSupplierContactName: '',
     newSupplierContactPhone: '',
+    newSupplierContactEmail: '',
+    newSupplierAddress: { city: '', state: '', street: '' },
     rifPrefix: 'J',
   },
   purchaseDate: new Date(),
@@ -135,6 +137,7 @@ const initialPoState = {
   contactName: '',
   contactPhone: '',
   contactEmail: '',
+  supplierAddress: { city: '', state: '', street: '' },
   purchaseDate: new Date(),
   items: [],
   notes: '',
@@ -649,15 +652,30 @@ export default function ComprasManagement() {
       newSupplierName: newProduct.supplier.newSupplierName,
       newSupplierContactName: newProduct.supplier.newSupplierContactName,
       newSupplierContactPhone: newProduct.supplier.newSupplierContactPhone,
+      newSupplierContactEmail: newProduct.supplier.newSupplierContactEmail || undefined,
     };
 
     if (supplierPayload.supplierId) {
       delete supplierPayload.newSupplierName;
       delete supplierPayload.newSupplierContactName;
       delete supplierPayload.newSupplierContactPhone;
+      delete supplierPayload.newSupplierContactEmail;
     } else {
       const rifNumber = (newProduct.supplier.newSupplierRif || '').trim();
       supplierPayload.newSupplierRif = `${newProduct.supplier.rifPrefix}-${rifNumber}`;
+
+      // Dirección del proveedor
+      const addr = newProduct.supplier.newSupplierAddress;
+      const addrCity = addr?.city?.trim();
+      const addrState = addr?.state?.trim();
+      const addrStreet = addr?.street?.trim();
+      if (addrCity || addrState || addrStreet) {
+        supplierPayload.newSupplierAddress = {
+          city: addrCity || undefined,
+          state: addrState || undefined,
+          street: addrStreet || undefined,
+        };
+      }
     }
 
     const payload = {
@@ -1010,10 +1028,10 @@ export default function ComprasManagement() {
         let rifNumber = sanitized;
 
         const dashParts = sanitized.split('-').filter(Boolean);
-        if (dashParts.length > 1 && /^[JVEGPN]$/.test(dashParts[0])) {
+        if (dashParts.length > 1 && /^[JVEGPNC]$/.test(dashParts[0])) {
           taxType = dashParts[0];
           rifNumber = dashParts.slice(1).join('-');
-        } else if (/^[JVEGPN]\d/.test(sanitized)) {
+        } else if (/^[JVEGPNC]\d/.test(sanitized)) {
           taxType = sanitized.charAt(0);
           rifNumber = sanitized.slice(1);
         }
@@ -1391,7 +1409,7 @@ export default function ComprasManagement() {
 
     if (!po.supplierId) {
       const rifForValidation = `${normalizedTaxType}-${rifDigits}`;
-      const rifRegex = /^[JVEGPN]-?[0-9]{8,9}$/;
+      const rifRegex = /^[JVEGPNC]-?[0-9]{8,9}$/;
       if (!rifDigits || !rifRegex.test(rifForValidation)) {
         toast.error('Error de Validación', { description: 'El RIF del nuevo proveedor no es válido.' });
         return;
@@ -1495,6 +1513,18 @@ export default function ComprasManagement() {
       dto.newSupplierContactName = contactNameTrimmed;
       dto.newSupplierContactPhone = contactPhoneTrimmed;
       dto.newSupplierContactEmail = contactEmailTrimmed || undefined;
+
+      // Dirección del proveedor
+      const addrCity = po.supplierAddress?.city?.trim();
+      const addrState = po.supplierAddress?.state?.trim();
+      const addrStreet = po.supplierAddress?.street?.trim();
+      if (addrCity || addrState || addrStreet) {
+        dto.newSupplierAddress = {
+          city: addrCity || undefined,
+          state: addrState || undefined,
+          street: addrStreet || undefined,
+        };
+      }
 
       // CRÍTICO: También enviar paymentSettings para el nuevo proveedor
       dto.newSupplierPaymentSettings = {
@@ -1663,6 +1693,7 @@ export default function ComprasManagement() {
                             <SelectItem value="G">G</SelectItem>
                             <SelectItem value="P">P</SelectItem>
                             <SelectItem value="N">N</SelectItem>
+                            <SelectItem value="C">C</SelectItem>
                           </SelectContent>
                         </Select>
                         <Input
@@ -1742,6 +1773,15 @@ export default function ComprasManagement() {
                     <Input value={po.contactName} onChange={e => handleFieldChange('contactName', e.target.value)} />
                   </div>
                   <div className="space-y-2"><Label>Teléfono del Contacto</Label><Input value={po.contactPhone} onChange={e => handleFieldChange('contactPhone', e.target.value)} /></div>
+                  <div className="space-y-2 col-span-2"><Label>Email del Contacto</Label><Input value={po.contactEmail} onChange={e => handleFieldChange('contactEmail', e.target.value)} placeholder="email@ejemplo.com" /></div>
+                  <div className="space-y-2 col-span-2">
+                    <Label>Dirección</Label>
+                    <div className="grid grid-cols-3 gap-4">
+                      <Input placeholder="Ciudad" value={po.supplierAddress.city} onChange={e => setPo(prev => ({ ...prev, supplierAddress: { ...prev.supplierAddress, city: e.target.value } }))} />
+                      <Input placeholder="Estado" value={po.supplierAddress.state} onChange={e => setPo(prev => ({ ...prev, supplierAddress: { ...prev.supplierAddress, state: e.target.value } }))} />
+                      <Input placeholder="Calle, Av, Local..." value={po.supplierAddress.street} onChange={e => setPo(prev => ({ ...prev, supplierAddress: { ...prev.supplierAddress, street: e.target.value } }))} />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Fecha de Compra */}
@@ -2975,6 +3015,7 @@ export default function ComprasManagement() {
                           <SelectItem value="G">G</SelectItem>
                           <SelectItem value="P">P</SelectItem>
                           <SelectItem value="N">N</SelectItem>
+                          <SelectItem value="C">C</SelectItem>
                         </SelectContent>
                       </Select>
                       <Input
@@ -3004,6 +3045,23 @@ export default function ComprasManagement() {
                       onChange={(e) => setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, newSupplierContactPhone: e.target.value } })}
                       disabled={!newProduct.supplier.isNew}
                     />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label>Email del Contacto</Label>
+                    <Input
+                      value={newProduct.supplier.newSupplierContactEmail}
+                      onChange={(e) => setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, newSupplierContactEmail: e.target.value } })}
+                      disabled={!newProduct.supplier.isNew}
+                      placeholder="email@ejemplo.com"
+                    />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label>Dirección</Label>
+                    <div className="grid grid-cols-3 gap-4">
+                      <Input placeholder="Ciudad" value={newProduct.supplier.newSupplierAddress.city} onChange={(e) => setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, newSupplierAddress: { ...newProduct.supplier.newSupplierAddress, city: e.target.value } } })} disabled={!newProduct.supplier.isNew} />
+                      <Input placeholder="Estado" value={newProduct.supplier.newSupplierAddress.state} onChange={(e) => setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, newSupplierAddress: { ...newProduct.supplier.newSupplierAddress, state: e.target.value } } })} disabled={!newProduct.supplier.isNew} />
+                      <Input placeholder="Calle, Av, Local..." value={newProduct.supplier.newSupplierAddress.street} onChange={(e) => setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, newSupplierAddress: { ...newProduct.supplier.newSupplierAddress, street: e.target.value } } })} disabled={!newProduct.supplier.isNew} />
+                    </div>
                   </div>
                 </div>
               </div>

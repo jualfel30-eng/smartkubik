@@ -238,6 +238,23 @@ export class ProductsService {
           throw new BadRequestException("New supplier data is incomplete.");
         }
         // Create a DTO that matches what the CRM form would create
+        const supplierContacts: any[] = [];
+        if (dto.supplier.newSupplierContactPhone) {
+          supplierContacts.push({
+            name: dto.supplier.newSupplierContactName || dto.supplier.newSupplierName,
+            type: "phone",
+            value: dto.supplier.newSupplierContactPhone,
+            isPrimary: true,
+          });
+        }
+        if (dto.supplier.newSupplierContactEmail) {
+          supplierContacts.push({
+            name: dto.supplier.newSupplierContactName || dto.supplier.newSupplierName,
+            type: "email",
+            value: dto.supplier.newSupplierContactEmail,
+            isPrimary: supplierContacts.length === 0,
+          });
+        }
         const newCustomerDto: CreateCustomerDto = {
           name: dto.supplier.newSupplierContactName, // Salesperson Name
           companyName: dto.supplier.newSupplierName, // Company Name
@@ -246,14 +263,16 @@ export class ProductsService {
             taxId: dto.supplier.newSupplierRif,
             taxType: dto.supplier.newSupplierRif.charAt(0),
           },
-          contacts: [
-            {
-              type: "phone",
-              value: dto.supplier.newSupplierContactPhone ?? "",
-              isPrimary: true,
-            },
-          ].filter((c) => c.value),
-        };
+          contacts: supplierContacts,
+        } as any;
+        if (dto.supplier.newSupplierAddress) {
+          (newCustomerDto as any).addresses = [{
+            street: dto.supplier.newSupplierAddress.street || '',
+            city: dto.supplier.newSupplierAddress.city || '',
+            state: dto.supplier.newSupplierAddress.state || '',
+            isDefault: true,
+          }];
+        }
         const newSupplier = await this.customersService.create(
           newCustomerDto,
           user,

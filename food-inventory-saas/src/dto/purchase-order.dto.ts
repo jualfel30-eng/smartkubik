@@ -18,6 +18,7 @@ import {
 } from "class-validator";
 import { Type } from "class-transformer";
 import { SanitizeString, SanitizeText } from "../decorators/sanitize.decorator";
+import { AddressDto } from "./supplier.dto";
 
 class PurchaseOrderItemDto {
   @IsMongoId()
@@ -135,8 +136,8 @@ export class CreatePurchaseOrderDto {
   @IsString()
   @SanitizeString()
   @Matches(
-    /^[VEJGPN]-?\d{7,9}(-\d)?$/,
-    { message: 'RIF debe tener formato válido: V/E (cédula o RIF), J (RIF jurídico), G, P, N' }
+    /^[VEJGPNC]-?\d{7,9}(-\d)?$/,
+    { message: 'RIF debe tener formato válido: V/E (cédula o RIF), J (RIF jurídico), G, P, N, C' }
   )
   newSupplierRif?: string;
 
@@ -152,7 +153,12 @@ export class CreatePurchaseOrderDto {
 
   @IsOptional()
   @IsString()
-  newSupplierContactEmail?: string; // Email no necesita sanitización
+  newSupplierContactEmail?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AddressDto)
+  newSupplierAddress?: AddressDto;
 
   @IsDateString()
   purchaseDate: string;

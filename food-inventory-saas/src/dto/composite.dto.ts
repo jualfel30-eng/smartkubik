@@ -14,6 +14,7 @@ import {
   IsObject,
 } from "class-validator";
 import { Type } from "class-transformer";
+import { AddressDto } from "./supplier.dto";
 
 class PaymentTermsDto {
   @IsBoolean()
@@ -110,6 +111,11 @@ class SupplierDataDto {
   @IsOptional()
   @IsString()
   newSupplierContactEmail?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AddressDto)
+  newSupplierAddress?: AddressDto;
 }
 
 class InventoryDataDto {
