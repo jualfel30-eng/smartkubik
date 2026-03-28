@@ -225,6 +225,8 @@ export class SuppliersService {
         },
       ] : [],
 
+      address: createSupplierDto.address || {},
+
       createdBy: user.id,
       tenantId: String(user.tenantId), // Ensure string (not ObjectId)
       paymentSettings: createSupplierDto.paymentSettings || {},
@@ -750,7 +752,10 @@ export class SuppliersService {
           businessName: plainCustomer.taxInfo?.taxName,
         },
         address: plainCustomer.addresses?.find((a: any) => a.isDefault) || plainCustomer.addresses?.[0] || plainSupplier.address,
-        contacts: this.mergeCustomerContacts(plainCustomer.contacts) || plainSupplier.contacts,
+        contacts: (() => {
+          const merged = this.mergeCustomerContacts(plainCustomer.contacts);
+          return merged.length > 0 ? merged : (plainSupplier.contacts || []);
+        })(),
         customer: plainCustomer, // Include full customer object for reference
         metrics: plainCustomer.metrics || plainSupplier.metrics // fallback
       };

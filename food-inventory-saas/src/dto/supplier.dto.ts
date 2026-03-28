@@ -60,6 +60,23 @@ export class PaymentSettingsDto {
   paymentNotes?: string;
 }
 
+export class AddressDto {
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  street?: string;
+
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  @SanitizeString()
+  state?: string;
+}
+
 export class CreateSupplierDto {
   @IsString()
   @SanitizeString()
@@ -68,8 +85,8 @@ export class CreateSupplierDto {
   @IsString()
   @SanitizeString()
   @Matches(
-    /^[VEJGPN]-?\d{7,9}(-\d)?$/,
-    { message: 'RIF debe tener formato válido: V/E (cédula o RIF), J (RIF jurídico), G, P, N' }
+    /^[VEJGPNC]-?\d{7,9}(-\d)?$/,
+    { message: 'RIF debe tener formato válido: V/E (cédula o RIF), J (RIF jurídico), G, P, N, C' }
   )
   rif: string;
 
@@ -94,4 +111,9 @@ export class CreateSupplierDto {
   @ValidateNested()
   @Type(() => PaymentSettingsDto)
   paymentSettings?: PaymentSettingsDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AddressDto)
+  address?: AddressDto;
 }

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
-import { Textarea } from '@/components/ui/textarea.jsx';
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
@@ -289,7 +289,7 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{supplier ? 'Hub Estratégico de Proveedor' : 'Nuevo Proveedor'}</DialogTitle>
                     <DialogDescription>
@@ -317,151 +317,158 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
                     </DialogDescription>
                 </DialogHeader>
 
-                <Tabs defaultValue="general" className="w-full">
-                    <TabsList className="grid w-full grid-cols-4">
-                        <TabsTrigger value="general">Info. General</TabsTrigger>
-                        <TabsTrigger value="commercial">Condiciones</TabsTrigger>
+                <Tabs defaultValue="profile" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="profile">Perfil</TabsTrigger>
                         <TabsTrigger value="products">Productos</TabsTrigger>
                         <TabsTrigger value="history">Historial</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="general" className="space-y-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Razón Social / Nombre</Label>
-                                <Input
-                                    id="name"
-                                    value={formData.name}
-                                    onChange={(e) => handleChange('name', e.target.value)}
-                                    placeholder="Ej: Distribuidora Norte C.A."
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="rif">RIF / Tax ID</Label>
-                                <div className="flex gap-2">
-                                    <Select
-                                        value={(() => {
-                                            const match = (formData.rif || '').match(/^([JVGEPNC])/i);
-                                            return match ? match[1].toUpperCase() : 'J';
-                                        })()}
-                                        onValueChange={(prefix) => {
-                                            const digits = (formData.rif || '').replace(/[^0-9]/g, '');
-                                            handleChange('rif', `${prefix}-${digits}`);
-                                        }}
-                                    >
-                                        <SelectTrigger className="w-[80px]">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {['J', 'V', 'G', 'E', 'P', 'N', 'C'].map(t => (
-                                                <SelectItem key={t} value={t}>{t}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <Input
-                                        id="rif"
-                                        value={(formData.rif || '').replace(/^[JVGEPNC][-\s]*/i, '')}
-                                        onChange={(e) => {
-                                            const digits = e.target.value.replace(/[^0-9]/g, '');
-                                            const match = (formData.rif || '').match(/^([JVGEPNC])/i);
-                                            const prefix = match ? match[1].toUpperCase() : 'J';
-                                            handleChange('rif', `${prefix}-${digits}`);
-                                        }}
-                                        placeholder="12345678"
-                                        className="flex-1"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Datos de Contacto Principal</Label>
+                    <TabsContent value="profile" className="space-y-5 py-4">
+                        {/* --- Información General --- */}
+                        <div className="space-y-4">
+                            <h4 className="font-medium text-sm text-muted-foreground">Información General</h4>
                             <div className="grid grid-cols-2 gap-4">
-                                <Input
-                                    placeholder="Nombre Contacto"
-                                    value={formData.contactName}
-                                    onChange={(e) => handleChange('contactName', e.target.value)}
-                                />
-                                <Input
-                                    placeholder="Teléfono"
-                                    value={formData.contactPhone}
-                                    onChange={(e) => handleChange('contactPhone', e.target.value)}
-                                />
-                                <Input
-                                    placeholder="Email"
-                                    className="col-span-2"
-                                    value={formData.contactEmail}
-                                    onChange={(e) => handleChange('contactEmail', e.target.value)}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Dirección</Label>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input
-                                    placeholder="Ciudad"
-                                    value={formData.address.city}
-                                    onChange={(e) => handleDeepChange('address', 'city', e.target.value)}
-                                />
-                                <Input
-                                    placeholder="Estado"
-                                    value={formData.address.state}
-                                    onChange={(e) => handleDeepChange('address', 'state', e.target.value)}
-                                />
-                                <Textarea
-                                    placeholder="Calle, Av, Local..."
-                                    className="col-span-2 h-20"
-                                    value={formData.address.street}
-                                    onChange={(e) => handleDeepChange('address', 'street', e.target.value)}
-                                />
-                            </div>
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="commercial" className="space-y-4 py-4">
-                        <div className="grid grid-cols-2 gap-8">
-                            <div className="space-y-4">
-                                <h4 className="font-medium text-sm text-muted-foreground mb-2">Crédito y Plazos</h4>
-                                <div className="flex items-center space-x-2 pt-2">
-                                    <Checkbox
-                                        id="acceptsCredit"
-                                        checked={formData.paymentSettings.acceptsCredit}
-                                        onCheckedChange={(checked) => handleDeepChange('paymentSettings', 'acceptsCredit', checked)}
-                                    />
-                                    <Label htmlFor="acceptsCredit">Acepta Crédito</Label>
-                                </div>
                                 <div className="space-y-2">
-                                    <Label>Días de Crédito (Default)</Label>
+                                    <Label htmlFor="name">Razón Social / Nombre</Label>
                                     <Input
-                                        type="number"
-                                        value={formData.paymentSettings.defaultCreditDays}
-                                        onChange={(e) => handleDeepChange('paymentSettings', 'defaultCreditDays', Number(e.target.value))}
+                                        id="name"
+                                        value={formData.name}
+                                        onChange={(e) => handleChange('name', e.target.value)}
+                                        placeholder="Ej: Distribuidora Norte C.A."
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Límite de Crédito</Label>
+                                    <Label htmlFor="rif">RIF / Tax ID</Label>
+                                    <div className="flex gap-2">
+                                        <Select
+                                            value={(() => {
+                                                const match = (formData.rif || '').match(/^([JVGEPNC])/i);
+                                                return match ? match[1].toUpperCase() : 'J';
+                                            })()}
+                                            onValueChange={(prefix) => {
+                                                const digits = (formData.rif || '').replace(/[^0-9]/g, '');
+                                                handleChange('rif', `${prefix}-${digits}`);
+                                            }}
+                                        >
+                                            <SelectTrigger className="w-[80px]">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {['J', 'V', 'G', 'E', 'P', 'N', 'C'].map(t => (
+                                                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <Input
+                                            id="rif"
+                                            value={(formData.rif || '').replace(/^[JVGEPNC][-\s]*/i, '')}
+                                            onChange={(e) => {
+                                                const digits = e.target.value.replace(/[^0-9]/g, '');
+                                                const match = (formData.rif || '').match(/^([JVGEPNC])/i);
+                                                const prefix = match ? match[1].toUpperCase() : 'J';
+                                                handleChange('rif', `${prefix}-${digits}`);
+                                            }}
+                                            placeholder="12345678"
+                                            className="flex-1"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Datos de Contacto Principal</Label>
+                                <div className="grid grid-cols-3 gap-4">
                                     <Input
-                                        type="number"
-                                        value={formData.paymentSettings.creditLimit}
-                                        onChange={(e) => handleDeepChange('paymentSettings', 'creditLimit', Number(e.target.value))}
+                                        placeholder="Nombre Contacto"
+                                        value={formData.contactName}
+                                        onChange={(e) => handleChange('contactName', e.target.value)}
+                                    />
+                                    <Input
+                                        placeholder="Teléfono"
+                                        value={formData.contactPhone}
+                                        onChange={(e) => handleChange('contactPhone', e.target.value)}
+                                    />
+                                    <Input
+                                        placeholder="Email"
+                                        value={formData.contactEmail}
+                                        onChange={(e) => handleChange('contactEmail', e.target.value)}
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <h4 className="font-medium text-sm text-muted-foreground mb-2">Métodos de Pago Aceptados</h4>
-                                <div className="grid grid-cols-1 gap-2">
-                                    {PAYMENT_METHODS.map((method) => (
-                                        <div key={method.id} className="flex items-center space-x-2">
-                                            <Checkbox
-                                                id={`method-${method.id}`}
-                                                checked={(formData.paymentSettings.acceptedPaymentMethods || []).includes(method.id)}
-                                                onCheckedChange={() => handlePaymentMethodToggle(method.id)}
+                            <div className="space-y-2">
+                                <Label>Dirección</Label>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <Input
+                                        placeholder="Ciudad"
+                                        value={formData.address.city}
+                                        onChange={(e) => handleDeepChange('address', 'city', e.target.value)}
+                                    />
+                                    <Input
+                                        placeholder="Estado"
+                                        value={formData.address.state}
+                                        onChange={(e) => handleDeepChange('address', 'state', e.target.value)}
+                                    />
+                                    <Input
+                                        placeholder="Calle, Av, Local..."
+                                        value={formData.address.street}
+                                        onChange={(e) => handleDeepChange('address', 'street', e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* --- Separador --- */}
+                        <div className="border-t" />
+
+                        {/* --- Condiciones Comerciales --- */}
+                        <div className="space-y-4">
+                            <h4 className="font-medium text-sm text-muted-foreground">Condiciones Comerciales</h4>
+                            <div className="grid grid-cols-2 gap-8">
+                                <div className="space-y-4">
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="acceptsCredit"
+                                            checked={formData.paymentSettings.acceptsCredit}
+                                            onCheckedChange={(checked) => handleDeepChange('paymentSettings', 'acceptsCredit', checked)}
+                                        />
+                                        <Label htmlFor="acceptsCredit">Acepta Crédito</Label>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Días de Crédito</Label>
+                                            <Input
+                                                type="number"
+                                                value={formData.paymentSettings.defaultCreditDays}
+                                                onChange={(e) => handleDeepChange('paymentSettings', 'defaultCreditDays', Number(e.target.value))}
                                             />
-                                            <Label htmlFor={`method-${method.id}`}>{method.label}</Label>
                                         </div>
-                                    ))}
+                                        <div className="space-y-2">
+                                            <Label>Límite de Crédito</Label>
+                                            <Input
+                                                type="number"
+                                                value={formData.paymentSettings.creditLimit}
+                                                onChange={(e) => handleDeepChange('paymentSettings', 'creditLimit', Number(e.target.value))}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className="text-sm">Métodos de Pago Aceptados</Label>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                        {PAYMENT_METHODS.map((method) => (
+                                            <div key={method.id} className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={`method-${method.id}`}
+                                                    checked={(formData.paymentSettings.acceptedPaymentMethods || []).includes(method.id)}
+                                                    onCheckedChange={() => handlePaymentMethodToggle(method.id)}
+                                                />
+                                                <Label htmlFor={`method-${method.id}`} className="text-sm font-normal">{method.label}</Label>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
