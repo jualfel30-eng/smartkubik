@@ -612,7 +612,7 @@ export default function OnboardingWizard() {
   const { tenant, updateTenantContext } = useAuth();
   const navigate = useNavigate();
 
-  const vConfig = getVerticalConfig(tenant?.vertical);
+  const vConfig = getVerticalConfig(tenant?.vertical, tenant?.verticalProfile?.key);
   const [step, setStep] = useState(() => tenant?.onboardingStep || 0);
   const [direction, setDirection] = useState(1);
   const [addedProducts, setAddedProducts] = useState([]);

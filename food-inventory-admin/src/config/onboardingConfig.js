@@ -130,6 +130,68 @@ export const VERTICAL_CONFIG = {
   },
 };
 
-export function getVerticalConfig(vertical) {
+/**
+ * Niche-specific configs that override the vertical defaults.
+ * Keyed by verticalProfile.key (not vertical).
+ */
+export const NICHE_CONFIG = {
+  'barbershop-salon': {
+    emoji: '\uD83D\uDC88',
+    label: 'Barbería / Peluquería / Salón',
+    productLabel: 'servicio',
+    productPlaceholder: 'Ej: Corte de caballero',
+    categoryPlaceholder: 'Ej: Cortes',
+    moduleTour: [
+      'appointments', 'booking', 'resources',
+      'tips', 'servicePackages', 'customers', 'cashRegister',
+    ],
+    moduleDescriptions: MODULE_DESC,
+  },
+  'mechanic-shop': {
+    emoji: '\uD83D\uDD27',
+    label: 'Taller Mecánico',
+    productLabel: 'servicio o repuesto',
+    productPlaceholder: 'Ej: Cambio de aceite motor',
+    categoryPlaceholder: 'Ej: Mantenimiento preventivo',
+    moduleTour: [
+      'appointments', 'orders', 'inventory',
+      'customers', 'servicePackages', 'cashRegister',
+    ],
+    moduleDescriptions: MODULE_DESC,
+  },
+  'auto-parts': {
+    emoji: '\uD83D\uDD29',
+    label: 'Tienda de Autopartes',
+    productLabel: 'repuesto o accesorio',
+    productPlaceholder: 'Ej: Pastillas de freno Toyota Hilux',
+    categoryPlaceholder: 'Ej: Frenos',
+    moduleTour: [
+      'inventory', 'orders', 'pos', 'variants',
+      'ecommerce', 'customers', 'cashRegister',
+    ],
+    moduleDescriptions: MODULE_DESC,
+  },
+  'clinic-spa': {
+    emoji: '\u2728',
+    label: 'Clínica / Spa / Centro Estético',
+    productLabel: 'servicio o tratamiento',
+    productPlaceholder: 'Ej: Limpieza facial profunda',
+    categoryPlaceholder: 'Ej: Tratamientos faciales',
+    moduleTour: [
+      'appointments', 'booking', 'resources',
+      'servicePackages', 'customers', 'cashRegister',
+    ],
+    moduleDescriptions: MODULE_DESC,
+  },
+};
+
+/**
+ * Returns the onboarding config for a given vertical.
+ * If a profileKey is provided and matches a niche config, it takes priority.
+ */
+export function getVerticalConfig(vertical, profileKey) {
+  if (profileKey && NICHE_CONFIG[profileKey]) {
+    return NICHE_CONFIG[profileKey];
+  }
   return VERTICAL_CONFIG[vertical] || VERTICAL_CONFIG.HYBRID;
 }
