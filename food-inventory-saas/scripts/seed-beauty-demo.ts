@@ -96,6 +96,7 @@ async function seedStorefrontConfig(connection: Connection, tenantId: string) {
 
   return await StorefrontConfig.create({
     tenantId,
+    domain: 'belleza-demo.smartkubik.com',
     name: 'Salón Belleza Premium',
     description:
       'Tu destino de belleza en Caracas. Especialistas en cortes modernos, color, tratamientos y más.',
@@ -104,6 +105,11 @@ async function seedStorefrontConfig(connection: Connection, tenantId: string) {
     theme: 'modern',
     primaryColor: '#D946EF', // Purple/magenta
     secondaryColor: '#F97316', // Orange
+    seo: {
+      title: 'Salón Belleza Premium - Tu destino de belleza en Caracas',
+      description: 'Especialistas en cortes modernos, color, tratamientos capilares y más. Reserva tu cita online.',
+      keywords: 'salon de belleza, peluqueria, caracas, venezuela, cortes, color, tratamientos',
+    },
     contactInfo: {
       email: 'contacto@bellezapremium.com',
       phone: '+584241234567',
