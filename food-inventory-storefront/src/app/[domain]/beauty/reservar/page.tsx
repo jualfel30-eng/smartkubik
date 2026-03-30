@@ -205,8 +205,8 @@ export default function BookingPage() {
     if (targetStep === 1) return true;
     if (targetStep === 2) return selectedServices.length > 0;
     if (targetStep === 3) return selectedServices.length > 0;
-    if (targetStep === 4) return selectedDate && selectedTime;
-    if (targetStep === 5) return clientName && clientPhone;
+    if (targetStep === 4) return !!(selectedDate && selectedTime);
+    if (targetStep === 5) return !!(clientName && clientPhone);
     return false;
   };
 
