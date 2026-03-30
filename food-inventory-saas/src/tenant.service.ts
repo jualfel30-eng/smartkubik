@@ -24,6 +24,7 @@ import {
   UpdateUserDto,
 } from "./dto/tenant.dto";
 import { verticalProfileKeys } from "./config/vertical-profiles";
+import { getVerticalProfileKey } from "./utils/vertical-profile-mapper.util";
 
 @Injectable()
 export class TenantService {
@@ -124,6 +125,25 @@ export class TenantService {
     if (updateDto.website) updatePayload["website"] = updateDto.website;
     if (updateDto.timezone) updatePayload["timezone"] = updateDto.timezone;
     if (updateDto.countryCode) updatePayload["countryCode"] = updateDto.countryCode;
+    if (updateDto.vertical) updatePayload["vertical"] = updateDto.vertical;
+    if (updateDto.businessType) updatePayload["businessType"] = updateDto.businessType;
+
+    // Auto-calcular verticalProfile.key si se actualiza vertical o businessType
+    if (updateDto.vertical || updateDto.businessType) {
+      const currentTenant = await this.tenantModel.findById(tenantId).lean();
+      if (!currentTenant) {
+        throw new NotFoundException("Tenant no encontrado");
+      }
+
+      const vertical = updateDto.vertical || currentTenant.vertical;
+      const businessType = updateDto.businessType || currentTenant.businessType;
+
+      const calculatedKey = getVerticalProfileKey(vertical, businessType);
+
+      this.logger.log(`[Auto-Calc] Tenant ${tenantId}: vertical=${vertical}, businessType=${businessType} → profileKey=${calculatedKey}`);
+
+      updatePayload["verticalProfile.key"] = calculatedKey;
+    }
 
     if (updateDto.contactInfo) {
       const contactInfo = updateDto.contactInfo;

@@ -682,6 +682,18 @@ export class UpdateTenantSettingsDto {
   @SanitizeString()
   countryCode?: string;
 
+  @ApiProperty({ example: "SERVICES", description: "Vertical del negocio (SERVICES, RETAIL, FOOD_SERVICE, etc.)" })
+  @IsString()
+  @IsOptional()
+  @SanitizeString()
+  vertical?: string;
+
+  @ApiProperty({ example: "Barbería / Peluquería", description: "Tipo específico de negocio" })
+  @IsString()
+  @IsOptional()
+  @SanitizeString()
+  businessType?: string;
+
   @ApiProperty({ type: OperationalSettingsDto })
   @IsOptional()
   @ValidateNested()

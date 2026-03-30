@@ -400,6 +400,7 @@ export class AuthService {
         autoReplyEnabled: false,
         knowledgeBaseTenantId: "",
       },
+      verticalProfile: tenant.verticalProfile || { key: 'food-service' },
     };
   }
 
