@@ -270,10 +270,20 @@ export class AppointmentsService {
   ): Promise<Appointment> {
     this.logger.log(`Creating appointment for tenant: ${tenantId}`);
 
-    // Validate customer
-    const customer = await this.customerModel
+    // Validate customer - support both String and ObjectId tenantId formats for backward compatibility
+    let customer = await this.customerModel
       .findOne({ _id: createAppointmentDto.customerId, tenantId })
       .exec();
+
+    // If not found with String tenantId, try with ObjectId conversion
+    if (!customer && Types.ObjectId.isValid(tenantId)) {
+      customer = await this.customerModel
+        .findOne({
+          _id: createAppointmentDto.customerId,
+          tenantId: new Types.ObjectId(tenantId)
+        })
+        .exec();
+    }
 
     if (!customer) {
       throw new NotFoundException("Cliente no encontrado");
