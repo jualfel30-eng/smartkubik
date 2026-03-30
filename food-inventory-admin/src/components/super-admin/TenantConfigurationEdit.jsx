@@ -59,6 +59,29 @@ const BUSINESS_VERTICALS = {
   }
 };
 
+const SERVICE_BUSINESS_TYPES = {
+  'Barbería / Peluquería': {
+    description: 'Cortes de cabello, peinados, barba, coloración',
+    profileKey: 'barbershop-salon'
+  },
+  'Spa / Centro Estético': {
+    description: 'Masajes, tratamientos faciales y corporales',
+    profileKey: 'clinic-spa'
+  },
+  'Clínica / Consultorio Médico': {
+    description: 'Consultas médicas, odontología, fisioterapia',
+    profileKey: 'clinic-spa'
+  },
+  'Taller Mecánico': {
+    description: 'Reparación y mantenimiento de vehículos',
+    profileKey: 'mechanic-shop'
+  },
+  'Hotel / Posada': {
+    description: 'Hospedaje, hotelería, gestión de habitaciones',
+    profileKey: 'hospitality'
+  },
+};
+
 const MODULE_GROUPS = {
   core: {
     title: 'Módulos Core',
@@ -201,6 +224,7 @@ export default function TenantConfigurationEdit() {
   const [presetDialogOpen, setPresetDialogOpen] = useState(false);
   const [selectedPresetRoles, setSelectedPresetRoles] = useState([]);
   const [businessVertical, setBusinessVertical] = useState('MIXED');
+  const [businessType, setBusinessType] = useState('');
   const [featureFlags, setFeatureFlags] = useState({});
 
   const loadTenantConfiguration = useCallback(async () => {
@@ -221,6 +245,7 @@ export default function TenantConfigurationEdit() {
       setEnabledModules(tenant.enabledModules || {});
       setFeatureFlags(tenant.featureFlags || {});
       setBusinessVertical(tenant.vertical || 'MIXED');
+      setBusinessType(tenant.businessType || '');
 
       // Initialize role permissions state
       const rolePerms = {};
@@ -240,6 +265,13 @@ export default function TenantConfigurationEdit() {
   useEffect(() => {
     loadTenantConfiguration();
   }, [tenantId, loadTenantConfiguration]);
+
+  // Clear businessType when changing away from SERVICES vertical
+  useEffect(() => {
+    if (businessVertical !== 'SERVICES' && businessType) {
+      setBusinessType('');
+    }
+  }, [businessVertical]);
 
   const handleModuleToggle = (moduleName) => {
     setEnabledModules(prev => ({
@@ -273,9 +305,10 @@ export default function TenantConfigurationEdit() {
     try {
       setSaving(true);
 
-      // Update business vertical
+      // Update business vertical and type
       await api.patch(`/super-admin/tenants/${tenantId}`, {
         vertical: businessVertical,
+        businessType: businessType || undefined, // Solo enviar si tiene valor
         featureFlags,
       });
 
@@ -492,6 +525,36 @@ export default function TenantConfigurationEdit() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Business Type Selector - Solo para SERVICES */}
+            {businessVertical === 'SERVICES' && (
+              <div className="space-y-2">
+                <Label htmlFor="business-type">Tipo Específico de Servicio</Label>
+                <Select value={businessType} onValueChange={setBusinessType}>
+                  <SelectTrigger id="business-type" className="w-full">
+                    <SelectValue placeholder="Seleccionar tipo de servicio" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(SERVICE_BUSINESS_TYPES).map(([key, info]) => (
+                      <SelectItem key={key} value={key}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{key}</span>
+                          <span className="text-xs text-muted-foreground">{info.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {businessType && SERVICE_BUSINESS_TYPES[businessType] && (
+                  <p className="text-xs text-muted-foreground">
+                    Este tipo de servicio corresponde al perfil:{' '}
+                    <span className="font-medium text-foreground">
+                      {SERVICE_BUSINESS_TYPES[businessType].profileKey}
+                    </span>
+                  </p>
+                )}
+              </div>
+            )}
 
             {businessVertical && BUSINESS_VERTICALS[businessVertical] && (
               <div className="rounded-lg bg-muted p-4 space-y-2">
