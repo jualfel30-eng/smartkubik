@@ -95,6 +95,7 @@ import { CrmProvider } from './context/CrmContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
 import { NotificationProvider, useNotification } from './context/NotificationContext.jsx';
 import { useFeatureFlags } from './hooks/use-feature-flags.jsx';
+import { getSidebarWhitelist } from './config/sidebarProfiles.js';
 import { CashRegisterProvider } from './contexts/CashRegisterContext.jsx';
 import { BusinessLocationProvider } from './context/BusinessLocationContext.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
@@ -447,10 +448,12 @@ function TenantLayout() {
     { name: 'Ingeniería de Menú', href: 'restaurant/menu-engineering', icon: Target, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Órdenes de Compra', href: 'restaurant/purchase-orders', icon: FileText, permission: 'restaurant_read', requiresModule: 'restaurant' },
 
-    // Módulos específicos de Hotel / Servicios
-    { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
-    { name: 'Plano Hotel', href: 'hospitality/floor-plan', icon: Building, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
-    { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
+    // Módulos específicos de Hotel (solo hospitality profile)
+    { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'], requiresProfileKey: 'hospitality' },
+    { name: 'Plano Hotel', href: 'hospitality/floor-plan', icon: Building, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'], requiresProfileKey: 'hospitality' },
+
+    // Módulos de Servicios (todos los perfiles SERVICES)
+    { name: 'Recursos', href: 'resources', icon: UserSquare, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'], dynamicLabel: true },
     { name: 'Servicios', href: 'services', icon: Briefcase, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
     {
       name: 'Citas',
@@ -458,9 +461,10 @@ function TenantLayout() {
       icon: Calendar,
       permission: 'appointments_read',
       requiresVertical: ['SERVICES', 'HOSPITALITY'],
+      dynamicLabel: true,
       children: [
         { name: 'Lista', href: 'appointments?tab=list', icon: List },
-        { name: 'Calendario hotel', href: 'appointments?tab=calendar', icon: Calendar },
+        { name: 'Calendario', href: 'appointments?tab=calendar', icon: Calendar },
       ]
     },
 
@@ -621,6 +625,11 @@ function TenantLayout() {
     const tipsLabels = useTipsLabels();
     const { isFeatureEnabled } = useFeatureFlags();
 
+    const sidebarWhitelist = useMemo(
+      () => getSidebarWhitelist(tenant?.verticalProfile?.key),
+      [tenant?.verticalProfile?.key]
+    );
+
     const currentBasePath = activeTab.split('?')[0];
 
     // Helper function to get display name for menu items
@@ -628,8 +637,25 @@ function TenantLayout() {
       if (item.dynamicLabel && item.name === 'tips') {
         return tipsLabels.plural; // "Propinas" or "Comisiones"
       }
-      if (item.name === 'Citas' && tenant?.vertical === 'HOSPITALITY') {
-        return 'Reservaciones';
+      const profileKey = tenant?.verticalProfile?.key;
+      // Dynamic labels for SERVICES items based on niche profile
+      if (item.dynamicLabel && item.name === 'Citas') {
+        const citasLabels = {
+          'barbershop-salon': 'Agenda',
+          'clinic-spa': 'Consultas',
+          'mechanic-shop': 'Citas de Servicio',
+          'hospitality': 'Reservaciones',
+        };
+        return citasLabels[profileKey] || item.name;
+      }
+      if (item.dynamicLabel && item.name === 'Recursos') {
+        const recursosLabels = {
+          'barbershop-salon': 'Estaciones',
+          'clinic-spa': 'Consultorios',
+          'mechanic-shop': 'Bahías / Equipos',
+          'hospitality': 'Habitaciones',
+        };
+        return recursosLabels[profileKey] || item.name;
       }
       return item.name;
     };
@@ -770,6 +796,9 @@ function TenantLayout() {
 
     // Función recursiva para renderizar items con múltiples niveles de anidación
     const renderMenuItem = (item, level = 0) => {
+      // Niche profile sidebar whitelist — only affects top-level items
+      if (level === 0 && sidebarWhitelist && !sidebarWhitelist.has(item.href)) return null;
+
       if (item.requiresModule) {
         if (item.requiresModule === 'restaurant' && !restaurantModuleEnabled) {
           return null;
@@ -783,6 +812,10 @@ function TenantLayout() {
       }
 
       if (item.requiresVertical && !item.requiresVertical.includes(tenant?.vertical)) {
+        return null;
+      }
+
+      if (item.requiresProfileKey && tenant?.verticalProfile?.key !== item.requiresProfileKey) {
         return null;
       }
 
