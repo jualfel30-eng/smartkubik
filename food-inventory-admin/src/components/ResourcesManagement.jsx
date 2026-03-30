@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { fetchApi } from '../lib/api';
 import { useModuleAccess } from '../hooks/useModuleAccess';
 import { useBusinessModel, getBusinessContextText } from '../hooks/useBusinessModel';
+import { useVerticalLabels } from '../hooks/use-vertical-labels';
 import ModuleAccessDenied from './ModuleAccessDenied';
 import {
   Plus,
@@ -92,6 +93,7 @@ const WEEKDAY_KEYS = DAYS.map((day) => day.key);
 function ResourcesManagement() {
   const hasAccess = useModuleAccess('appointments');
   const { isResourceCentric, isFlexible, businessType } = useBusinessModel();
+  const labels = useVerticalLabels();
   const [resources, setResources] = useState([]);
   const [filteredResources, setFilteredResources] = useState([]);
   const [services, setServices] = useState([]);
@@ -568,7 +570,7 @@ function ResourcesManagement() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Recursos</h1>
+          <h1 className="text-3xl font-bold">{labels.recurso.plural}</h1>
           <p className="text-gray-500">Gestiona personas, salas, equipos y vehículos</p>
         </div>
         <Button onClick={openCreateDialog}>
