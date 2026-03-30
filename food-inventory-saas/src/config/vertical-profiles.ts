@@ -12,8 +12,11 @@ export type VerticalKey =
   | "retail-footwear"
   | "retail-hardware"
   | "retail-tech"
-  | "retail-tech"
   | "retail-toys"
+  | "auto-parts"
+  | "mechanic-shop"
+  | "barbershop-salon"
+  | "clinic-spa"
   | "manufacturing"
   | "hospitality";
 
@@ -431,6 +434,250 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
       requireAttributesOnAdd: true,
       notesPlaceholder: "Notas de reserva (huespedes, peticiones especiales)",
       allowCustomPrice: true,
+    },
+  },
+
+  // ── Niche Profiles ─────────────────────────────────────────
+
+  "barbershop-salon": {
+    key: "barbershop-salon",
+    label: "Barbería / Peluquería / Salón de Belleza",
+    baseVertical: "SERVICES",
+    allowsWeight: false,
+    hasSizeMatrix: false,
+    requiresSerial: false,
+    supportsVariants: false,
+    defaultUnits: ["servicio", "sesión"],
+    attributeSchema: [
+      {
+        key: "duration",
+        label: "Duración (minutos)",
+        type: "number",
+        scope: "product",
+        required: true,
+        ui: { helperText: "Duración estimada del servicio" },
+      },
+      {
+        key: "serviceCategory",
+        label: "Tipo de servicio",
+        type: "enum",
+        options: [
+          "Corte",
+          "Barba",
+          "Coloración",
+          "Tratamiento",
+          "Alisado",
+          "Manicure/Pedicure",
+          "Maquillaje",
+          "Combo",
+        ],
+        scope: "product",
+      },
+      {
+        key: "requiredLevel",
+        label: "Nivel requerido",
+        type: "enum",
+        options: ["Junior", "Senior", "Master"],
+        scope: "product",
+      },
+    ],
+    inventory: {
+      supportsLots: false,
+      supportsAttributeMatrix: false,
+      requiresSerialTracking: false,
+      alerts: ["lowStock"],
+    },
+    orderLine: {
+      requireAttributesOnAdd: false,
+      allowCustomPrice: false,
+      notesPlaceholder: "Preferencias del cliente o instrucciones especiales",
+    },
+  },
+
+  "auto-parts": {
+    key: "auto-parts",
+    label: "Autopartes",
+    baseVertical: "RETAIL",
+    allowsWeight: false,
+    hasSizeMatrix: false,
+    requiresSerial: false,
+    supportsVariants: true,
+    defaultUnits: ["unidad", "juego", "par", "kit"],
+    attributeSchema: [
+      {
+        key: "brand",
+        label: "Marca",
+        type: "string",
+        scope: "product",
+        required: true,
+      },
+      {
+        key: "partNumber",
+        label: "Número de parte (OEM)",
+        type: "string",
+        scope: "product",
+        ui: { helperText: "Referencia del fabricante original" },
+      },
+      {
+        key: "compatibleVehicles",
+        label: "Vehículos compatibles",
+        type: "string",
+        scope: "product",
+        ui: {
+          widget: "textarea",
+          helperText: "Ej: Hilux 2015-2022, Corolla 2018-2024",
+        },
+      },
+      {
+        key: "condition",
+        label: "Condición",
+        type: "enum",
+        options: ["Nuevo", "Usado", "Remanufacturado"],
+        scope: "variant",
+      },
+      {
+        key: "origin",
+        label: "Origen",
+        type: "enum",
+        options: ["OEM (Original)", "Aftermarket (Genérico)", "Importado"],
+        scope: "product",
+      },
+    ],
+    inventory: {
+      supportsLots: false,
+      supportsAttributeMatrix: false,
+      requiresSerialTracking: false,
+      alerts: ["lowStock"],
+    },
+    orderLine: {
+      requireAttributesOnAdd: false,
+      allowCustomPrice: true,
+      notesPlaceholder: "Notas sobre compatibilidad o instalación",
+    },
+  },
+
+  "mechanic-shop": {
+    key: "mechanic-shop",
+    label: "Taller Mecánico",
+    baseVertical: "SERVICES",
+    allowsWeight: false,
+    hasSizeMatrix: false,
+    requiresSerial: false,
+    supportsVariants: false,
+    defaultUnits: ["servicio", "hora", "unidad"],
+    attributeSchema: [
+      {
+        key: "serviceType",
+        label: "Tipo de servicio",
+        type: "enum",
+        options: [
+          "Mantenimiento",
+          "Reparación",
+          "Diagnóstico",
+          "Instalación",
+          "Latonería/Pintura",
+        ],
+        scope: "product",
+      },
+      {
+        key: "estimatedTime",
+        label: "Tiempo estimado (horas)",
+        type: "number",
+        scope: "product",
+      },
+      {
+        key: "vehicleType",
+        label: "Tipo de vehículo",
+        type: "enum",
+        options: ["Sedán", "SUV/Camioneta", "Camión", "Moto", "Universal"],
+        scope: "product",
+      },
+      {
+        key: "vehiclePlate",
+        label: "Placa del vehículo",
+        type: "string",
+        scope: "order",
+        ui: { helperText: "Ej: AB123CD" },
+      },
+      {
+        key: "vehicleInfo",
+        label: "Vehículo (Marca/Modelo/Año)",
+        type: "string",
+        scope: "order",
+        ui: { helperText: "Ej: Toyota Hilux 2020" },
+      },
+    ],
+    inventory: {
+      supportsLots: false,
+      supportsAttributeMatrix: false,
+      requiresSerialTracking: false,
+      alerts: ["lowStock"],
+    },
+    orderLine: {
+      requireAttributesOnAdd: false,
+      allowCustomPrice: true,
+      notesPlaceholder: "Diagnóstico, observaciones o repuestos necesarios",
+    },
+  },
+
+  "clinic-spa": {
+    key: "clinic-spa",
+    label: "Clínica / Spa / Centro Estético",
+    baseVertical: "SERVICES",
+    allowsWeight: false,
+    hasSizeMatrix: false,
+    requiresSerial: false,
+    supportsVariants: false,
+    defaultUnits: ["sesión", "consulta", "tratamiento"],
+    attributeSchema: [
+      {
+        key: "duration",
+        label: "Duración (minutos)",
+        type: "number",
+        scope: "product",
+        required: true,
+        ui: { helperText: "Duración estimada de la sesión" },
+      },
+      {
+        key: "specialty",
+        label: "Especialidad",
+        type: "enum",
+        options: [
+          "Estética facial",
+          "Corporal",
+          "Depilación",
+          "Masajes",
+          "Medicina estética",
+          "Odontología",
+          "Fisioterapia",
+        ],
+        scope: "product",
+      },
+      {
+        key: "requiresConsent",
+        label: "Requiere consentimiento informado",
+        type: "boolean",
+        scope: "product",
+      },
+      {
+        key: "contraindications",
+        label: "Contraindicaciones",
+        type: "string",
+        scope: "product",
+        ui: { widget: "textarea", helperText: "Embarazo, alergias, etc." },
+      },
+    ],
+    inventory: {
+      supportsLots: true,
+      supportsAttributeMatrix: false,
+      requiresSerialTracking: false,
+      alerts: ["lowStock", "nearExpiration"],
+    },
+    orderLine: {
+      requireAttributesOnAdd: false,
+      allowCustomPrice: true,
+      notesPlaceholder:
+        "Notas clínicas, zona de tratamiento o indicaciones especiales",
     },
   },
 };
