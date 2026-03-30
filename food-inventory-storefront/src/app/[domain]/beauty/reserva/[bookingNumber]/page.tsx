@@ -308,7 +308,7 @@ Código de reserva: *${booking.bookingNumber}*`;
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <h3 className="font-bold text-blue-900 mb-2">📧 Confirmation Sent</h3>
           <p className="text-sm text-blue-800">
-            We've sent a confirmation message to {booking.client.phone}. Please arrive 5-10 minutes before your appointment time.
+            We&apos;ve sent a confirmation message to {booking.client.phone}. Please arrive 5-10 minutes before your appointment time.
           </p>
         </div>
 
