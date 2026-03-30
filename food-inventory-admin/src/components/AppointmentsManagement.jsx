@@ -14,8 +14,10 @@ import { SearchableSelect } from '@/components/orders/v2/custom/SearchableSelect
 import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
 import { useModuleAccess } from '../hooks/useModuleAccess';
+import { useVerticalLabels } from '../hooks/use-vertical-labels';
+import { useAuth } from '@/hooks/use-auth';
 import ModuleAccessDenied from './ModuleAccessDenied';
-import { HotelCalendar } from './hospitality/HotelCalendar.jsx';
+import { AppointmentsCalendar } from './appointments/AppointmentsCalendar.jsx';
 import { AppointmentsPaymentDialog } from './hospitality/AppointmentsPaymentDialog.jsx';
 import {
   Plus,
@@ -30,6 +32,8 @@ import {
   PlayCircle,
   Receipt,
   Loader2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 const UNASSIGNED_RESOURCE = '__UNASSIGNED__';
@@ -201,6 +205,9 @@ function AppointmentsManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const hasAccess = useModuleAccess('appointments');
   const hasBankAccess = useModuleAccess('bankAccounts');
+  const labels = useVerticalLabels();
+  const { tenant } = useAuth();
+  const profileKey = tenant?.verticalProfile?.key || 'hospitality';
   const [appointments, setAppointments] = useState([]);
   const [services, setServices] = useState([]);
   const [resources, setResources] = useState([]);
@@ -227,6 +234,7 @@ function AppointmentsManagement() {
   const [customerProfile, setCustomerProfile] = useState({ ...initialCustomerProfile });
   const [selectedCustomerRecord, setSelectedCustomerRecord] = useState(null);
   const [customerDetailLoading, setCustomerDetailLoading] = useState(false);
+  const [pendingNewCustomerName, setPendingNewCustomerName] = useState(null); // Cliente pendiente de crear
   const normalizeCustomerRecord = useCallback((record) => {
     if (!record) {
       return null;
@@ -514,6 +522,7 @@ function AppointmentsManagement() {
   const [depositActionSubmitting, setDepositActionSubmitting] = useState(false);
   const [receiptLoadingId, setReceiptLoadingId] = useState(null);
   const [auditTrail, setAuditTrail] = useState([]);
+  const [isAuditTrailExpanded, setIsAuditTrailExpanded] = useState(false);
   const [customerNameInput, setCustomerNameInput] = useState('');
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [paymentDialogAppointment, setPaymentDialogAppointment] = useState(null);
@@ -530,6 +539,86 @@ function AppointmentsManagement() {
     }
     return [];
   };
+
+  const loadAppointments = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (dateFrom) params.append('startDate', dateFrom);
+      if (dateTo) params.append('endDate', dateTo);
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+
+      const data = await fetchApi(`/appointments?${params}`);
+      setAppointments(normalizeListResponse(data));
+    } catch (error) {
+      console.error('Error loading appointments:', error);
+      alert('Error al cargar las citas');
+    } finally {
+      setLoading(false);
+    }
+  }, [dateFrom, dateTo, statusFilter]);
+
+  const loadServices = useCallback(async () => {
+    try {
+      const data = await fetchApi('/services/active');
+      const items = normalizeListResponse(data)
+        .map((item) => {
+          const normalizedId =
+            normalizeId(item._id) ||
+            normalizeId(item.id) ||
+            normalizeId(item.serviceId);
+
+          if (!normalizedId || normalizedId === 'undefined') {
+            return null;
+          }
+
+          return {
+            ...item,
+            _id: normalizedId,
+          };
+        })
+        .filter(Boolean);
+      setServices(items);
+    } catch (error) {
+      console.error('Error loading services:', error);
+      setServices([]);
+    }
+  }, []);
+
+  const loadResources = useCallback(async () => {
+    try {
+      const data = await fetchApi('/resources/active');
+      const items = normalizeListResponse(data)
+        .map((item) => {
+          const normalizedId = normalizeId(item._id) || normalizeId(item.id);
+          if (!normalizedId) {
+            return null;
+          }
+          return {
+            ...item,
+            _id: normalizedId,
+          };
+        })
+        .filter(Boolean);
+      setResources(items);
+    } catch (error) {
+      console.error('Error loading resources:', error);
+      setResources([]);
+    }
+  }, []);
+
+  const loadCustomers = useCallback(async () => {
+    try {
+      const data = await fetchApi('/customers');
+      const items = normalizeListResponse(data)
+        .map((customer) => normalizeCustomerRecord(customer))
+        .filter(Boolean);
+      setCustomers(items);
+    } catch (error) {
+      console.error('Error loading customers:', error);
+      setCustomers([]);
+    }
+  }, [normalizeCustomerRecord]);
 
   useEffect(() => {
     if (!hasAccess) {
@@ -611,86 +700,6 @@ function AppointmentsManagement() {
       };
     });
   }, [hasAccess, formData.customerName]);
-
-  const loadAppointments = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (dateFrom) params.append('startDate', dateFrom);
-      if (dateTo) params.append('endDate', dateTo);
-      if (statusFilter !== 'all') params.append('status', statusFilter);
-
-      const data = await fetchApi(`/appointments?${params}`);
-      setAppointments(normalizeListResponse(data));
-    } catch (error) {
-      console.error('Error loading appointments:', error);
-      alert('Error al cargar las citas');
-    } finally {
-      setLoading(false);
-    }
-  }, [dateFrom, dateTo, statusFilter]);
-
-  const loadServices = useCallback(async () => {
-    try {
-      const data = await fetchApi('/services/active');
-      const items = normalizeListResponse(data)
-        .map((item) => {
-          const normalizedId =
-            normalizeId(item._id) ||
-            normalizeId(item.id) ||
-            normalizeId(item.serviceId);
-
-          if (!normalizedId || normalizedId === 'undefined') {
-            return null;
-          }
-
-          return {
-            ...item,
-            _id: normalizedId,
-          };
-        })
-        .filter(Boolean);
-      setServices(items);
-    } catch (error) {
-      console.error('Error loading services:', error);
-      setServices([]);
-    }
-  }, []);
-
-  const loadResources = useCallback(async () => {
-    try {
-      const data = await fetchApi('/resources/active');
-      const items = normalizeListResponse(data)
-        .map((item) => {
-          const normalizedId = normalizeId(item._id) || normalizeId(item.id);
-          if (!normalizedId) {
-            return null;
-          }
-          return {
-            ...item,
-            _id: normalizedId,
-          };
-        })
-        .filter(Boolean);
-      setResources(items);
-    } catch (error) {
-      console.error('Error loading resources:', error);
-      setResources([]);
-    }
-  }, []);
-
-  const loadCustomers = useCallback(async () => {
-    try {
-      const data = await fetchApi('/customers');
-      const items = normalizeListResponse(data)
-        .map((customer) => normalizeCustomerRecord(customer))
-        .filter(Boolean);
-      setCustomers(items);
-    } catch (error) {
-      console.error('Error loading customers:', error);
-      setCustomers([]);
-    }
-  }, [normalizeCustomerRecord]);
 
   const customerOptions = useMemo(
     () =>
@@ -818,27 +827,22 @@ function AppointmentsManagement() {
         setSelectedCustomerRecord(null);
         setCustomerProfile({ ...initialCustomerProfile });
         setCustomerNameInput('');
+        setPendingNewCustomerName(null);
         return;
       }
 
       if (option.__isNew__) {
-        try {
-          const created = await createInlineCustomer(option.value || option.label);
-          if (created?._id) {
-            setFormData((prev) => ({
-              ...prev,
-              customerId: created._id,
-              customerName: created.name || option.label,
-            }));
-            setSelectedCustomerRecord(created);
-            setCustomerProfile(deriveProfileFromCustomer(created));
-          }
-          setCustomerNameInput('');
-          toast.success('Cliente creado correctamente.');
-        } catch (error) {
-          console.error('Error creating customer:', error);
-          toast.error(error?.message || 'No pudimos crear el cliente.');
-        }
+        // NO crear el cliente inmediatamente - esperar a que se llenen todos los campos
+        const newCustomerName = option.value || option.label;
+        setPendingNewCustomerName(newCustomerName);
+        setFormData((prev) => ({
+          ...prev,
+          customerId: '', // Vacío hasta que se cree
+          customerName: newCustomerName,
+        }));
+        setSelectedCustomerRecord(null);
+        setCustomerNameInput('');
+        // Mantener el customerProfile actual para que el usuario pueda llenar taxId, etc.
         return;
       }
 
@@ -1365,6 +1369,14 @@ function AppointmentsManagement() {
     }
   };
 
+  const handleDialogChange = (open) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      // Al cerrar, resetear cliente pendiente
+      setPendingNewCustomerName(null);
+    }
+  };
+
   const openCreateDialog = (preselectedDate = null) => {
     setEditingAppointment(null);
 
@@ -1392,6 +1404,7 @@ function AppointmentsManagement() {
     setFormData(newFormData);
     setCustomerProfile({ ...initialCustomerProfile });
     setSelectedCustomerRecord(null);
+    setPendingNewCustomerName(null); // Reset cliente pendiente
     setDepositRecords([]);
     setDepositForm({ ...initialDepositFormState });
     setDepositPreview('');
@@ -1564,10 +1577,72 @@ function AppointmentsManagement() {
     });
   };
 
+  // Helper para formatear cambios del audit trail de forma legible
+  const formatChangeValue = (key, value) => {
+    if (!value && value !== 0 && value !== false) return '-';
+
+    // Formatear fechas/horas
+    if (key.includes('Time') || key.includes('Date')) {
+      try {
+        return new Date(value).toLocaleString('es-VE', {
+          dateStyle: 'short',
+          timeStyle: 'short'
+        });
+      } catch {
+        return value;
+      }
+    }
+
+    // Formatear estados
+    const statusLabels = {
+      pending: 'Pendiente',
+      confirmed: 'Confirmada',
+      in_progress: 'En progreso',
+      completed: 'Completada',
+      cancelled: 'Cancelada',
+      no_show: 'No asistió'
+    };
+
+    if (key === 'status' && statusLabels[value]) {
+      return statusLabels[value];
+    }
+
+    // Otros campos
+    return String(value);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.customerId) {
+    // Si hay un cliente pendiente de crear, crearlo primero
+    let actualCustomerId = formData.customerId;
+
+    if (pendingNewCustomerName && !formData.customerId) {
+      try {
+        const createdCustomer = await createInlineCustomer(pendingNewCustomerName);
+
+        if (!createdCustomer?._id) {
+          toast.error('No se pudo crear el cliente. Verifica todos los campos obligatorios.');
+          return;
+        }
+
+        actualCustomerId = createdCustomer._id;
+
+        // Actualizar el formData con el nuevo customerId
+        setFormData((prev) => ({ ...prev, customerId: actualCustomerId }));
+        setPendingNewCustomerName(null);
+        toast.success('Cliente creado correctamente.');
+
+        // Pequeño delay para asegurar que el backend haya persistido el cliente
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error('Error creating pending customer:', error);
+        toast.error(error?.message || 'Error al crear el cliente. Verifica que hayas llenado todos los campos obligatorios (nombre, cédula/RIF).');
+        return;
+      }
+    }
+
+    if (!actualCustomerId) {
       toast.error('Selecciona o crea un cliente antes de guardar la cita.');
       return;
     }
@@ -1594,6 +1669,7 @@ function AppointmentsManagement() {
       const { customerName: _customerName, ...formPayload } = formData;
       const payload = {
         ...formPayload,
+        customerId: actualCustomerId, // Usar el customerId actualizado (recién creado o existente)
         startTime: new Date(formData.startTime).toISOString(),
         endTime: new Date(formData.endTime).toISOString(),
         resourceId:
@@ -1695,16 +1771,16 @@ function AppointmentsManagement() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Agenda de Citas</h1>
-          <p className="text-gray-500">Gestiona las reservas del hotel y spa</p>
+          <p className="text-gray-500">{labels.appointmentsDescription}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={openBlockDialog}>
             <Plus className="h-4 w-4 mr-2" />
-            Bloque habitación
+            Bloque {labels.recurso.singularLower}
           </Button>
           <Button variant="outline" onClick={openGroupDialog}>
             <Plus className="h-4 w-4 mr-2" />
-            Bloque grupal
+            {labels.blockGroupTitle}
           </Button>
           <Button onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
@@ -1778,9 +1854,9 @@ function AppointmentsManagement() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Fecha/Hora</TableHead>
-                    <TableHead>Cliente</TableHead>
+                    <TableHead>{labels.cliente.singular}</TableHead>
                     <TableHead>Servicio</TableHead>
-                    <TableHead>Recurso</TableHead>
+                    <TableHead>{labels.recurso.singular}</TableHead>
                     <TableHead>Estado</TableHead>
                     <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
@@ -1880,19 +1956,19 @@ function AppointmentsManagement() {
         </TabsContent>
 
         <TabsContent value="calendar">
-          <HotelCalendar onCreateAppointment={openCreateDialog} />
+          <AppointmentsCalendar onCreateAppointment={openCreateDialog} />
         </TabsContent>
       </Tabs>
 
       {/* Create/Edit Sheet */}
-      <Sheet open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Sheet open={isDialogOpen} onOpenChange={handleDialogChange}>
         <SheetContent className="w-full sm:max-w-3xl overflow-y-auto dark:bg-gray-900 dark:border-gray-800">
           <SheetHeader>
             <SheetTitle className="dark:text-gray-100">
               {editingAppointment ? 'Editar Cita' : 'Nueva Cita'}
             </SheetTitle>
             <SheetDescription className="dark:text-gray-400">
-              Completa la información de la cita y asigna un recurso opcional antes de guardar.
+              Completa la información de la cita y asigna un {labels.recurso.singularLower} opcional antes de guardar.
             </SheetDescription>
           </SheetHeader>
 
@@ -2085,10 +2161,11 @@ function AppointmentsManagement() {
               </div>
             </div>
 
-            {editingAppointment && (
-              <div className="space-y-4 border rounded-lg border-gray-200 p-4">
+            {/* Sección de depósitos - Solo para hospitality */}
+            {editingAppointment && profileKey === 'hospitality' && (
+              <div className="space-y-4 border rounded-lg border-gray-200 dark:border-gray-700 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-gray-700">Depósitos registrados</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Depósitos registrados</h3>
                   <div className="flex items-center gap-2 text-xs text-gray-500">
                     <span>
                       Estado de pago: {editingAppointment.paymentStatus || 'pending'} · Total confirmado $
@@ -2301,111 +2378,128 @@ function AppointmentsManagement() {
                     </Select>
                   </div>
 
-                  {hasBankAccess && (
-                    <div className="md:col-span-3">
-                      <Label>Cuenta bancaria destino</Label>
-                      <Select
-                        value={depositForm.bankAccountId}
-                        onValueChange={(value) =>
-                          setDepositForm((prev) => ({
-                            ...prev,
-                            bankAccountId: value || UNASSIGNED_BANK_ACCOUNT,
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona cuenta" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={UNASSIGNED_BANK_ACCOUNT}>Sin asignar</SelectItem>
-                          {bankAccounts.map((account) => (
-                            <SelectItem key={account._id} value={account._id}>
-                              {getBankAccountLabel(account._id)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  {/* Campos solo para transferencias digitales (transferencia, pago móvil, zelle) */}
+                  {depositForm.method && ['transferencia', 'pago_movil', 'zelle'].includes(depositForm.method) && (
+                    <>
+                      {hasBankAccess && (
+                        <div className="md:col-span-3">
+                          <Label>Cuenta bancaria destino</Label>
+                          <Select
+                            value={depositForm.bankAccountId}
+                            onValueChange={(value) =>
+                              setDepositForm((prev) => ({
+                                ...prev,
+                                bankAccountId: value || UNASSIGNED_BANK_ACCOUNT,
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona cuenta" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value={UNASSIGNED_BANK_ACCOUNT}>Sin asignar</SelectItem>
+                              {bankAccounts.map((account) => (
+                                <SelectItem key={account._id} value={account._id}>
+                                  {getBankAccountLabel(account._id)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      <div className="md:col-span-3">
+                        <Label>Referencia</Label>
+                        <Input
+                          value={depositForm.reference}
+                          onChange={(e) => setDepositForm((prev) => ({ ...prev, reference: e.target.value }))}
+                          placeholder="Número de referencia"
+                        />
+                      </div>
+
+                      <div>
+                        <Label>Monto USD</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={depositForm.amountUsd}
+                          onChange={(e) => setDepositForm((prev) => ({ ...prev, amountUsd: e.target.value }))}
+                          placeholder="Opcional"
+                        />
+                      </div>
+                      <div>
+                        <Label>Monto VES</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={depositForm.amountVes}
+                          onChange={(e) => setDepositForm((prev) => ({ ...prev, amountVes: e.target.value }))}
+                          placeholder="Opcional"
+                        />
+                      </div>
+                      <div>
+                        <Label>Tasa</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.0001"
+                          value={depositForm.exchangeRate}
+                          onChange={(e) => setDepositForm((prev) => ({ ...prev, exchangeRate: e.target.value }))}
+                          placeholder="Opcional"
+                        />
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <Label>Adjuntar comprobante</Label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            onChange={handleDepositFileChange}
+                            ref={depositFileInputRef}
+                          />
+                          {depositPreview && (
+                            <Button type="button" size="sm" variant="ghost" onClick={clearDepositFile}>
+                              Quitar
+                            </Button>
+                          )}
+                        </div>
+                        {depositPreview && (
+                          <a
+                            href={depositPreview}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-primary underline"
+                          >
+                            Ver archivo adjunto
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="md:col-span-3">
+                        <Label>URL comprobante</Label>
+                        <Input
+                          value={depositForm.proofUrl}
+                          onChange={(e) => setDepositForm((prev) => ({ ...prev, proofUrl: e.target.value }))}
+                          placeholder="https://..."
+                        />
+                      </div>
+                    </>
                   )}
 
-                  <div className="md:col-span-3">
-                    <Label>Referencia</Label>
-                    <Input
-                      value={depositForm.reference}
-                      onChange={(e) => setDepositForm((prev) => ({ ...prev, reference: e.target.value }))}
-                      placeholder="Banco, número, etc."
-                    />
-                  </div>
-
-                  <div>
-                    <Label>Monto USD</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={depositForm.amountUsd}
-                      onChange={(e) => setDepositForm((prev) => ({ ...prev, amountUsd: e.target.value }))}
-                      placeholder="Opcional"
-                    />
-                  </div>
-                  <div>
-                    <Label>Monto VES</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={depositForm.amountVes}
-                      onChange={(e) => setDepositForm((prev) => ({ ...prev, amountVes: e.target.value }))}
-                      placeholder="Opcional"
-                    />
-                  </div>
-                  <div>
-                    <Label>Tasa</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.0001"
-                      value={depositForm.exchangeRate}
-                      onChange={(e) => setDepositForm((prev) => ({ ...prev, exchangeRate: e.target.value }))}
-                      placeholder="Opcional"
-                    />
-                  </div>
-
-                  <div className="md:col-span-3">
-                    <Label>Adjuntar comprobante</Label>
-                    <div className="flex flex-wrap items-center gap-2">
+                  {/* Campo de referencia opcional solo para POS (últimos 4 dígitos del voucher) */}
+                  {depositForm.method === 'pos' && (
+                    <div className="md:col-span-3">
+                      <Label>Referencia (opcional)</Label>
                       <Input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        onChange={handleDepositFileChange}
-                        ref={depositFileInputRef}
+                        value={depositForm.reference}
+                        onChange={(e) => setDepositForm((prev) => ({ ...prev, reference: e.target.value }))}
+                        placeholder="Últimos 4 dígitos del voucher (opcional)"
                       />
-                      {depositPreview && (
-                        <Button type="button" size="sm" variant="ghost" onClick={clearDepositFile}>
-                          Quitar
-                        </Button>
-                      )}
                     </div>
-                    {depositPreview && (
-                      <a
-                        href={depositPreview}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs text-primary underline"
-                      >
-                        Ver archivo adjunto
-                      </a>
-                    )}
-                  </div>
-
-                  <div className="md:col-span-3">
-                    <Label>URL comprobante</Label>
-                    <Input
-                      value={depositForm.proofUrl}
-                      onChange={(e) => setDepositForm((prev) => ({ ...prev, proofUrl: e.target.value }))}
-                      placeholder="https://..."
-                    />
-                  </div>
+                  )}
 
                   <div className="md:col-span-3">
                     <Label>Notas</Label>
@@ -2430,41 +2524,137 @@ function AppointmentsManagement() {
               </div>
             )}
 
-            {editingAppointment && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-gray-700">Historial de cambios</h3>
-                <div className="border border-gray-200 rounded-md max-h-48 overflow-y-auto bg-muted/40 divide-y divide-gray-200">
-                  {auditTrail.length === 0 ? (
-                    <p className="p-3 text-xs text-gray-500">No hay eventos registrados aún.</p>
+            {/* Sección de cobro rápido - Para barbería, clínica, mecánico */}
+            {editingAppointment && profileKey !== 'hospitality' && (
+              <div className="space-y-4 border rounded-lg border-gray-200 dark:border-gray-700 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Cobro del servicio</h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Estado de pago: {editingAppointment.paymentStatus === 'paid' ? 'Pagado' : 'Pendiente'}
+                      {editingAppointment.paidAmount > 0 && ` · Cobrado: $${editingAppointment.paidAmount}`}
+                    </p>
+                  </div>
+                  {editingAppointment.paymentStatus !== 'paid' && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleOpenPaymentDialog(editingAppointment)}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Receipt className="h-4 w-4 mr-2" />
+                      Procesar cobro
+                    </Button>
+                  )}
+                </div>
+
+                {/* Mostrar pagos registrados si existen */}
+                {depositRecords.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Pagos registrados:</p>
+                    {depositRecords.map((deposit) => {
+                      const statusInfo = DEPOSIT_STATUS_DETAILS[deposit.status] || DEPOSIT_STATUS_DETAILS.requested;
+                      return (
+                        <div
+                          key={deposit._id}
+                          className="border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-sm flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="font-semibold text-gray-700 dark:text-gray-300">
+                              {formatCurrency(deposit.amount, deposit.currency || 'VES')}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {deposit.method || 'N/A'}
+                            </span>
+                            {deposit.reference && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                Ref: {deposit.reference}
+                              </span>
+                            )}
+                          </div>
+                          <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {editingAppointment.paymentStatus === 'paid' && (
+                  <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Servicio cobrado completamente</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {editingAppointment && auditTrail.length > 0 && (
+              <div className="space-y-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => setIsAuditTrailExpanded(!isAuditTrailExpanded)}
+                  className="flex items-center justify-between w-full text-sm font-semibold text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors"
+                >
+                  <span>Historial de cambios ({auditTrail.length})</span>
+                  {isAuditTrailExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
                   ) : (
-                    auditTrail.map((event) => (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </button>
+
+                {isAuditTrailExpanded && (
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-md max-h-48 overflow-y-auto bg-muted/40 dark:bg-gray-800/40 divide-y divide-gray-200 dark:divide-gray-700">
+                    {auditTrail.map((event) => (
                       <div
                         key={event._id || event.createdAt}
-                        className="p-3 text-xs text-gray-600 flex flex-col gap-1"
+                        className="p-3 text-xs text-gray-600 dark:text-gray-400 space-y-2"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-gray-700">{event.action}</span>
-                          <span className="text-[11px] text-gray-400">
+                          <span className="font-medium text-gray-700 dark:text-gray-300">{event.action}</span>
+                          <span className="text-[11px] text-gray-400 dark:text-gray-500">
                             {event.createdAt
                               ? new Date(event.createdAt).toLocaleString('es-VE')
                               : ''}
                           </span>
                         </div>
+
                         {event.performedBy && (
-                          <span className="text-[11px] text-gray-500">Por: {event.performedBy}</span>
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">Por: {event.performedBy}</span>
                         )}
-                        {event.source && (
-                          <span className="text-[11px] text-gray-500">Origen: {event.source}</span>
-                        )}
+
                         {event.changes && Object.keys(event.changes).length > 0 && (
-                          <pre className="bg-white border border-gray-200 rounded p-2 text-[11px] whitespace-pre-wrap">
-                            {JSON.stringify(event.changes, null, 2)}
-                          </pre>
+                          <div className="space-y-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded p-2">
+                            {Object.entries(event.changes).map(([key, change]) => {
+                              const fieldLabels = {
+                                status: 'Estado',
+                                startTime: 'Inicio',
+                                endTime: 'Fin',
+                                resourceId: 'Recurso',
+                                serviceId: 'Servicio',
+                                notes: 'Notas',
+                                customerId: 'Cliente'
+                              };
+
+                              const label = fieldLabels[key] || key;
+                              const oldValue = formatChangeValue(key, change.from);
+                              const newValue = formatChangeValue(key, change.to);
+
+                              return (
+                                <div key={key} className="text-[11px]">
+                                  <span className="font-medium text-gray-700 dark:text-gray-300">{label}:</span>{' '}
+                                  <span className="text-red-600 dark:text-red-400 line-through">{oldValue}</span>
+                                  {' → '}
+                                  <span className="text-green-600 dark:text-green-400">{newValue}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
-                    ))
-                  )}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -2484,27 +2674,27 @@ function AppointmentsManagement() {
       <Sheet open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
         <SheetContent className="w-full sm:max-w-2xl overflow-y-auto dark:bg-gray-900 dark:border-gray-800">
           <SheetHeader>
-            <SheetTitle className="dark:text-gray-100">Bloqueo de habitación / recurso</SheetTitle>
+            <SheetTitle className="dark:text-gray-100">{labels.blockTitle}</SheetTitle>
             <SheetDescription className="dark:text-gray-400">
-              Registra un bloqueo temporal por mantenimiento o limpieza profunda. El recurso no estará disponible durante el intervalo indicado.
+              {labels.blockDescription} El {labels.recurso.singularLower} no estará disponible durante el intervalo indicado.
             </SheetDescription>
           </SheetHeader>
 
           <form className="space-y-4 mt-12 px-12" onSubmit={handleBlockSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label>Recurso *</Label>
+                <Label>{labels.recurso.singular} *</Label>
                 <Select
                   value={blockForm.resourceId}
                   onValueChange={(value) => setBlockForm((prev) => ({ ...prev, resourceId: value }))}
                   required
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona recurso" />
+                    <SelectValue placeholder={labels.selectResource} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={UNASSIGNED_RESOURCE} disabled>
-                      Selecciona recurso
+                      {labels.selectResource}
                     </SelectItem>
                     {(Array.isArray(resources) ? resources : []).map((resource) => (
                       <SelectItem key={resource._id} value={resource._id}>
