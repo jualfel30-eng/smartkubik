@@ -13,6 +13,10 @@ export type VerticalProfileKey =
   | "retail-hardware"
   | "retail-tech"
   | "retail-toys"
+  | "auto-parts"
+  | "mechanic-shop"
+  | "barbershop-salon"
+  | "clinic-spa"
   | "manufacturing"
   | "hospitality";
 
@@ -28,6 +32,46 @@ export function getVerticalProfileKey(
 
   // SERVICES vertical
   if (verticalUpper === "SERVICES") {
+    // Barbería / Peluquería / Salón de Belleza
+    if (
+      businessTypeLower.includes("barber") ||
+      businessTypeLower.includes("peluquer") ||
+      businessTypeLower.includes("salón de belleza") ||
+      businessTypeLower.includes("salon de belleza") ||
+      businessTypeLower.includes("estilis") ||
+      businessTypeLower.includes("hair")
+    ) {
+      return "barbershop-salon";
+    }
+
+    // Taller Mecánico
+    if (
+      businessTypeLower.includes("taller") ||
+      businessTypeLower.includes("mecánic") ||
+      businessTypeLower.includes("mecanico") ||
+      businessTypeLower.includes("automotriz") ||
+      businessTypeLower.includes("reparaci")
+    ) {
+      return "mechanic-shop";
+    }
+
+    // Clínica / Spa / Centro Estético
+    if (
+      businessTypeLower.includes("clínica") ||
+      businessTypeLower.includes("clinica") ||
+      businessTypeLower.includes("spa") ||
+      businessTypeLower.includes("estétic") ||
+      businessTypeLower.includes("estetica") ||
+      businessTypeLower.includes("fisioterapi") ||
+      businessTypeLower.includes("odontolog") ||
+      businessTypeLower.includes("médic") ||
+      businessTypeLower.includes("medico") ||
+      businessTypeLower.includes("consultorio")
+    ) {
+      return "clinic-spa";
+    }
+
+    // Hotelería
     if (
       businessTypeLower.includes("hotel") ||
       businessTypeLower.includes("hotelería") ||
@@ -35,7 +79,8 @@ export function getVerticalProfileKey(
     ) {
       return "hospitality";
     }
-    // Por defecto, servicios usa hospitality
+
+    // Por defecto, servicios usa hospitality (backward compatible)
     return "hospitality";
   }
 
@@ -46,6 +91,16 @@ export function getVerticalProfileKey(
 
   // RETAIL vertical - necesita mapeo específico por businessType
   if (verticalUpper === "RETAIL") {
+    // Autopartes / Repuestos
+    if (
+      businessTypeLower.includes("autopart") ||
+      businessTypeLower.includes("autoparte") ||
+      businessTypeLower.includes("repuesto") ||
+      businessTypeLower.includes("auto part")
+    ) {
+      return "auto-parts";
+    }
+
     // Moda / Ropa
     if (
       businessTypeLower.includes("moda") ||
@@ -119,6 +174,10 @@ export function isValidVerticalProfileKey(
     "retail-hardware",
     "retail-tech",
     "retail-toys",
+    "auto-parts",
+    "mechanic-shop",
+    "barbershop-salon",
+    "clinic-spa",
     "manufacturing",
     "hospitality",
   ];
@@ -136,6 +195,10 @@ export function getVerticalProfileLabel(key: VerticalProfileKey): string {
     "retail-hardware": "Retail - Ferretería",
     "retail-tech": "Retail - Tecnología",
     "retail-toys": "Retail - Juguetería",
+    "auto-parts": "Retail - Autopartes",
+    "mechanic-shop": "Taller Mecánico",
+    "barbershop-salon": "Barbería / Peluquería / Salón",
+    "clinic-spa": "Clínica / Spa / Centro Estético",
     manufacturing: "Manufactura",
     hospitality: "Hospitalidad / Hotelería",
   };
