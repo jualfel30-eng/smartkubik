@@ -135,7 +135,7 @@ export class StorefrontConfig {
 
   @Prop({
     type: String,
-    enum: ["ecommerce", "services", "premium"],
+    enum: ["ecommerce", "services", "beauty", "premium"],
     required: true,
     default: "ecommerce",
   })

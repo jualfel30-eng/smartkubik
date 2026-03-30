@@ -21,27 +21,32 @@ async function bootstrap() {
     const tenantId = await seedTenant(connection);
     console.log(`✅ Tenant created: ${tenantId}\n`);
 
-    // 2. Crear storefront config con beautyConfig
+    // 2. Crear/obtener usuario administrador
+    const adminUserId = await seedAdminUser(connection, tenantId);
+    console.log(`✅ Admin user created: ${adminUserId}\n`);
+
+    // 3. Crear storefront config con beautyConfig
     await seedStorefrontConfig(connection, tenantId);
     console.log('✅ Storefront config created\n');
 
-    // 3. Crear profesionales
-    const professionals = await seedProfessionals(connection, tenantId);
+    // 4. Crear profesionales
+    const professionals = await seedProfessionals(connection, tenantId, adminUserId);
     console.log(`✅ ${professionals.length} professionals created\n`);
 
-    // 4. Crear servicios de belleza
+    // 5. Crear servicios de belleza
     const services = await seedBeautyServices(
       connection,
       tenantId,
+      adminUserId,
       professionals,
     );
     console.log(`✅ ${services.length} beauty services created\n`);
 
-    // 5. Crear galería de trabajos
-    await seedGallery(connection, tenantId);
+    // 6. Crear galería de trabajos
+    await seedGallery(connection, tenantId, adminUserId);
     console.log('✅ Gallery items created\n');
 
-    // 6. Crear reseñas de ejemplo
+    // 7. Crear reseñas de ejemplo
     await seedReviews(connection, tenantId, services);
     console.log('✅ Reviews created\n');
 
@@ -88,6 +93,28 @@ async function seedTenant(connection: Connection) {
   return tenant._id.toString();
 }
 
+async function seedAdminUser(connection: Connection, tenantId: string) {
+  const User = connection.model('User');
+
+  // Buscar un usuario existente del tenant o crear uno de demo
+  let user = await User.findOne({ tenantId });
+
+  if (!user) {
+    // Crear usuario demo (la contraseña será hasheada por el schema)
+    user = await User.create({
+      tenantId,
+      email: 'admin@bellezapremium.com',
+      password: 'demo123', // Esto debe ser hasheado por el schema
+      firstName: 'Admin',
+      lastName: 'Demo',
+      role: 'admin',
+      isActive: true,
+    });
+  }
+
+  return user._id.toString();
+}
+
 async function seedStorefrontConfig(connection: Connection, tenantId: string) {
   const StorefrontConfig = connection.model('StorefrontConfig');
 
@@ -100,11 +127,14 @@ async function seedStorefrontConfig(connection: Connection, tenantId: string) {
     name: 'Salón Belleza Premium',
     description:
       'Tu destino de belleza en Caracas. Especialistas en cortes modernos, color, tratamientos y más.',
-    logoUrl: 'https://via.placeholder.com/200x80?text=Belleza+Premium',
-    bannerUrl: 'https://via.placeholder.com/1200x400?text=Salon+Banner',
-    theme: 'modern',
-    primaryColor: '#D946EF', // Purple/magenta
-    secondaryColor: '#F97316', // Orange
+    theme: {
+      primaryColor: '#D946EF', // Purple/magenta
+      secondaryColor: '#F97316', // Orange
+      accentColor: '#EC4899',
+      logo: 'https://via.placeholder.com/200x80?text=Belleza+Premium',
+    },
+    templateType: 'beauty',
+    isActive: true,
     seo: {
       title: 'Salón Belleza Premium - Tu destino de belleza en Caracas',
       description: 'Especialistas en cortes modernos, color, tratamientos capilares y más. Reserva tu cita online.',
@@ -214,7 +244,7 @@ async function seedStorefrontConfig(connection: Connection, tenantId: string) {
   });
 }
 
-async function seedProfessionals(connection: Connection, tenantId: string) {
+async function seedProfessionals(connection: Connection, tenantId: string, createdBy: string) {
   const Professional = connection.model('Professional');
 
   // Eliminar profesionales anteriores
@@ -267,12 +297,18 @@ async function seedProfessionals(connection: Connection, tenantId: string) {
       end: '18:00',
       isWorking: true,
     },
-    { day: 0, start: '00:00', end: '00:00', isWorking: false },
+    {
+      day: 0,
+      start: '09:00',
+      end: '18:00',
+      isWorking: false,
+    },
   ];
 
   const professionals = await Professional.insertMany([
     {
       tenantId,
+      createdBy,
       name: 'María González',
       role: 'Estilista Senior',
       specialties: ['Corte', 'Color', 'Tratamientos'],
@@ -284,6 +320,7 @@ async function seedProfessionals(connection: Connection, tenantId: string) {
     },
     {
       tenantId,
+      createdBy,
       name: 'Carlos Ramírez',
       role: 'Barbero Profesional',
       specialties: ['Corte Caballero', 'Barba', 'Afeitado Clásico'],
@@ -294,6 +331,7 @@ async function seedProfessionals(connection: Connection, tenantId: string) {
     },
     {
       tenantId,
+      createdBy,
       name: 'Laura Pérez',
       role: 'Especialista en Uñas',
       specialties: ['Manicure', 'Pedicure', 'Nail Art'],
@@ -310,6 +348,7 @@ async function seedProfessionals(connection: Connection, tenantId: string) {
 async function seedBeautyServices(
   connection: Connection,
   tenantId: string,
+  createdBy: string,
   professionals: any[],
 ) {
   const BeautyService = connection.model('BeautyService');
@@ -326,6 +365,7 @@ async function seedBeautyServices(
     // Servicios de María (Estilista)
     {
       tenantId,
+      createdBy,
       name: 'Corte de Cabello Dama',
       category: 'Cabello',
       description:
@@ -348,6 +388,7 @@ async function seedBeautyServices(
     },
     {
       tenantId,
+      createdBy,
       name: 'Color Completo',
       category: 'Cabello',
       description:
@@ -371,6 +412,7 @@ async function seedBeautyServices(
     },
     {
       tenantId,
+      createdBy,
       name: 'Alisado Brasileño',
       category: 'Tratamientos',
       description:
@@ -389,6 +431,7 @@ async function seedBeautyServices(
     // Servicios de Carlos (Barbero)
     {
       tenantId,
+      createdBy,
       name: 'Corte Caballero',
       category: 'Barbería',
       description: 'Corte moderno o clásico. Incluye lavado y styling.',
@@ -411,6 +454,7 @@ async function seedBeautyServices(
     },
     {
       tenantId,
+      createdBy,
       name: 'Barba + Bigote',
       category: 'Barbería',
       description: 'Perfilado y arreglo completo de barba y bigote.',
@@ -426,6 +470,7 @@ async function seedBeautyServices(
     // Servicios de Laura (Uñas)
     {
       tenantId,
+      createdBy,
       name: 'Manicure Clásica',
       category: 'Uñas',
       description: 'Limado, cutículas, esmaltado. Incluye hidratación.',
@@ -448,6 +493,7 @@ async function seedBeautyServices(
     },
     {
       tenantId,
+      createdBy,
       name: 'Pedicure Spa',
       category: 'Uñas',
       description:
@@ -464,6 +510,7 @@ async function seedBeautyServices(
     // Servicios combinados (disponibles con varios profesionales)
     {
       tenantId,
+      createdBy,
       name: 'Peinado para Evento',
       category: 'Peinado',
       description: 'Peinado profesional para eventos especiales.',
@@ -482,7 +529,7 @@ async function seedBeautyServices(
   return services;
 }
 
-async function seedGallery(connection: Connection, tenantId: string) {
+async function seedGallery(connection: Connection, tenantId: string, createdBy: string) {
   const BeautyGalleryItem = connection.model('BeautyGalleryItem');
 
   await BeautyGalleryItem.deleteMany({ tenantId });
@@ -490,27 +537,30 @@ async function seedGallery(connection: Connection, tenantId: string) {
   return await BeautyGalleryItem.insertMany([
     {
       tenantId,
+      createdBy,
       title: 'Balayage Rubio Natural',
       category: 'Cabello',
-      imageUrl: 'https://via.placeholder.com/400x600?text=Balayage',
+      image: 'https://via.placeholder.com/400x600?text=Balayage',
       description: 'Técnica de color con transiciones naturales',
       isPinned: true,
       order: 1,
     },
     {
       tenantId,
+      createdBy,
       title: 'Corte Moderno Caballero',
       category: 'Barbería',
-      imageUrl: 'https://via.placeholder.com/400x600?text=Corte+Hombre',
+      image: 'https://via.placeholder.com/400x600?text=Corte+Hombre',
       description: 'Fade profesional con detalle en la línea',
       isPinned: true,
       order: 2,
     },
     {
       tenantId,
+      createdBy,
       title: 'Nail Art Elegante',
       category: 'Uñas',
-      imageUrl: 'https://via.placeholder.com/400x600?text=Nail+Art',
+      image: 'https://via.placeholder.com/400x600?text=Nail+Art',
       description: 'Diseño minimalista con detalles dorados',
       isPinned: false,
       order: 3,
@@ -530,34 +580,37 @@ async function seedReviews(
   return await BeautyReview.insertMany([
     {
       tenantId,
-      clientName: 'Ana Rodríguez',
-      clientPhone: '+584241111111',
-      serviceId: services[0]._id,
+      client: {
+        name: 'Ana Rodríguez',
+        phone: '+584241111111',
+      },
       rating: 5,
       comment:
         'Excelente servicio! María es muy profesional y el corte quedó perfecto.',
-      status: 'approved',
+      isApproved: true,
       createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 días atrás
     },
     {
       tenantId,
-      clientName: 'Pedro Martínez',
-      clientPhone: '+584242222222',
-      serviceId: services[3]._id,
+      client: {
+        name: 'Pedro Martínez',
+        phone: '+584242222222',
+      },
       rating: 5,
       comment: 'Carlos es el mejor barbero de Caracas. Súper recomendado!',
-      status: 'approved',
+      isApproved: true,
       createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
     },
     {
       tenantId,
-      clientName: 'Gabriela Sánchez',
-      clientPhone: '+584243333333',
-      serviceId: services[5]._id,
+      client: {
+        name: 'Gabriela Sánchez',
+        phone: '+584243333333',
+      },
       rating: 5,
       comment:
         'Me encantó el manicure. Laura tiene un talento increíble para el nail art.',
-      status: 'approved',
+      isApproved: true,
       createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
     },
   ]);

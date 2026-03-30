@@ -23,6 +23,7 @@ const businessVerticals = [
     name: 'Minoristas / Distribución',
     value: 'RETAIL',
     categories: [
+      'Autopartes / Repuestos',
       'Supermercado',
       'Tienda de Abarrotes',
       'Distribuidor Mayorista',
@@ -38,7 +39,18 @@ const businessVerticals = [
   {
     name: 'Servicios',
     value: 'SERVICES',
-    categories: ['Hotel', 'Hospital', 'Escuela', 'Oficina Corporativa'],
+    categories: [
+      'Barbería / Peluquería',
+      'Salón de Belleza',
+      'Taller Mecánico',
+      'Clínica / Centro Estético',
+      'Spa',
+      'Consultorio Médico / Odontológico',
+      'Hotel',
+      'Hospital',
+      'Escuela',
+      'Oficina Corporativa',
+    ],
   },
   {
     name: 'Logística',
