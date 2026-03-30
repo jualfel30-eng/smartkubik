@@ -160,6 +160,7 @@ export function DomainSettings({ config, onUpdate, onDelete, saving }: DomainSet
           >
             <option value="ecommerce">E-commerce</option>
             <option value="services">Servicios</option>
+            <option value="beauty">Beauty (Salones de Belleza)</option>
             <option value="premium">Premium (Maximalist)</option>
           </select>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
