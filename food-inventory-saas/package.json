@@ -40,6 +40,7 @@
     "seed:delivery-rates": "ts-node -r dotenv/config scripts/seed-delivery-rates.ts",
     "seed:payroll-structures": "ts-node -r dotenv/config scripts/seed-default-payroll-structures.ts",
     "seed:unit-types": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/seed-unit-types.ts",
+    "seed:beauty": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/seed-beauty-demo.ts",
     "db:reset": "ts-node scripts/reset-database.ts",
     "db:bootstrap:payroll": "ts-node -r dotenv/config scripts/payroll-phase0-bootstrap.ts",
     "debug:data": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/debug-data.ts",

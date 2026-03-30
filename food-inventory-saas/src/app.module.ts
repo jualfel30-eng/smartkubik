@@ -132,6 +132,7 @@ import { CountryPluginModule } from "./country-plugins/country-plugin.module";
 import { NewsletterModule } from "./modules/newsletter/newsletter.module";
 import { SocialLinksModule } from "./modules/social-links/social-links.module";
 import { ProductDedupModule } from "./modules/product-dedup/product-dedup.module";
+import { BeautyModule } from "./modules/beauty/beauty.module";
 
 import { Redis } from "ioredis";
 
@@ -562,6 +563,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     DataImportModule,
     SocialLinksModule,
     ProductDedupModule,
+    BeautyModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

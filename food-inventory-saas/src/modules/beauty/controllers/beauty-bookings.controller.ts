@@ -1,0 +1,159 @@
+import {
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Param,
+  Query,
+  Body,
+  Request,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { BeautyBookingsService } from '../services/beauty-bookings.service';
+import { BeautyWhatsAppNotificationsService } from '../services/beauty-whatsapp-notifications.service';
+import { UpdateBookingStatusDto } from '../../../dto/beauty';
+
+@ApiTags('Beauty Bookings (Private)')
+@ApiBearerAuth()
+// @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+@Controller('beauty-bookings')
+export class BeautyBookingsController {
+  constructor(
+    private readonly beautyBookingsService: BeautyBookingsService,
+    private readonly whatsappService: BeautyWhatsAppNotificationsService,
+  ) {}
+
+  @Get()
+  // @Permissions('beauty_bookings_read')
+  @ApiOperation({ summary: 'Obtener todas las reservas' })
+  async findAll(
+    @Request() req,
+    @Query('date') date?: string,
+    @Query('status') status?: string,
+    @Query('professionalId') professionalId?: string,
+    @Query('clientPhone') clientPhone?: string,
+    @Query('locationId') locationId?: string,
+  ) {
+    return this.beautyBookingsService.findAll(req.user.tenantId, {
+      date,
+      status,
+      professionalId,
+      clientPhone,
+      locationId,
+    });
+  }
+
+  @Get(':id')
+  // @Permissions('beauty_bookings_read')
+  @ApiOperation({ summary: 'Obtener reserva por ID' })
+  async findOne(@Param('id') id: string, @Request() req) {
+    return this.beautyBookingsService.findOne(id, req.user.tenantId);
+  }
+
+  @Patch(':id/status')
+  // @Permissions('beauty_bookings_update')
+  @ApiOperation({ summary: 'Actualizar estado de reserva' })
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateBookingStatusDto,
+    @Request() req,
+  ) {
+    return this.beautyBookingsService.updateStatus(
+      id,
+      dto,
+      req.user.tenantId,
+      req.user.userId,
+    );
+  }
+
+  @Post(':id/notify')
+  // @Permissions('beauty_bookings_notify')
+  @ApiOperation({
+    summary: 'Enviar notificación WhatsApp manualmente',
+    description:
+      'Permite al admin enviar o reenviar notificaciones WhatsApp. Tipos: confirmation, reminder, cancellation',
+  })
+  async sendNotification(
+    @Param('id') id: string,
+    @Body('type') type: 'confirmation' | 'reminder' | 'cancellation',
+    @Request() req,
+  ) {
+    if (!type || !['confirmation', 'reminder', 'cancellation'].includes(type)) {
+      throw new BadRequestException(
+        'Type must be: confirmation, reminder, or cancellation',
+      );
+    }
+
+    const booking = await this.beautyBookingsService.findOne(
+      id,
+      req.user.tenantId,
+    );
+
+    let result: { success: boolean; error?: string };
+
+    switch (type) {
+      case 'confirmation':
+        result = await this.whatsappService.sendConfirmationNotification(
+          booking,
+        );
+        break;
+      case 'reminder':
+        result = await this.whatsappService.sendReminderNotification(booking);
+        break;
+      case 'cancellation':
+        result = await this.whatsappService.sendCancellationNotification(
+          booking,
+        );
+        break;
+    }
+
+    return {
+      success: result.success,
+      message: result.success
+        ? `${type} notification sent successfully`
+        : `Failed to send notification: ${result.error}`,
+      bookingNumber: booking.bookingNumber,
+      clientPhone: booking.client.phone,
+    };
+  }
+
+  @Get(':id/whatsapp-link')
+  // @Permissions('beauty_bookings_read')
+  @ApiOperation({
+    summary: 'Obtener link de WhatsApp pre-armado',
+    description:
+      'Genera link wa.me con mensaje pre-cargado como fallback si la API falla',
+  })
+  async getWhatsAppLink(
+    @Param('id') id: string,
+    @Query('type') type: 'confirmation' | 'reminder' | 'cancellation',
+    @Request() req,
+  ) {
+    if (!type || !['confirmation', 'reminder', 'cancellation'].includes(type)) {
+      throw new BadRequestException(
+        'Type must be: confirmation, reminder, or cancellation',
+      );
+    }
+
+    const booking = await this.beautyBookingsService.findOne(
+      id,
+      req.user.tenantId,
+    );
+
+    // TODO: Build message based on type
+    const message = `Hola ${booking.client.name}, tu reserva ${booking.bookingNumber}...`;
+
+    const link = this.whatsappService.getWhatsAppLink(
+      booking.client.phone,
+      message,
+    );
+
+    return {
+      link,
+      phone: booking.client.phone,
+      bookingNumber: booking.bookingNumber,
+    };
+  }
+}
