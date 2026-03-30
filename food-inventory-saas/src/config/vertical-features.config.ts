@@ -284,6 +284,50 @@ export const VERTICAL_FEATURES = {
 };
 
 /**
+ * Overrides de módulos por perfil de nicho.
+ * Se aplican SOBRE los defaults del vertical base durante el onboarding.
+ * Solo incluyen las diferencias vs el vertical base.
+ */
+export const NICHE_MODULE_OVERRIDES: Record<string, Record<string, boolean>> = {
+  'barbershop-salon': {
+    ecommerce: true,       // Mi Sitio Web — reservas online
+    chat: false,           // WhatsApp — premium, se habilita por upgrade
+    marketing: false,      // Premium
+    hrCore: false,         // No necesario para barberías
+    timeAndAttendance: false,
+    reservations: false,   // Reservaciones de hotel, no aplica
+  },
+  'mechanic-shop': {
+    ecommerce: true,       // Mi Sitio Web — agendar citas online
+    chat: false,           // WhatsApp — premium
+    marketing: false,      // Premium
+    hrCore: false,
+    timeAndAttendance: false,
+    reservations: false,
+  },
+  'clinic-spa': {
+    ecommerce: true,       // Mi Sitio Web — reservas de consultas
+    chat: false,           // WhatsApp — premium
+    marketing: false,      // Premium
+    hrCore: false,
+    timeAndAttendance: false,
+    reservations: false,
+  },
+  'auto-parts': {
+    // RETAIL ya tiene ecommerce: true
+    chat: false,           // WhatsApp — premium
+    marketing: false,      // Premium
+  },
+};
+
+/**
+ * Retorna los overrides de módulos para un perfil de nicho, o null si no aplica.
+ */
+export function getNicheModuleOverrides(profileKey: string): Record<string, boolean> | null {
+  return NICHE_MODULE_OVERRIDES[profileKey] || null;
+}
+
+/**
  * Obtiene los módulos habilitados por defecto para un vertical
  */
 export function getDefaultModulesForVertical(vertical: string) {

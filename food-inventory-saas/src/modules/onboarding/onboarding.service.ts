@@ -25,7 +25,7 @@ import {
 } from "./dto/onboarding.dto";
 import { SeedingService } from "../seeding/seeding.service";
 import { LoggerSanitizer } from "../../utils/logger-sanitizer.util";
-import { getDefaultModulesForVertical } from "../../config/vertical-features.config";
+import { getDefaultModulesForVertical, getNicheModuleOverrides } from "../../config/vertical-features.config";
 import { subscriptionPlans } from "../../config/subscriptions.config";
 import { TokenService } from "../../auth/token.service";
 import { MailService } from "../mail/mail.service";
@@ -130,14 +130,20 @@ export class OnboardingService {
           enabledModules.marketing = false;
         }
 
-        const enabledModuleNames = Object.keys(enabledModules).filter(
-          (key) => enabledModules[key],
-        );
-
         // Determinar el verticalProfile.key correcto basado en vertical + businessType
         const verticalProfileKey = getVerticalProfileKey(
           vertical,
           dto.businessType,
+        );
+
+        // Aplicar overrides de módulos específicos del perfil de nicho
+        const nicheOverrides = getNicheModuleOverrides(verticalProfileKey);
+        if (nicheOverrides) {
+          Object.assign(enabledModules, nicheOverrides);
+        }
+
+        const enabledModuleNames = Object.keys(enabledModules).filter(
+          (key) => enabledModules[key],
         );
 
         this.logger.log(`Creating tenant with vertical: ${vertical}`);
