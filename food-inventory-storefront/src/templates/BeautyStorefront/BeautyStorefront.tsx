@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import BeautyHero from './components/BeautyHero';
 import BeautyServices from './components/BeautyServices';
 import BeautyTeam from './components/BeautyTeam';
@@ -22,32 +22,32 @@ export interface ColorScheme {
   placeholderGradient: string;
 }
 
-const LIGHT: ColorScheme = {
+export const LIGHT: ColorScheme = {
   bg: 'bg-white',
-  bgAlt: 'bg-gray-50',
+  bgAlt: 'bg-stone-50',
   card: 'bg-white',
   text: 'text-gray-900',
   textMuted: 'text-gray-600',
   textLight: 'text-gray-500',
   border: 'border-gray-200',
-  emptyStar: '#E5E7EB',
+  emptyStar: '#D1D5DB',
   waveFill: '#ffffff',
   addonBg: 'bg-gray-100',
   placeholderGradient: 'from-gray-100 to-gray-200',
 };
 
-const DARK: ColorScheme = {
-  bg: 'bg-gray-950',
-  bgAlt: 'bg-gray-900',
-  card: 'bg-gray-800',
+export const DARK: ColorScheme = {
+  bg: 'bg-neutral-950',
+  bgAlt: 'bg-neutral-900',
+  card: 'bg-neutral-800',
   text: 'text-gray-100',
-  textMuted: 'text-gray-300',
-  textLight: 'text-gray-400',
-  border: 'border-gray-700',
+  textMuted: 'text-neutral-300',
+  textLight: 'text-neutral-400',
+  border: 'border-neutral-700',
   emptyStar: '#4B5563',
-  waveFill: '#030712',
-  addonBg: 'bg-gray-700',
-  placeholderGradient: 'from-gray-700 to-gray-600',
+  waveFill: '#0a0a0a',
+  addonBg: 'bg-neutral-700',
+  placeholderGradient: 'from-neutral-700 to-neutral-600',
 };
 
 interface BeautyStorefrontProps {
@@ -138,6 +138,17 @@ export default function BeautyStorefront({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [darkMode, setDarkMode] = useState(false);
 
+  useEffect(() => {
+    const stored = localStorage.getItem('beauty-dark-mode');
+    if (stored === 'true') setDarkMode(true);
+  }, []);
+
+  const toggleDarkMode = () => {
+    const next = !darkMode;
+    setDarkMode(next);
+    localStorage.setItem('beauty-dark-mode', String(next));
+  };
+
   const primaryColor = config.primaryColor || '#D946EF';
   const secondaryColor = config.secondaryColor || '#F97316';
   const colors = darkMode ? DARK : LIGHT;
@@ -156,25 +167,28 @@ export default function BeautyStorefront({
 
   return (
     <div className={`min-h-screen ${colors.bg} ${colors.text} transition-colors duration-300`}>
-      {/* Sticky Header */}
-      <header className={`sticky top-0 ${darkMode ? 'bg-gray-950/95' : 'bg-white/95'} backdrop-blur-sm shadow-sm z-50 transition-colors duration-300`}>
+      {/* Header */}
+      <header
+        className={`sticky top-0 z-50 backdrop-blur-md transition-colors duration-300 ${
+          darkMode ? 'bg-neutral-950/90 border-neutral-800' : 'bg-white/90 border-stone-200'
+        } border-b`}
+      >
         <nav className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             {config.logoUrl && (
               <img src={config.logoUrl} alt={config.name} className="w-12 h-12 object-contain" />
             )}
-            <span className="text-2xl font-bold" style={{ color: primaryColor }}>
+            <span className="text-2xl font-bold tracking-tight" style={{ color: primaryColor }}>
               {config.name}
             </span>
           </div>
 
-          <div className="hidden md:flex gap-6">
+          <div className="hidden md:flex gap-8">
             {['Servicios', 'Equipo', 'Galería', 'Reseñas'].map((label) => (
               <a
                 key={label}
                 href={`#${label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`}
-                className="hover:opacity-70 transition"
-                style={{ color: primaryColor }}
+                className={`text-sm font-medium tracking-wide uppercase transition hover:opacity-70 ${colors.textMuted}`}
               >
                 {label}
               </a>
@@ -183,8 +197,10 @@ export default function BeautyStorefront({
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`p-2 rounded-full transition ${darkMode ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              onClick={toggleDarkMode}
+              className={`p-2 rounded-full transition ${
+                darkMode ? 'bg-neutral-800 text-amber-400 hover:bg-neutral-700' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+              }`}
               aria-label={darkMode ? 'Modo claro' : 'Modo oscuro'}
             >
               {darkMode ? (
@@ -200,7 +216,7 @@ export default function BeautyStorefront({
 
             <a
               href={`/${domain}/beauty/reservar`}
-              className="px-6 py-2 text-white rounded-full font-semibold hover:opacity-90 transition"
+              className="px-6 py-2.5 text-white rounded-full font-semibold text-sm tracking-wide hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
               style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
             >
               Reservar Cita
@@ -212,24 +228,30 @@ export default function BeautyStorefront({
       <BeautyHero config={config} primaryColor={primaryColor} secondaryColor={secondaryColor} domain={domain} colors={colors} />
 
       {/* Services */}
-      <section id="servicios" className={`py-16 ${colors.bgAlt} transition-colors duration-300`}>
+      <section id="servicios" className={`py-20 ${colors.bgAlt} transition-colors duration-300`}>
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className={`text-4xl font-bold mb-4 ${colors.text}`}>Nuestros Servicios</h2>
-            <p className={`${colors.textMuted} max-w-2xl mx-auto`}>
-              Ofrecemos una amplia gama de servicios de belleza con profesionales especializados
+          <div className="text-center mb-14">
+            <p className="text-sm font-semibold tracking-[0.2em] uppercase mb-3" style={{ color: primaryColor }}>
+              Servicios
+            </p>
+            <h2 className={`text-4xl md:text-5xl font-bold tracking-tight mb-4 ${colors.text}`}>
+              Nuestros Servicios
+            </h2>
+            <div className="w-16 h-1 mx-auto rounded-full mb-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
+            <p className={`${colors.textMuted} max-w-2xl mx-auto text-lg`}>
+              Ofrecemos una amplia gama de servicios con profesionales especializados
             </p>
           </div>
 
-          <div className="flex justify-center gap-3 mb-8 flex-wrap">
+          <div className="flex justify-center gap-3 mb-10 flex-wrap">
             {categories.map((category) => (
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`px-6 py-2 rounded-full font-medium transition ${
+                className={`px-6 py-2.5 rounded-full font-medium text-sm tracking-wide transition-all duration-200 ${
                   selectedCategory === category
                     ? 'text-white shadow-lg'
-                    : `${colors.card} ${colors.textMuted} hover:opacity-80`
+                    : `${colors.card} ${colors.textMuted} hover:opacity-80 border ${colors.border}`
                 }`}
                 style={selectedCategory === category ? { background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` } : {}}
               >
@@ -243,11 +265,17 @@ export default function BeautyStorefront({
       </section>
 
       {/* Team */}
-      <section id="equipo" className={`py-16 ${colors.bg} transition-colors duration-300`}>
+      <section id="equipo" className={`py-20 ${colors.bg} transition-colors duration-300`}>
         <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className={`text-4xl font-bold mb-4 ${colors.text}`}>Nuestro Equipo</h2>
-            <p className={`${colors.textMuted} max-w-2xl mx-auto`}>
+          <div className="text-center mb-14">
+            <p className="text-sm font-semibold tracking-[0.2em] uppercase mb-3" style={{ color: primaryColor }}>
+              Equipo
+            </p>
+            <h2 className={`text-4xl md:text-5xl font-bold tracking-tight mb-4 ${colors.text}`}>
+              Nuestro Equipo
+            </h2>
+            <div className="w-16 h-1 mx-auto rounded-full mb-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
+            <p className={`${colors.textMuted} max-w-2xl mx-auto text-lg`}>
               Profesionales apasionados con años de experiencia
             </p>
           </div>
@@ -257,11 +285,17 @@ export default function BeautyStorefront({
 
       {/* Gallery */}
       {gallery.length > 0 && (
-        <section id="galeria" className={`py-16 ${colors.bgAlt} transition-colors duration-300`}>
+        <section id="galeria" className={`py-20 ${colors.bgAlt} transition-colors duration-300`}>
           <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className={`text-4xl font-bold mb-4 ${colors.text}`}>Galería</h2>
-              <p className={`${colors.textMuted} max-w-2xl mx-auto`}>Mira algunos de nuestros trabajos</p>
+            <div className="text-center mb-14">
+              <p className="text-sm font-semibold tracking-[0.2em] uppercase mb-3" style={{ color: primaryColor }}>
+                Portafolio
+              </p>
+              <h2 className={`text-4xl md:text-5xl font-bold tracking-tight mb-4 ${colors.text}`}>
+                Galería
+              </h2>
+              <div className="w-16 h-1 mx-auto rounded-full mb-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
+              <p className={`${colors.textMuted} max-w-2xl mx-auto text-lg`}>Mira algunos de nuestros trabajos</p>
             </div>
             <BeautyGallery gallery={gallery} colors={colors} />
           </div>
@@ -270,15 +304,21 @@ export default function BeautyStorefront({
 
       {/* Reviews */}
       {reviews.length > 0 && (
-        <section id="resenas" className={`py-16 ${colors.bg} transition-colors duration-300`}>
+        <section id="resenas" className={`py-20 ${colors.bg} transition-colors duration-300`}>
           <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className={`text-4xl font-bold mb-4 ${colors.text}`}>Lo Que Dicen Nuestros Clientes</h2>
-              <div className="flex items-center justify-center gap-2 mb-2">
+            <div className="text-center mb-14">
+              <p className="text-sm font-semibold tracking-[0.2em] uppercase mb-3" style={{ color: primaryColor }}>
+                Testimonios
+              </p>
+              <h2 className={`text-4xl md:text-5xl font-bold tracking-tight mb-4 ${colors.text}`}>
+                Lo Que Dicen Nuestros Clientes
+              </h2>
+              <div className="w-16 h-1 mx-auto rounded-full mb-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
+              <div className="flex items-center justify-center gap-3 mb-2">
                 <span className="text-5xl font-bold" style={{ color: primaryColor }}>{averageRating.toFixed(1)}</span>
-                <div className="flex">
+                <div className="flex gap-0.5">
                   {[...Array(5)].map((_, i) => (
-                    <svg key={i} className="w-6 h-6" fill={i < Math.round(averageRating) ? primaryColor : colors.emptyStar} viewBox="0 0 20 20">
+                    <svg key={i} className="w-6 h-6" fill={i < Math.round(averageRating) ? '#F59E0B' : colors.emptyStar} viewBox="0 0 20 20">
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                   ))}
@@ -292,18 +332,27 @@ export default function BeautyStorefront({
       )}
 
       {/* Location */}
-      <section id="contacto" className={`py-16 ${colors.bgAlt} transition-colors duration-300`}>
+      <section id="contacto" className={`py-20 ${colors.bgAlt} transition-colors duration-300`}>
         <div className="container mx-auto px-4">
+          <div className="text-center mb-14">
+            <p className="text-sm font-semibold tracking-[0.2em] uppercase mb-3" style={{ color: primaryColor }}>
+              Contacto
+            </p>
+            <h2 className={`text-4xl md:text-5xl font-bold tracking-tight mb-4 ${colors.text}`}>
+              Encuéntranos
+            </h2>
+            <div className="w-16 h-1 mx-auto rounded-full mb-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
+          </div>
           <BeautyLocation config={config} primaryColor={primaryColor} colors={colors} />
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-8">
+      <footer className={`py-10 transition-colors duration-300 ${darkMode ? 'bg-neutral-950 border-neutral-800' : 'bg-gray-900 border-gray-800'} border-t`}>
         <div className="container mx-auto px-4 text-center">
-          <p className="mb-2">&copy; 2026 {config.name}. Todos los derechos reservados.</p>
-          <p className="text-sm text-gray-400">
-            Reservas gestionadas por{' '}
+          <p className="text-gray-400 mb-2">&copy; {new Date().getFullYear()} {config.name}. Todos los derechos reservados.</p>
+          <p className="text-sm text-gray-500">
+            Powered by{' '}
             <span className="font-semibold" style={{ color: primaryColor }}>SmartKubik</span>
           </p>
         </div>

@@ -11,19 +11,22 @@ import {
   type Professional,
   type AvailabilitySlot,
 } from '@/lib/beautyApi';
+import { type ColorScheme, LIGHT, DARK } from '@/templates/BeautyStorefront/BeautyStorefront';
 
 interface StorefrontConfig {
   tenantId: string;
   name: string;
   primaryColor?: string;
+  secondaryColor?: string;
 }
+
+const STEP_LABELS = ['Servicios', 'Profesional', 'Fecha y Hora', 'Tus Datos', 'Confirmar'];
 
 export default function BookingPage() {
   const params = useParams();
   const router = useRouter();
   const domain = params.domain as string;
 
-  // State
   const [config, setConfig] = useState<StorefrontConfig | null>(null);
   const [services, setServices] = useState<BeautyService[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
@@ -33,8 +36,8 @@ export default function BookingPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [darkMode, setDarkMode] = useState(false);
 
-  // Form data
   const [selectedServices, setSelectedServices] = useState<Array<{
     serviceId: string;
     addons: string[];
@@ -47,12 +50,25 @@ export default function BookingPage() {
   const [notes, setNotes] = useState('');
 
   const primaryColor = config?.primaryColor || '#D946EF';
+  const secondaryColor = config?.secondaryColor || '#F97316';
+  const colors: ColorScheme = darkMode ? DARK : LIGHT;
+
+  // Load dark mode preference
+  useEffect(() => {
+    const stored = localStorage.getItem('beauty-dark-mode');
+    if (stored === 'true') setDarkMode(true);
+  }, []);
+
+  const toggleDarkMode = () => {
+    const next = !darkMode;
+    setDarkMode(next);
+    localStorage.setItem('beauty-dark-mode', String(next));
+  };
 
   // Load initial data
   useEffect(() => {
     async function loadData() {
       try {
-        // Fetch config using correct endpoint
         const configRes = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/v1/public/storefront/by-domain/${domain}`
         );
@@ -65,7 +81,6 @@ export default function BookingPage() {
           return;
         }
 
-        // Extract tenantId (can be string or object)
         const tenantId = typeof configData.tenantId === 'object'
           ? configData.tenantId._id
           : configData.tenantId;
@@ -78,9 +93,9 @@ export default function BookingPage() {
           tenantId,
           name: tenantName,
           primaryColor: configData.theme?.primaryColor,
+          secondaryColor: configData.theme?.secondaryColor,
         });
 
-        // Fetch services and professionals
         const [servicesData, professionalsData] = await Promise.all([
           getBeautyServices(tenantId),
           getProfessionals(tenantId),
@@ -89,7 +104,7 @@ export default function BookingPage() {
         setServices(servicesData);
         setProfessionals(professionalsData);
       } catch (err) {
-        setError('Failed to load booking data');
+        setError('No se pudieron cargar los datos de reserva');
         console.error(err);
       } finally {
         setLoading(false);
@@ -99,7 +114,7 @@ export default function BookingPage() {
     loadData();
   }, [domain, router]);
 
-  // Load availability when date/services change
+  // Load availability
   useEffect(() => {
     async function loadAvailability() {
       if (!config || !selectedDate || selectedServices.length === 0) {
@@ -115,7 +130,6 @@ export default function BookingPage() {
           serviceIds,
           professionalId: selectedProfessional || undefined,
         });
-
         setAvailableSlots(result.slots);
       } catch (err) {
         console.error('Error loading availability:', err);
@@ -126,15 +140,11 @@ export default function BookingPage() {
     loadAvailability();
   }, [config, selectedDate, selectedServices, selectedProfessional]);
 
-  // Handle service selection
   const toggleService = (serviceId: string) => {
     setSelectedServices((prev) => {
       const exists = prev.find((s) => s.serviceId === serviceId);
-      if (exists) {
-        return prev.filter((s) => s.serviceId !== serviceId);
-      } else {
-        return [...prev, { serviceId, addons: [] }];
-      }
+      if (exists) return prev.filter((s) => s.serviceId !== serviceId);
+      return [...prev, { serviceId, addons: [] }];
     });
   };
 
@@ -145,9 +155,7 @@ export default function BookingPage() {
           const hasAddon = s.addons.includes(addonName);
           return {
             ...s,
-            addons: hasAddon
-              ? s.addons.filter((a) => a !== addonName)
-              : [...s.addons, addonName],
+            addons: hasAddon ? s.addons.filter((a) => a !== addonName) : [...s.addons, addonName],
           };
         }
         return s;
@@ -155,7 +163,6 @@ export default function BookingPage() {
     );
   };
 
-  // Calculate totals
   const calculateTotals = () => {
     let totalPrice = 0;
     let totalDuration = 0;
@@ -163,10 +170,8 @@ export default function BookingPage() {
     selectedServices.forEach((selected) => {
       const service = services.find((s) => s._id === selected.serviceId);
       if (!service) return;
-
       totalPrice += service.price.amount;
       totalDuration += service.duration;
-
       selected.addons.forEach((addonName) => {
         const addon = service.addons?.find((a) => a.name === addonName);
         if (addon) {
@@ -179,20 +184,15 @@ export default function BookingPage() {
     return { totalPrice, totalDuration };
   };
 
-  // Submit booking
   const handleSubmit = async () => {
     if (!config) return;
-
     setSubmitting(true);
     setError(null);
 
     try {
       const booking = await createBeautyBooking({
         tenantId: config.tenantId,
-        client: {
-          name: clientName,
-          phone: clientPhone,
-        },
+        client: { name: clientName, phone: clientPhone },
         services: selectedServices.map((s) => ({
           service: s.serviceId,
           addonNames: s.addons,
@@ -203,15 +203,13 @@ export default function BookingPage() {
         notes: notes || undefined,
       });
 
-      // Redirect to confirmation page
       router.push(`/${domain}/beauty/reserva/${booking.bookingNumber}`);
     } catch (err: any) {
-      setError(err.message || 'Failed to create booking');
+      setError(err.message || 'Error al crear la reserva');
       setSubmitting(false);
     }
   };
 
-  // Navigation helpers
   const canGoToStep = (targetStep: number): boolean => {
     if (targetStep === 1) return true;
     if (targetStep === 2) return selectedServices.length > 0;
@@ -237,18 +235,18 @@ export default function BookingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: primaryColor }}></div>
+      <div className={`min-h-screen flex items-center justify-center ${colors.bg} transition-colors`}>
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-transparent" style={{ borderTopColor: primaryColor, borderRightColor: primaryColor }}></div>
       </div>
     );
   }
 
   if (!config) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className={`min-h-screen flex items-center justify-center ${colors.bg}`}>
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-2">Booking not available</h1>
-          <p className="text-gray-600">Unable to load booking configuration.</p>
+          <h1 className={`text-2xl font-bold mb-2 ${colors.text}`}>Reservas no disponibles</h1>
+          <p className={colors.textMuted}>No se pudo cargar la configuración.</p>
         </div>
       </div>
     );
@@ -257,104 +255,159 @@ export default function BookingPage() {
   const { totalPrice, totalDuration } = calculateTotals();
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* Header */}
-        <div className="mb-8">
+    <div className={`min-h-screen ${colors.bg} transition-colors duration-300`}>
+      {/* Header */}
+      <header className={`sticky top-0 z-50 backdrop-blur-md border-b transition-colors duration-300 ${
+        darkMode ? 'bg-neutral-950/90 border-neutral-800' : 'bg-white/90 border-stone-200'
+      }`}>
+        <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
           <button
             onClick={() => router.push(`/${domain}/beauty`)}
-            className="text-gray-600 hover:text-gray-900 mb-4 flex items-center gap-2"
+            className={`flex items-center gap-2 text-sm font-medium transition hover:opacity-70 ${colors.textMuted}`}
           >
-            ← Back to services
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Volver
           </button>
-          <h1 className="text-3xl font-bold">{(config as any).name}</h1>
-          <p className="text-gray-600">Book your appointment</p>
+          <span className="font-bold tracking-tight" style={{ color: primaryColor }}>{config.name}</span>
+          <button
+            onClick={toggleDarkMode}
+            className={`p-2 rounded-full transition ${
+              darkMode ? 'bg-neutral-800 text-amber-400 hover:bg-neutral-700' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+            }`}
+          >
+            {darkMode ? (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+              </svg>
+            )}
+          </button>
+        </div>
+      </header>
+
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Title */}
+        <div className="mb-8 text-center">
+          <h1 className={`text-3xl font-bold tracking-tight ${colors.text}`}>Reservar Cita</h1>
+          <p className={`mt-1 ${colors.textMuted}`}>Selecciona tus servicios y agenda tu cita</p>
         </div>
 
-        {/* Progress indicator */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center">
-            {[1, 2, 3, 4, 5].map((num) => (
-              <div
-                key={num}
-                className={`flex-1 ${num < 5 ? 'border-t-2' : ''} ${
-                  step >= num ? 'border-current' : 'border-gray-300'
-                }`}
-                style={{ borderColor: step >= num ? primaryColor : undefined }}
-              >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center font-bold -mt-4 mx-auto ${
-                    step >= num ? 'text-white' : 'bg-gray-200 text-gray-600'
-                  }`}
-                  style={{ backgroundColor: step >= num ? primaryColor : undefined }}
-                >
-                  {num}
+        {/* Step indicator */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between relative">
+            {/* Line behind dots */}
+            <div className={`absolute top-4 left-0 right-0 h-0.5 ${darkMode ? 'bg-neutral-700' : 'bg-gray-200'}`} />
+            <div className="absolute top-4 left-0 h-0.5 transition-all duration-500" style={{
+              width: `${((step - 1) / 4) * 100}%`,
+              background: `linear-gradient(90deg, ${primaryColor}, ${secondaryColor})`,
+            }} />
+
+            {STEP_LABELS.map((label, idx) => {
+              const num = idx + 1;
+              const isActive = step >= num;
+              const isCurrent = step === num;
+              return (
+                <div key={num} className="relative z-10 flex flex-col items-center" style={{ width: '20%' }}>
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
+                      isActive ? 'text-white shadow-lg' : `${colors.card} ${colors.textLight} border-2 ${colors.border}`
+                    } ${isCurrent ? 'ring-4 ring-opacity-30' : ''}`}
+                    style={{
+                      backgroundColor: isActive ? primaryColor : undefined,
+                      boxShadow: isCurrent ? `0 0 0 4px ${primaryColor}30` : undefined,
+                    }}
+                  >
+                    {isActive && num < step ? (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      num
+                    )}
+                  </div>
+                  <span className={`text-xs mt-2 font-medium text-center hidden sm:block ${
+                    isActive ? '' : colors.textLight
+                  }`} style={isActive ? { color: primaryColor } : {}}>
+                    {label}
+                  </span>
                 </div>
-                <div className="text-xs text-center mt-2">
-                  {num === 1 && 'Services'}
-                  {num === 2 && 'Professional'}
-                  {num === 3 && 'Date &amp; Time'}
-                  {num === 4 && 'Your Info'}
-                  {num === 5 && 'Confirm'}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        {/* Error message */}
+        {/* Error */}
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <div className={`mb-6 p-4 rounded-xl border ${
+            darkMode ? 'bg-red-900/20 border-red-800 text-red-300' : 'bg-red-50 border-red-200 text-red-700'
+          }`}>
             {error}
           </div>
         )}
 
         {/* Step content */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          {/* Step 1: Select Services */}
+        <div className={`${colors.card} rounded-2xl shadow-xl p-6 md:p-8 mb-6 border ${colors.border} transition-colors duration-300`}>
+          {/* Step 1: Services */}
           {step === 1 && (
             <div>
-              <h2 className="text-2xl font-bold mb-4">Select Services</h2>
+              <h2 className={`text-2xl font-bold tracking-tight mb-6 ${colors.text}`}>Selecciona tus Servicios</h2>
               <div className="space-y-4">
                 {services.map((service) => {
                   const isSelected = selectedServices.some((s) => s.serviceId === service._id);
                   const selected = selectedServices.find((s) => s.serviceId === service._id);
-
                   return (
                     <div
                       key={service._id}
-                      className={`border-2 rounded-lg p-4 cursor-pointer transition ${
-                        isSelected ? 'border-current' : 'border-gray-200 hover:border-gray-300'
+                      className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 ${
+                        isSelected
+                          ? 'shadow-lg'
+                          : `${colors.border} hover:shadow-md`
                       }`}
-                      style={{ borderColor: isSelected ? primaryColor : undefined }}
+                      style={{
+                        borderColor: isSelected ? primaryColor : undefined,
+                        backgroundColor: isSelected ? `${primaryColor}08` : undefined,
+                      }}
                       onClick={() => toggleService(service._id)}
                     >
                       <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-bold text-lg">{service.name}</h3>
-                          <p className="text-sm text-gray-600 mt-1">{service.description}</p>
-                          <div className="flex gap-4 mt-2 text-sm text-gray-500">
-                            <span>⏱️ {service.duration} min</span>
-                            <span>💰 ${service.price.amount}</span>
+                        <div className="flex-1">
+                          <h3 className={`font-bold text-lg ${colors.text}`}>{service.name}</h3>
+                          <p className={`text-sm mt-1 ${colors.textMuted}`}>{service.description}</p>
+                          <div className={`flex gap-4 mt-3 text-sm ${colors.textLight}`}>
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {service.duration} min
+                            </span>
+                            <span className="font-bold text-base" style={{ color: primaryColor }}>${service.price.amount}</span>
                           </div>
                         </div>
                         <div
-                          className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
-                            isSelected ? 'text-white' : ''
+                          className={`w-7 h-7 rounded-lg border-2 flex items-center justify-center flex-shrink-0 ml-4 transition-all ${
+                            isSelected ? 'text-white' : colors.border
                           }`}
                           style={{
                             borderColor: isSelected ? primaryColor : undefined,
                             backgroundColor: isSelected ? primaryColor : undefined,
                           }}
                         >
-                          {isSelected && '✓'}
+                          {isSelected && (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
                         </div>
                       </div>
 
-                      {/* Addons */}
                       {isSelected && service.addons && service.addons.length > 0 && (
-                        <div className="mt-4 pl-4 border-l-2" style={{ borderColor: primaryColor }}>
-                          <p className="text-sm font-semibold mb-2">Add extras:</p>
+                        <div className="mt-4 pl-4 border-l-2 ml-1" style={{ borderColor: `${primaryColor}40` }}>
+                          <p className={`text-sm font-semibold mb-2 ${colors.textMuted}`}>Extras disponibles:</p>
                           <div className="space-y-2">
                             {service.addons
                               .filter((addon) => addon.isActive)
@@ -373,7 +426,7 @@ export default function BookingPage() {
                                       className="rounded"
                                       style={{ accentColor: primaryColor }}
                                     />
-                                    <span className="text-sm">
+                                    <span className={`text-sm ${colors.textMuted}`}>
                                       {addon.name} (+${addon.price}
                                       {addon.duration ? `, ${addon.duration} min` : ''})
                                     </span>
@@ -390,33 +443,41 @@ export default function BookingPage() {
             </div>
           )}
 
-          {/* Step 2: Select Professional */}
+          {/* Step 2: Professional */}
           {step === 2 && (
             <div>
-              <h2 className="text-2xl font-bold mb-4">Choose Professional (Optional)</h2>
+              <h2 className={`text-2xl font-bold tracking-tight mb-6 ${colors.text}`}>Elige tu Profesional</h2>
+              <p className={`mb-6 ${colors.textMuted}`}>Opcional — puedes dejarlo al azar</p>
               <div className="space-y-4">
                 <div
-                  className={`border-2 rounded-lg p-4 cursor-pointer transition ${
-                    !selectedProfessional ? 'border-current' : 'border-gray-200 hover:border-gray-300'
+                  className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 ${
+                    !selectedProfessional ? 'shadow-lg' : `${colors.border} hover:shadow-md`
                   }`}
-                  style={{ borderColor: !selectedProfessional ? primaryColor : undefined }}
+                  style={{
+                    borderColor: !selectedProfessional ? primaryColor : undefined,
+                    backgroundColor: !selectedProfessional ? `${primaryColor}08` : undefined,
+                  }}
                   onClick={() => setSelectedProfessional('')}
                 >
                   <div className="flex justify-between items-center">
                     <div>
-                      <h3 className="font-bold">No preference</h3>
-                      <p className="text-sm text-gray-600">First available professional</p>
+                      <h3 className={`font-bold ${colors.text}`}>Sin preferencia</h3>
+                      <p className={`text-sm ${colors.textMuted}`}>Primer profesional disponible</p>
                     </div>
                     <div
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                        !selectedProfessional ? 'text-white' : ''
+                      className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${
+                        !selectedProfessional ? 'text-white' : colors.border
                       }`}
                       style={{
                         borderColor: !selectedProfessional ? primaryColor : undefined,
                         backgroundColor: !selectedProfessional ? primaryColor : undefined,
                       }}
                     >
-                      {!selectedProfessional && '✓'}
+                      {!selectedProfessional && (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -426,10 +487,13 @@ export default function BookingPage() {
                   return (
                     <div
                       key={professional._id}
-                      className={`border-2 rounded-lg p-4 cursor-pointer transition ${
-                        isSelected ? 'border-current' : 'border-gray-200 hover:border-gray-300'
+                      className={`border-2 rounded-xl p-5 cursor-pointer transition-all duration-200 ${
+                        isSelected ? 'shadow-lg' : `${colors.border} hover:shadow-md`
                       }`}
-                      style={{ borderColor: isSelected ? primaryColor : undefined }}
+                      style={{
+                        borderColor: isSelected ? primaryColor : undefined,
+                        backgroundColor: isSelected ? `${primaryColor}08` : undefined,
+                      }}
                       onClick={() => setSelectedProfessional(professional._id)}
                     >
                       <div className="flex justify-between items-start">
@@ -438,26 +502,26 @@ export default function BookingPage() {
                             <img
                               src={professional.avatar}
                               alt={professional.name}
-                              className="w-16 h-16 rounded-full object-cover"
+                              className="w-16 h-16 rounded-xl object-cover"
                             />
                           ) : (
                             <div
-                              className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-2xl"
+                              className="w-16 h-16 rounded-xl flex items-center justify-center text-white font-bold text-2xl"
                               style={{ backgroundColor: primaryColor }}
                             >
-                              {professional.name.charAt(0)}
+                              {(professional.name || '?').charAt(0)}
                             </div>
                           )}
                           <div>
-                            <h3 className="font-bold text-lg">{professional.name}</h3>
-                            <p className="text-sm text-gray-600">{professional.role}</p>
-                            {professional.specialties && professional.specialties.length > 0 && (
+                            <h3 className={`font-bold text-lg ${colors.text}`}>{professional.name}</h3>
+                            <p className={`text-sm ${colors.textMuted}`}>{professional.role}</p>
+                            {professional.specialties?.length > 0 && (
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {professional.specialties.map((specialty) => (
                                   <span
                                     key={specialty}
-                                    className="text-xs px-2 py-1 rounded"
-                                    style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}
+                                    className="text-xs px-2 py-0.5 rounded-full"
+                                    style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
                                   >
                                     {specialty}
                                   </span>
@@ -467,15 +531,19 @@ export default function BookingPage() {
                           </div>
                         </div>
                         <div
-                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                            isSelected ? 'text-white' : ''
+                          className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                            isSelected ? 'text-white' : colors.border
                           }`}
                           style={{
                             borderColor: isSelected ? primaryColor : undefined,
                             backgroundColor: isSelected ? primaryColor : undefined,
                           }}
                         >
-                          {isSelected && '✓'}
+                          {isSelected && (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -485,14 +553,13 @@ export default function BookingPage() {
             </div>
           )}
 
-          {/* Step 3: Select Date &amp; Time */}
+          {/* Step 3: Date & Time */}
           {step === 3 && (
             <div>
-              <h2 className="text-2xl font-bold mb-4">Select Date &amp; Time</h2>
+              <h2 className={`text-2xl font-bold tracking-tight mb-6 ${colors.text}`}>Fecha y Hora</h2>
 
-              {/* Date picker */}
-              <div className="mb-6">
-                <label className="block font-semibold mb-2">Date</label>
+              <div className="mb-8">
+                <label className={`block font-semibold mb-2 ${colors.text}`}>Fecha</label>
                 <input
                   type="date"
                   value={selectedDate}
@@ -501,29 +568,28 @@ export default function BookingPage() {
                     setSelectedTime('');
                   }}
                   min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-current"
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${colors.card} ${colors.text} ${colors.border}`}
                   style={{ borderColor: selectedDate ? primaryColor : undefined }}
                 />
               </div>
 
-              {/* Time slots */}
               {selectedDate && (
                 <div>
-                  <label className="block font-semibold mb-2">Available Times</label>
+                  <label className={`block font-semibold mb-3 ${colors.text}`}>Horarios Disponibles</label>
                   {availableSlots.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      No available times for this date. Please try another date.
+                    <div className={`text-center py-10 ${colors.textLight}`}>
+                      No hay horarios disponibles para esta fecha. Intenta otro día.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                       {availableSlots.map((slot) => (
                         <button
                           key={slot.time}
                           onClick={() => setSelectedTime(slot.time)}
-                          className={`px-4 py-2 rounded-lg border-2 transition ${
+                          className={`px-3 py-2.5 rounded-xl border-2 font-medium text-sm transition-all ${
                             selectedTime === slot.time
-                              ? 'text-white font-bold'
-                              : 'border-gray-300 hover:border-gray-400'
+                              ? 'text-white shadow-lg'
+                              : `${colors.border} ${colors.text} hover:shadow-md`
                           }`}
                           style={{
                             borderColor: selectedTime === slot.time ? primaryColor : undefined,
@@ -543,79 +609,77 @@ export default function BookingPage() {
           {/* Step 4: Client Info */}
           {step === 4 && (
             <div>
-              <h2 className="text-2xl font-bold mb-4">Your Information</h2>
-              <div className="space-y-4">
+              <h2 className={`text-2xl font-bold tracking-tight mb-6 ${colors.text}`}>Tus Datos</h2>
+              <div className="space-y-5">
                 <div>
-                  <label className="block font-semibold mb-2">Full Name *</label>
+                  <label className={`block font-semibold mb-2 ${colors.text}`}>Nombre Completo *</label>
                   <input
                     type="text"
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
-                    placeholder="John Doe"
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-current"
+                    placeholder="Ej: Juan Pérez"
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${colors.card} ${colors.text} ${colors.border}`}
                     style={{ borderColor: clientName ? primaryColor : undefined }}
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold mb-2">Phone Number *</label>
+                  <label className={`block font-semibold mb-2 ${colors.text}`}>Teléfono *</label>
                   <input
                     type="tel"
                     value={clientPhone}
                     onChange={(e) => setClientPhone(e.target.value)}
-                    placeholder="+1 234 567 8900"
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-current"
+                    placeholder="+58 412 1234567"
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${colors.card} ${colors.text} ${colors.border}`}
                     style={{ borderColor: clientPhone ? primaryColor : undefined }}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Include country code (e.g., +1 for USA, +58 for Venezuela)
+                  <p className={`text-xs mt-1.5 ${colors.textLight}`}>
+                    Incluye el código de país (ej: +58 para Venezuela, +1 para USA)
                   </p>
                 </div>
 
                 <div>
-                  <label className="block font-semibold mb-2">Special Requests (Optional)</label>
+                  <label className={`block font-semibold mb-2 ${colors.text}`}>Notas (Opcional)</label>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Any special requests or notes..."
-                    rows={4}
-                    className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-current"
+                    placeholder="Alguna solicitud especial..."
+                    rows={3}
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors resize-none ${colors.card} ${colors.text} ${colors.border}`}
                   />
                 </div>
               </div>
             </div>
           )}
 
-          {/* Step 5: Confirmation */}
+          {/* Step 5: Confirm */}
           {step === 5 && (
             <div>
-              <h2 className="text-2xl font-bold mb-4">Confirm Booking</h2>
+              <h2 className={`text-2xl font-bold tracking-tight mb-6 ${colors.text}`}>Confirmar Reserva</h2>
 
               <div className="space-y-6">
-                {/* Services summary */}
                 <div>
-                  <h3 className="font-bold mb-2">Services</h3>
+                  <h3 className={`text-sm font-semibold tracking-wide uppercase mb-3 ${colors.textLight}`}>Servicios</h3>
                   <div className="space-y-2">
                     {selectedServices.map((selected) => {
                       const service = services.find((s) => s._id === selected.serviceId);
                       if (!service) return null;
-
                       return (
-                        <div key={selected.serviceId} className="bg-gray-50 p-3 rounded-lg">
-                          <div className="font-semibold">{service.name}</div>
-                          <div className="text-sm text-gray-600">
-                            {service.duration} min · ${service.price.amount}
+                        <div key={selected.serviceId} className={`${colors.bgAlt} p-4 rounded-xl`}>
+                          <div className="flex justify-between">
+                            <span className={`font-semibold ${colors.text}`}>{service.name}</span>
+                            <span className="font-bold" style={{ color: primaryColor }}>${service.price.amount}</span>
                           </div>
+                          <span className={`text-sm ${colors.textLight}`}>{service.duration} min</span>
                           {selected.addons.length > 0 && (
-                            <div className="mt-2 pl-4 border-l-2" style={{ borderColor: primaryColor }}>
+                            <div className="mt-2 pl-3 border-l-2" style={{ borderColor: `${primaryColor}40` }}>
                               {selected.addons.map((addonName) => {
                                 const addon = service.addons?.find((a) => a.name === addonName);
-                                if (!addon) return null;
-                                return (
-                                  <div key={addonName} className="text-sm text-gray-600">
+                                return addon ? (
+                                  <div key={addonName} className={`text-sm ${colors.textMuted}`}>
                                     + {addon.name} (+${addon.price})
                                   </div>
-                                );
+                                ) : null;
                               })}
                             </div>
                           )}
@@ -625,49 +689,41 @@ export default function BookingPage() {
                   </div>
                 </div>
 
-                {/* Professional */}
                 <div>
-                  <h3 className="font-bold mb-2">Professional</h3>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    {selectedProfessional ? (
-                      <div>
-                        {professionals.find((p) => p._id === selectedProfessional)?.name}
-                      </div>
-                    ) : (
-                      <div className="text-gray-600">First available</div>
-                    )}
+                  <h3 className={`text-sm font-semibold tracking-wide uppercase mb-3 ${colors.textLight}`}>Profesional</h3>
+                  <div className={`${colors.bgAlt} p-4 rounded-xl ${colors.text}`}>
+                    {selectedProfessional
+                      ? professionals.find((p) => p._id === selectedProfessional)?.name
+                      : 'Primer disponible'}
                   </div>
                 </div>
 
-                {/* Date &amp; Time */}
                 <div>
-                  <h3 className="font-bold mb-2">Date &amp; Time</h3>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div>{new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
-                    <div className="text-gray-600">{selectedTime}</div>
+                  <h3 className={`text-sm font-semibold tracking-wide uppercase mb-3 ${colors.textLight}`}>Fecha y Hora</h3>
+                  <div className={`${colors.bgAlt} p-4 rounded-xl`}>
+                    <div className={`font-semibold ${colors.text}`}>
+                      {new Date(selectedDate + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </div>
+                    <div className={colors.textMuted}>{selectedTime}</div>
                   </div>
                 </div>
 
-                {/* Client info */}
                 <div>
-                  <h3 className="font-bold mb-2">Contact Information</h3>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div>{clientName}</div>
-                    <div className="text-gray-600">{clientPhone}</div>
-                    {notes && (
-                      <div className="mt-2 text-sm text-gray-600 italic">{notes}</div>
-                    )}
+                  <h3 className={`text-sm font-semibold tracking-wide uppercase mb-3 ${colors.textLight}`}>Contacto</h3>
+                  <div className={`${colors.bgAlt} p-4 rounded-xl`}>
+                    <div className={`font-semibold ${colors.text}`}>{clientName}</div>
+                    <div className={colors.textMuted}>{clientPhone}</div>
+                    {notes && <div className={`mt-2 text-sm italic ${colors.textLight}`}>{notes}</div>}
                   </div>
                 </div>
 
-                {/* Total */}
-                <div className="border-t-2 pt-4">
-                  <div className="flex justify-between text-lg">
-                    <span className="font-bold">Total Duration:</span>
-                    <span>{totalDuration} minutes</span>
+                <div className={`border-t-2 pt-5 ${colors.border}`}>
+                  <div className={`flex justify-between text-lg ${colors.text}`}>
+                    <span className="font-medium">Duración total:</span>
+                    <span>{totalDuration} minutos</span>
                   </div>
                   <div className="flex justify-between text-2xl font-bold mt-2">
-                    <span>Total Price:</span>
+                    <span className={colors.text}>Total:</span>
                     <span style={{ color: primaryColor }}>${totalPrice.toFixed(2)}</span>
                   </div>
                 </div>
@@ -676,33 +732,47 @@ export default function BookingPage() {
           )}
         </div>
 
-        {/* Navigation buttons */}
-        <div className="flex justify-between">
+        {/* Running total (shown during steps 1-4) */}
+        {step < 5 && selectedServices.length > 0 && (
+          <div className={`${colors.card} rounded-xl border ${colors.border} p-4 mb-6 flex justify-between items-center transition-colors`}>
+            <div>
+              <span className={`text-sm ${colors.textMuted}`}>{selectedServices.length} servicio{selectedServices.length > 1 ? 's' : ''}</span>
+              <span className={`text-sm mx-2 ${colors.textLight}`}>·</span>
+              <span className={`text-sm ${colors.textMuted}`}>{totalDuration} min</span>
+            </div>
+            <span className="text-lg font-bold" style={{ color: primaryColor }}>${totalPrice.toFixed(2)}</span>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <div className="flex justify-between gap-4">
           <button
             onClick={prevStep}
             disabled={step === 1}
-            className="px-6 py-3 rounded-lg border-2 border-gray-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+            className={`px-6 py-3 rounded-xl border-2 font-semibold text-sm tracking-wide transition-all disabled:opacity-30 disabled:cursor-not-allowed ${colors.border} ${colors.text} ${
+              step > 1 ? 'hover:shadow-md' : ''
+            }`}
           >
-            Back
+            Atrás
           </button>
 
           {step < 5 ? (
             <button
               onClick={nextStep}
               disabled={!canGoToStep(step + 1)}
-              className="px-6 py-3 rounded-lg font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: canGoToStep(step + 1) ? primaryColor : undefined }}
+              className="px-8 py-3 rounded-xl font-semibold text-sm tracking-wide text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-lg hover:scale-[1.02]"
+              style={{ background: canGoToStep(step + 1) ? `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` : undefined }}
             >
-              Next
+              Siguiente
             </button>
           ) : (
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="px-6 py-3 rounded-lg font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: !submitting ? primaryColor : undefined }}
+              className="px-8 py-3 rounded-xl font-semibold text-sm tracking-wide text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:scale-[1.02]"
+              style={{ background: !submitting ? `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` : undefined }}
             >
-              {submitting ? 'Creating booking...' : 'Confirm Booking'}
+              {submitting ? 'Procesando...' : 'Confirmar Reserva'}
             </button>
           )}
         </div>

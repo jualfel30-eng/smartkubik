@@ -32,8 +32,6 @@ export default function BeautyLocation({ config, primaryColor, colors }: BeautyL
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       <div>
-        <h3 className={`text-3xl font-bold mb-6 ${colors.text}`}>Encuéntranos</h3>
-
         <div className={`${colors.card} rounded-xl p-6 shadow-lg mb-6`}>
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${primaryColor}20` }}>
