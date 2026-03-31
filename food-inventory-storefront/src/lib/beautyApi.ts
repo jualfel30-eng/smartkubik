@@ -127,7 +127,7 @@ export interface Booking {
 export async function getBeautyServices(tenantId: string): Promise<BeautyService[]> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/public/beauty-services?tenantId=${tenantId}`,
+      `${API_BASE_URL}/public/beauty-services/${tenantId}`,
       {
         method: 'GET',
         headers: {
@@ -153,7 +153,7 @@ export async function getBeautyServices(tenantId: string): Promise<BeautyService
 export async function getProfessionals(tenantId: string): Promise<Professional[]> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/public/professionals?tenantId=${tenantId}`,
+      `${API_BASE_URL}/public/professionals/${tenantId}`,
       {
         method: 'GET',
         headers: {
@@ -234,7 +234,7 @@ export async function createBeautyBooking(data: BookingData): Promise<Booking> {
 export async function getBeautyGallery(tenantId: string): Promise<GalleryItem[]> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/public/beauty-gallery?tenantId=${tenantId}`,
+      `${API_BASE_URL}/public/beauty-gallery/${tenantId}`,
       {
         method: 'GET',
         headers: {
@@ -260,7 +260,7 @@ export async function getBeautyGallery(tenantId: string): Promise<GalleryItem[]>
 export async function getBeautyReviews(tenantId: string): Promise<Review[]> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/public/beauty-reviews?tenantId=${tenantId}`,
+      `${API_BASE_URL}/public/beauty-reviews/${tenantId}`,
       {
         method: 'GET',
         headers: {
@@ -286,7 +286,7 @@ export async function getBeautyReviews(tenantId: string): Promise<Review[]> {
 export async function getBookingByNumber(bookingNumber: string): Promise<Booking> {
   try {
     const response = await fetch(
-      `${API_BASE_URL}/public/beauty-bookings/number/${bookingNumber}`,
+      `${API_BASE_URL}/public/beauty-bookings/booking-number/${bookingNumber}`,
       {
         method: 'GET',
         headers: {

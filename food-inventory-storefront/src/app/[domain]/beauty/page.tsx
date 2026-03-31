@@ -22,13 +22,13 @@ export default async function BeautyPage({ params }: BeautyPageProps) {
     notFound();
   }
 
-  // Check if beauty module is enabled
-  const beautyConfig = (config as any).beautyConfig;
-  if (!beautyConfig?.enabled) {
+  // Check if this storefront uses the beauty template
+  const cfg = config as any;
+  if (cfg.templateType !== 'beauty') {
     notFound();
   }
 
-  const tenantId = typeof config.tenantId === 'string' ? config.tenantId : config.tenantId._id;
+  const tenantId = typeof cfg.tenantId === 'object' ? cfg.tenantId._id : cfg.tenantId;
 
   // Fetch all beauty data in parallel
   const [services, professionals, gallery, reviews] = await Promise.all([
@@ -38,9 +38,33 @@ export default async function BeautyPage({ params }: BeautyPageProps) {
     getBeautyReviews(tenantId),
   ]);
 
+  // Map API response to BeautyStorefront expected config shape
+  const beautyConfig = {
+    tenantId,
+    name: cfg.tenantId?.name || cfg.seo?.title || 'Beauty Salon',
+    description: cfg.seo?.description || '',
+    logoUrl: cfg.theme?.logo,
+    primaryColor: cfg.theme?.primaryColor,
+    secondaryColor: cfg.theme?.secondaryColor,
+    contactInfo: {
+      email: cfg.contactInfo?.email || '',
+      phone: cfg.contactInfo?.phone || '',
+      whatsapp: cfg.socialMedia?.whatsapp || cfg.contactInfo?.phone || '',
+      address: typeof cfg.contactInfo?.address === 'object'
+        ? `${cfg.contactInfo.address.street || ''}, ${cfg.contactInfo.address.city || ''}`
+        : cfg.contactInfo?.address || '',
+      city: typeof cfg.contactInfo?.address === 'object' ? cfg.contactInfo.address.city : undefined,
+      country: typeof cfg.contactInfo?.address === 'object' ? cfg.contactInfo.address.country : undefined,
+      socialMedia: {
+        instagram: cfg.socialMedia?.instagram,
+        facebook: cfg.socialMedia?.facebook,
+      },
+    },
+  };
+
   return (
     <BeautyStorefront
-      config={config as any}
+      config={beautyConfig}
       services={services}
       professionals={professionals}
       gallery={gallery}
@@ -65,17 +89,19 @@ export async function generateMetadata({ params }: BeautyPageProps) {
     };
   }
 
-  const beautyConfig = (config as any).beautyConfig;
-  const businessName = (config as any).name || 'Beauty Salon';
+  const tenantName = typeof (config as any).tenantId === 'object'
+    ? (config as any).tenantId.name
+    : null;
+  const businessName = tenantName || (config as any).seo?.title || 'Beauty Salon';
 
   return {
     title: `${businessName} - Beauty Services`,
-    description: beautyConfig?.seoDescription || `Book your beauty appointment at ${businessName}. Professional services, experienced team, and premium care.`,
-    keywords: beautyConfig?.seoKeywords || 'beauty salon, hair salon, spa, beauty services, appointments',
+    description: (config as any).seo?.description || `Book your beauty appointment at ${businessName}. Professional services, experienced team, and premium care.`,
+    keywords: (config as any).seo?.keywords || ['beauty salon', 'hair salon', 'spa', 'beauty services', 'appointments'],
     openGraph: {
       title: `${businessName} - Beauty Services`,
-      description: beautyConfig?.seoDescription || `Book your appointment today`,
-      images: beautyConfig?.heroBanner ? [beautyConfig.heroBanner] : [],
+      description: (config as any).seo?.description || `Book your appointment today`,
+      images: (config as any).theme?.logo ? [(config as any).theme.logo] : [],
     },
   };
 }

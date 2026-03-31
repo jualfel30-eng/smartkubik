@@ -31,13 +31,30 @@ export default function BookingConfirmationPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        // Fetch config
+        // Fetch config using correct endpoint
         const configRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/public/storefront-config?domain=${domain}`
+          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/public/storefront/by-domain/${domain}`
         );
         if (!configRes.ok) throw new Error('Config not found');
-        const configData = await configRes.json();
-        setConfig(configData);
+        const configJson = await configRes.json();
+        const configData = configJson.data || configJson;
+
+        const tenantName = typeof configData.tenantId === 'object'
+          ? configData.tenantId.name
+          : configData.seo?.title || 'Beauty Salon';
+
+        setConfig({
+          tenantId: typeof configData.tenantId === 'object' ? configData.tenantId._id : configData.tenantId,
+          name: tenantName,
+          primaryColor: configData.theme?.primaryColor,
+          contactInfo: {
+            phone: configData.contactInfo?.phone,
+            whatsapp: configData.socialMedia?.whatsapp || configData.contactInfo?.phone,
+            address: typeof configData.contactInfo?.address === 'object'
+              ? `${configData.contactInfo.address.street || ''}, ${configData.contactInfo.address.city || ''}`
+              : configData.contactInfo?.address,
+          },
+        });
 
         // Fetch booking
         const bookingData = await getBookingByNumber(bookingNumber);
