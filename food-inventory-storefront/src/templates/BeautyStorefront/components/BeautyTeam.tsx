@@ -1,5 +1,6 @@
 'use client';
 
+import SectionReveal from './premium/SectionReveal';
 import type { ColorScheme } from '../BeautyStorefront';
 
 interface Professional {
@@ -21,8 +22,9 @@ interface BeautyTeamProps {
 export default function BeautyTeam({ professionals, primaryColor, colors }: BeautyTeamProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-      {professionals.map((prof) => (
-        <div key={prof._id} className={`${colors.card} rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition`}>
+      {professionals.map((prof, index) => (
+        <SectionReveal key={prof._id} delay={index * 0.15}>
+          <div className={`${colors.card} rounded-2xl shadow-lg overflow-hidden hover:shadow-premium transition-all duration-300 hover:scale-[1.02]`}>
           <div className="relative">
             <div
               className={`w-full h-64 bg-gradient-to-br ${colors.placeholderGradient} flex items-center justify-center`}
@@ -64,7 +66,8 @@ export default function BeautyTeam({ professionals, primaryColor, colors }: Beau
               ))}
             </div>
           </div>
-        </div>
+          </div>
+        </SectionReveal>
       ))}
     </div>
   );

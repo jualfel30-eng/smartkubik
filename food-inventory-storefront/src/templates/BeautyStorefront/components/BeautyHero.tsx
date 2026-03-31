@@ -1,5 +1,6 @@
 'use client';
 
+import { motion } from 'framer-motion';
 import type { ColorScheme } from '../BeautyStorefront';
 
 interface BeautyHeroProps {
@@ -36,26 +37,47 @@ export default function BeautyHero({
 
       <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-3xl mx-auto text-center">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in">
+          <motion.h1
+            className="font-serif text-6xl md:text-display font-bold mb-6 tracking-tight"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
             {config.name}
-          </h1>
-          <p className="text-xl md:text-2xl mb-8 text-white/90">
+          </motion.h1>
+          <motion.p
+            className="text-xl md:text-2xl mb-8 text-white/90 font-sans"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+          >
             {config.description}
-          </p>
-          <div className="flex gap-4 justify-center flex-wrap">
-            <a
+          </motion.p>
+          <motion.div
+            className="flex gap-4 justify-center flex-wrap"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.6 }}
+          >
+            <motion.a
               href={`/${domain}/beauty/reservar`}
-              className="px-8 py-4 bg-white text-gray-900 rounded-full font-bold text-lg hover:scale-105 transition transform shadow-xl"
+              className="px-8 py-4 bg-white text-gray-900 rounded-full font-bold text-lg shadow-xl"
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             >
               Reservar Ahora
-            </a>
-            <a
+            </motion.a>
+            <motion.a
               href="#servicios"
-              className="px-8 py-4 bg-white/20 backdrop-blur-sm text-white rounded-full font-bold text-lg hover:bg-white/30 transition border-2 border-white"
+              className="px-8 py-4 bg-white/20 backdrop-blur-sm text-white rounded-full font-bold text-lg border-2 border-white"
+              whileHover={{ scale: 1.05, y: -2, backgroundColor: 'rgba(255, 255, 255, 0.3)' }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             >
               Ver Servicios
-            </a>
-          </div>
+            </motion.a>
+          </motion.div>
         </div>
       </div>
 

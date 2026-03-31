@@ -29,11 +29,11 @@ export default function BeautyGallery({ gallery, colors }: BeautyGalleryProps) {
             className="relative aspect-square rounded-xl overflow-hidden group cursor-pointer"
           >
             <div
-              className={`w-full h-full ${colors.addonBg}`}
+              className={`w-full h-full ${colors.addonBg} filter grayscale group-hover:grayscale-0 group-hover:scale-105 transition-all duration-500`}
               style={{ background: `url(${item.imageUrl}) center/cover` }}
             />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition flex items-end p-4">
-              <div className="text-white opacity-0 group-hover:opacity-100 transition">
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-500 flex items-end p-4">
+              <div className="text-white opacity-0 group-hover:opacity-100 transition-all duration-300">
                 <p className="font-semibold text-sm">{item.title}</p>
                 <p className="text-xs">{item.category}</p>
               </div>
@@ -43,8 +43,8 @@ export default function BeautyGallery({ gallery, colors }: BeautyGalleryProps) {
       </div>
 
       {selectedImage && (
-        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setSelectedImage(null)}>
-          <button onClick={() => setSelectedImage(null)} className="absolute top-4 right-4 text-white bg-white/20 hover:bg-white/30 w-10 h-10 rounded-full flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setSelectedImage(null)}>
+          <button onClick={() => setSelectedImage(null)} className="absolute top-4 right-4 text-white bg-white/20 hover:bg-white/30 transition w-10 h-10 rounded-full flex items-center justify-center">
             ✕
           </button>
           <div className="max-w-4xl w-full">

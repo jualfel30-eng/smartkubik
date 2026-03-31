@@ -1,5 +1,6 @@
 'use client';
 
+import SectionReveal from './premium/SectionReveal';
 import type { ColorScheme } from '../BeautyStorefront';
 
 interface Service {
@@ -32,27 +33,27 @@ export default function BeautyServices({
 }: BeautyServicesProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {services.map((service) => (
-        <div
-          key={service._id}
-          className={`${colors.card} rounded-xl shadow-lg overflow-hidden hover:shadow-2xl transition transform hover:-translate-y-1 group`}
-        >
+      {services.map((service, index) => (
+        <SectionReveal key={service._id} delay={index * 0.1}>
           <div
-            className={`h-48 bg-gradient-to-br ${colors.placeholderGradient} relative overflow-hidden`}
-            style={{
-              background: service.images?.[0]
-                ? `url(${service.images[0]}) center/cover`
-                : `linear-gradient(135deg, ${primaryColor}20, ${primaryColor}40)`,
-            }}
+            className={`${colors.card} rounded-xl shadow-lg overflow-hidden hover:shadow-premium-lg transition-all duration-300 transform hover:-translate-y-1 group`}
           >
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition" />
             <div
-              className={`absolute top-4 right-4 ${colors.card} px-3 py-1 rounded-full shadow-lg`}
-              style={{ color: primaryColor }}
+              className={`h-48 bg-gradient-to-br ${colors.placeholderGradient} relative overflow-hidden filter grayscale group-hover:grayscale-0 transition-all duration-500`}
+              style={{
+                background: service.images?.[0]
+                  ? `url(${service.images[0]}) center/cover`
+                  : `linear-gradient(135deg, ${primaryColor}20, ${primaryColor}40)`,
+              }}
             >
-              <span className="font-bold text-lg">${service.price.amount}</span>
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-500" />
+              <div
+                className={`absolute top-4 right-4 ${colors.card} px-3 py-1 rounded-full shadow-lg`}
+                style={{ color: primaryColor }}
+              >
+                <span className="font-bold text-lg">${service.price.amount}</span>
+              </div>
             </div>
-          </div>
 
           <div className="p-6">
             <div className="flex items-start justify-between mb-3">
@@ -102,7 +103,8 @@ export default function BeautyServices({
               Reservar
             </a>
           </div>
-        </div>
+          </div>
+        </SectionReveal>
       ))}
     </div>
   );

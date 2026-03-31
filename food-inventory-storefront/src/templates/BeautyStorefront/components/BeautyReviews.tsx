@@ -1,5 +1,6 @@
 'use client';
 
+import SectionReveal from './premium/SectionReveal';
 import type { ColorScheme } from '../BeautyStorefront';
 
 interface Review {
@@ -24,8 +25,9 @@ export default function BeautyReviews({ reviews, colors }: BeautyReviewsProps) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {reviews.map((review) => (
-        <div key={review._id} className={`${colors.card} rounded-xl p-6 shadow-lg hover:shadow-xl transition`}>
+      {reviews.map((review, index) => (
+        <SectionReveal key={review._id} delay={index * 0.1}>
+          <div className={`${colors.card} rounded-xl p-6 shadow-lg hover:shadow-premium transition-all duration-300`}>
           <div className="flex mb-3">
             {[...Array(5)].map((_, i) => (
               <svg key={i} className="w-5 h-5" fill={i < review.rating ? '#F59E0B' : colors.emptyStar} viewBox="0 0 20 20">
@@ -43,7 +45,8 @@ export default function BeautyReviews({ reviews, colors }: BeautyReviewsProps) {
               <p className={`text-sm ${colors.textLight}`}>{formatDate(review.createdAt)}</p>
             </div>
           </div>
-        </div>
+          </div>
+        </SectionReveal>
       ))}
     </div>
   );
