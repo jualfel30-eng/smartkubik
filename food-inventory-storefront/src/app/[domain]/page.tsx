@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { getStorefrontConfig, getActiveDomains, getProducts, getCategories } from '@/lib/api';
 import { getTemplate } from '@/lib/templateFactory';
 
@@ -14,6 +15,11 @@ export default async function StorefrontPage({
 }: StorefrontPageProps) {
   const { domain } = await params;
   const config = await getStorefrontConfig(domain);
+
+  // Beauty template has its own dedicated route with different data needs
+  if (config.templateType === 'beauty') {
+    redirect(`/${domain}/beauty`);
+  }
 
   // Extract tenantId as string (could be object or string from backend)
   const tenantId: string = typeof config.tenantId === 'string'
