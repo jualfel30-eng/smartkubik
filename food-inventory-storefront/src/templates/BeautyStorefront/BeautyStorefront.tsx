@@ -7,47 +7,100 @@ import BeautyTeam from './components/BeautyTeam';
 import BeautyGallery from './components/BeautyGallery';
 import BeautyReviews from './components/BeautyReviews';
 import BeautyLocation from './components/BeautyLocation';
+import SmoothScrollProvider from './components/premium/SmoothScrollProvider';
+import GrainOverlay from './components/premium/GrainOverlay';
+import LoadingScreen from './components/premium/LoadingScreen';
+import FloatingCTA from './components/premium/FloatingCTA';
 
 export interface ColorScheme {
+  // Backgrounds
   bg: string;
   bgAlt: string;
+  bgOverlay: string;
+
+  // Cards & surfaces
   card: string;
+  cardHover: string;
+
+  // Text hierarchy
   text: string;
   textMuted: string;
   textLight: string;
+
+  // Accents
+  accent: string;
+  accentMuted: string;
+
+  // Borders
   border: string;
+  borderLight: string;
+
+  // Misc
   emptyStar: string;
   waveFill: string;
   addonBg: string;
   placeholderGradient: string;
+
+  // Premium additions
+  noise: string;
+  grain: string;
+  goldGradient: string;
 }
 
 export const LIGHT: ColorScheme = {
-  bg: 'bg-white',
-  bgAlt: 'bg-stone-50',
+  bg: 'bg-luxury-cream-50',
+  bgAlt: 'bg-white',
+  bgOverlay: 'bg-black/40',
+
   card: 'bg-white',
-  text: 'text-gray-900',
+  cardHover: 'hover:bg-luxury-cream-50',
+
+  text: 'text-luxury-black-900',
   textMuted: 'text-gray-600',
   textLight: 'text-gray-500',
+
+  accent: 'text-luxury-gold',
+  accentMuted: 'text-luxury-brass',
+
   border: 'border-gray-200',
+  borderLight: 'border-gray-100',
+
   emptyStar: '#D1D5DB',
-  waveFill: '#ffffff',
-  addonBg: 'bg-gray-100',
+  waveFill: '#F5F5F0',
+  addonBg: 'bg-gray-50',
   placeholderGradient: 'from-gray-100 to-gray-200',
+
+  noise: 'opacity-[0.015]',
+  grain: 'opacity-[0.02]',
+  goldGradient: 'from-luxury-gold-light via-luxury-gold to-luxury-brass',
 };
 
 export const DARK: ColorScheme = {
-  bg: 'bg-neutral-950',
-  bgAlt: 'bg-neutral-900',
-  card: 'bg-neutral-800',
-  text: 'text-gray-100',
-  textMuted: 'text-neutral-300',
-  textLight: 'text-neutral-400',
-  border: 'border-neutral-700',
+  bg: 'bg-luxury-black-900',
+  bgAlt: 'bg-luxury-black-800',
+  bgOverlay: 'bg-black/60',
+
+  card: 'bg-luxury-black-800',
+  cardHover: 'hover:bg-luxury-black-700',
+
+  text: 'text-luxury-cream-100',
+  textMuted: 'text-luxury-cream-50/70',
+  textLight: 'text-luxury-cream-50/50',
+
+  accent: 'text-luxury-gold',
+  accentMuted: 'text-luxury-brass',
+
+  border: 'border-luxury-black-700',
+  borderLight: 'border-luxury-black-700/50',
+
   emptyStar: '#4B5563',
-  waveFill: '#0a0a0a',
-  addonBg: 'bg-neutral-700',
-  placeholderGradient: 'from-neutral-700 to-neutral-600',
+  waveFill: '#0A0A0A',
+  addonBg: 'bg-luxury-black-700',
+  placeholderGradient: 'from-luxury-black-700 to-luxury-black-800',
+
+  noise: 'opacity-[0.03]',
+  grain: 'opacity-[0.04]',
+  goldGradient: 'from-luxury-gold-light via-luxury-gold to-luxury-brass',
 };
 
 interface BeautyStorefrontProps {
@@ -166,9 +219,13 @@ export default function BeautyStorefront({
       : 0;
 
   return (
-    <div className={`min-h-screen ${colors.bg} ${colors.text} transition-colors duration-300`}>
-      {/* Header */}
-      <header
+    <SmoothScrollProvider>
+      <div className={`min-h-screen ${colors.bg} ${colors.text} transition-colors duration-300`}>
+        <LoadingScreen logoUrl={config.logoUrl} primaryColor={primaryColor} />
+        <GrainOverlay />
+
+        {/* Header */}
+        <header
         className={`sticky top-0 z-50 backdrop-blur-md transition-colors duration-300 ${
           darkMode ? 'bg-neutral-950/90 border-neutral-800' : 'bg-white/90 border-stone-200'
         } border-b`}
@@ -228,13 +285,13 @@ export default function BeautyStorefront({
       <BeautyHero config={config} primaryColor={primaryColor} secondaryColor={secondaryColor} domain={domain} colors={colors} />
 
       {/* Services */}
-      <section id="servicios" className={`py-20 ${colors.bgAlt} transition-colors duration-300`}>
+      <section id="servicios" className={`py-32 ${colors.bgAlt} transition-colors duration-300`}>
         <div className="container mx-auto px-4">
           <div className="text-center mb-14">
-            <p className="text-sm font-semibold tracking-[0.2em] uppercase mb-3" style={{ color: primaryColor }}>
+            <p className="text-sm font-semibold tracking-super uppercase mb-3 font-sans" style={{ color: primaryColor }}>
               Servicios
             </p>
-            <h2 className={`text-4xl md:text-5xl font-bold tracking-tight mb-4 ${colors.text}`}>
+            <h2 className={`font-serif text-h1 font-bold tracking-tight mb-4 ${colors.text}`}>
               Nuestros Servicios
             </h2>
             <div className="w-16 h-1 mx-auto rounded-full mb-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
@@ -265,13 +322,13 @@ export default function BeautyStorefront({
       </section>
 
       {/* Team */}
-      <section id="equipo" className={`py-20 ${colors.bg} transition-colors duration-300`}>
+      <section id="equipo" className={`py-32 ${colors.bg} transition-colors duration-300`}>
         <div className="container mx-auto px-4">
           <div className="text-center mb-14">
-            <p className="text-sm font-semibold tracking-[0.2em] uppercase mb-3" style={{ color: primaryColor }}>
+            <p className="text-sm font-semibold tracking-super uppercase mb-3 font-sans" style={{ color: primaryColor }}>
               Equipo
             </p>
-            <h2 className={`text-4xl md:text-5xl font-bold tracking-tight mb-4 ${colors.text}`}>
+            <h2 className={`font-serif text-h1 font-bold tracking-tight mb-4 ${colors.text}`}>
               Nuestro Equipo
             </h2>
             <div className="w-16 h-1 mx-auto rounded-full mb-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
@@ -285,13 +342,13 @@ export default function BeautyStorefront({
 
       {/* Gallery */}
       {gallery.length > 0 && (
-        <section id="galeria" className={`py-20 ${colors.bgAlt} transition-colors duration-300`}>
+        <section id="galeria" className={`py-32 ${colors.bgAlt} transition-colors duration-300`}>
           <div className="container mx-auto px-4">
             <div className="text-center mb-14">
-              <p className="text-sm font-semibold tracking-[0.2em] uppercase mb-3" style={{ color: primaryColor }}>
+              <p className="text-sm font-semibold tracking-super uppercase mb-3 font-sans" style={{ color: primaryColor }}>
                 Portafolio
               </p>
-              <h2 className={`text-4xl md:text-5xl font-bold tracking-tight mb-4 ${colors.text}`}>
+              <h2 className={`font-serif text-h1 font-bold tracking-tight mb-4 ${colors.text}`}>
                 Galería
               </h2>
               <div className="w-16 h-1 mx-auto rounded-full mb-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
@@ -304,13 +361,13 @@ export default function BeautyStorefront({
 
       {/* Reviews */}
       {reviews.length > 0 && (
-        <section id="resenas" className={`py-20 ${colors.bg} transition-colors duration-300`}>
+        <section id="resenas" className={`py-32 ${colors.bg} transition-colors duration-300`}>
           <div className="container mx-auto px-4">
             <div className="text-center mb-14">
-              <p className="text-sm font-semibold tracking-[0.2em] uppercase mb-3" style={{ color: primaryColor }}>
+              <p className="text-sm font-semibold tracking-super uppercase mb-3 font-sans" style={{ color: primaryColor }}>
                 Testimonios
               </p>
-              <h2 className={`text-4xl md:text-5xl font-bold tracking-tight mb-4 ${colors.text}`}>
+              <h2 className={`font-serif text-h1 font-bold tracking-tight mb-4 ${colors.text}`}>
                 Lo Que Dicen Nuestros Clientes
               </h2>
               <div className="w-16 h-1 mx-auto rounded-full mb-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
@@ -332,13 +389,13 @@ export default function BeautyStorefront({
       )}
 
       {/* Location */}
-      <section id="contacto" className={`py-20 ${colors.bgAlt} transition-colors duration-300`}>
+      <section id="contacto" className={`py-32 ${colors.bgAlt} transition-colors duration-300`}>
         <div className="container mx-auto px-4">
           <div className="text-center mb-14">
-            <p className="text-sm font-semibold tracking-[0.2em] uppercase mb-3" style={{ color: primaryColor }}>
+            <p className="text-sm font-semibold tracking-super uppercase mb-3 font-sans" style={{ color: primaryColor }}>
               Contacto
             </p>
-            <h2 className={`text-4xl md:text-5xl font-bold tracking-tight mb-4 ${colors.text}`}>
+            <h2 className={`font-serif text-h1 font-bold tracking-tight mb-4 ${colors.text}`}>
               Encuéntranos
             </h2>
             <div className="w-16 h-1 mx-auto rounded-full mb-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
@@ -357,6 +414,9 @@ export default function BeautyStorefront({
           </p>
         </div>
       </footer>
-    </div>
+
+      <FloatingCTA domain={domain} primaryColor={primaryColor} secondaryColor={secondaryColor} />
+      </div>
+    </SmoothScrollProvider>
   );
 }
