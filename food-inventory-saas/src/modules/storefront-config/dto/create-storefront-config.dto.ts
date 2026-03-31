@@ -85,10 +85,10 @@ export class CreateStorefrontConfigDto {
   @Type(() => ThemeConfigDto)
   theme: ThemeConfigDto;
 
-  @IsEnum(["ecommerce", "services"], {
-    message: "El tipo de plantilla debe ser 'ecommerce' o 'services'",
+  @IsEnum(["ecommerce", "services", "beauty", "premium"], {
+    message: "El tipo de plantilla debe ser 'ecommerce', 'services', 'beauty' o 'premium'",
   })
-  templateType: "ecommerce" | "services";
+  templateType: "ecommerce" | "services" | "beauty" | "premium";
 
   @IsOptional()
   @IsString()

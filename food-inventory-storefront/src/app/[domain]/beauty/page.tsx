@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { getStorefrontConfig } from '@/lib/api';
 import { getBeautyServices, getProfessionals, getBeautyGallery, getBeautyReviews } from '@/lib/beautyApi';
 import BeautyStorefront from '@/templates/BeautyStorefront';
 
@@ -6,26 +7,16 @@ interface BeautyPageProps {
   params: Promise<{ domain: string }>;
 }
 
-async function getStorefrontConfig(domain: string) {
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/public/storefront-config?domain=${domain}`,
-      { next: { revalidate: 60 } }
-    );
-
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching storefront config:', error);
-    return null;
-  }
-}
-
 export default async function BeautyPage({ params }: BeautyPageProps) {
   const { domain } = await params;
 
-  // Fetch storefront configuration
-  const config = await getStorefrontConfig(domain);
+  // Fetch storefront configuration using shared API function
+  let config;
+  try {
+    config = await getStorefrontConfig(domain);
+  } catch {
+    notFound();
+  }
 
   if (!config) {
     notFound();
@@ -37,7 +28,7 @@ export default async function BeautyPage({ params }: BeautyPageProps) {
     notFound();
   }
 
-  const tenantId = config.tenantId;
+  const tenantId = typeof config.tenantId === 'string' ? config.tenantId : config.tenantId._id;
 
   // Fetch all beauty data in parallel
   const [services, professionals, gallery, reviews] = await Promise.all([
@@ -49,7 +40,7 @@ export default async function BeautyPage({ params }: BeautyPageProps) {
 
   return (
     <BeautyStorefront
-      config={config}
+      config={config as any}
       services={services}
       professionals={professionals}
       gallery={gallery}
@@ -61,7 +52,12 @@ export default async function BeautyPage({ params }: BeautyPageProps) {
 
 export async function generateMetadata({ params }: BeautyPageProps) {
   const { domain } = await params;
-  const config = await getStorefrontConfig(domain);
+  let config;
+  try {
+    config = await getStorefrontConfig(domain);
+  } catch {
+    return { title: 'Beauty Services' };
+  }
 
   if (!config) {
     return {

@@ -275,12 +275,12 @@ export class UpdateStorefrontConfigDto {
 
   @ApiPropertyOptional({
     description: "Tipo de plantilla del storefront",
-    enum: ["ecommerce", "services", "premium"],
+    enum: ["ecommerce", "services", "beauty", "premium"],
     example: "ecommerce",
   })
   @IsOptional()
-  @IsEnum(["ecommerce", "services", "premium"], {
-    message: "El tipo de plantilla debe ser 'ecommerce', 'services' o 'premium'",
+  @IsEnum(["ecommerce", "services", "beauty", "premium"], {
+    message: "El tipo de plantilla debe ser 'ecommerce', 'services', 'beauty' o 'premium'",
   })
   templateType?: string;
 
