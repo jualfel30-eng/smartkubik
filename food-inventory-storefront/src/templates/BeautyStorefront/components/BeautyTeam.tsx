@@ -34,7 +34,7 @@ export default function BeautyTeam({ professionals, primaryColor, colors }: Beau
             >
               {!prof.avatar && (
                 <div className="w-32 h-32 rounded-full flex items-center justify-center text-4xl font-bold text-white" style={{ background: primaryColor }}>
-                  {prof.name.charAt(0)}
+                  {(prof.name || '?').charAt(0)}
                 </div>
               )}
             </div>

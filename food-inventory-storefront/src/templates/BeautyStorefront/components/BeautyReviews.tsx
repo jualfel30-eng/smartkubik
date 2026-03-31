@@ -4,7 +4,8 @@ import type { ColorScheme } from '../BeautyStorefront';
 
 interface Review {
   _id: string;
-  clientName: string;
+  client?: { name: string; phone?: string };
+  clientName?: string;
   rating: number;
   comment: string;
   createdAt: string;
@@ -35,10 +36,10 @@ export default function BeautyReviews({ reviews, colors }: BeautyReviewsProps) {
           <p className={`${colors.textMuted} mb-4 italic`}>&quot;{review.comment}&quot;</p>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">
-              {review.clientName.charAt(0)}
+              {(review.client?.name || review.clientName || '?').charAt(0)}
             </div>
             <div>
-              <p className={`font-semibold ${colors.text}`}>{review.clientName}</p>
+              <p className={`font-semibold ${colors.text}`}>{review.client?.name || review.clientName}</p>
               <p className={`text-sm ${colors.textLight}`}>{formatDate(review.createdAt)}</p>
             </div>
           </div>
