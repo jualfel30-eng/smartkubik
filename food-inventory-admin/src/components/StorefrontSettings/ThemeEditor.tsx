@@ -16,10 +16,12 @@ export function ThemeEditor({ config, onUpdate, saving }: ThemeEditorProps) {
 
   const handleSave = async () => {
     // Enviar solo campos válidos del DTO (sin _id de Mongoose)
-    const { primaryColor, secondaryColor, logo, favicon } = theme;
+    const { primaryColor, secondaryColor, logo, favicon, bannerUrl, videoUrl } = theme;
     const cleanTheme: any = { primaryColor, secondaryColor };
     if (logo) cleanTheme.logo = logo;
     if (favicon) cleanTheme.favicon = favicon;
+    if (bannerUrl) cleanTheme.bannerUrl = bannerUrl;
+    if (videoUrl) cleanTheme.videoUrl = videoUrl;
     const result = await onUpdate({ theme: cleanTheme });
     if (result.success) {
       alert('✅ Tema actualizado correctamente');
@@ -197,6 +199,40 @@ export function ThemeEditor({ config, onUpdate, saving }: ThemeEditorProps) {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Banner URL */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+            URL de Imagen de Banner (Hero)
+          </label>
+          <input
+            type="url"
+            value={theme.bannerUrl || ''}
+            onChange={(e) => setTheme({ ...theme, bannerUrl: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
+            placeholder="https://ejemplo.com/banner.jpg"
+          />
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            URL de la imagen de fondo para la sección Hero. Se usará si no hay video configurado.
+          </p>
+        </div>
+
+        {/* Video URL */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+            URL de Video de Fondo (Hero)
+          </label>
+          <input
+            type="url"
+            value={theme.videoUrl || ''}
+            onChange={(e) => setTheme({ ...theme, videoUrl: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
+            placeholder="https://ejemplo.com/video.mp4"
+          />
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            URL del video de fondo para la sección Hero. Tendrá prioridad sobre la imagen si está configurado. Formato recomendado: MP4 (máx 5MB, 1920x1080).
+          </p>
         </div>
 
         {/* Preview */}
