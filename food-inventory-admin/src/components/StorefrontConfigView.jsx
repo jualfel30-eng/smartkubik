@@ -46,7 +46,9 @@ function StorefrontConfigView() {
       primaryColor: '#FB923C',
       secondaryColor: '#F97316',
       logo: '',
-      favicon: ''
+      favicon: '',
+      bannerUrl: '',
+      videoUrl: ''
     },
     seo: {
       title: '',
@@ -96,7 +98,9 @@ function StorefrontConfigView() {
           primaryColor: data.theme?.primaryColor || '#FB923C',
           secondaryColor: data.theme?.secondaryColor || '#F97316',
           logo: data.theme?.logo || '',
-          favicon: data.theme?.favicon || ''
+          favicon: data.theme?.favicon || '',
+          bannerUrl: data.theme?.bannerUrl || '',
+          videoUrl: data.theme?.videoUrl || ''
         },
         seo: {
           title: data.seo?.title || '',
@@ -613,6 +617,40 @@ function StorefrontConfigView() {
                     </div>
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="bannerUrl">URL de Imagen de Banner (Hero)</Label>
+                <Input
+                  id="bannerUrl"
+                  type="url"
+                  placeholder="https://ejemplo.com/banner.jpg"
+                  value={formData.theme.bannerUrl}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    theme: { ...prev.theme, bannerUrl: e.target.value }
+                  }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  URL de la imagen de fondo para la sección Hero. Se usará si no hay video configurado.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="videoUrl">URL de Video de Fondo (Hero)</Label>
+                <Input
+                  id="videoUrl"
+                  type="url"
+                  placeholder="https://ejemplo.com/video.mp4"
+                  value={formData.theme.videoUrl}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    theme: { ...prev.theme, videoUrl: e.target.value }
+                  }))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  URL del video de fondo para la sección Hero. Tendrá prioridad sobre la imagen si está configurado. Formato recomendado: MP4 (máx 5MB, 1920x1080).
+                </p>
               </div>
 
               {/* Vista Previa del Tema */}
