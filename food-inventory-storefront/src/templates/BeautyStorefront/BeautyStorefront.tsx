@@ -110,6 +110,7 @@ interface BeautyStorefrontProps {
     description: string;
     logoUrl?: string;
     bannerUrl?: string;
+    videoUrl?: string;
     primaryColor?: string;
     secondaryColor?: string;
     contactInfo: {

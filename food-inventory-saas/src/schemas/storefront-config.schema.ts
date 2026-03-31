@@ -24,6 +24,12 @@ export class ThemeConfig {
 
   @Prop({ type: String })
   favicon?: string;
+
+  @Prop({ type: String })
+  bannerUrl?: string;
+
+  @Prop({ type: String })
+  videoUrl?: string;
 }
 const ThemeConfigSchema = SchemaFactory.createForClass(ThemeConfig);
 

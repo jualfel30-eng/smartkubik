@@ -44,6 +44,8 @@ export default async function BeautyPage({ params }: BeautyPageProps) {
     name: cfg.tenantId?.name || cfg.seo?.title || 'Beauty Salon',
     description: cfg.seo?.description || '',
     logoUrl: cfg.theme?.logo,
+    bannerUrl: cfg.theme?.bannerUrl,
+    videoUrl: cfg.theme?.videoUrl,
     primaryColor: cfg.theme?.primaryColor,
     secondaryColor: cfg.theme?.secondaryColor,
     contactInfo: {
