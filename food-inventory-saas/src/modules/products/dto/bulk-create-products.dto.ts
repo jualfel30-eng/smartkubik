@@ -65,6 +65,10 @@ export class BulkProductDto {
   @IsBoolean()
   ivaApplicable: boolean;
 
+  @IsNumber()
+  @IsOptional()
+  ivaRate?: number;
+
   @IsString()
   @IsOptional()
   taxCategory?: string;
