@@ -640,6 +640,7 @@ export class SuppliersService {
       isVirtual: true,   // Flag to identify on frontend/backend
       customerId: customer._id,
       name: customer.companyName || customer.name,
+      companyName: customer.companyName || customer.name, // Add companyName for frontend compatibility
       supplierNumber: 'CRM-' + customer.customerNumber,
       status: customer.status,
       taxInfo: {
@@ -692,6 +693,7 @@ export class SuppliersService {
         isVirtual: true,
         customerId: customer._id,
         name: customer.companyName || customer.name,
+        companyName: customer.companyName || customer.name, // Add companyName for frontend compatibility
         supplierNumber: 'CRM-' + customer.customerNumber,
         status: customer.status,
         taxInfo: {
@@ -789,6 +791,7 @@ export class SuppliersService {
       return {
         ...plainSupplier,
         name: plainCustomer.companyName || plainCustomer.name,
+        companyName: plainCustomer.companyName || plainCustomer.name, // Add companyName for frontend compatibility
         tradeName: plainCustomer.name, // Usually 'name' in Customer is contact/trade name
         taxInfo: {
           ...plainSupplier.taxInfo,
@@ -806,7 +809,10 @@ export class SuppliersService {
     }
 
     // Fallback for legacy data without linked customer
-    return plainSupplier;
+    return {
+      ...plainSupplier,
+      companyName: plainSupplier.name // Add companyName for frontend compatibility
+    };
   }
 
   // ============================================================
