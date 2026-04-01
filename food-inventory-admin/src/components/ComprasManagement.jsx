@@ -161,33 +161,88 @@ const initialPoState = {
  * @param {number} subtotal - Subtotal de la compra (sin impuestos)
  * @param {string} documentType - 'factura_fiscal' o 'nota_entrega'
  * @param {string} actualPaymentMethod - Método de pago real que se usará
- * @returns {object} - { iva, igtf, total }
+ * @param {Array} items - Array de items de la compra (con ivaApplicable e igtfExempt)
+ * @returns {object} - { iva, igtf, total, subtotalWithIva, subtotalExempt }
  */
-const calculatePurchaseTaxes = (subtotal, documentType, actualPaymentMethod = 'efectivo_usd') => {
+const calculatePurchaseTaxes = (subtotal, documentType, actualPaymentMethod = 'efectivo_usd', items = []) => {
   // Si es nota de entrega, no aplicar impuestos
   if (documentType === 'nota_entrega') {
     return {
       iva: 0,
       igtf: 0,
-      total: subtotal
+      total: subtotal,
+      subtotalWithIva: 0,
+      subtotalExempt: subtotal
     };
   }
 
-  // Calcular IVA (16%)
-  const iva = subtotal * 0.16;
+  // Si no hay items, usar el comportamiento legacy (aplicar IVA a todo)
+  if (!items || items.length === 0) {
+    const iva = subtotal * 0.16;
+    const igtfMethods = ['efectivo_usd', 'zelle', 'transferencia_int', 'binance', 'paypal'];
+    const requiresIgtf = igtfMethods.includes(actualPaymentMethod);
+    const igtf = requiresIgtf ? (subtotal + iva) * 0.03 : 0;
 
-  // Calcular IGTF (3%) solo si el método de pago es en divisas (USD)
-  // Basado en ve-payment-methods.js: solo efectivo_usd, zelle, transferencia_int, binance, paypal aplican IGTF
+    return {
+      iva,
+      igtf,
+      total: subtotal + iva + igtf,
+      subtotalWithIva: subtotal,
+      subtotalExempt: 0
+    };
+  }
+
+  // Calcular subtotales por categoría de impuestos
+  let subtotalWithIva = 0;
+  let subtotalExempt = 0;
+  let subtotalWithoutIgtf = 0;
+
+  items.forEach(item => {
+    const itemTotal = Number(item.quantity) * Number(item.costPrice) * (1 - (Number(item.discount) || 0) / 100);
+
+    // Clasificar por IVA
+    if (item.ivaApplicable !== false) {
+      subtotalWithIva += itemTotal;
+    } else {
+      subtotalExempt += itemTotal;
+    }
+
+    // Clasificar por IGTF (productos exentos de IGTF no contribuyen a la base de IGTF)
+    if (item.igtfExempt === true) {
+      subtotalWithoutIgtf += itemTotal;
+    }
+  });
+
+  // Calcular IVA (16%) solo sobre productos con IVA aplicable
+  const iva = subtotalWithIva * 0.16;
+
+  // Calcular IGTF (3%) solo si:
+  // 1. El método de pago es en divisas
+  // 2. El producto NO está exento de IGTF (igtfExempt !== true)
   const igtfMethods = ['efectivo_usd', 'zelle', 'transferencia_int', 'binance', 'paypal'];
   const requiresIgtf = igtfMethods.includes(actualPaymentMethod);
-  const igtf = requiresIgtf ? (subtotal + iva) * 0.03 : 0;
+
+  // Base IGTF = subtotal (sin productos exentos) + IVA (solo de productos no exentos de IGTF que sí tienen IVA)
+  const subtotalForIgtf = subtotal - subtotalWithoutIgtf;
+  const ivaForIgtf = items.reduce((sum, item) => {
+    const itemTotal = Number(item.quantity) * Number(item.costPrice) * (1 - (Number(item.discount) || 0) / 100);
+    // Solo agregar IVA de items que tienen IVA aplicable Y no están exentos de IGTF
+    if (item.ivaApplicable !== false && item.igtfExempt !== true) {
+      return sum + (itemTotal * 0.16);
+    }
+    return sum;
+  }, 0);
+
+  const igtf = requiresIgtf ? (subtotalForIgtf + ivaForIgtf) * 0.03 : 0;
 
   const total = subtotal + iva + igtf;
 
   return {
     iva,
     igtf,
-    total
+    total,
+    subtotalWithIva,
+    subtotalExempt
   };
 };
 
@@ -274,13 +329,15 @@ export default function ComprasManagement() {
       return sum + itemTotal;
     }, 0);
 
-    const taxes = calculatePurchaseTaxes(subtotal, po.documentType, po.actualPaymentMethod);
+    const taxes = calculatePurchaseTaxes(subtotal, po.documentType, po.actualPaymentMethod, po.items);
 
     return {
       subtotal,
       iva: taxes.iva,
       igtf: taxes.igtf,
-      total: taxes.total
+      total: taxes.total,
+      subtotalWithIva: taxes.subtotalWithIva,
+      subtotalExempt: taxes.subtotalExempt
     };
   }, [po.items, po.documentType, po.actualPaymentMethod]);
 
@@ -291,15 +348,26 @@ export default function ComprasManagement() {
     const discount = Number(newProduct.inventory.discount) || 0;
     const subtotal = quantity * costPrice * (1 - discount / 100);
 
-    const taxes = calculatePurchaseTaxes(subtotal, newProduct.documentType, newProduct.actualPaymentMethod);
+    // Crear un item temporal para el cálculo de impuestos
+    const tempItem = {
+      quantity,
+      costPrice,
+      discount,
+      ivaApplicable: newProduct.ivaApplicable !== false, // Default to true if not specified
+      igtfExempt: newProduct.igtfExempt === true, // Default to false if not specified
+    };
+
+    const taxes = calculatePurchaseTaxes(subtotal, newProduct.documentType, newProduct.actualPaymentMethod, [tempItem]);
 
     return {
       subtotal,
       iva: taxes.iva,
       igtf: taxes.igtf,
-      total: taxes.total
+      total: taxes.total,
+      subtotalWithIva: taxes.subtotalWithIva,
+      subtotalExempt: taxes.subtotalExempt
     };
-  }, [newProduct.inventory.quantity, newProduct.inventory.costPrice, newProduct.inventory.discount, newProduct.documentType, newProduct.actualPaymentMethod]);
+  }, [newProduct.inventory.quantity, newProduct.inventory.costPrice, newProduct.inventory.discount, newProduct.documentType, newProduct.actualPaymentMethod, newProduct.ivaApplicable, newProduct.igtfExempt]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -1198,6 +1266,8 @@ export default function ComprasManagement() {
           isPerishable: product.isPerishable,
           lotNumber: '',
           expirationDate: '',
+          ivaApplicable: product.ivaApplicable !== false, // Default to true if not specified
+          igtfExempt: product.igtfExempt === true, // Default to false if not specified
         });
       }
 
