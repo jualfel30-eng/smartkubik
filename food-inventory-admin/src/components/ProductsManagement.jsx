@@ -1395,6 +1395,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         ? sanitizeSellingUnitsForPayload(editingProduct.sellingUnits)
         : [],
       ivaApplicable: editingProduct.ivaApplicable,
+      ivaRate: editingProduct.ivaRate,
       isPerishable: editingProduct.isPerishable,
       shelfLifeDays: editingProduct.shelfLifeDays,
       shelfLifeUnit: editingProduct.isPerishable ? (editingProduct.shelfLifeUnit || 'days') : undefined,
