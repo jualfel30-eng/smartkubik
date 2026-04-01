@@ -78,6 +78,25 @@ export class OrdersService {
     @InjectConnection() private readonly connection: Connection,
   ) { }
 
+  /**
+   * Calculate IVA amount based on item or product configuration
+   * Priority: item.ivaRate > product.ivaRate > product.ivaApplicable > default 16%
+   */
+  private calculateIvaAmount(
+    totalPrice: number,
+    itemDto: any,
+    product: ProductDocument
+  ): number {
+    // Fallback chain: item → product.ivaRate → product.ivaApplicable → 16%
+    const ivaRate = itemDto.ivaRate
+      ?? product.ivaRate
+      ?? (itemDto.ivaApplicable !== undefined
+          ? (itemDto.ivaApplicable ? 16 : 0)
+          : (product.ivaApplicable ? 16 : 0));
+
+    return totalPrice * (ivaRate / 100);
+  }
+
   private async getTenantVerticalProfile(tenantId: string | Types.ObjectId): Promise<any> {
     const tenant = await this.tenantModel.findById(tenantId).select('vertical settings').lean() as any;
     // Prioritize specific vertical setting, fallback to tenant vertical, then default
@@ -322,8 +341,7 @@ export class OrdersService {
       const totalDiscountAmount =
         (originalUnitPrice - finalUnitPrice) * itemDto.quantity;
 
-      const isIvaApplicable = itemDto.ivaApplicable !== undefined ? itemDto.ivaApplicable : product.ivaApplicable;
-      const ivaAmount = isIvaApplicable ? totalPrice * 0.16 : 0;
+      const ivaAmount = this.calculateIvaAmount(totalPrice, itemDto, product);
 
       const attributesSnapshot = this.buildOrderItemAttributes(
         product,
@@ -1239,7 +1257,7 @@ export class OrdersService {
         finalUnitPrice,
       );
 
-      const ivaAmount = product.ivaApplicable ? totalPrice * 0.16 : 0;
+      const ivaAmount = this.calculateIvaAmount(totalPrice, itemDto, product);
       subtotal += totalPrice;
       ivaTotal += ivaAmount;
     }
@@ -1425,9 +1443,7 @@ export class OrdersService {
           );
           const finalUnitPrice = unitPrice + modifierAdjustment;
           const totalPrice = finalUnitPrice * itemDto.quantity;
-          const ivaAmount = (itemDto.ivaApplicable ?? product.ivaApplicable)
-            ? totalPrice * 0.16
-            : 0;
+          const ivaAmount = this.calculateIvaAmount(totalPrice, itemDto, product);
           const igtfAmount = 0;
           const finalPrice = totalPrice + ivaAmount + igtfAmount;
 

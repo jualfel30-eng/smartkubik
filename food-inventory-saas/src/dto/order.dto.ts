@@ -109,6 +109,14 @@ export class CreateOrderItemDto {
   @IsBoolean()
   ivaApplicable?: boolean;
 
+  @ApiPropertyOptional({
+    description: "Tasa de IVA para este item (0%, 8%, 16%)",
+    enum: [0, 8, 16]
+  })
+  @IsOptional()
+  @IsNumber()
+  ivaRate?: number;
+
   @ApiPropertyOptional({ description: "Modificadores aplicados" })
   @IsOptional()
   @IsArray()

@@ -213,8 +213,13 @@ const calculatePurchaseTaxes = (subtotal, documentType, actualPaymentMethod = 'e
     }
   });
 
-  // Calcular IVA (16%) solo sobre productos con IVA aplicable
-  const iva = subtotalWithIva * 0.16;
+  // Calcular IVA usando la tasa específica de cada producto
+  const iva = items.reduce((sum, item) => {
+    const itemTotal = Number(item.quantity) * Number(item.costPrice) * (1 - (Number(item.discount) || 0) / 100);
+    const ivaRate = (item.ivaRate ?? 16) / 100; // Fallback to 16%
+    const hasIva = item.ivaApplicable !== false;
+    return hasIva ? sum + (itemTotal * ivaRate) : sum;
+  }, 0);
 
   // Calcular IGTF (3%) solo si:
   // 1. El método de pago es en divisas
@@ -226,11 +231,11 @@ const calculatePurchaseTaxes = (subtotal, documentType, actualPaymentMethod = 'e
   const subtotalForIgtf = subtotal - subtotalWithoutIgtf;
   const ivaForIgtf = items.reduce((sum, item) => {
     const itemTotal = Number(item.quantity) * Number(item.costPrice) * (1 - (Number(item.discount) || 0) / 100);
+    const ivaRate = (item.ivaRate ?? 16) / 100; // Use product's IVA rate
+    const hasIva = item.ivaApplicable !== false;
+    const notIgtfExempt = item.igtfExempt !== true;
     // Solo agregar IVA de items que tienen IVA aplicable Y no están exentos de IGTF
-    if (item.ivaApplicable !== false && item.igtfExempt !== true) {
-      return sum + (itemTotal * 0.16);
-    }
-    return sum;
+    return (hasIva && notIgtfExempt) ? sum + (itemTotal * ivaRate) : sum;
   }, 0);
 
   const igtf = requiresIgtf ? (subtotalForIgtf + ivaForIgtf) * 0.03 : 0;

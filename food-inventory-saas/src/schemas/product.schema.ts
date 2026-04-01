@@ -290,6 +290,9 @@ export class Product {
   @Prop({ type: Boolean, required: true, default: false })
   igtfExempt: boolean;
 
+  @Prop({ type: Number, enum: [0, 8, 16], default: 0 })
+  ivaRate: number; // IVA rate: 0=Exempt, 8=Reduced (50%), 16=Normal
+
   @Prop({ type: Boolean, default: true })
   sendToKitchen: boolean; // Indicates if product should be sent to kitchen display/printers
 

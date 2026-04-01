@@ -327,6 +327,7 @@ const initialNewProductState = {
   shelfLifeValue: 0,
   storageTemperature: 'ambiente',
   ivaApplicable: true,
+  ivaRate: 0, // Default to exempt (0%)
   taxCategory: 'general',
   isSoldByWeight: false,
   unitOfMeasure: 'unidad',
@@ -2594,15 +2595,30 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 )}
                 {/* IVA solo para mercancía */}
                 {!isNonFoodRetailVertical && newProduct.productType === 'simple' && (
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Checkbox
-                      id="ivaApplicable"
-                      checked={!newProduct.ivaApplicable}
-                      onCheckedChange={(checked) =>
-                        setNewProduct({ ...newProduct, ivaApplicable: !checked })
+                  <div className="space-y-2">
+                    <Label htmlFor="ivaRate">IVA Aplicable</Label>
+                    <Select
+                      value={String(newProduct.ivaRate ?? 0)}
+                      onValueChange={(value) =>
+                        setNewProduct({
+                          ...newProduct,
+                          ivaRate: Number(value),
+                          ivaApplicable: Number(value) > 0 // Keep in sync
+                        })
                       }
-                    />
-                    <Label htmlFor="ivaApplicable">Exento de IVA</Label>
+                    >
+                      <SelectTrigger id="ivaRate">
+                        <SelectValue placeholder="Seleccione tasa de IVA" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">Exento (0%)</SelectItem>
+                        <SelectItem value="8">Reducido (8%)</SelectItem>
+                        <SelectItem value="16">Normal (16%)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Seleccione la tasa de IVA aplicable a este producto
+                    </p>
                   </div>
                 )}
                 {!isNonFoodRetailVertical && newProduct.isPerishable && (
@@ -4616,15 +4632,27 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 )}
 
                 {!isNonFoodRetailVertical && (
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Checkbox
-                      id="edit-ivaApplicable"
-                      checked={!editingProduct.ivaApplicable}
-                      onCheckedChange={(checked) =>
-                        setEditingProduct({ ...editingProduct, ivaApplicable: !checked })
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-ivaRate">IVA Aplicable</Label>
+                    <Select
+                      value={String(editingProduct.ivaRate ?? (editingProduct.ivaApplicable ? 16 : 0))}
+                      onValueChange={(value) =>
+                        setEditingProduct({
+                          ...editingProduct,
+                          ivaRate: Number(value),
+                          ivaApplicable: Number(value) > 0
+                        })
                       }
-                    />
-                    <Label htmlFor="edit-ivaApplicable">Exento de IVA</Label>
+                    >
+                      <SelectTrigger id="edit-ivaRate">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">Exento (0%)</SelectItem>
+                        <SelectItem value="8">Reducido (8%)</SelectItem>
+                        <SelectItem value="16">Normal (16%)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
 

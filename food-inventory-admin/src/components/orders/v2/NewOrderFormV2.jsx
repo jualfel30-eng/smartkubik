@@ -507,8 +507,12 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           const quantity = getItemQuantityValue(item);
           return sum + (getItemFinalUnitPrice(item) * quantity);
         }, 0);
-        const iva = newOrder.items.reduce((sum, item) =>
-          item.ivaApplicable ? sum + (getItemFinalUnitPrice(item) * getItemQuantityValue(item) * 0.16) : sum, 0);
+        const iva = newOrder.items.reduce((sum, item) => {
+          if (!item.ivaApplicable) return sum;
+          const quantity = getItemQuantityValue(item);
+          const ivaRate = (item.ivaRate ?? 16) / 100; // Use product's IVA rate or default to 16%
+          return sum + (getItemFinalUnitPrice(item) * quantity * ivaRate);
+        }, 0);
         const orderAmount = subtotal + iva;
 
         const payload = {
@@ -1943,7 +1947,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
     const iva = newOrder.items.reduce((sum, item) => {
       if (!item.ivaApplicable) return sum;
       const quantity = getItemQuantityValue(item);
-      return sum + (getItemFinalUnitPrice(item) * quantity * 0.16);
+      const ivaRate = (item.ivaRate ?? 16) / 100; // Use product's IVA rate or default to 16%
+      return sum + (getItemFinalUnitPrice(item) * quantity * ivaRate);
     }, 0);
 
     // Aplicar descuento al IVA también

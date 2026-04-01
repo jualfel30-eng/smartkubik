@@ -559,6 +559,15 @@ export class CreateProductDto {
   @IsBoolean()
   igtfExempt?: boolean;
 
+  @ApiPropertyOptional({
+    description: "Tasa de IVA aplicable (0%, 8%, 16%)",
+    enum: [0, 8, 16],
+    default: 0
+  })
+  @IsOptional()
+  @IsNumber()
+  ivaRate?: number;
+
   @ApiPropertyOptional({ description: "Enviar a cocina/comanda", default: true })
   @IsOptional()
   @IsBoolean()
@@ -755,6 +764,14 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   igtfExempt?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Tasa de IVA aplicable (0%, 8%, 16%)",
+    enum: [0, 8, 16]
+  })
+  @IsOptional()
+  @IsNumber()
+  ivaRate?: number;
 
   @ApiPropertyOptional({ description: "Enviar a cocina/comanda" })
   @IsOptional()
