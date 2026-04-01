@@ -1297,6 +1297,7 @@ export default function ComprasManagement() {
           lotNumber: '',
           expirationDate: '',
           ivaApplicable: product.ivaApplicable !== false, // Default to true if not specified
+          ivaRate: product.ivaRate ?? 16, // Use product's IVA rate or default to 16%
           igtfExempt: product.igtfExempt === true, // Default to false if not specified
         });
       }

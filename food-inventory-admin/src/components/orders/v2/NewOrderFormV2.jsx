@@ -978,6 +978,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         modifiers,
         specialInstructions,
         ivaApplicable: product.ivaApplicable,
+        ivaRate: product.ivaRate ?? 16, // Use product's IVA rate or default to 16%
         igtfExempt: product.igtfExempt,
         isSoldByWeight: product.isSoldByWeight,
         unitOfMeasure: product.unitOfMeasure,
