@@ -1213,11 +1213,18 @@ export default function ComprasManagement() {
         `/products?search=${encodeURIComponent(searchQuery)}&includeInactive=true&limit=20`
       );
 
-      return (response.data || []).map((p) => ({
-        value: p._id,
-        label: `${p.name} ${p.sku ? `(${p.sku})` : ''}${p.isActive === false ? ' [INACTIVO]' : ''}`,
-        product: p
-      }));
+      return (response.data || []).map((p) => {
+        const parts = [p.name];
+        if (p.sku) parts.push(`SKU: ${p.sku}`);
+        if (p.brand) parts.push(`Marca: ${p.brand}`);
+        if (p.isActive === false) parts.push('[INACTIVO]');
+
+        return {
+          value: p._id,
+          label: parts.join(' · '),
+          product: p
+        };
+      });
     } catch (error) {
       console.error('Error searching products:', error);
       return [];
@@ -1257,6 +1264,7 @@ export default function ComprasManagement() {
         items.push({
           productId,
           productName: product.name,
+          productBrand: product.brand || '',
           productSku: variant?.sku || product.sku,
           variantId: variantId || undefined,
           variantName: variant?.name,
@@ -2085,9 +2093,11 @@ export default function ComprasManagement() {
                         <TableCell>
                           <div className="font-medium">{item.productName}</div>
                           <div className="text-xs text-muted-foreground">
-                            {item.variantName
-                              ? `${item.variantName} · ${item.productSku}`
-                              : item.productSku}
+                            {[
+                              item.variantName,
+                              item.productSku ? `SKU: ${item.productSku}` : null,
+                              item.productBrand ? `Marca: ${item.productBrand}` : null
+                            ].filter(Boolean).join(' · ')}
                           </div>
                         </TableCell>
                         <TableCell><Input type="number" value={item.quantity} onChange={e => updateItemField(index, 'quantity', e.target.value)} className="w-24" /></TableCell>
