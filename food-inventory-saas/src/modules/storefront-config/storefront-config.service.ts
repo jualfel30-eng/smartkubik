@@ -198,6 +198,52 @@ export class StorefrontConfigService {
   }
 
   /**
+   * Subir imagen de banner para la sección Hero
+   */
+  async uploadBanner(
+    tenantId: string,
+    bannerUrl: string,
+  ): Promise<StorefrontConfigDocument> {
+    const config = await this.getConfig(tenantId);
+
+    if (!config) {
+      throw new NotFoundException(
+        "No se encontró configuración del storefront para este tenant",
+      );
+    }
+
+    if (!config.theme) {
+      config.theme = {} as any;
+    }
+
+    config.theme.bannerUrl = bannerUrl;
+    return config.save();
+  }
+
+  /**
+   * Subir video de fondo para la sección Hero
+   */
+  async uploadVideo(
+    tenantId: string,
+    videoUrl: string,
+  ): Promise<StorefrontConfigDocument> {
+    const config = await this.getConfig(tenantId);
+
+    if (!config) {
+      throw new NotFoundException(
+        "No se encontró configuración del storefront para este tenant",
+      );
+    }
+
+    if (!config.theme) {
+      config.theme = {} as any;
+    }
+
+    config.theme.videoUrl = videoUrl;
+    return config.save();
+  }
+
+  /**
    * Eliminar configuración del storefront
    */
   async deleteConfig(tenantId: string): Promise<void> {

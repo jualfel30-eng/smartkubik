@@ -13,6 +13,8 @@ export function ThemeEditor({ config, onUpdate, saving }: ThemeEditorProps) {
   const [theme, setTheme] = useState(config.theme);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   const handleSave = async () => {
     // Enviar solo campos válidos del DTO (sin _id de Mongoose)
@@ -69,6 +71,50 @@ export function ThemeEditor({ config, onUpdate, saving }: ThemeEditorProps) {
       alert('❌ Error al subir favicon: ' + error.message);
     } finally {
       setUploadingFavicon(false);
+    }
+  };
+
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploadingBanner(true);
+      const data = await fetchApi('/admin/storefront/upload-banner', {
+        method: 'POST',
+        body: formData,
+      });
+      setTheme({ ...theme, bannerUrl: data.data.bannerUrl });
+      alert('✅ Banner subido exitosamente');
+    } catch (error: any) {
+      alert('❌ Error al subir banner: ' + error.message);
+    } finally {
+      setUploadingBanner(false);
+    }
+  };
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploadingVideo(true);
+      const data = await fetchApi('/admin/storefront/upload-video', {
+        method: 'POST',
+        body: formData,
+      });
+      setTheme({ ...theme, videoUrl: data.data.videoUrl });
+      alert('✅ Video subido exitosamente');
+    } catch (error: any) {
+      alert('❌ Error al subir video: ' + error.message);
+    } finally {
+      setUploadingVideo(false);
     }
   };
 
@@ -156,9 +202,9 @@ export function ThemeEditor({ config, onUpdate, saving }: ThemeEditorProps) {
                 {uploadingLogo ? 'Subiendo...' : theme.logo ? 'Cambiar Logo' : 'Subir Logo'}
               </button>
               <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                <p><strong>Formato:</strong> PNG o SVG recomendado</p>
+                <p><strong>Formato:</strong> PNG, JPG, SVG o WEBP</p>
                 <p><strong>Tamaño máximo:</strong> 2MB</p>
-                <p><strong>Dimensiones:</strong> Se optimizará a máximo 400px de ancho</p>
+                <p><strong>Recomendado:</strong> 400px de ancho, fondo transparente</p>
               </div>
             </div>
           </div>
@@ -193,51 +239,93 @@ export function ThemeEditor({ config, onUpdate, saving }: ThemeEditorProps) {
                 {uploadingFavicon ? 'Subiendo...' : theme.favicon ? 'Cambiar Favicon' : 'Subir Favicon'}
               </button>
               <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                <p><strong>Formato:</strong> ICO o PNG recomendado</p>
+                <p><strong>Formato:</strong> ICO o PNG</p>
                 <p><strong>Tamaño máximo:</strong> 500KB</p>
-                <p><strong>Dimensiones:</strong> Se optimizará a 32x32px</p>
+                <p><strong>Dimensiones:</strong> 32x32px o 64x64px</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Banner URL */}
+        {/* Banner de Hero */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            URL de Imagen de Banner (Hero)
+            Imagen de Fondo (Hero)
           </label>
-          <input
-            type="url"
-            value={theme.bannerUrl || ''}
-            onChange={(e) => setTheme({ ...theme, bannerUrl: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
-            placeholder="https://ejemplo.com/banner.jpg"
-          />
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            URL de la imagen de fondo para la sección Hero. Se usará si no hay video configurado.
-          </p>
+          <div className="flex items-start gap-4">
+            {theme.bannerUrl && (
+              <div className="relative">
+                <img src={theme.bannerUrl} alt="Banner preview" className="h-24 w-40 object-cover border-2 border-gray-200 dark:border-gray-700 rounded-lg bg-gray-100 dark:bg-gray-800" />
+              </div>
+            )}
+            <div className="flex-1">
+              <input
+                id="banner-upload"
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                onChange={handleBannerUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => document.getElementById('banner-upload')?.click()}
+                disabled={uploadingBanner}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {uploadingBanner ? 'Subiendo...' : theme.bannerUrl ? 'Cambiar Banner' : 'Subir Banner'}
+              </button>
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                <p><strong>Formato:</strong> JPG, PNG o WEBP</p>
+                <p><strong>Tamaño máximo:</strong> 5MB</p>
+                <p><strong>Recomendado:</strong> 1920x1080px (Full HD)</p>
+                <p className="text-yellow-600 dark:text-yellow-500">💡 Se usa solo si NO hay video configurado</p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Video URL */}
+        {/* Video de Hero */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-            URL de Video de Fondo (Hero)
+            Video de Fondo (Hero)
           </label>
-          <input
-            type="url"
-            value={theme.videoUrl || ''}
-            onChange={(e) => setTheme({ ...theme, videoUrl: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-900 dark:text-gray-100"
-            placeholder="https://ejemplo.com/video.mp4"
-          />
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            URL del video de fondo para la sección Hero. Tendrá prioridad sobre la imagen si está configurado. Formato recomendado: MP4 (máx 5MB, 1920x1080).
-          </p>
+          <div className="flex items-start gap-4">
+            {theme.videoUrl && (
+              <div className="relative">
+                <video src={theme.videoUrl} className="h-24 w-40 object-cover border-2 border-gray-200 dark:border-gray-700 rounded-lg bg-black" muted />
+              </div>
+            )}
+            <div className="flex-1">
+              <input
+                id="video-upload"
+                type="file"
+                accept="video/mp4,video/webm,video/ogg"
+                onChange={handleVideoUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => document.getElementById('video-upload')?.click()}
+                disabled={uploadingVideo}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {uploadingVideo ? 'Subiendo...' : theme.videoUrl ? 'Cambiar Video' : 'Subir Video'}
+              </button>
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                <p><strong>Formato:</strong> MP4 (recomendado), WEBM u OGG</p>
+                <p><strong>Tamaño máximo:</strong> 10MB</p>
+                <p><strong>Recomendado:</strong> 1920x1080px, 15-30 segundos</p>
+                <p className="text-green-600 dark:text-green-500">✅ Tiene prioridad sobre la imagen de banner</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Preview */}
         <div className="bg-gray-100 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-800 p-6 rounded-lg transition-colors">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">Vista Previa</h4>
+          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">Vista Previa de Colores</h4>
           <div className="space-y-3">
             <button
               style={{ backgroundColor: theme.primaryColor }}

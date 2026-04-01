@@ -14,6 +14,8 @@ import {
   Query,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { diskStorage } from "multer";
+import { extname } from "path";
 import { StorefrontConfigService } from "./storefront-config.service";
 import {
   CreateStorefrontConfigDto,
@@ -118,17 +120,59 @@ export class StorefrontConfigController {
    * Subir logo del storefront
    */
   @Post("upload-logo")
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: diskStorage({
+        destination: "./uploads/storefront/logos",
+        filename: (req, file, callback) => {
+          const uniqueSuffix =
+            Date.now() + "-" + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          const filename = `logo-${uniqueSuffix}${ext}`;
+          callback(null, filename);
+        },
+      }),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp|svg\+xml)$/)) {
+          return callback(
+            new BadRequestException(
+              "Solo se permiten archivos de imagen (JPG, PNG, GIF, WEBP, SVG)",
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 2 * 1024 * 1024, // 2MB
+      },
+    }),
+  )
   async uploadLogo(@Request() req, @UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException("No se proporcionó ningún archivo");
     }
 
-    // Aquí deberías implementar la lógica de subida a S3/CloudStorage
-    // Por ahora, retornamos una URL de ejemplo
-    const logoUrl = `https://cdn.smartkubik.com/tenants/${req.user.tenantId}/logo-${Date.now()}.${file.originalname.split(".").pop()}`;
+    const baseUrl =
+      process.env.API_BASE_URL ||
+      `http://localhost:${process.env.PORT || 3000}`;
+    const logoUrl = `${baseUrl}/uploads/storefront/logos/${file.filename}`;
 
-    return this.storefrontConfigService.uploadLogo(req.user.tenantId, logoUrl);
+    const updatedConfig = await this.storefrontConfigService.uploadLogo(
+      req.user.tenantId,
+      logoUrl,
+    );
+
+    return {
+      success: true,
+      data: {
+        logo: logoUrl,
+        filename: file.filename,
+        originalName: file.originalname,
+        size: file.size,
+      },
+      config: updatedConfig,
+    };
   }
 
   /**
@@ -136,7 +180,34 @@ export class StorefrontConfigController {
    * Subir favicon del storefront
    */
   @Post("upload-favicon")
-  @UseInterceptors(FileInterceptor("file"))
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: diskStorage({
+        destination: "./uploads/storefront/favicons",
+        filename: (req, file, callback) => {
+          const uniqueSuffix =
+            Date.now() + "-" + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          const filename = `favicon-${uniqueSuffix}${ext}`;
+          callback(null, filename);
+        },
+      }),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(x-icon|png|vnd\.microsoft\.icon)$/)) {
+          return callback(
+            new BadRequestException(
+              "Solo se permiten archivos ICO o PNG para favicon",
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 500 * 1024, // 500KB
+      },
+    }),
+  )
   async uploadFavicon(
     @Request() req,
     @UploadedFile() file: Express.Multer.File,
@@ -145,13 +216,152 @@ export class StorefrontConfigController {
       throw new BadRequestException("No se proporcionó ningún archivo");
     }
 
-    // Aquí deberías implementar la lógica de subida a S3/CloudStorage
-    const faviconUrl = `https://cdn.smartkubik.com/tenants/${req.user.tenantId}/favicon-${Date.now()}.${file.originalname.split(".").pop()}`;
+    const baseUrl =
+      process.env.API_BASE_URL ||
+      `http://localhost:${process.env.PORT || 3000}`;
+    const faviconUrl = `${baseUrl}/uploads/storefront/favicons/${file.filename}`;
 
-    return this.storefrontConfigService.uploadFavicon(
+    const updatedConfig = await this.storefrontConfigService.uploadFavicon(
       req.user.tenantId,
       faviconUrl,
     );
+
+    return {
+      success: true,
+      data: {
+        favicon: faviconUrl,
+        filename: file.filename,
+        originalName: file.originalname,
+        size: file.size,
+      },
+      config: updatedConfig,
+    };
+  }
+
+  /**
+   * POST /api/v1/storefront/upload-banner
+   * Subir imagen de banner para la sección Hero
+   */
+  @Post("upload-banner")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: diskStorage({
+        destination: "./uploads/storefront/banners",
+        filename: (req, file, callback) => {
+          const uniqueSuffix =
+            Date.now() + "-" + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          const filename = `banner-${uniqueSuffix}${ext}`;
+          callback(null, filename);
+        },
+      }),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
+          return callback(
+            new BadRequestException(
+              "Solo se permiten archivos de imagen (JPG, PNG, GIF, WEBP)",
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB
+      },
+    }),
+  )
+  async uploadBanner(
+    @Request() req,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException("No se proporcionó ningún archivo");
+    }
+
+    const baseUrl =
+      process.env.API_BASE_URL ||
+      `http://localhost:${process.env.PORT || 3000}`;
+    const bannerUrl = `${baseUrl}/uploads/storefront/banners/${file.filename}`;
+
+    const updatedConfig = await this.storefrontConfigService.uploadBanner(
+      req.user.tenantId,
+      bannerUrl,
+    );
+
+    return {
+      success: true,
+      data: {
+        bannerUrl: bannerUrl,
+        filename: file.filename,
+        originalName: file.originalname,
+        size: file.size,
+      },
+      config: updatedConfig,
+    };
+  }
+
+  /**
+   * POST /api/v1/storefront/upload-video
+   * Subir video de fondo para la sección Hero
+   */
+  @Post("upload-video")
+  @UseInterceptors(
+    FileInterceptor("file", {
+      storage: diskStorage({
+        destination: "./uploads/storefront/videos",
+        filename: (req, file, callback) => {
+          const uniqueSuffix =
+            Date.now() + "-" + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          const filename = `video-${uniqueSuffix}${ext}`;
+          callback(null, filename);
+        },
+      }),
+      fileFilter: (req, file, callback) => {
+        if (!file.mimetype.match(/\/(mp4|webm|ogg)$/)) {
+          return callback(
+            new BadRequestException(
+              "Solo se permiten archivos de video (MP4, WEBM, OGG)",
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB
+      },
+    }),
+  )
+  async uploadVideo(
+    @Request() req,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException("No se proporcionó ningún archivo");
+    }
+
+    const baseUrl =
+      process.env.API_BASE_URL ||
+      `http://localhost:${process.env.PORT || 3000}`;
+    const videoUrl = `${baseUrl}/uploads/storefront/videos/${file.filename}`;
+
+    const updatedConfig = await this.storefrontConfigService.uploadVideo(
+      req.user.tenantId,
+      videoUrl,
+    );
+
+    return {
+      success: true,
+      data: {
+        videoUrl: videoUrl,
+        filename: file.filename,
+        originalName: file.originalname,
+        size: file.size,
+      },
+      config: updatedConfig,
+    };
   }
 
   /**
