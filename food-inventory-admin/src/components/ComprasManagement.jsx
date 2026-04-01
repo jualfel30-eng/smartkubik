@@ -1000,27 +1000,27 @@ export default function ComprasManagement() {
       setPo(prev => ({ ...prev, supplierId: '', supplierName: selectedOption.label }));
     } else {
       setSupplierNameInput('');
-      const { customer } = selectedOption;
+      const { supplier } = selectedOption;
 
       // Parse taxId usando helper que maneja múltiples formatos
       const { taxType, rifNumber } = parseTaxId(
-        customer.taxInfo?.taxId,
-        customer.taxInfo?.taxType || 'J'
+        supplier.taxInfo?.taxId,
+        supplier.taxInfo?.taxType || 'J'
       );
 
       // Extraer dirección del proveedor
-      const addr = customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0];
+      const addr = supplier.addresses?.find(a => a.isDefault) || supplier.addresses?.[0];
 
       setSupplierRifInput(rifNumber);
       setPo(prev => ({
         ...prev,
-        supplierId: customer._id,
-        supplierName: customer.companyName || customer.name,
+        supplierId: supplier._id,
+        supplierName: supplier.companyName || supplier.name,
         supplierRif: rifNumber,
         taxType: taxType,
-        contactName: customer.contacts?.[0]?.name || customer.name || '',
-        contactPhone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
-        contactEmail: customer.contacts?.find(c => c.type === 'email')?.value || '',
+        contactName: supplier.contacts?.[0]?.name || supplier.name || '',
+        contactPhone: supplier.contacts?.find(c => c.type === 'phone')?.value || '',
+        contactEmail: supplier.contacts?.find(c => c.type === 'email')?.value || '',
         supplierAddress: {
           city: addr?.city || '',
           state: addr?.state || '',
@@ -1029,7 +1029,7 @@ export default function ComprasManagement() {
       }));
 
       // CRÍTICO: Cargar condiciones de pago del proveedor
-      fetchSupplierPaymentMethods(customer._id);
+      fetchSupplierPaymentMethods(supplier._id);
     }
   };
 
@@ -1095,7 +1095,7 @@ export default function ComprasManagement() {
       }));
 
       // CRÍTICO: Cargar condiciones de pago del proveedor
-      fetchSupplierPaymentMethods(customer._id);
+      fetchSupplierPaymentMethods(supplier._id);
     }
   };
 
@@ -1206,6 +1206,23 @@ export default function ComprasManagement() {
       label: s.companyName || s.name,
       supplier: s,
     })), [suppliers]);
+
+  const loadSupplierOptions = useCallback(async (searchQuery) => {
+    try {
+      const response = await fetchApi(
+        `/customers?customerType=supplier&search=${encodeURIComponent(searchQuery)}`
+      );
+
+      return (response.data || []).map((s) => ({
+        value: s._id,
+        label: s.companyName || s.name,
+        supplier: s,
+      }));
+    } catch (error) {
+      console.error('Error searching suppliers:', error);
+      return [];
+    }
+  }, []);
 
   const loadProductOptions = useCallback(async (searchQuery) => {
     try {
@@ -1872,13 +1889,14 @@ export default function ComprasManagement() {
                   <div className="space-y-2">
                     <Label>Nombre o Razón Social</Label>
                     <SearchableSelect
-                      isCreatable
-                      options={supplierNameOptions}
+                      asyncSearch={true}
+                      loadOptions={loadSupplierOptions}
+                      minSearchLength={2}
+                      debounceMs={300}
                       onSelection={handleSupplierSelection}
-                      onInputChange={handleSupplierNameInputChange}
-                      inputValue={supplierNameInput}
-                      value={po.supplierId ? { value: po.supplierId, label: po.supplierName } : po.supplierName ? { value: po.supplierName, label: po.supplierName } : null}
-                      placeholder="Escriba o seleccione un proveedor..."
+                      value={po.supplierId ? { value: po.supplierId, label: po.supplierName } : null}
+                      placeholder="Buscar proveedor (mín. 2 caracteres)..."
+                      isCreatable={true}
                     />
                   </div>
                   <div className="space-y-2">
