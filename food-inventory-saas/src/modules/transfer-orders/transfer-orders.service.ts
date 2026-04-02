@@ -983,21 +983,25 @@ export class TransferOrdersService {
       );
 
       // Try warehouse-specific first, then fallback to unassigned inventory
+      // Handle productId type inconsistencies (ObjectId vs String)
+      const productIdOid = new Types.ObjectId(item.productId.toString());
       let sourceInventory = await this.inventoryModel.findOne({
-        productId: item.productId,
+        productId: { $in: [item.productId, productIdOid, item.productId.toString()] },
         warehouseId: sourceWarehouseOid,
         tenantId: { $in: [sourceTenantId, sourceTenantOid] },
+        isDeleted: { $ne: true },
       });
 
       if (!sourceInventory) {
         // Fallback: find inventory without warehouseId (pre-warehouse records)
         sourceInventory = await this.inventoryModel.findOne({
-          productId: item.productId,
+          productId: { $in: [item.productId, productIdOid, item.productId.toString()] },
           $or: [
             { warehouseId: null },
             { warehouseId: { $exists: false } },
           ],
           tenantId: { $in: [sourceTenantId, sourceTenantOid] },
+          isDeleted: { $ne: true },
         });
 
         // Assign warehouse to the record for future consistency

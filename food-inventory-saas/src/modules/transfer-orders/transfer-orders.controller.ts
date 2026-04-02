@@ -166,9 +166,9 @@ export class TransferOrdersController {
     );
   }
 
-  @Post(":id/ship")
+  @Post(":id/dispatch")
   @Permissions("transfer_orders_write")
-  async ship(
+  async dispatch(
     @Param("id") id: string,
     @Body() dto: ShipTransferOrderDto,
     @Request() req,

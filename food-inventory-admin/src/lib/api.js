@@ -2584,7 +2584,7 @@ export const approveTransferOrder = (id, data = {}) => {
 };
 
 export const shipTransferOrder = (id, data = {}) => {
-  return fetchApi(`/transfer-orders/${id}/ship`, {
+  return fetchApi(`/transfer-orders/${id}/dispatch`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
