@@ -11,9 +11,10 @@ import {
   CreateBeautyBookingDto,
   GetAvailabilityDto,
 } from '../../../dto/beauty';
+import { Public } from '../../../decorators/public.decorator';
 
 @ApiTags('Beauty Bookings (Public)')
-// @Public()
+@Public()
 @Controller('public/beauty-bookings')
 export class BeautyBookingsPublicController {
   constructor(
@@ -28,7 +29,7 @@ export class BeautyBookingsPublicController {
 
   @Post('availability')
   @ApiOperation({
-    summary: 'Obtener slots disponibles para fecha y servicios (público)',
+    summary: 'Obtener horarios disponibles para fecha y servicios (público)',
   })
   async getAvailability(@Body() dto: GetAvailabilityDto) {
     return this.beautyBookingsService.getAvailability(dto);

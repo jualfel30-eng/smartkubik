@@ -161,6 +161,30 @@ export class StorefrontConfig {
 
   @Prop({ type: WhatsAppIntegrationConfigSchema })
   whatsappIntegration?: WhatsAppIntegrationConfig;
+
+  @Prop({ type: Object })
+  beautyConfig?: {
+    enabled: boolean;
+    businessHours: Array<{
+      day: number;
+      start: string;
+      end: string;
+      isOpen: boolean;
+    }>;
+    bookingSettings: {
+      slotDuration: number;
+      maxAdvanceBookingDays: number;
+      minAdvanceBookingHours: number;
+      whatsappNotification: {
+        enabled: boolean;
+        mode: string;
+      };
+    };
+    paymentMethods: string[];
+    loyalty: {
+      enabled: boolean;
+    };
+  };
 }
 
 export const StorefrontConfigSchema =

@@ -336,6 +336,7 @@ export class BeautyBookingsService {
     }>;
   }> {
     const tenantId = new Types.ObjectId(dto.tenantId);
+    const tenantIdString = dto.tenantId; // Guardar el string original para query de storefront
 
     // 1. Obtener servicios y calcular duración total
     const services = await this.beautyServiceModel
@@ -351,8 +352,9 @@ export class BeautyBookingsService {
     );
 
     // 2. Obtener configuración del storefront
+    // IMPORTANTE: El campo tenantId en storefrontconfigs está como STRING, no ObjectId
     const storefront = await this.storefrontConfigModel
-      .findOne({ tenantId })
+      .findOne({ tenantId: tenantIdString })
       .exec();
 
     if (!storefront || !(storefront as any).beautyConfig?.enabled) {
