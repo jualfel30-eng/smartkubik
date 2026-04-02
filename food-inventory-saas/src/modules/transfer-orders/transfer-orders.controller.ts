@@ -226,6 +226,16 @@ export class TransferOrdersController {
     );
   }
 
+  @Post(":id/revert-to-draft")
+  @Permissions("transfer_orders_write")
+  async revertToDraft(@Param("id") id: string, @Request() req) {
+    return this.transferOrdersService.revertToDraft(
+      id,
+      req.user.tenantId,
+      req.user.id,
+    );
+  }
+
   @Delete(":id")
   @Permissions("transfer_orders_write")
   async delete(@Param("id") id: string, @Request() req) {

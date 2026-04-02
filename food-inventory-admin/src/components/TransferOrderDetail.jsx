@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '@/components/ui/label.jsx';
 import { toast } from 'sonner';
 import {
+  fetchApi,
   getTransferOrder,
   requestTransferOrder,
   approveTransferOrder,
@@ -31,6 +32,8 @@ import {
   MapPin,
   ClipboardList,
   Warehouse,
+  Edit,
+  RotateCcw,
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -73,8 +76,11 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
   const [actionLoading, setActionLoading] = useState(false);
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [revertDialogOpen, setRevertDialogOpen] = useState(false);
   const [receiveItems, setReceiveItems] = useState([]);
   const [cancelReason, setCancelReason] = useState('');
+  const [editForm, setEditForm] = useState({ items: [], notes: '' });
 
   const loadOrder = async () => {
     setLoading(true);
@@ -165,6 +171,65 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
     }
   };
 
+  const openEditDialog = () => {
+    if (!order?.items) return;
+    setEditForm({
+      items: order.items.map((item) => ({
+        productId: item.productId?._id || item.productId,
+        productName: item.productName,
+        productSku: item.productSku,
+        requestedQuantity: item.requestedQuantity,
+      })),
+      notes: order.notes || '',
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEdit = async () => {
+    if (editForm.items.length === 0) {
+      toast.error('Debe tener al menos un producto');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await fetchApi(`/transfer-orders/${orderId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          items: editForm.items.map((i) => ({
+            productId: i.productId,
+            productName: i.productName,
+            productSku: i.productSku,
+            requestedQuantity: i.requestedQuantity,
+          })),
+          notes: editForm.notes,
+        }),
+      });
+      toast.success('Transferencia actualizada');
+      setEditDialogOpen(false);
+      await loadOrder();
+      onUpdated?.();
+    } catch (err) {
+      toast.error(err?.message || 'Error actualizando transferencia');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRevertToDraft = async () => {
+    setActionLoading(true);
+    try {
+      await fetchApi(`/transfer-orders/${orderId}/revert-to-draft`, { method: 'POST' });
+      toast.success('Transferencia regresada a borrador');
+      setRevertDialogOpen(false);
+      await loadOrder();
+      onUpdated?.();
+    } catch (err) {
+      toast.error(err?.message || 'Error regresando a borrador');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
@@ -190,6 +255,8 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
   const StatusIcon = statusConfig.icon;
   const normalizedStatus = normalizeStatus(order.status);
   const currentStepIdx = TIMELINE_STEPS_DISPLAY.findIndex((s) => s.key === normalizedStatus);
+  const canEdit = order.status === 'draft';
+  const canRevert = ['push_requested', 'pull_requested', 'push_approved', 'pull_approved', 'requested', 'approved'].includes(order.status);
   const canRequest = order.status === 'draft';
   const canApprove = ['push_requested', 'pull_requested', 'requested'].includes(order.status);
   const canPrepare = ['push_approved', 'pull_approved', 'approved'].includes(order.status);
@@ -351,6 +418,18 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
             Cancelar
           </Button>
         )}
+        {canRevert && (
+          <Button variant="outline" size="sm" onClick={() => setRevertDialogOpen(true)} disabled={actionLoading}>
+            <RotateCcw className="h-4 w-4 mr-1" />
+            Regresar a borrador
+          </Button>
+        )}
+        {canEdit && (
+          <Button variant="outline" size="sm" onClick={openEditDialog} disabled={actionLoading}>
+            <Edit className="h-4 w-4 mr-1" />
+            Editar
+          </Button>
+        )}
         {canRequest && (
           <Button variant="outline" size="sm" onClick={() => handleAction(requestTransferOrder, 'Transferencia solicitada')} disabled={actionLoading}>
             {actionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
@@ -455,6 +534,114 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
             <Button variant="destructive" onClick={handleCancel} disabled={actionLoading}>
               {actionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Cancelar transferencia
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar transferencia</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Producto</TableHead>
+                  <TableHead className="w-[120px]">Cantidad</TableHead>
+                  <TableHead className="w-[60px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {editForm.items.map((item, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>
+                      <span className="text-sm">{item.productName}</span>
+                      {item.productSku && (
+                        <span className="text-xs text-muted-foreground ml-2">({item.productSku})</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={item.requestedQuantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setEditForm((f) => ({
+                            ...f,
+                            items: f.items.map((i, index) =>
+                              index === idx ? { ...i, requestedQuantity: Math.max(0, val) } : i
+                            ),
+                          }));
+                        }}
+                        onBlur={(e) => {
+                          if (e.target.value === '' || parseInt(e.target.value) < 1) {
+                            setEditForm((f) => ({
+                              ...f,
+                              items: f.items.map((i, index) =>
+                                index === idx ? { ...i, requestedQuantity: 1 } : i
+                              ),
+                            }));
+                          }
+                        }}
+                        className="w-20 h-8 text-sm no-spinners"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditForm((f) => ({
+                            ...f,
+                            items: f.items.filter((_, index) => index !== idx),
+                          }));
+                        }}
+                      >
+                        <XCircle className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div>
+              <Label>Notas (opcional)</Label>
+              <Textarea
+                value={editForm.notes}
+                onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                placeholder="Observaciones..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleEdit} disabled={actionLoading}>
+              {actionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Guardar cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Revert to draft confirmation dialog */}
+      <Dialog open={revertDialogOpen} onOpenChange={setRevertDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Regresar a borrador</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            ¿Estás seguro de regresar esta transferencia a estado borrador? Podrás editarla y solicitarla nuevamente.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRevertDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleRevertToDraft} disabled={actionLoading}>
+              {actionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Regresar a borrador
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -234,13 +234,15 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
       ...f,
       items: f.items.map((i) => {
         if (i.productId !== productId) return i;
-        const quantity = Math.max(1, Math.min(parseInt(qty) || 1, i.availableQuantity));
+        // Allow empty string for user convenience, fallback to 1 on blur
+        const rawValue = qty === '' ? '' : parseInt(qty) || 0;
+        const quantity = rawValue === '' ? '' : Math.max(0, Math.min(rawValue, i.availableQuantity));
         return { ...i, quantity };
       }),
     }));
   };
 
-  const handleSave = async () => {
+  const handleSave = async (autoRequest = false) => {
     // Validation based on mode
     if (transferMode === 'sedes') {
       if (!form.destinationTenantId) {
@@ -293,8 +295,17 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
         payload.destinationLocationId = form.destinationLocationId;
       }
 
-      await createTransferOrder(payload);
-      toast.success('Transferencia creada exitosamente');
+      const createdOrder = await createTransferOrder(payload);
+      const orderId = createdOrder?._id || createdOrder?.id;
+
+      // If autoRequest is true, automatically call request endpoint
+      if (autoRequest && orderId) {
+        await fetchApi(`/transfer-orders/${orderId}/request`, { method: 'POST' });
+        toast.success('Transferencia creada y solicitada exitosamente');
+      } else {
+        toast.success('Transferencia guardada como borrador');
+      }
+
       onCreated?.();
     } catch (err) {
       console.error('Error creating transfer', err);
@@ -609,11 +620,17 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
                     <TableCell>
                       <Input
                         type="number"
-                        min="1"
+                        min="0"
                         max={item.availableQuantity}
                         value={item.quantity}
                         onChange={(e) => updateItemQty(item.productId, e.target.value)}
-                        className="w-20 h-8 text-sm"
+                        onBlur={(e) => {
+                          // On blur, ensure value is at least 1
+                          if (e.target.value === '' || parseInt(e.target.value) < 1) {
+                            updateItemQty(item.productId, '1');
+                          }
+                        }}
+                        className="w-20 h-8 text-sm no-spinners"
                       />
                     </TableCell>
                     <TableCell>
@@ -639,13 +656,17 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
             {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Crear transferencia
+            Guardar borrador
+          </Button>
+          <Button onClick={() => handleSave(true)} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Crear y solicitar
           </Button>
         </DialogFooter>
       </DialogContent>

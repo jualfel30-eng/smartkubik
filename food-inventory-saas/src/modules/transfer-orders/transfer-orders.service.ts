@@ -1388,4 +1388,48 @@ export class TransferOrdersService {
 
     return order.save();
   }
+
+  /**
+   * Revert transfer order back to DRAFT status
+   * Allows editing after request/approval if changes are needed
+   */
+  async revertToDraft(
+    id: string,
+    tenantId: string,
+    userId: string,
+  ): Promise<TransferOrderDocument> {
+    const order = await this.findOrderOrFail(id, tenantId);
+
+    // Only allow reverting from early stages (before dispatch)
+    this.assertStatus(
+      order,
+      [
+        TransferOrderStatus.PUSH_REQUESTED,
+        TransferOrderStatus.PUSH_APPROVED,
+        TransferOrderStatus.PULL_REQUESTED,
+        TransferOrderStatus.PULL_APPROVED,
+      ],
+      "regresar a borrador",
+    );
+
+    // Clear approval-related fields
+    order.status = TransferOrderStatus.DRAFT;
+    order.approvedBy = undefined;
+    order.approvedAt = undefined;
+    order.requestedBy = undefined;
+    order.requestedAt = undefined;
+    order.approvalReviewedBy = undefined;
+    order.approvalReviewedAt = undefined;
+    order.approvalDecision = undefined;
+    order.approvalNotes = undefined;
+
+    // Clear approved quantities (revert to requested)
+    for (const item of order.items) {
+      item.approvedQuantity = undefined;
+    }
+
+    order.updatedBy = new Types.ObjectId(userId);
+
+    return order.save();
+  }
 }
