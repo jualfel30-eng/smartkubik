@@ -4,7 +4,6 @@ import { Model } from "mongoose";
 import { VectorDbService } from "../vector-db/vector-db.service";
 import { v4 as uuidv4 } from "uuid";
 import { Document } from "@langchain/core/documents";
-import { PDFParse } from "pdf-parse";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import {
   KnowledgeBaseDocument,
@@ -44,10 +43,12 @@ export class KnowledgeBaseService {
     }
 
     let text: string;
-    let parser: PDFParse | undefined;
+    let parser: any = undefined;
 
     if (mimetype === "application/pdf") {
       try {
+        // Dynamic import to avoid crashing app on startup if pdf-parse has issues
+        const { PDFParse } = await import("pdf-parse");
         parser = new PDFParse({ data: buffer });
         const textResult = await parser.getText();
         text = textResult.text;
