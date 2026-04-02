@@ -220,6 +220,8 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
         },
       ],
     }));
+    // Clear search to close dropdown after selection
+    setProductSearch('');
   };
 
   const removeItem = (productId) => {
