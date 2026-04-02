@@ -275,6 +275,8 @@ export default function ComprasManagement() {
   const [supplierNameInput, setSupplierNameInput] = useState('');
   const [supplierRifInput, setSupplierRifInput] = useState('');
   const [rifDropdownOpen, setRifDropdownOpen] = useState(false);
+  const [purchaseDateOpen, setPurchaseDateOpen] = useState(false);
+  const [paymentDueDateOpen, setPaymentDueDateOpen] = useState(false);
   const rifInputRef = useRef(null);
   const rifDropdownRef = useRef(null);
   const [variantSelection, setVariantSelection] = useState(null);
@@ -1414,7 +1416,15 @@ export default function ComprasManagement() {
 
       // Cargar el último método de pago usado con este proveedor (si existe)
       const lastMethod = loadLastPaymentMethod(supplierId);
-      const methodToUse = lastMethod || acceptedMethods[0] || 'efectivo_usd';
+      const preferredMethod = paymentSettings.preferredPaymentMethod;
+
+      // Prioridad: último usado > preferido del proveedor > primer aceptado > fallback USD
+      // Validar que el método preferido esté en la lista de aceptados
+      const validPreferredMethod = preferredMethod && acceptedMethods.includes(preferredMethod)
+        ? preferredMethod
+        : null;
+
+      const methodToUse = lastMethod || validPreferredMethod || acceptedMethods[0] || 'efectivo_usd';
 
       // Pre-cargar todas las condiciones de pago del proveedor
       setPo(prev => ({
@@ -1925,11 +1935,11 @@ export default function ComprasManagement() {
                 <div className="mt-4">
                   <div className="space-y-2">
                     <Label>Fecha de Compra <span className="text-red-500">*</span></Label>
-                    <Popover>
+                    <Popover open={purchaseDateOpen} onOpenChange={setPurchaseDateOpen}>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{po.purchaseDate ? format(po.purchaseDate, "PPP") : <span>Selecciona una fecha</span>}</Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={po.purchaseDate} onSelect={(date) => setPo(prev => ({ ...prev, purchaseDate: date }))} initialFocus /></PopoverContent>
+                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={po.purchaseDate} onSelect={(date) => { setPo(prev => ({ ...prev, purchaseDate: date })); setPurchaseDateOpen(false); }} initialFocus /></PopoverContent>
                     </Popover>
                   </div>
                 </div>
@@ -1952,7 +1962,7 @@ export default function ComprasManagement() {
                   {po.paymentTerms.isCredit && (
                     <div className="space-y-2">
                       <Label className="dark:text-gray-200">Fecha de Vencimiento del Pago</Label>
-                      <Popover>
+                      <Popover open={paymentDueDateOpen} onOpenChange={setPaymentDueDateOpen}>
                         <PopoverTrigger asChild>
                           <Button variant="outline" className="w-full justify-start text-left font-normal dark:bg-slate-900 dark:border-slate-700 dark:text-gray-100">
                             <CalendarIcon className="mr-2 h-4 w-4" />
@@ -1963,10 +1973,13 @@ export default function ComprasManagement() {
                           <Calendar
                             mode="single"
                             selected={po.paymentTerms.paymentDueDate}
-                            onSelect={(date) => setPo(prev => ({
-                              ...prev,
-                              paymentTerms: { ...prev.paymentTerms, paymentDueDate: date }
-                            }))}
+                            onSelect={(date) => {
+                              setPo(prev => ({
+                                ...prev,
+                                paymentTerms: { ...prev.paymentTerms, paymentDueDate: date }
+                              }));
+                              setPaymentDueDateOpen(false);
+                            }}
                             disabled={(date) => date < po.purchaseDate}
                             initialFocus
                             className="dark:bg-slate-900 dark:text-gray-100"
