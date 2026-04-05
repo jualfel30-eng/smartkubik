@@ -11,13 +11,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../../guards/jwt-auth.guard';
+import { TenantGuard } from '../../../guards/tenant.guard';
 import { BeautyBookingsService } from '../services/beauty-bookings.service';
 import { BeautyWhatsAppNotificationsService } from '../services/beauty-whatsapp-notifications.service';
 import { UpdateBookingStatusDto } from '../../../dto/beauty';
 
 @ApiTags('Beauty Bookings (Private)')
 @ApiBearerAuth()
-// @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('beauty-bookings')
 export class BeautyBookingsController {
   constructor(
