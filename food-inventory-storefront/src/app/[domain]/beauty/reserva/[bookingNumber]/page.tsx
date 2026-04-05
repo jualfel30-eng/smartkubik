@@ -98,8 +98,12 @@ export default function BookingConfirmationPage() {
 
   const handleAddToCalendar = () => {
     if (!booking) return;
-    const startDate = new Date(`${booking.date}T${booking.startTime}`);
-    const endDate = new Date(`${booking.date}T${booking.endTime}`);
+
+    // Extract YYYY-MM-DD from booking.date (which comes as ISO string from backend)
+    const dateOnly = booking.date.split('T')[0]; // "2026-04-02"
+
+    const startDate = new Date(`${dateOnly}T${booking.startTime}`);
+    const endDate = new Date(`${dateOnly}T${booking.endTime}`);
     const title = `Cita - ${config?.name}`;
     const description = `Servicios: ${booking.services.map((s) => s.name).join(', ')}`;
     const location = config?.contactInfo?.address || '';
