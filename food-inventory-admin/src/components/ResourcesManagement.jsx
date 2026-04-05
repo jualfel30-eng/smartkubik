@@ -13,6 +13,7 @@ import { fetchApi } from '../lib/api';
 import { useModuleAccess } from '../hooks/useModuleAccess';
 import { useBusinessModel, getBusinessContextText } from '../hooks/useBusinessModel';
 import { useVerticalLabels } from '../hooks/use-vertical-labels';
+import { useAuth } from '@/hooks/use-auth';
 import ModuleAccessDenied from './ModuleAccessDenied';
 import {
   Plus,
@@ -94,6 +95,13 @@ function ResourcesManagement() {
   const hasAccess = useModuleAccess('appointments');
   const { isResourceCentric, isFlexible, businessType } = useBusinessModel();
   const labels = useVerticalLabels();
+  const { tenant } = useAuth();
+  const profileKey = tenant?.verticalProfile?.key || 'hospitality';
+
+  // Beauty vertical detection - use beauty endpoints for barbershop-salon
+  const isBeautyVertical = profileKey === 'barbershop-salon';
+  const resourcesEndpoint = isBeautyVertical ? '/professionals' : '/resources';
+
   const [resources, setResources] = useState([]);
   const [filteredResources, setFilteredResources] = useState([]);
   const [services, setServices] = useState([]);
@@ -129,7 +137,7 @@ function ResourcesManagement() {
   const loadResources = async () => {
     try {
       setLoading(true);
-      const data = await fetchApi('/resources?includePricing=true');
+      const data = await fetchApi(`${resourcesEndpoint}?includePricing=true`);
       setResources(data);
     } catch (error) {
       console.error('Error loading resources:', error);
@@ -355,12 +363,12 @@ function ResourcesManagement() {
       }
 
       if (editingResource) {
-        await fetchApi(`/resources/${editingResource._id}`, {
+        await fetchApi(`${resourcesEndpoint}/${editingResource._id}`, {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
       } else {
-        await fetchApi('/resources', {
+        await fetchApi(resourcesEndpoint, {
           method: 'POST',
           body: JSON.stringify(payload),
         });
@@ -381,7 +389,7 @@ function ResourcesManagement() {
 
     try {
       setLoading(true);
-      await fetchApi(`/resources/${id}`, { method: 'DELETE' });
+      await fetchApi(`${resourcesEndpoint}/${id}`, { method: 'DELETE' });
       loadResources();
     } catch (error) {
       console.error('Error deleting resource:', error);

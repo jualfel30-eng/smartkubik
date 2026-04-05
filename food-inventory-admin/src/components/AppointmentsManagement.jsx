@@ -208,6 +208,40 @@ function AppointmentsManagement() {
   const labels = useVerticalLabels();
   const { tenant } = useAuth();
   const profileKey = tenant?.verticalProfile?.key || 'hospitality';
+
+  // Beauty vertical detection - use beauty endpoints for barbershop-salon
+  const isBeautyVertical = profileKey === 'barbershop-salon';
+  const endpoints = {
+    appointments: isBeautyVertical ? '/beauty-bookings' : '/appointments',
+    services: isBeautyVertical ? '/beauty-services' : '/services',
+    resources: isBeautyVertical ? '/professionals' : '/resources',
+  };
+
+  // Transform beauty booking data to appointments format for UI compatibility
+  const transformBeautyBooking = useCallback((booking) => {
+    if (!isBeautyVertical) return booking;
+
+    return {
+      ...booking,
+      _id: booking._id || booking.id,
+      // Map client info to customer format
+      customerId: booking.client?.phone || booking.bookingNumber,
+      customerName: booking.client?.name || '',
+      // Map services array to single service (use first service or combined name)
+      serviceId: booking.services?.[0]?.service || booking.services?.[0]?._id,
+      serviceName: booking.services?.map(s => s.name).join(' + ') || '',
+      // Map professional to resource
+      resourceId: booking.professional || booking.professionalId,
+      resourceName: booking.professionalName || '',
+      // Keep original fields for beauty-specific display
+      bookingNumber: booking.bookingNumber,
+      totalPrice: booking.totalPrice,
+      totalDuration: booking.totalDuration,
+      paymentStatus: booking.paymentStatus,
+      paymentMethod: booking.paymentMethod,
+    };
+  }, [isBeautyVertical]);
+
   const [appointments, setAppointments] = useState([]);
   const [services, setServices] = useState([]);
   const [resources, setResources] = useState([]);
@@ -548,19 +582,27 @@ function AppointmentsManagement() {
       if (dateTo) params.append('endDate', dateTo);
       if (statusFilter !== 'all') params.append('status', statusFilter);
 
-      const data = await fetchApi(`/appointments?${params}`);
-      setAppointments(normalizeListResponse(data));
+      const data = await fetchApi(`${endpoints.appointments}?${params}`);
+      const normalizedData = normalizeListResponse(data);
+
+      // Transform beauty bookings to appointments format if needed
+      const transformedData = isBeautyVertical
+        ? normalizedData.map(transformBeautyBooking)
+        : normalizedData;
+
+      setAppointments(transformedData);
     } catch (error) {
       console.error('Error loading appointments:', error);
       alert('Error al cargar las citas');
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, statusFilter]);
+  }, [dateFrom, dateTo, statusFilter, endpoints.appointments, isBeautyVertical, transformBeautyBooking]);
 
   const loadServices = useCallback(async () => {
     try {
-      const data = await fetchApi('/services/active');
+      const endpoint = isBeautyVertical ? endpoints.services : '/services/active';
+      const data = await fetchApi(endpoint);
       const items = normalizeListResponse(data)
         .map((item) => {
           const normalizedId =
@@ -583,11 +625,12 @@ function AppointmentsManagement() {
       console.error('Error loading services:', error);
       setServices([]);
     }
-  }, []);
+  }, [isBeautyVertical, endpoints.services]);
 
   const loadResources = useCallback(async () => {
     try {
-      const data = await fetchApi('/resources/active');
+      const endpoint = isBeautyVertical ? endpoints.resources : '/resources/active';
+      const data = await fetchApi(endpoint);
       const items = normalizeListResponse(data)
         .map((item) => {
           const normalizedId = normalizeId(item._id) || normalizeId(item.id);
@@ -605,7 +648,7 @@ function AppointmentsManagement() {
       console.error('Error loading resources:', error);
       setResources([]);
     }
-  }, []);
+  }, [isBeautyVertical, endpoints.resources]);
 
   const loadCustomers = useCallback(async () => {
     try {
@@ -1004,7 +1047,7 @@ function AppointmentsManagement() {
 
     try {
       setGroupSubmitting(true);
-      await fetchApi('/appointments/group', {
+      await fetchApi(`${endpoints.appointments}/group`, {
         method: 'POST',
         body: JSON.stringify(payload),
       });
@@ -1053,7 +1096,7 @@ function AppointmentsManagement() {
 
     try {
       setBlockSubmitting(true);
-      await fetchApi('/appointments/room-block', {
+      await fetchApi(`${endpoints.appointments}/room-block`, {
         method: 'POST',
         body: JSON.stringify(payload),
       });
@@ -1337,7 +1380,7 @@ function AppointmentsManagement() {
 
     try {
       setDepositSubmitting(true);
-      await fetchApi(`/appointments/${editingAppointment._id}/manual-deposits`, {
+      await fetchApi(`${endpoints.appointments}/${editingAppointment._id}/manual-deposits`, {
         method: 'POST',
         body: JSON.stringify(payload),
       });
@@ -1357,7 +1400,7 @@ function AppointmentsManagement() {
     if (!editingAppointment || !deposit?._id) return;
     try {
       setReceiptLoadingId(deposit._id);
-      const response = await fetchApi(`/appointments/${editingAppointment._id}/manual-deposits/${deposit._id}/receipt`);
+      const response = await fetchApi(`${endpoints.appointments}/${editingAppointment._id}/manual-deposits/${deposit._id}/receipt`);
       const data = response?.data || response;
       await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
       toast.success('Comprobante copiado al portapapeles');
@@ -1434,12 +1477,12 @@ function AppointmentsManagement() {
   };
 
   const fetchAppointmentDetail = useCallback(async (id) => {
-    const response = await fetchApi(`/appointments/${id}`);
+    const response = await fetchApi(`${endpoints.appointments}/${id}`);
     return Array.isArray(response) ? response[0] : response?.data || response;
-  }, []);
+  }, [endpoints.appointments]);
 
   const fetchAppointmentAudit = useCallback(async (id) => {
-    const response = await fetchApi(`/appointments/${id}/audit`);
+    const response = await fetchApi(`${endpoints.appointments}/${id}/audit`);
     if (Array.isArray(response)) {
       return response;
     }
@@ -1685,12 +1728,12 @@ function AppointmentsManagement() {
       let appointmentResult = null;
 
       if (editingAppointment) {
-        await fetchApi(`/appointments/${editingAppointment._id}`, {
+        await fetchApi(`${endpoints.appointments}/${editingAppointment._id}`, {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
       } else {
-        const createResponse = await fetchApi('/appointments', {
+        const createResponse = await fetchApi(endpoints.appointments, {
           method: 'POST',
           body: JSON.stringify(payload),
         });
@@ -1724,7 +1767,7 @@ function AppointmentsManagement() {
 
     try {
       setLoading(true);
-      await fetchApi(`/appointments/${id}`, { method: 'DELETE' });
+      await fetchApi(`${endpoints.appointments}/${id}`, { method: 'DELETE' });
       loadAppointments();
     } catch (error) {
       console.error('Error deleting appointment:', error);
@@ -1737,7 +1780,7 @@ function AppointmentsManagement() {
   const handleStatusChange = async (appointmentId, newStatus) => {
     try {
       setLoading(true);
-      await fetchApi(`/appointments/${appointmentId}`, {
+      await fetchApi(`${endpoints.appointments}/${appointmentId}`, {
         method: 'PUT',
         body: JSON.stringify({ status: newStatus }),
       });

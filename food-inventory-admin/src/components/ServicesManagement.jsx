@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { fetchApi } from '../lib/api';
 import { useModuleAccess } from '../hooks/useModuleAccess';
 import { useBusinessModel, getBusinessContextText } from '../hooks/useBusinessModel';
+import { useAuth } from '@/hooks/use-auth';
 import ModuleAccessDenied from './ModuleAccessDenied';
 import {
   Plus,
@@ -54,6 +55,13 @@ const initialServiceState = {
 function ServicesManagement() {
   const hasAccess = useModuleAccess('appointments');
   const { isResourceCentric, isFlexible, businessType } = useBusinessModel();
+  const { tenant } = useAuth();
+  const profileKey = tenant?.verticalProfile?.key || 'hospitality';
+
+  // Beauty vertical detection - use beauty endpoints for barbershop-salon
+  const isBeautyVertical = profileKey === 'barbershop-salon';
+  const servicesEndpoint = isBeautyVertical ? '/beauty-services' : '/services';
+
   const [services, setServices] = useState([]);
   const [filteredServices, setFilteredServices] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -106,7 +114,7 @@ function ServicesManagement() {
   const loadServices = async () => {
     try {
       setLoading(true);
-      const data = await fetchApi('/services');
+      const data = await fetchApi(servicesEndpoint);
       setServices(data);
     } catch (error) {
       console.error('Error loading services:', error);
@@ -118,7 +126,7 @@ function ServicesManagement() {
 
   const loadCategories = async () => {
     try {
-      const data = await fetchApi('/services/categories');
+      const data = await fetchApi(`${servicesEndpoint}/categories`);
       setCategories(data);
     } catch (error) {
       console.error('Error loading categories:', error);
@@ -159,13 +167,13 @@ function ServicesManagement() {
 
       if (editingService) {
         // Update
-        await fetchApi(`/services/${editingService._id}`, {
+        await fetchApi(`${servicesEndpoint}/${editingService._id}`, {
           method: 'PUT',
           body: JSON.stringify(formData),
         });
       } else {
         // Create
-        await fetchApi('/services', {
+        await fetchApi(servicesEndpoint, {
           method: 'POST',
           body: JSON.stringify(formData),
         });
@@ -187,7 +195,7 @@ function ServicesManagement() {
 
     try {
       setLoading(true);
-      await fetchApi(`/services/${id}`, { method: 'DELETE' });
+      await fetchApi(`${servicesEndpoint}/${id}`, { method: 'DELETE' });
       loadServices();
     } catch (error) {
       console.error('Error deleting service:', error);
