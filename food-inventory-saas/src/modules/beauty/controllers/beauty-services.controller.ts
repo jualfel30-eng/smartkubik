@@ -11,21 +11,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../../guards/jwt-auth.guard';
+import { TenantGuard } from '../../../guards/tenant.guard';
 import { BeautyServicesService } from '../services/beauty-services.service';
 import {
   CreateBeautyServiceDto,
   UpdateBeautyServiceDto,
 } from '../../../dto/beauty';
 
-// TODO: Importar guards cuando estén disponibles
-// import { JwtAuthGuard } from '../../../guards/jwt-auth.guard';
-// import { TenantGuard } from '../../../guards/tenant.guard';
-// import { PermissionsGuard } from '../../../guards/permissions.guard';
-// import { Permissions } from '../../../decorators/permissions.decorator';
-
 @ApiTags('Beauty Services (Private)')
 @ApiBearerAuth()
-// @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('beauty-services')
 export class BeautyServicesController {
   constructor(

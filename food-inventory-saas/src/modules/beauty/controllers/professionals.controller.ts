@@ -11,6 +11,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../../guards/jwt-auth.guard';
+import { TenantGuard } from '../../../guards/tenant.guard';
 import { ProfessionalsService } from '../services/professionals.service';
 import {
   CreateProfessionalDto,
@@ -19,7 +21,7 @@ import {
 
 @ApiTags('Professionals (Private)')
 @ApiBearerAuth()
-// @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('professionals')
 export class ProfessionalsController {
   constructor(private readonly professionalsService: ProfessionalsService) {}
