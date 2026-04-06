@@ -194,6 +194,16 @@ export class CreateInventoryDto {
   @IsOptional()
   @IsString()
   reference?: string;
+
+  @ApiPropertyOptional({ description: "ID del almacén" })
+  @IsOptional()
+  @IsMongoId()
+  warehouseId?: string;
+
+  @ApiPropertyOptional({ description: "ID de la ubicación dentro del almacén" })
+  @IsOptional()
+  @IsMongoId()
+  binLocationId?: string;
 }
 
 export class InventoryMovementDto {

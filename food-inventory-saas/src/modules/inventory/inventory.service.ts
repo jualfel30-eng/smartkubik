@@ -107,6 +107,11 @@ export class InventoryService {
         };
       }) || []) as any[];
 
+    // Resolve warehouseId: use DTO value or fall back to default warehouse
+    const resolvedWarehouseId = createInventoryDto.warehouseId
+      ? new Types.ObjectId(createInventoryDto.warehouseId)
+      : await this.getDefaultWarehouse(user.tenantId);
+
     let inventory = existingInventory;
     let isNewInventory = false;
 
@@ -114,6 +119,11 @@ export class InventoryService {
       // Inventory exists and is active - INCREMENT the quantities
       inventory.totalQuantity += createInventoryDto.totalQuantity;
       inventory.availableQuantity += createInventoryDto.totalQuantity;
+
+      // Ensure warehouseId is set (fix for legacy records without it)
+      if (!inventory.warehouseId && resolvedWarehouseId) {
+        inventory.warehouseId = resolvedWarehouseId;
+      }
 
       // Add new lots to existing lots
       if (processedLots.length > 0) {
@@ -139,6 +149,7 @@ export class InventoryService {
         reservedQuantity: 0,
         committedQuantity: 0,
         lastCostPrice: createInventoryDto.averageCostPrice,
+        warehouseId: resolvedWarehouseId,
         alerts: {
           lowStock: false,
           nearExpiration: false,
@@ -174,6 +185,7 @@ export class InventoryService {
         reservedQuantity: 0,
         committedQuantity: 0,
         lastCostPrice: createInventoryDto.averageCostPrice,
+        warehouseId: resolvedWarehouseId,
         alerts: {
           lowStock: false,
           nearExpiration: false,
@@ -1308,7 +1320,7 @@ export class InventoryService {
       // Match records assigned to this warehouse (support both String and ObjectId)
       try {
         const whOid = new Types.ObjectId(warehouseId);
-        filter.warehouseId = { $in: [warehouseId, whOid] };
+        filter.warehouseId = { $in: [warehouseId, whOid, null] };
       } catch (e) {
         // If warehouseId is not a valid ObjectId, just match as string
         filter.warehouseId = warehouseId;
@@ -1360,7 +1372,7 @@ export class InventoryService {
         .sort(sortOptions)
         .skip(skip)
         .limit(limitNumber)
-        .populate("productId", "name category brand isPerishable variants")
+        .populate("productId", "name category brand isPerishable variants sellingUnits hasMultipleSellingUnits unitOfMeasure isSoldByWeight")
         .exec(),
       this.inventoryModel.countDocuments(filter),
     ]);
