@@ -1937,9 +1937,24 @@ export default function ComprasManagement() {
                     <Label>Fecha de Compra <span className="text-red-500">*</span></Label>
                     <Popover open={purchaseDateOpen} onOpenChange={setPurchaseDateOpen}>
                       <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{po.purchaseDate ? format(po.purchaseDate, "PPP") : <span>Selecciona una fecha</span>}</Button>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {po.purchaseDate ? format(po.purchaseDate, "PPP") : <span>Selecciona una fecha</span>}
+                        </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={po.purchaseDate} onSelect={(date) => { setPo(prev => ({ ...prev, purchaseDate: date })); setPurchaseDateOpen(false); }} initialFocus /></PopoverContent>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={po.purchaseDate}
+                          onSelect={(date) => {
+                            if (date) {
+                              setPo(prev => ({ ...prev, purchaseDate: date }));
+                              setTimeout(() => setPurchaseDateOpen(false), 0);
+                            }
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
                     </Popover>
                   </div>
                 </div>
@@ -1974,11 +1989,13 @@ export default function ComprasManagement() {
                             mode="single"
                             selected={po.paymentTerms.paymentDueDate}
                             onSelect={(date) => {
-                              setPo(prev => ({
-                                ...prev,
-                                paymentTerms: { ...prev.paymentTerms, paymentDueDate: date }
-                              }));
-                              setPaymentDueDateOpen(false);
+                              if (date) {
+                                setPo(prev => ({
+                                  ...prev,
+                                  paymentTerms: { ...prev.paymentTerms, paymentDueDate: date }
+                                }));
+                                setTimeout(() => setPaymentDueDateOpen(false), 0);
+                              }
                             }}
                             disabled={(date) => date < po.purchaseDate}
                             initialFocus
@@ -2137,8 +2154,8 @@ export default function ComprasManagement() {
                             ].filter(Boolean).join(' · ')}
                           </div>
                         </TableCell>
-                        <TableCell><Input type="number" value={item.quantity} onChange={e => updateItemField(index, 'quantity', e.target.value)} className="w-24" /></TableCell>
-                        <TableCell><Input type="number" value={item.costPrice} onChange={e => updateItemField(index, 'costPrice', e.target.value)} className="w-32" /></TableCell>
+                        <TableCell><Input type="number" value={item.quantity} onChange={e => updateItemField(index, 'quantity', e.target.value)} className="w-24 no-spinners" /></TableCell>
+                        <TableCell><Input type="number" value={item.costPrice} onChange={e => updateItemField(index, 'costPrice', e.target.value)} className="w-32 no-spinners" /></TableCell>
                         <TableCell>
                           <Input
                             type="number"
@@ -2148,7 +2165,7 @@ export default function ComprasManagement() {
                             value={item.discount || ''}
                             onChange={e => updateItemField(index, 'discount', e.target.value)}
                             placeholder="0"
-                            className="w-20"
+                            className="w-20 no-spinners"
                           />
                         </TableCell>
                         <TableCell className="font-medium">

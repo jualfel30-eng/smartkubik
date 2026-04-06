@@ -24,7 +24,7 @@ import {
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
 
-@Controller("storefront")
+@Controller(["admin/storefront-config", "storefront"])
 @UseGuards(JwtAuthGuard, TenantGuard)
 export class StorefrontConfigController {
   constructor(

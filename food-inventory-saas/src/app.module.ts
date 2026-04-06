@@ -45,6 +45,7 @@ import { ExchangeRateModule } from "./modules/exchange-rate/exchange-rate.module
 import { BankAccountsModule } from "./modules/bank-accounts/bank-accounts.module";
 import { AppointmentsModule } from "./modules/appointments/appointments.module";
 import { StorefrontModule } from "./modules/storefront/storefront.module";
+import { StorefrontConfigModule } from "./modules/storefront-config/storefront-config.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { UsersModule } from "./modules/users/users.module";
 import { TablesModule } from "./modules/tables/tables.module";
@@ -511,6 +512,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     PromotionsModule,
     HospitalityIntegrationsModule,
     StorefrontModule,
+    StorefrontConfigModule,
     OrganizationsModule,
     UsersModule,
     TablesModule,

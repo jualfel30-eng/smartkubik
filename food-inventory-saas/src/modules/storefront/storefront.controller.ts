@@ -339,4 +339,90 @@ export class StorefrontController {
       message: "Favicon subido y optimizado exitosamente",
     };
   }
+
+  @Post("upload-banner")
+  @Permissions("storefront_update")
+  @UseInterceptors(FileInterceptor("file"))
+  @ApiConsumes("multipart/form-data")
+  @ApiOperation({
+    summary: "Subir imagen de banner (Hero)",
+    description: "Sube imagen de fondo para la sección Hero. Máximo 5MB",
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        file: { type: "string", format: "binary" },
+      },
+    },
+  })
+  async uploadBanner(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }), // 5MB
+          new FileTypeValidator({
+            fileType: /image\/(png|jpeg|jpg|gif|webp)/,
+            skipMagicNumbersValidation: true,
+          }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @Request() req,
+  ) {
+    const result = await this.storefrontService.uploadBanner(
+      file,
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      data: result,
+      message: "Banner subido exitosamente",
+    };
+  }
+
+  @Post("upload-video")
+  @Permissions("storefront_update")
+  @UseInterceptors(FileInterceptor("file"))
+  @ApiConsumes("multipart/form-data")
+  @ApiOperation({
+    summary: "Subir video de fondo (Hero)",
+    description: "Sube video de fondo para la sección Hero. Máximo 50MB",
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        file: { type: "string", format: "binary" },
+      },
+    },
+  })
+  async uploadVideo(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 50 * 1024 * 1024 }), // 50MB
+          new FileTypeValidator({
+            fileType: /video\/(mp4|webm|ogg)/,
+            skipMagicNumbersValidation: true,
+          }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @Request() req,
+  ) {
+    const result = await this.storefrontService.uploadVideo(
+      file,
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      data: result,
+      message: "Video subido exitosamente",
+    };
+  }
 }

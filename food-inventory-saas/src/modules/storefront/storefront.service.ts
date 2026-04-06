@@ -592,4 +592,82 @@ export class StorefrontService {
       throw new BadRequestException("Error al procesar la imagen del favicon");
     }
   }
+
+  /**
+   * Subir imagen de banner (Hero)
+   */
+  async uploadBanner(
+    file: Express.Multer.File,
+    tenantId: string,
+  ): Promise<{ bannerUrl: string }> {
+    this.logger.log(`Uploading banner for tenant: ${tenantId}`);
+
+    try {
+      const uploadDir = path.join(process.cwd(), "uploads", "storefront", "banners");
+      await fs.mkdir(uploadDir, { recursive: true });
+
+      const ext = file.originalname.split(".").pop() || "jpg";
+      const filename = `banner-${tenantId}-${Date.now()}.${ext}`;
+      const filepath = path.join(uploadDir, filename);
+
+      // Guardar archivo en disco
+      await fs.writeFile(filepath, file.buffer);
+
+      const baseUrl =
+        process.env.API_BASE_URL ||
+        `http://localhost:${process.env.PORT || 3000}`;
+      const bannerUrl = `${baseUrl}/uploads/storefront/banners/${filename}`;
+
+      // Actualizar configuración
+      await this.updatePartial(
+        { theme: { bannerUrl } } as any,
+        { tenantId } as any,
+      );
+
+      this.logger.log(`Banner uploaded successfully for tenant: ${tenantId}`);
+      return { bannerUrl };
+    } catch (error) {
+      this.logger.error(`Error uploading banner: ${error.message}`);
+      throw new BadRequestException("Error al procesar la imagen del banner");
+    }
+  }
+
+  /**
+   * Subir video de fondo (Hero)
+   */
+  async uploadVideo(
+    file: Express.Multer.File,
+    tenantId: string,
+  ): Promise<{ videoUrl: string }> {
+    this.logger.log(`Uploading video for tenant: ${tenantId}`);
+
+    try {
+      const uploadDir = path.join(process.cwd(), "uploads", "storefront", "videos");
+      await fs.mkdir(uploadDir, { recursive: true });
+
+      const ext = file.originalname.split(".").pop() || "mp4";
+      const filename = `video-${tenantId}-${Date.now()}.${ext}`;
+      const filepath = path.join(uploadDir, filename);
+
+      // Guardar archivo en disco
+      await fs.writeFile(filepath, file.buffer);
+
+      const baseUrl =
+        process.env.API_BASE_URL ||
+        `http://localhost:${process.env.PORT || 3000}`;
+      const videoUrl = `${baseUrl}/uploads/storefront/videos/${filename}`;
+
+      // Actualizar configuración
+      await this.updatePartial(
+        { theme: { videoUrl } } as any,
+        { tenantId } as any,
+      );
+
+      this.logger.log(`Video uploaded successfully for tenant: ${tenantId}`);
+      return { videoUrl };
+    } catch (error) {
+      this.logger.error(`Error uploading video: ${error.message}`);
+      throw new BadRequestException("Error al procesar el video");
+    }
+  }
 }

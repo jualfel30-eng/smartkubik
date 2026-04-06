@@ -103,6 +103,12 @@ img {
   aspect-ratio: 16 / 9;
 }
 
+/* Remove diagonal wave transitions */
+section::before,
+section::after {
+  display: none !important;
+}
+
 /* Responsive font scaling */
 @media (max-width: 768px) {
   .text-hero {

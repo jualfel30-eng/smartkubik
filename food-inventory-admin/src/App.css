@@ -694,3 +694,15 @@ Link.btn-secondary:hover::before {
 .animate-pulse-scale {
   animation: pulse-scale 4s ease-in-out infinite;
 }
+
+/* Hide spinner arrows on numeric inputs */
+.no-spinners::-webkit-inner-spin-button,
+.no-spinners::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spinners[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
