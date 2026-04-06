@@ -478,6 +478,9 @@ export class TransferOrdersService {
           unitCost: item.unitCost ?? 0,
           notes: item.notes,
           lotNumber: item.lotNumber,
+          selectedUnit: item.selectedUnit,
+          conversionFactor: item.conversionFactor,
+          unitOfMeasure: item.unitOfMeasure,
         };
       }),
       notes: dto.notes,
@@ -536,6 +539,9 @@ export class TransferOrdersService {
         unitCost: item.unitCost ?? 0,
         notes: item.notes,
         lotNumber: item.lotNumber,
+        selectedUnit: item.selectedUnit,
+        conversionFactor: item.conversionFactor,
+        unitOfMeasure: item.unitOfMeasure,
       })) as any;
     }
 
@@ -738,6 +744,9 @@ export class TransferOrdersService {
           unitCost: item.unitCost ?? 0,
           notes: item.notes,
           lotNumber: item.lotNumber,
+          selectedUnit: item.selectedUnit,
+          conversionFactor: item.conversionFactor,
+          unitOfMeasure: item.unitOfMeasure,
         };
       }),
       notes: dto.notes,
@@ -992,6 +1001,7 @@ export class TransferOrdersService {
         productId: { $in: [item.productId, productIdOid, item.productId.toString()] },
         warehouseId: sourceWarehouseOid,
         tenantId: { $in: [sourceTenantId, sourceTenantOid] },
+        isActive: { $ne: false },
         isDeleted: { $ne: true },
       });
 
@@ -1004,6 +1014,7 @@ export class TransferOrdersService {
             { warehouseId: { $exists: false } },
           ],
           tenantId: { $in: [sourceTenantId, sourceTenantOid] },
+          isActive: { $ne: false },
           isDeleted: { $ne: true },
         });
 
