@@ -91,6 +91,15 @@ export class TransferOrderItem {
 
   @Prop({ type: String })
   lotNumber?: string;
+
+  @Prop({ type: String })
+  selectedUnit?: string;
+
+  @Prop({ type: Number })
+  conversionFactor?: number;
+
+  @Prop({ type: String })
+  unitOfMeasure?: string;
 }
 
 const TransferOrderItemSchema =

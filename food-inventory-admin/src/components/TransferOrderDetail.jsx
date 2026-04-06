@@ -123,6 +123,7 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
         quantity: item.requestedQuantity,
         receivedQuantity: item.requestedQuantity - (item.receivedQuantity || 0),
         maxQuantity: item.requestedQuantity - (item.receivedQuantity || 0),
+        selectedUnit: item.selectedUnit || null,
       })),
     );
     setReceiveDialogOpen(true);
@@ -368,6 +369,7 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
             <TableHeader>
               <TableRow>
                 <TableHead>Producto</TableHead>
+                <TableHead className="text-center">Unidad</TableHead>
                 <TableHead className="text-right">Solicitado</TableHead>
                 <TableHead className="text-right">Aprobado</TableHead>
                 <TableHead className="text-right">Recibido</TableHead>
@@ -382,7 +384,14 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
                       <span className="text-xs text-muted-foreground ml-2">({item.productSku})</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">{item.requestedQuantity}</TableCell>
+                  <TableCell className="text-center">
+                    {item.selectedUnit ? (
+                      <Badge variant="outline" className="text-[10px]">{item.selectedUnit}</Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">{item.unitOfMeasure || '—'}</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">{item.requestedQuantity}{item.selectedUnit ? ` ${item.selectedUnit}` : ''}</TableCell>
                   <TableCell className="text-right">{item.approvedQuantity ?? '-'}</TableCell>
                   <TableCell className="text-right">
                     {item.receivedQuantity != null ? (
@@ -483,16 +492,22 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
             <TableBody>
               {receiveItems.map((item) => (
                 <TableRow key={item.productId}>
-                  <TableCell className="text-sm">{item.productName}</TableCell>
-                  <TableCell className="text-right">{item.maxQuantity}</TableCell>
+                  <TableCell className="text-sm">
+                    {item.productName}
+                    {item.selectedUnit && (
+                      <span className="text-xs text-muted-foreground ml-1">({item.selectedUnit})</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">{item.maxQuantity}{item.selectedUnit ? ` ${item.selectedUnit}` : ''}</TableCell>
                   <TableCell>
                     <Input
                       type="number"
                       min="0"
+                      step={item.selectedUnit ? '0.01' : '1'}
                       max={item.maxQuantity}
                       value={item.receivedQuantity}
                       onChange={(e) => {
-                        const val = Math.min(item.maxQuantity, Math.max(0, parseInt(e.target.value) || 0));
+                        const val = Math.min(item.maxQuantity, Math.max(0, parseFloat(e.target.value) || 0));
                         setReceiveItems((prev) =>
                           prev.map((i) => (i.productId === item.productId ? { ...i, receivedQuantity: val } : i)),
                         );

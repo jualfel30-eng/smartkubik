@@ -206,6 +206,25 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
       return;
     }
     const populatedProduct = typeof invRecord.productId === 'object' ? invRecord.productId : null;
+
+    // Extract multi-unit configuration from populated product
+    const hasMultiUnit = populatedProduct?.hasMultipleSellingUnits && populatedProduct?.sellingUnits?.length > 0;
+    const activeSellingUnits = hasMultiUnit
+      ? populatedProduct.sellingUnits.filter((u) => u.isActive !== false)
+      : [];
+    const baseUnit = populatedProduct?.unitOfMeasure || 'unidad';
+
+    // Build unit options: base unit first, then selling units
+    const unitOptions = [
+      { name: baseUnit, abbreviation: baseUnit, conversionFactor: 1, isBase: true },
+      ...activeSellingUnits.map((u) => ({
+        name: u.name,
+        abbreviation: u.abbreviation,
+        conversionFactor: u.conversionFactor,
+        isBase: false,
+      })),
+    ];
+
     setForm((f) => ({
       ...f,
       items: [
@@ -215,8 +234,14 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           productName: invRecord.productName,
           productSku: invRecord.productSku,
           brand: populatedProduct?.brand || '',
-          availableQuantity: invRecord.availableQuantity,
+          availableQuantity: invRecord.availableQuantity, // always in base units
           quantity: 1,
+          // Multi-unit fields
+          unitOptions,
+          hasMultiUnit: unitOptions.length > 1,
+          selectedUnit: unitOptions[0].abbreviation,
+          conversionFactor: 1, // start with base unit
+          unitOfMeasure: baseUnit,
         },
       ],
     }));
@@ -236,10 +261,33 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
       ...f,
       items: f.items.map((i) => {
         if (i.productId !== productId) return i;
-        // Allow empty string for user convenience, fallback to 1 on blur
-        const rawValue = qty === '' ? '' : parseInt(qty) || 0;
-        const quantity = rawValue === '' ? '' : Math.max(0, Math.min(rawValue, i.availableQuantity));
+        if (qty === '') return { ...i, quantity: '' };
+        const rawValue = parseFloat(qty);
+        if (isNaN(rawValue)) return { ...i, quantity: '' };
+        // Max available in selected unit
+        const maxInUnit = i.conversionFactor !== 1
+          ? i.availableQuantity / i.conversionFactor
+          : i.availableQuantity;
+        const quantity = Math.max(0, Math.min(rawValue, maxInUnit));
         return { ...i, quantity };
+      }),
+    }));
+  };
+
+  const updateItemUnit = (productId, unitAbbreviation) => {
+    setForm((f) => ({
+      ...f,
+      items: f.items.map((i) => {
+        if (i.productId !== productId) return i;
+        const unit = i.unitOptions.find((u) => u.abbreviation === unitAbbreviation);
+        if (!unit) return i;
+        // Reset quantity to 1 when changing unit
+        return {
+          ...i,
+          selectedUnit: unit.abbreviation,
+          conversionFactor: unit.conversionFactor,
+          quantity: 1,
+        };
       }),
     }));
   };
@@ -286,6 +334,12 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           productName: i.productName,
           productSku: i.productSku,
           requestedQuantity: i.quantity,
+          // Include unit conversion fields when a non-base unit is selected
+          ...(i.conversionFactor !== 1 && {
+            selectedUnit: i.selectedUnit,
+            conversionFactor: i.conversionFactor,
+            unitOfMeasure: i.unitOfMeasure,
+          }),
         })),
       };
 
@@ -596,52 +650,83 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
               <TableHeader>
                 <TableRow>
                   <TableHead>Producto</TableHead>
-                  <TableHead>Marca</TableHead>
-                  <TableHead className="w-[80px] text-center">Disp.</TableHead>
+                  <TableHead className="w-[110px]">Unidad</TableHead>
+                  <TableHead className="w-[90px] text-center">Disp.</TableHead>
                   <TableHead className="w-[100px]">Cantidad</TableHead>
-                  <TableHead className="w-[60px]"></TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {form.items.map((item) => (
-                  <TableRow key={item.productId}>
-                    <TableCell>
-                      <span className="text-sm">{item.productName}</span>
-                      {item.productSku && (
-                        <span className="text-xs text-muted-foreground ml-2">({item.productSku})</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-muted-foreground">{item.brand || '—'}</span>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className="text-[10px] font-mono">
-                        {item.availableQuantity}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        min="0"
-                        max={item.availableQuantity}
-                        value={item.quantity}
-                        onChange={(e) => updateItemQty(item.productId, e.target.value)}
-                        onBlur={(e) => {
-                          // On blur, ensure value is at least 1
-                          if (e.target.value === '' || parseInt(e.target.value) < 1) {
-                            updateItemQty(item.productId, '1');
-                          }
-                        }}
-                        className="w-20 h-8 text-sm no-spinners"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button size="icon" variant="ghost" onClick={() => removeItem(item.productId)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {form.items.map((item) => {
+                  const availInUnit = item.conversionFactor !== 1
+                    ? (item.availableQuantity / item.conversionFactor)
+                    : item.availableQuantity;
+                  const availDisplay = item.conversionFactor !== 1
+                    ? availInUnit % 1 === 0 ? availInUnit.toString() : availInUnit.toFixed(2)
+                    : item.availableQuantity.toString();
+
+                  return (
+                    <TableRow key={item.productId}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="text-sm">{item.productName}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {item.productSku && `${item.productSku}`}
+                            {item.brand && ` · ${item.brand}`}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {item.hasMultiUnit ? (
+                          <Select
+                            value={item.selectedUnit}
+                            onValueChange={(v) => updateItemUnit(item.productId, v)}
+                          >
+                            <SelectTrigger className="h-8 w-[100px] text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {item.unitOptions.map((u) => (
+                                <SelectItem key={u.abbreviation} value={u.abbreviation}>
+                                  {u.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{item.unitOfMeasure}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          {availDisplay}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          step={item.conversionFactor !== 1 ? '0.01' : '1'}
+                          max={availInUnit}
+                          value={item.quantity}
+                          onChange={(e) => updateItemQty(item.productId, e.target.value)}
+                          onBlur={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (isNaN(val) || val < 0.01) {
+                              updateItemQty(item.productId, item.conversionFactor !== 1 ? '0.01' : '1');
+                            }
+                          }}
+                          className="w-20 h-8 text-sm no-spinners"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button size="icon" variant="ghost" onClick={() => removeItem(item.productId)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}

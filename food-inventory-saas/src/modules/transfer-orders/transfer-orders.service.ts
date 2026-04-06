@@ -978,6 +978,9 @@ export class TransferOrdersService {
       const qty = item.shippedQuantity;
       if (!qty || qty <= 0) continue;
 
+      // Convert to base units if a selling unit was selected
+      const baseQty = item.conversionFactor ? qty * item.conversionFactor : qty;
+
       const sourceWarehouseOid = new Types.ObjectId(
         order.sourceWarehouseId.toString(),
       );
@@ -1017,16 +1020,16 @@ export class TransferOrdersService {
       }
 
       const available = sourceInventory.availableQuantity ?? 0;
-      if (available < qty) {
+      if (available < baseQty) {
         throw new BadRequestException(
-          `Stock insuficiente para ${item.productName || item.productSku}. Disponible: ${available}, Solicitado: ${qty}`,
+          `Stock insuficiente para ${item.productName || item.productSku}. Disponible: ${available}, Solicitado: ${baseQty}${item.selectedUnit ? ` (${qty} ${item.selectedUnit})` : ''}`,
         );
       }
 
-      // Decrement source inventory
-      sourceInventory.availableQuantity = available - qty;
+      // Decrement source inventory (always in base units)
+      sourceInventory.availableQuantity = available - baseQty;
       sourceInventory.totalQuantity =
-        (sourceInventory.totalQuantity ?? 0) - qty;
+        (sourceInventory.totalQuantity ?? 0) - baseQty;
       await sourceInventory.save();
 
       // Create OUT movement
@@ -1038,10 +1041,10 @@ export class TransferOrdersService {
         productSku: item.productSku || sourceInventory.productSku,
         warehouseId: order.sourceWarehouseId,
         movementType: "TRANSFER",
-        quantity: qty,
+        quantity: baseQty,
         unitCost,
-        totalCost: qty * unitCost,
-        reason: `Despacho transferencia ${order.orderNumber}`,
+        totalCost: baseQty * unitCost,
+        reason: `Despacho transferencia ${order.orderNumber}${item.selectedUnit ? ` (${qty} ${item.selectedUnit})` : ''}`,
         reference: order.orderNumber,
         transferId,
         sourceWarehouseId: order.sourceWarehouseId,
@@ -1227,10 +1230,13 @@ export class TransferOrdersService {
 
       const qty = receiveItem.receivedQuantity;
 
-      // Increment destination inventory
+      // Convert to base units if a selling unit was selected
+      const baseQty = orderItem.conversionFactor ? qty * orderItem.conversionFactor : qty;
+
+      // Increment destination inventory (always in base units)
       destInventory.availableQuantity =
-        (destInventory.availableQuantity ?? 0) + qty;
-      destInventory.totalQuantity = (destInventory.totalQuantity ?? 0) + qty;
+        (destInventory.availableQuantity ?? 0) + baseQty;
+      destInventory.totalQuantity = (destInventory.totalQuantity ?? 0) + baseQty;
       await destInventory.save();
 
       // Create IN movement (in destination tenant)
@@ -1243,10 +1249,10 @@ export class TransferOrdersService {
         productSku: orderItem.productSku || destInventory.productSku,
         warehouseId: order.destinationWarehouseId,
         movementType: "TRANSFER",
-        quantity: qty,
+        quantity: baseQty,
         unitCost,
-        totalCost: qty * unitCost,
-        reason: `Recepción transferencia ${order.orderNumber}`,
+        totalCost: baseQty * unitCost,
+        reason: `Recepción transferencia ${order.orderNumber}${orderItem.selectedUnit ? ` (${qty} ${orderItem.selectedUnit})` : ''}`,
         reference: order.orderNumber,
         transferId,
         sourceWarehouseId: order.sourceWarehouseId,

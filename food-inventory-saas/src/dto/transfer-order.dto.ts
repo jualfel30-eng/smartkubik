@@ -53,6 +53,19 @@ class TransferOrderItemDto {
   @IsOptional()
   @IsString()
   lotNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  selectedUnit?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.000001)
+  conversionFactor?: number;
+
+  @IsOptional()
+  @IsString()
+  unitOfMeasure?: string;
 }
 
 // --- Create ---
