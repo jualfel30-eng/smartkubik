@@ -118,13 +118,13 @@ const initialNewProductState = {
   purchaseDate: new Date(),
   documentType: 'factura_fiscal',
   invoiceNumber: '',
-  actualPaymentMethod: 'efectivo_usd', // Método de pago REAL para esta compra específica
+  actualPaymentMethod: 'bolivares_bcv', // Método de pago REAL para esta compra específica
   paymentTerms: {
     isCredit: false,
     paymentDueDate: null,
     paymentMethods: [],
     customPaymentMethod: '',
-    expectedCurrency: 'USD',
+    expectedCurrency: 'bolivares_bcv',
     requiresAdvancePayment: false,
     advancePaymentPercentage: 0,
   }
@@ -2219,35 +2219,6 @@ export default function ComprasManagement() {
                           className="bg-white dark:bg-slate-800"
                         />
                       </div>
-
-                      {/* Método de Pago */}
-                      <div className="w-80 p-3 border rounded-lg space-y-2 bg-slate-50 dark:bg-slate-900/50 dark:border-slate-700">
-                        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                          ¿Cómo pagará esta compra?
-                        </Label>
-                        <Select value={po.actualPaymentMethod} onValueChange={handleActualPaymentMethodChange}>
-                          <SelectTrigger className="bg-white dark:bg-slate-800">
-                            <SelectValue placeholder="Seleccione método de pago" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="efectivo_usd">Efectivo USD</SelectItem>
-                            <SelectItem value="zelle">Zelle</SelectItem>
-                            <SelectItem value="bolivares_bcv">$ BCV</SelectItem>
-                            <SelectItem value="euro_bcv">€ BCV</SelectItem>
-                            <SelectItem value="pago_movil">Pago Móvil</SelectItem>
-                            <SelectItem value="transferencia_ves">Transf. Bancaria VES</SelectItem>
-                            <SelectItem value="transferencia_int">Transf. Internacional</SelectItem>
-                            <SelectItem value="binance">Binance</SelectItem>
-                            <SelectItem value="paypal">PayPal</SelectItem>
-                            <SelectItem value="pos">Punto de Venta</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {po.documentType === 'factura_fiscal' && ['efectivo_usd', 'zelle', 'transferencia_int', 'binance', 'paypal'].includes(po.actualPaymentMethod) && (
-                          <p className="text-xs text-orange-600 dark:text-orange-400">
-                            ⚠️ Este método aplica IGTF (3%)
-                          </p>
-                        )}
-                      </div>
                     </div>
 
                     {/* Resumen de Totales */}
@@ -3283,7 +3254,7 @@ export default function ComprasManagement() {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
-                      Factura Fiscal incluye IVA (16%) e IGTF (3% si pago es en $)
+                      Factura Fiscal incluye IVA (16%). Compra calculada en $ BCV.
                     </p>
                   </div>
                   <div className="space-y-2">
