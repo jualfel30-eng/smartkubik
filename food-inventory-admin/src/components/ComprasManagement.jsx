@@ -1102,7 +1102,7 @@ export default function ComprasManagement() {
       }));
 
       // CRÍTICO: Cargar condiciones de pago del proveedor
-      fetchSupplierPaymentMethods(supplier._id);
+      fetchSupplierPaymentMethods(customer._id);
     }
   };
 
@@ -1525,11 +1525,26 @@ export default function ComprasManagement() {
   };
 
   const handlePoSubmit = async () => {
+    // DEBUG: Log del estado completo del proveedor
+    console.log('🔍 DEBUG - Estado PO antes de validación:', {
+      supplierId: po.supplierId,
+      supplierName: po.supplierName,
+      supplierRif: po.supplierRif,
+      contactName: po.contactName,
+      contactPhone: po.contactPhone,
+    });
+
     const supplierNameTrimmed = po.supplierName?.trim() || '';
     const supplierRifTrimmed = po.supplierRif?.toString().trim() || '';
     const contactNameTrimmed = po.contactName?.trim() || '';
     const contactPhoneTrimmed = po.contactPhone?.trim() || '';
     const contactEmailTrimmed = po.contactEmail?.trim() || '';
+
+    console.log('🔍 DEBUG - Valores trimmed:', {
+      supplierNameTrimmed,
+      supplierRifTrimmed,
+      contactNameTrimmed,
+    });
 
     const missingFields = [
       { label: 'Nombre de la Empresa', value: supplierNameTrimmed },
@@ -1539,6 +1554,7 @@ export default function ComprasManagement() {
 
     if (missingFields.length > 0) {
       const fieldsList = missingFields.map(field => field.label).join(', ');
+      console.log('❌ DEBUG - Campos faltantes:', missingFields);
       toast.error('Error de Validación', { description: `Falta completar: ${fieldsList}.` });
       return;
     }
