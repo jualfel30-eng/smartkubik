@@ -63,6 +63,20 @@ const parseTaxId = (taxId, fallbackTaxType = 'J') => {
   };
 };
 
+/**
+ * Helper: Format date for API submission with proper timezone handling
+ * Sends date at noon (12:00:00) in ISO format to avoid timezone edge cases
+ * This prevents MongoDB from interpreting 'yyyy-MM-dd' as UTC midnight,
+ * which causes 1-day offset issues in timezones behind UTC
+ */
+const formatDateForApi = (date) => {
+  if (!date) return undefined;
+
+  const dateAtNoon = new Date(date);
+  dateAtNoon.setHours(12, 0, 0, 0);
+  return dateAtNoon.toISOString();
+};
+
 const initialNewProductState = {
   productType: 'simple',
   sku: '',
@@ -144,13 +158,13 @@ const initialPoState = {
   notes: '',
   documentType: 'factura_fiscal',
   invoiceNumber: '',
-  actualPaymentMethod: 'efectivo_usd', // Método de pago REAL para esta compra específica
+  actualPaymentMethod: 'bolivares_bcv', // Método de pago REAL para esta compra específica
   paymentTerms: {
     isCredit: false,
     paymentDueDate: null,
     paymentMethods: [],
     customPaymentMethod: '',
-    expectedCurrency: 'USD',
+    expectedCurrency: 'bolivares_bcv',
     requiresAdvancePayment: false,
     advancePaymentPercentage: 0,
   }
@@ -164,7 +178,7 @@ const initialPoState = {
  * @param {Array} items - Array de items de la compra (con ivaApplicable e igtfExempt)
  * @returns {object} - { iva, igtf, total, subtotalWithIva, subtotalExempt }
  */
-const calculatePurchaseTaxes = (subtotal, documentType, actualPaymentMethod = 'efectivo_usd', items = []) => {
+const calculatePurchaseTaxes = (subtotal, documentType, actualPaymentMethod = 'bolivares_bcv', items = []) => {
   // Si es nota de entrega, no aplicar impuestos
   if (documentType === 'nota_entrega') {
     return {
@@ -766,7 +780,7 @@ export default function ComprasManagement() {
       product: productPayload,
       supplier: supplierPayload,
       inventory: inventoryPayload,
-      purchaseDate: format(newProduct.purchaseDate, 'yyyy-MM-dd'), // Send only date part
+      purchaseDate: formatDateForApi(newProduct.purchaseDate),
       documentType: newProduct.documentType,
       invoiceNumber: newProduct.invoiceNumber?.trim() || undefined,
       subtotal: newProductTotals.subtotal,
@@ -776,7 +790,7 @@ export default function ComprasManagement() {
       notes: 'Creación de producto con compra inicial.',
       paymentTerms: {
         isCredit: newProduct.paymentTerms.isCredit,
-        paymentDueDate: newProduct.paymentTerms.paymentDueDate ? format(newProduct.paymentTerms.paymentDueDate, 'yyyy-MM-dd') : undefined,
+        paymentDueDate: formatDateForApi(newProduct.paymentTerms.paymentDueDate),
         paymentMethods: allPaymentMethods,
         customPaymentMethod: newProduct.paymentTerms.customPaymentMethod,
         expectedCurrency: newProduct.paymentTerms.expectedCurrency,
@@ -1041,6 +1055,8 @@ export default function ComprasManagement() {
   };
 
   const handleRifSelection = (selectedOption) => {
+    console.log('🔍 DEBUG RIF - handleRifSelection called:', selectedOption);
+
     if (!selectedOption) {
       setSupplierRifInput('');
       setSupplierNameInput('');
@@ -1073,6 +1089,13 @@ export default function ComprasManagement() {
       // Solo limpiar cuando se selecciona un proveedor existente
       const { customer } = selectedOption;
 
+      console.log('🔍 DEBUG RIF - Customer data:', {
+        _id: customer._id,
+        companyName: customer.companyName,
+        name: customer.name,
+        fullCustomer: customer,
+      });
+
       // Parse taxId usando helper que maneja múltiples formatos
       const { taxType, rifNumber } = parseTaxId(
         customer.taxInfo?.taxId,
@@ -1082,25 +1105,34 @@ export default function ComprasManagement() {
       // Extraer dirección del proveedor
       const addr = customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0];
 
+      const supplierNameToSet = customer.companyName || customer.name;
+      console.log('🔍 DEBUG RIF - Will set supplierName to:', supplierNameToSet);
+
       // Actualizar los inputs para mostrar datos del proveedor seleccionado
       setSupplierRifInput(rifNumber);
       setSupplierNameInput('');
-      setPo(prev => ({
-        ...prev,
-        supplierId: customer._id,
-        supplierName: customer.companyName || customer.name,
-        supplierRif: rifNumber,
-        taxType: taxType,
-        contactName: customer.contacts?.[0]?.name || customer.name || '',
-        contactPhone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
-        contactEmail: customer.contacts?.find(c => c.type === 'email')?.value || '',
-        supplierAddress: {
-          city: addr?.city || '',
-          state: addr?.state || '',
-          street: addr?.street || '',
-        },
-      }));
+      setPo(prev => {
+        console.log('🔍 DEBUG RIF - Setting state, prev:', prev);
+        const newState = {
+          ...prev,
+          supplierId: customer._id,
+          supplierName: supplierNameToSet,
+          supplierRif: rifNumber,
+          taxType: taxType,
+          contactName: customer.contacts?.[0]?.name || customer.name || '',
+          contactPhone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
+          contactEmail: customer.contacts?.find(c => c.type === 'email')?.value || '',
+          supplierAddress: {
+            city: addr?.city || '',
+            state: addr?.state || '',
+            street: addr?.street || '',
+          },
+        };
+        console.log('🔍 DEBUG RIF - New state:', newState);
+        return newState;
+      });
 
+      console.log('🔍 DEBUG RIF - Calling fetchSupplierPaymentMethods');
       // CRÍTICO: Cargar condiciones de pago del proveedor
       fetchSupplierPaymentMethods(customer._id);
     }
@@ -1546,17 +1578,30 @@ export default function ComprasManagement() {
       contactNameTrimmed,
     });
 
-    const missingFields = [
-      { label: 'Nombre de la Empresa', value: supplierNameTrimmed },
-      { label: 'RIF', value: supplierRifTrimmed },
-      { label: 'Nombre del Contacto', value: contactNameTrimmed },
-    ].filter(field => !field.value);
+    // Validación flexible: Nombre o RIF (al menos uno debe estar presente)
+    const hasIdentifier = supplierNameTrimmed || supplierRifTrimmed;
 
-    if (missingFields.length > 0) {
-      const fieldsList = missingFields.map(field => field.label).join(', ');
-      console.log('❌ DEBUG - Campos faltantes:', missingFields);
-      toast.error('Error de Validación', { description: `Falta completar: ${fieldsList}.` });
+    if (!hasIdentifier) {
+      toast.error('Error de Validación', {
+        description: 'Debes proporcionar al menos el Nombre de la Empresa o el RIF del proveedor.'
+      });
       return;
+    }
+
+    if (!contactNameTrimmed) {
+      toast.error('Error de Validación', {
+        description: 'Falta completar: Nombre del Contacto.'
+      });
+      return;
+    }
+
+    // Si no hay nombre pero sí RIF, usar el RIF como nombre temporal
+    let finalSupplierName = supplierNameTrimmed;
+    if (!finalSupplierName && supplierRifTrimmed) {
+      finalSupplierName = `Proveedor ${po.taxType}-${supplierRifTrimmed}`;
+      console.log('⚠️ DEBUG - Usando RIF como nombre temporal:', finalSupplierName);
+      // Actualizar el estado para que el backend reciba el nombre
+      po.supplierName = finalSupplierName;
     }
 
     const normalizedTaxType = (po.taxType || 'J').toUpperCase();
@@ -1619,7 +1664,7 @@ export default function ComprasManagement() {
     }
 
     const dto = {
-      purchaseDate: format(po.purchaseDate, 'yyyy-MM-dd'),
+      purchaseDate: formatDateForApi(po.purchaseDate),
       documentType: po.documentType,
       invoiceNumber: po.invoiceNumber?.trim() || undefined,
       actualPaymentMethod: po.actualPaymentMethod,
@@ -1653,7 +1698,7 @@ export default function ComprasManagement() {
         creditDays: creditDays,
         paymentMethods: allPaymentMethods,
         expectedCurrency: po.paymentTerms.expectedCurrency || 'USD',
-        paymentDueDate: po.paymentTerms.paymentDueDate ? format(po.paymentTerms.paymentDueDate, 'yyyy-MM-dd') : undefined,
+        paymentDueDate: formatDateForApi(po.paymentTerms.paymentDueDate),
         requiresAdvancePayment: po.paymentTerms.requiresAdvancePayment,
         advancePaymentPercentage: po.paymentTerms.advancePaymentPercentage,
         advancePaymentAmount,
@@ -1882,30 +1927,46 @@ export default function ComprasManagement() {
                               onMouseDown={(e) => {
                                 e.preventDefault();
 
+                                console.log('🔍 DEBUG DROPDOWN - Supplier selected from RIF dropdown:', {
+                                  _id: s._id,
+                                  companyName: s.companyName,
+                                  name: s.name,
+                                  taxId: s.taxInfo?.taxId,
+                                  fullSupplier: s,
+                                });
+
                                 // Parse taxId usando helper que maneja múltiples formatos
                                 const { taxType, rifNumber } = parseTaxId(
                                   s.taxInfo?.taxId,
                                   s.taxInfo?.taxType || 'J'
                                 );
 
+                                const supplierNameValue = s.companyName || s.name;
+                                console.log('🔍 DEBUG DROPDOWN - Will set supplierName to:', supplierNameValue);
+
                                 const rifAddr = s.addresses?.find(a => a.isDefault) || s.addresses?.[0];
                                 setSupplierRifInput(rifNumber);
                                 setRifDropdownOpen(false);
-                                setPo(prev => ({
-                                  ...prev,
-                                  supplierId: s._id,
-                                  supplierName: s.companyName || s.name,
-                                  supplierRif: rifNumber,
-                                  taxType: taxType,
-                                  contactName: s.contacts?.[0]?.name || s.name || '',
-                                  contactPhone: s.contacts?.find(c => c.type === 'phone')?.value || '',
-                                  contactEmail: s.contacts?.find(c => c.type === 'email')?.value || '',
-                                  supplierAddress: {
-                                    city: rifAddr?.city || '',
-                                    state: rifAddr?.state || '',
-                                    street: rifAddr?.street || '',
-                                  },
-                                }));
+                                setPo(prev => {
+                                  const newState = {
+                                    ...prev,
+                                    supplierId: s._id,
+                                    supplierName: supplierNameValue,
+                                    supplierRif: rifNumber,
+                                    taxType: taxType,
+                                    contactName: s.contacts?.[0]?.name || s.name || '',
+                                    contactPhone: s.contacts?.find(c => c.type === 'phone')?.value || '',
+                                    contactEmail: s.contacts?.find(c => c.type === 'email')?.value || '',
+                                    supplierAddress: {
+                                      city: rifAddr?.city || '',
+                                      state: rifAddr?.state || '',
+                                      street: rifAddr?.street || '',
+                                    },
+                                  };
+                                  console.log('🔍 DEBUG DROPDOWN - New state:', newState);
+                                  return newState;
+                                });
+                                console.log('🔍 DEBUG DROPDOWN - Calling fetchSupplierPaymentMethods');
                                 // NUEVO: Cargar métodos de pago del proveedor
                                 fetchSupplierPaymentMethods(s._id);
                               }}
@@ -1926,7 +1987,10 @@ export default function ComprasManagement() {
                       minSearchLength={2}
                       debounceMs={300}
                       onSelection={handleSupplierSelection}
-                      value={po.supplierId ? { value: po.supplierId, label: po.supplierName } : null}
+                      value={po.supplierName ? {
+                        value: po.supplierId || po.supplierName,
+                        label: po.supplierName
+                      } : null}
                       placeholder="Buscar proveedor (mín. 2 caracteres)..."
                       isCreatable={true}
                     />

@@ -18,6 +18,7 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
   const [comments, setComments] = useState('');
   const [receivedBy, setReceivedBy] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(null);
+  const [invoiceDateOpen, setInvoiceDateOpen] = useState(false);
 
   const isOneStar = rating === 1;
   const isOtherReason = reason === 'Otro';
@@ -26,6 +27,14 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
     (!isOneStar || (isOneStar && reason && (!isOtherReason || (isOtherReason && comments))));
 
   const handleSubmit = () => {
+    // Format date with proper timezone handling (ISO format with noon time)
+    let formattedInvoiceDate = null;
+    if (invoiceDate) {
+      const dateAtNoon = new Date(invoiceDate);
+      dateAtNoon.setHours(12, 0, 0, 0);
+      formattedInvoiceDate = dateAtNoon.toISOString();
+    }
+
     onSubmit({
       purchaseOrderId: purchaseOrder._id,
       supplierId: purchaseOrder.supplierId,
@@ -33,7 +42,7 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
       reason: isOneStar ? reason : undefined,
       comments,
       receivedBy,
-      invoiceDate: invoiceDate ? format(invoiceDate, 'yyyy-MM-dd') : null,
+      invoiceDate: formattedInvoiceDate,
     });
     resetState();
   };
@@ -72,7 +81,7 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
           {/* NUEVO CAMPO: Fecha de Factura - PRIMERO */}
           <div className="space-y-2">
             <Label>Fecha de Factura <span className="text-red-500">*</span></Label>
-            <Popover>
+            <Popover open={invoiceDateOpen} onOpenChange={setInvoiceDateOpen}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
@@ -86,7 +95,12 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
                 <Calendar
                   mode="single"
                   selected={invoiceDate}
-                  onSelect={setInvoiceDate}
+                  onSelect={(date) => {
+                    if (date) {
+                      setInvoiceDate(date);
+                      setTimeout(() => setInvoiceDateOpen(false), 0);
+                    }
+                  }}
                   disabled={(date) => date > new Date()}
                   initialFocus
                 />

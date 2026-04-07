@@ -147,10 +147,26 @@ export function SearchableSelect({
       loadingMessage={() => "Buscando..."}
       // Permitir crear opciones con Tab y Enter (solo para CreatableSelect)
       onKeyDown={isCreatable ? (event) => {
-        if (event.key === 'Tab' && event.target.value) {
-          event.preventDefault();
-          // Forzar la creación de la nueva opción
-          handleChange({ value: event.target.value, label: event.target.value, __isNew__: true }, { action: 'create-option' });
+        const currentValue = asyncSearch ? searchInput : event.target.value;
+        const shouldCreate = (event.key === 'Tab' || event.key === 'Enter') && currentValue && currentValue.trim();
+
+        if (shouldCreate) {
+          // En modo async, verificar que no hay opciones disponibles o que el menú está cerrado
+          const hasOptions = asyncSearch ? asyncOptions.length > 0 : options.length > 0;
+
+          // Solo crear automáticamente si no hay opciones para seleccionar
+          if (!hasOptions || event.key === 'Tab') {
+            event.preventDefault();
+            const trimmedValue = currentValue.trim();
+            handleChange({
+              value: trimmedValue,
+              label: trimmedValue,
+              __isNew__: true
+            }, { action: 'create-option' });
+
+            // NO limpiar el searchInput aquí - dejar que handleInputChange lo maneje
+            // cuando reciba la acción 'set-value' desde react-select
+          }
         }
       } : undefined}
       filterOption={asyncSearch ? null : undefined}
