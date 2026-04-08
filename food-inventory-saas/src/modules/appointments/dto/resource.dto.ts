@@ -12,6 +12,7 @@ import {
   MaxLength,
   Min,
   ArrayMinSize,
+  ArrayMaxSize,
   IsMongoId,
   IsDateString,
   IsIn,
@@ -446,6 +447,17 @@ export class CreateResourceDto {
   @Type(() => ResourcePromotionDto)
   @IsOptional()
   promotions?: ResourcePromotionDto[];
+
+  @ApiProperty({
+    example: ['data:image/jpeg;base64,...'],
+    description: 'Máximo 3 imágenes en Base64 o URL',
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(3)
+  images?: string[];
 }
 
 export class UpdateResourceDto {
@@ -607,6 +619,17 @@ export class UpdateResourceDto {
   @Type(() => ResourcePromotionDto)
   @IsOptional()
   promotions?: ResourcePromotionDto[];
+
+  @ApiProperty({
+    example: ['data:image/jpeg;base64,...'],
+    description: 'Máximo 3 imágenes en Base64 o URL',
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(3)
+  images?: string[];
 }
 
 export class ResourceLayoutItemDto {

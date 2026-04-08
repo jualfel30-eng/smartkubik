@@ -10,6 +10,7 @@ import {
   Min,
   MaxLength,
   ValidateNested,
+  ArrayMaxSize,
 } from "class-validator";
 
 class ServiceAddonDto {
@@ -220,6 +221,17 @@ export class CreateServiceDto {
   @Min(0)
   depositAmount?: number;
 
+  @ApiProperty({
+    example: ['data:image/jpeg;base64,...'],
+    description: 'Máximo 3 imágenes en Base64 o URL',
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(3)
+  images?: string[];
+
   @ApiProperty({ description: "Metadata adicional", required: false })
   @IsOptional()
   metadata?: Record<string, any>;
@@ -380,6 +392,17 @@ export class UpdateServiceDto {
   @IsOptional()
   @Min(0)
   depositAmount?: number;
+
+  @ApiProperty({
+    example: ['data:image/jpeg;base64,...'],
+    description: 'Máximo 3 imágenes en Base64 o URL',
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(3)
+  images?: string[];
 
   @ApiProperty({ description: "Metadata adicional", required: false })
   @IsOptional()

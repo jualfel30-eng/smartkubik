@@ -27,8 +27,57 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  DollarSign
+  DollarSign,
+  ImageIcon
 } from 'lucide-react';
+
+const compressAndConvertImage = (file) => {
+  return new Promise((resolve, reject) => {
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      reject(new Error('Solo se permiten imágenes JPEG, PNG o WebP'));
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      reject(new Error('La imagen es demasiado grande. Máximo 10MB'));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          let { width, height } = img;
+          const maxSize = 800;
+          if (width > maxSize || height > maxSize) {
+            if (width > height) { height = (height / width) * maxSize; width = maxSize; }
+            else { width = (width / height) * maxSize; height = maxSize; }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+          const base64 = canvas.toDataURL('image/jpeg', 0.8);
+          const sizeInKB = (base64.length * 3) / 4 / 1024;
+          if (sizeInKB > 500) {
+            reject(new Error(`Imagen demasiado grande: ${sizeInKB.toFixed(0)}KB. Máximo 500KB`));
+          } else {
+            resolve(base64);
+          }
+        } catch (err) {
+          reject(new Error(`Error al procesar imagen: ${err.message}`));
+        }
+      };
+      img.onerror = () => reject(new Error('Error al cargar la imagen'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Error al leer el archivo'));
+    reader.readAsDataURL(file);
+  });
+};
 
 const DEFAULT_SCHEDULE = {
   monday: { available: true, start: '09:00', end: '18:00' },
@@ -70,6 +119,7 @@ const buildEmptyResourceForm = () => ({
   pricing: [],
   promotions: [],
   allowedServiceIds: [],
+  images: [],
 });
 
 const RESOURCE_TYPES = [
@@ -112,6 +162,36 @@ function ResourcesManagement() {
   const [editingResource, setEditingResource] = useState(null);
   const [formData, setFormData] = useState(buildEmptyResourceForm());
   const [loading, setLoading] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
+  const handleImageAdd = async (e) => {
+    const files = Array.from(e.target.files);
+    const remaining = 3 - (formData.images?.length || 0);
+    const toProcess = files.slice(0, remaining);
+    const results = [];
+    for (const file of toProcess) {
+      try {
+        const base64 = await compressAndConvertImage(file);
+        results.push(base64);
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+    if (results.length > 0) {
+      setFormData((prev) => ({ ...prev, images: [...(prev.images || []), ...results] }));
+      setSelectedImageIndex((formData.images?.length || 0));
+    }
+    e.target.value = '';
+  };
+
+  const handleRemoveImage = (index) => {
+    setFormData((prev) => {
+      const newImages = prev.images.filter((_, i) => i !== index);
+      return { ...prev, images: newImages };
+    });
+    setSelectedImageIndex(0);
+  };
+
   const filterResources = useCallback(() => {
     let filtered = [...resources];
 
@@ -177,6 +257,7 @@ function ResourcesManagement() {
   const openCreateDialog = () => {
     setEditingResource(null);
     setFormData(buildEmptyResourceForm());
+    setSelectedImageIndex(0);
     setIsDialogOpen(true);
   };
 
@@ -256,7 +337,9 @@ function ResourcesManagement() {
             code: promo.code || '',
           }))
         : [],
+      images: resource.images || [],
     });
+    setSelectedImageIndex(0);
     setIsDialogOpen(true);
   };
 
@@ -356,6 +439,7 @@ function ResourcesManagement() {
         baseRate: normalizedBaseRate,
         pricing: normalizedPricing,
         promotions: normalizedPromotions,
+        images: formData.images || [],
       };
 
       if (!payload.baseRate && !editingResource) {
@@ -1465,6 +1549,62 @@ function ResourcesManagement() {
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Images */}
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-base font-semibold">Imágenes del recurso (máx. 3)</h3>
+                <p className="text-sm text-muted-foreground">Fotos que se mostrarán en el storefront</p>
+              </div>
+              <div className="flex gap-4 items-start">
+                {/* Main preview */}
+                <label htmlFor="resource-images" className={`cursor-pointer flex-shrink-0 flex flex-col items-center justify-center w-40 h-40 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50 overflow-hidden ${(formData.images?.length || 0) >= 3 ? 'pointer-events-none opacity-50' : ''}`}>
+                  {formData.images && formData.images.length > 0 ? (
+                    <img src={formData.images[selectedImageIndex]} alt="preview" className="w-full h-full object-cover rounded-lg" />
+                  ) : (
+                    <div className="text-center">
+                      <ImageIcon className="mx-auto h-8 w-8" />
+                      <p className="mt-1 text-xs">Subir foto</p>
+                    </div>
+                  )}
+                </label>
+                <input id="resource-images" type="file" multiple accept="image/*" onChange={handleImageAdd} className="hidden" />
+
+                {/* Thumbnails */}
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    {(formData.images || []).map((img, index) => (
+                      <div key={index} className="relative">
+                        {index === 0 && (
+                          <span className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 text-[10px] bg-primary text-primary-foreground rounded px-1">Portada</span>
+                        )}
+                        <img
+                          src={img}
+                          alt={`thumb-${index}`}
+                          className={`w-14 h-14 object-cover rounded cursor-pointer hover:opacity-80 transition-all ${selectedImageIndex === index ? 'ring-2 ring-primary ring-offset-1' : ''}`}
+                          onClick={() => setSelectedImageIndex(index)}
+                        />
+                        <button
+                          type="button"
+                          className="absolute -top-1 -right-1 z-10 bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center hover:opacity-80"
+                          onClick={() => handleRemoveImage(index)}
+                        >
+                          <XCircle className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    {(formData.images?.length || 0) > 0 && (formData.images?.length || 0) < 3 && (
+                      <label htmlFor="resource-images" className="cursor-pointer flex items-center justify-center w-14 h-14 border-2 border-dashed rounded text-muted-foreground hover:bg-muted/50">
+                        <Plus className="h-6 w-6" />
+                      </label>
+                    )}
+                  </div>
+                  {(formData.images?.length || 0) === 0 && (
+                    <p className="text-xs text-muted-foreground">JPEG, PNG o WebP · Máx. 500KB por imagen</p>
+                  )}
+                </div>
               </div>
             </div>
 

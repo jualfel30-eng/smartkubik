@@ -100,6 +100,9 @@ export class Service {
   @Prop({ type: Number, default: 0 })
   depositAmount: number;
 
+  @Prop({ type: [String], default: [] })
+  images: string[]; // Máximo 3 imágenes en Base64 o URL
+
   @Prop({ type: Object })
   metadata: Record<string, any>; // Datos adicionales específicos del negocio
 }
