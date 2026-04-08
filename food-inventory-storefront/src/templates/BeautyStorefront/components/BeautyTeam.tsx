@@ -8,6 +8,7 @@ interface Professional {
   name: string;
   role: string;
   avatar?: string;
+  images?: string[];
   bio?: string;
   specialties: string[];
   instagram?: string;
@@ -29,12 +30,12 @@ export default function BeautyTeam({ professionals, primaryColor, colors }: Beau
             <div
               className={`w-full h-64 bg-gradient-to-br ${colors.placeholderGradient} flex items-center justify-center`}
               style={{
-                background: prof.avatar
-                  ? `url(${prof.avatar}) center/cover`
+                background: (prof.avatar || prof.images?.[0])
+                  ? `url(${prof.avatar || prof.images?.[0]}) center/cover`
                   : `linear-gradient(135deg, ${primaryColor}30, ${primaryColor}50)`,
               }}
             >
-              {!prof.avatar && (
+              {!prof.avatar && !prof.images?.[0] && (
                 <div className="w-32 h-32 rounded-full flex items-center justify-center text-4xl font-bold text-white" style={{ background: primaryColor }}>
                   {(prof.name || '?').charAt(0)}
                 </div>

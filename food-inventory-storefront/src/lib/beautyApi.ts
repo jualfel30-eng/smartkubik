@@ -32,6 +32,7 @@ export interface Professional {
   name: string;
   role: string;
   avatar?: string;
+  images?: string[];
   bio?: string;
   specialties: string[];
   instagram?: string;

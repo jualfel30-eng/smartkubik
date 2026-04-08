@@ -284,13 +284,18 @@ function ResourcesManagement() {
       }
     }
 
+    // Beauty professionals use isActive:boolean, map back to status string
+    const resourceStatus = isBeautyVertical
+      ? (resource.isActive !== false ? 'active' : 'inactive')
+      : (resource.status || 'active');
+
     setFormData({
       name: resource.name,
-      type: resource.type,
+      type: resource.type || 'person',
       description: resource.description || '',
       email: resource.email || '',
       phone: resource.phone || '',
-      status: resource.status,
+      status: resourceStatus,
       color: resource.color || '#10B981',
       schedule,
       specializations: resource.specializations || [],
@@ -441,13 +446,17 @@ function ResourcesManagement() {
           }))
         : formData.schedule;
 
+      // Beauty vertical uses isActive:boolean instead of status:string
+      const statusFields = isBeautyVertical
+        ? { isActive: formData.status === 'active' }
+        : { status: formData.status, type: formData.type };
+
       const payload = {
         name: formData.name.trim(),
-        type: formData.type,
         description: formData.description?.trim() || undefined,
         email: formData.email?.trim() || undefined,
         phone: formData.phone?.trim() || undefined,
-        status: formData.status,
+        ...statusFields,
         color: formData.color,
         schedule: normalizedSchedule,
         specializations: Array.isArray(formData.specializations)
