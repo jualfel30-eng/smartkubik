@@ -191,11 +191,26 @@ function ServicesManagement() {
     filterServices();
   }, [hasAccess, filterServices]);
 
+  // Normalize beauty service → generic format for display/edit
+  const normalizeBeautyService = (svc) => ({
+    ...svc,
+    price: typeof svc.price === 'object' ? svc.price.amount : svc.price,
+    cost: svc.cost || 0,
+    status: svc.isActive !== undefined ? (svc.isActive ? 'active' : 'inactive') : (svc.status || 'active'),
+    bufferTimeBefore: svc.bufferBefore ?? svc.bufferTimeBefore ?? 0,
+    bufferTimeAfter: svc.bufferAfter ?? svc.bufferTimeAfter ?? 0,
+    color: svc.color || '#3B82F6',
+    requiresResource: svc.requiresResource ?? true,
+    allowedResourceTypes: svc.allowedResourceTypes || [],
+    images: svc.images || [],
+  });
+
   const loadServices = async () => {
     try {
       setLoading(true);
       const data = await fetchApi(servicesEndpoint);
-      setServices(data);
+      const normalized = isBeautyVertical ? data.map(normalizeBeautyService) : data;
+      setServices(normalized);
     } catch (error) {
       console.error('Error loading services:', error);
       alert('Error al cargar los servicios');
@@ -248,17 +263,35 @@ function ServicesManagement() {
     try {
       setLoading(true);
 
+      let payload = formData;
+      if (isBeautyVertical) {
+        payload = {
+          name: formData.name,
+          description: formData.description,
+          category: formData.category,
+          duration: formData.duration,
+          price: { amount: parseFloat(formData.price) || 0, currency: 'USD' },
+          cost: formData.cost,
+          isActive: formData.status === 'active',
+          color: formData.color,
+          bufferBefore: formData.bufferTimeBefore || 0,
+          bufferAfter: formData.bufferTimeAfter || 0,
+          maxSimultaneous: formData.maxSimultaneous || 1,
+          images: formData.images || [],
+        };
+      }
+
       if (editingService) {
         // Update
         await fetchApi(`${servicesEndpoint}/${editingService._id}`, {
           method: 'PUT',
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
       } else {
         // Create
         await fetchApi(servicesEndpoint, {
           method: 'POST',
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
       }
 
@@ -289,10 +322,11 @@ function ServicesManagement() {
   };
 
   const formatCurrency = (amount) => {
+    const value = typeof amount === 'object' && amount !== null ? amount.amount : amount;
     return new Intl.NumberFormat('es-VE', {
       style: 'currency',
       currency: 'USD',
-    }).format(amount);
+    }).format(value || 0);
   };
 
   const formatDuration = (minutes) => {

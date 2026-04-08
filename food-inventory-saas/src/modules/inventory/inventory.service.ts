@@ -1465,12 +1465,21 @@ export class InventoryService {
 
     // Fallback: search by SKU for backwards compatibility
     if (!inventory) {
-      inventory = await this.inventoryModel
+      const skuInventory = await this.inventoryModel
         .findOne({
           productSku: sku,
           tenantId: this.buildTenantFilter(user.tenantId),
         })
         .session(session ?? null);
+
+      // Only use if it belongs to the same product (prevent cross-product contamination)
+      if (skuInventory && skuInventory.productId?.toString() === item.productId?.toString()) {
+        inventory = skuInventory;
+      } else if (skuInventory) {
+        this.logger.warn(
+          `SKU ${sku} inventory belongs to product ${skuInventory.productId} (not ${item.productId}). Creating new inventory record.`,
+        );
+      }
     }
 
     if (!inventory) {
@@ -1552,7 +1561,14 @@ export class InventoryService {
         : item.costPrice;
     inventory.lastCostPrice = item.costPrice;
 
-    await inventory.save({ session });
+    try {
+      await inventory.save({ session });
+    } catch (inventorySaveError) {
+      this.logger.error(
+        `Failed to save inventory for product ${item.productId} (SKU: ${sku}). Error: ${inventorySaveError.message}`,
+      );
+      throw inventorySaveError;
+    }
 
     // Sync average cost price back to product variant so auto-calculate pricing stays accurate
     const variantIndex = product.variants.findIndex(
@@ -1582,37 +1598,52 @@ export class InventoryService {
       // Sanitize legacy supplier entries missing required fields
       if (product.suppliers?.length) {
         for (const s of product.suppliers) {
+          if (!s.supplierName) s.supplierName = 'Proveedor';
           if (!s.supplierSku) s.supplierSku = '-';
+          if (s.costPrice == null) s.costPrice = 0;
           if (s.leadTimeDays == null) s.leadTimeDays = 1;
           if (s.minimumOrderQuantity == null) s.minimumOrderQuantity = 1;
         }
       }
-      await product.save({ session });
+      try {
+        await product.save({ session });
+      } catch (productSaveError) {
+        this.logger.error(
+          `Failed to sync cost price to product ${product._id} (${product.sku}). Stock updated correctly. Error: ${productSaveError.message}`,
+        );
+      }
     }
 
-    await this.createMovementRecord(
-      {
-        inventoryId: inventory._id.toString(),
-        productId: inventory.productId.toString(),
-        productSku: sku,
-        lotNumber: item.lotNumber,
-        movementType: "in",
-        quantity: item.quantity,
-        unitCost: item.costPrice,
-        totalCost: item.quantity * item.costPrice,
-        reason: "Compra a proveedor",
-        reference: item.purchaseOrderId.toString(),
-        supplierId: item.supplierId,
-        balanceAfter: {
-          totalQuantity: inventory.totalQuantity,
-          availableQuantity: inventory.availableQuantity,
-          reservedQuantity: inventory.reservedQuantity,
-          averageCostPrice: inventory.averageCostPrice,
+    try {
+      await this.createMovementRecord(
+        {
+          inventoryId: inventory._id.toString(),
+          productId: inventory.productId.toString(),
+          productSku: sku,
+          lotNumber: item.lotNumber,
+          movementType: "in",
+          quantity: item.quantity,
+          unitCost: item.costPrice,
+          totalCost: item.quantity * item.costPrice,
+          reason: "Compra a proveedor",
+          reference: item.purchaseOrderId.toString(),
+          supplierId: item.supplierId,
+          balanceAfter: {
+            totalQuantity: inventory.totalQuantity,
+            availableQuantity: inventory.availableQuantity,
+            reservedQuantity: inventory.reservedQuantity,
+            averageCostPrice: inventory.averageCostPrice,
+          },
         },
-      },
-      user,
-      session,
-    );
+        user,
+        session,
+      );
+    } catch (movementError) {
+      this.logger.error(
+        `Failed to create movement record for product ${item.productId} (SKU: ${sku}). Stock was updated. Error: ${movementError.message}`,
+      );
+      // Don't re-throw — stock was already saved, movement is non-critical audit log
+    }
   }
 
   private buildTenantFilter(tenantId: string | Types.ObjectId) {
