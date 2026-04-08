@@ -40,7 +40,7 @@ export default function BeautyGallery({ gallery, colors }: BeautyGalleryProps) {
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                 activeCategory === cat
                   ? 'text-white shadow-md scale-105'
-                  : `${colors.cardBg} ${colors.secondaryText} hover:scale-105`
+                  : `${colors.card} ${colors.textMuted} hover:scale-105`
               }`}
               style={activeCategory === cat ? { background: 'var(--primary-color, #D946EF)' } : undefined}
             >
