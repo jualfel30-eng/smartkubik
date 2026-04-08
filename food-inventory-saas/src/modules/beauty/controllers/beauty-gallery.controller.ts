@@ -11,6 +11,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../../../guards/jwt-auth.guard';
+import { TenantGuard } from '../../../guards/tenant.guard';
 import { BeautyGalleryService } from '../services/beauty-gallery.service';
 import {
   CreateGalleryItemDto,
@@ -19,7 +21,7 @@ import {
 
 @ApiTags('Beauty Gallery (Private)')
 @ApiBearerAuth()
-// @UseGuards(JwtAuthGuard, TenantGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, TenantGuard)
 @Controller('beauty-gallery')
 export class BeautyGalleryController {
   constructor(private readonly beautyGalleryService: BeautyGalleryService) {}
