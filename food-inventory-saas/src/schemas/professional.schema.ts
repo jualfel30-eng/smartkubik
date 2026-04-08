@@ -24,6 +24,10 @@ export class Professional {
   @Prop({ type: String })
   avatar?: string; // "data:image/jpeg;base64,..."
 
+  // Galería de imágenes del recurso (máx. 3)
+  @Prop({ type: [String], default: [] })
+  images: string[];
+
   // Especialidades
   @Prop({ type: [String], default: [] })
   specialties: string[]; // ["Cortes modernos", "Fade", "Barba", "Diseños"]

@@ -10,6 +10,7 @@ import {
   MaxLength,
   ValidateNested,
   Matches,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -98,6 +99,13 @@ export class CreateProfessionalDto {
   @ValidateNested({ each: true })
   @Type(() => ScheduleSlotDto)
   schedule?: ScheduleSlotDto[];
+
+  @ApiPropertyOptional({ example: ['data:image/jpeg;base64,...'], description: 'Máximo 3 imágenes' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(3)
+  images?: string[];
 
   @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011' })
   @IsOptional()

@@ -261,18 +261,27 @@ function ResourcesManagement() {
     setIsDialogOpen(true);
   };
 
+  const DAYNUM_MAP = { 0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday', 5: 'friday', 6: 'saturday' };
+
   const openEditDialog = (resource) => {
     setEditingResource(resource);
     const schedule = JSON.parse(JSON.stringify(DEFAULT_SCHEDULE));
     if (resource.schedule) {
-      Object.keys(schedule).forEach((dayKey) => {
-        if (resource.schedule[dayKey]) {
-          schedule[dayKey] = {
-            ...schedule[dayKey],
-            ...resource.schedule[dayKey],
-          };
-        }
-      });
+      if (Array.isArray(resource.schedule)) {
+        // Beauty vertical: array [{day, start, end, isWorking}] → object
+        resource.schedule.forEach((slot) => {
+          const dayName = DAYNUM_MAP[slot.day];
+          if (dayName && schedule[dayName]) {
+            schedule[dayName] = { available: slot.isWorking, start: slot.start, end: slot.end };
+          }
+        });
+      } else {
+        Object.keys(schedule).forEach((dayKey) => {
+          if (resource.schedule[dayKey]) {
+            schedule[dayKey] = { ...schedule[dayKey], ...resource.schedule[dayKey] };
+          }
+        });
+      }
     }
 
     setFormData({
@@ -420,6 +429,18 @@ function ResourcesManagement() {
         })
         .filter(Boolean);
 
+      // /professionals expects schedule as array [{day:0-6, start, end, isWorking}]
+      // /resources expects schedule as object {monday:{available,start,end},...}
+      const DAY_MAP = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+      const normalizedSchedule = isBeautyVertical
+        ? Object.entries(DAY_MAP).map(([name, dayNum]) => ({
+            day: dayNum,
+            start: formData.schedule[name]?.start || '09:00',
+            end: formData.schedule[name]?.end || '18:00',
+            isWorking: Boolean(formData.schedule[name]?.available),
+          }))
+        : formData.schedule;
+
       const payload = {
         name: formData.name.trim(),
         type: formData.type,
@@ -428,7 +449,7 @@ function ResourcesManagement() {
         phone: formData.phone?.trim() || undefined,
         status: formData.status,
         color: formData.color,
-        schedule: formData.schedule,
+        schedule: normalizedSchedule,
         specializations: Array.isArray(formData.specializations)
           ? formData.specializations.filter(Boolean)
           : [],
