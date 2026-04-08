@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch.jsx';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip.jsx';
 import InlineEditableCell from './inline-edit/InlineEditableCell';
 import ProductVariantsPopover from './inline-edit/ProductVariantsPopover';
+import SellingUnitsPopover from './inline-edit/SellingUnitsPopover';
 import { ExportOptionsDialog } from './ExportOptionsDialog';
 import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
@@ -1551,6 +1552,65 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       console.error("Inline update failed", error);
       toast.error("Error al guardar cambio");
       setProducts(previousProducts); // Rollback
+    }
+  };
+
+  /**
+   * handleSellingUnitInlineUpdate
+   *
+   * Handles inline editing of selling unit prices (pricePerUnit, costPerUnit).
+   *
+   * @param {string} productId
+   * @param {number} unitIndex - Index of the selling unit in sellingUnits array
+   * @param {string} field - 'pricePerUnit' | 'costPerUnit'
+   * @param {any} value - New value
+   */
+  const handleSellingUnitInlineUpdate = async (productId, unitIndex, field, value) => {
+    const product = products.find(p => p._id === productId);
+    if (!product) return;
+
+    const updatedProduct = JSON.parse(JSON.stringify(product));
+
+    if (updatedProduct.sellingUnits && updatedProduct.sellingUnits[unitIndex]) {
+      updatedProduct.sellingUnits[unitIndex][field] = Number(value);
+    }
+
+    const previousProducts = [...products];
+    setProducts(prev => prev.map(p => p._id === productId ? updatedProduct : p));
+
+    const revert = () => {
+      setProducts(previousProducts);
+      toast.info("Cambio deshecho");
+    };
+
+    const payload = {
+      sellingUnits: updatedProduct.sellingUnits,
+      hasMultipleSellingUnits: updatedProduct.hasMultipleSellingUnits,
+    };
+
+    toast.success('Actualizado', {
+      action: {
+        label: 'Deshacer',
+        onClick: () => {
+          revert();
+          fetchApi(`/products/${productId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ sellingUnits: product.sellingUnits })
+          }).catch(err => console.error("Undo failed on server", err));
+        }
+      },
+      duration: 4000
+    });
+
+    try {
+      await fetchApi(`/products/${productId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+      });
+    } catch (error) {
+      console.error("Selling unit inline update failed", error);
+      toast.error("Error al guardar cambio");
+      setProducts(previousProducts);
     }
   };
 
@@ -4292,6 +4352,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                               <span className="text-xs text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
                             </div>
                           </ProductVariantsPopover>
+                        ) : product.hasMultipleSellingUnits && product.sellingUnits?.length > 0 ? (
+                          <SellingUnitsPopover
+                            sellingUnits={product.sellingUnits}
+                            unitOfMeasure={product.unitOfMeasure}
+                            onUpdateSellingUnit={(idx, field, val) => handleSellingUnitInlineUpdate(product._id, idx, field, val)}
+                          >
+                            <div className="font-medium cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
+                              ${(product.variants?.[0]?.basePrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              <span className="text-xs text-emerald-500 font-bold group-hover:underline decoration-emerald-500">(+)</span>
+                            </div>
+                          </SellingUnitsPopover>
                         ) : (
                           <InlineEditableCell
                             value={product.variants?.[0]?.basePrice || 0}
@@ -4304,7 +4375,6 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     )}
                     {visibleColumns.cost && (
                       <TableCell className="text-right">
-                        {/* Costo Inline - Reuse Popover logic if multiple variants or simple inline */}
                         {product.variants?.length > 1 ? (
                           <ProductVariantsPopover
                             variants={product.variants}
@@ -4315,6 +4385,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                               <span className="text-[10px] text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
                             </div>
                           </ProductVariantsPopover>
+                        ) : product.hasMultipleSellingUnits && product.sellingUnits?.length > 0 ? (
+                          <SellingUnitsPopover
+                            sellingUnits={product.sellingUnits}
+                            unitOfMeasure={product.unitOfMeasure}
+                            onUpdateSellingUnit={(idx, field, val) => handleSellingUnitInlineUpdate(product._id, idx, field, val)}
+                          >
+                            <div className="text-muted-foreground cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
+                              ${(product.variants?.[0]?.costPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              <span className="text-[10px] text-emerald-500 font-bold group-hover:underline decoration-emerald-500">(+)</span>
+                            </div>
+                          </SellingUnitsPopover>
                         ) : (
                           <InlineEditableCell
                             value={product.variants?.[0]?.costPrice || 0}
@@ -4337,6 +4418,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                               <span className="text-[10px] text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
                             </div>
                           </ProductVariantsPopover>
+                        ) : product.hasMultipleSellingUnits && product.sellingUnits?.length > 0 ? (
+                          <SellingUnitsPopover
+                            sellingUnits={product.sellingUnits}
+                            unitOfMeasure={product.unitOfMeasure}
+                            onUpdateSellingUnit={(idx, field, val) => handleSellingUnitInlineUpdate(product._id, idx, field, val)}
+                          >
+                            <div className="text-blue-600 dark:text-blue-400 cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
+                              {product.variants?.[0]?.wholesalePrice ? `$${(product.variants[0].wholesalePrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}
+                              <span className="text-[10px] text-emerald-500 font-bold group-hover:underline decoration-emerald-500">(+)</span>
+                            </div>
+                          </SellingUnitsPopover>
                         ) : (
                           <InlineEditableCell
                             value={product.variants?.[0]?.wholesalePrice || 0}
