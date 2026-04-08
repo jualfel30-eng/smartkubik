@@ -30,12 +30,12 @@ export default function BeautyTeam({ professionals, primaryColor, colors }: Beau
             <div
               className={`w-full h-64 bg-gradient-to-br ${colors.placeholderGradient} flex items-center justify-center`}
               style={{
-                background: (prof.avatar || prof.images?.[0])
-                  ? `url(${prof.avatar || prof.images?.[0]}) center/cover`
+                background: (prof.images?.[0] || prof.avatar)
+                  ? `url(${prof.images?.[0] || prof.avatar}) center/cover`
                   : `linear-gradient(135deg, ${primaryColor}30, ${primaryColor}50)`,
               }}
             >
-              {!prof.avatar && !prof.images?.[0] && (
+              {!prof.images?.[0] && !prof.avatar && (
                 <div className="w-32 h-32 rounded-full flex items-center justify-center text-4xl font-bold text-white" style={{ background: primaryColor }}>
                   {(prof.name || '?').charAt(0)}
                 </div>
