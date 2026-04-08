@@ -16,6 +16,11 @@ export class CreateGalleryItemDto {
   @IsNotEmpty()
   image: string;
 
+  @ApiPropertyOptional({ example: 'data:image/jpeg;base64,...' })
+  @IsOptional()
+  @IsString()
+  beforeImage?: string;
+
   @ApiPropertyOptional({ example: 'Corte fade con diseño lateral' })
   @IsOptional()
   @IsString()

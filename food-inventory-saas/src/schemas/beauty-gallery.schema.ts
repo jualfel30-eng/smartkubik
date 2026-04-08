@@ -10,9 +10,13 @@ export class BeautyGalleryItem {
   @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
   tenantId: Types.ObjectId;
 
-  // Imagen (Base64 string)
+  // Imagen principal / "después" (Base64 string)
   @Prop({ type: String, required: true })
   image: string; // "data:image/jpeg;base64,..."
+
+  // Imagen "antes" para comparación (opcional)
+  @Prop({ type: String })
+  beforeImage?: string; // "data:image/jpeg;base64,..."
 
   @Prop({ type: String, trim: true })
   caption?: string; // Descripción de la foto

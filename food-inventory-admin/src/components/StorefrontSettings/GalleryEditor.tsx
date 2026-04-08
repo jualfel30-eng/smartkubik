@@ -65,11 +65,72 @@ export function GalleryEditor() {
     }
   };
 
-  const fileToBase64 = (file: File): Promise<string> =>
+  // Mismo patrón que ProductsManagement.jsx:compressAndConvertImage()
+  // pero con dimensión mayor (1200px) y salida WebP para la galería pública.
+  const compressToWebP = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
+      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+      if (!validTypes.includes(file.type)) {
+        reject(new Error('Solo se permiten imágenes JPEG, PNG o WebP'));
+        return;
+      }
+      if (file.size > 15 * 1024 * 1024) {
+        reject(new Error(`"${file.name}" supera 15MB`));
+        return;
+      }
+
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
+      reader.onerror = () => reject(new Error('Error al leer el archivo'));
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Error al cargar la imagen'));
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d')!;
+
+            // Max 1200px — galería se ve a pantalla completa, necesita más detalle que thumbnails
+            let { width, height } = img;
+            const maxSize = 1200;
+            if (width > maxSize || height > maxSize) {
+              if (width > height) {
+                height = Math.round((height / width) * maxSize);
+                width = maxSize;
+              } else {
+                width = Math.round((width / height) * maxSize);
+                height = maxSize;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // WebP a 85% — ~30% más pequeño que JPEG equivalente
+            const base64 = canvas.toDataURL('image/webp', 0.85);
+
+            // Límite 800KB — WebP 85% es generoso para una foto de galería 1200px
+            const sizeInKB = (base64.length * 3) / 4 / 1024;
+            if (sizeInKB > 800) {
+              // Reintentar con calidad menor si es necesario
+              const base64Fallback = canvas.toDataURL('image/webp', 0.7);
+              const fallbackKB = (base64Fallback.length * 3) / 4 / 1024;
+              if (fallbackKB > 800) {
+                reject(new Error(`"${file.name}": ${fallbackKB.toFixed(0)}KB tras compresión. Máximo 800KB.`));
+              } else {
+                resolve(base64Fallback);
+              }
+            } else {
+              resolve(base64);
+            }
+          } catch (err: any) {
+            reject(new Error(`Error al procesar imagen: ${err.message}`));
+          }
+        };
+        img.src = e.target!.result as string;
+      };
       reader.readAsDataURL(file);
     });
 
@@ -78,20 +139,27 @@ export function GalleryEditor() {
     if (!files.length) return;
 
     setUploading(true);
+    const errors: string[] = [];
+    let uploaded = 0;
+
     try {
       for (const file of files) {
-        if (file.size > 5 * 1024 * 1024) {
-          alert(`"${file.name}" supera 5MB. Redimensiona la imagen antes de subir.`);
+        let webp: string;
+        try {
+          webp = await compressToWebP(file);
+        } catch (err: any) {
+          errors.push(err.message);
           continue;
         }
-        const base64 = await fileToBase64(file);
         await createBeautyGalleryItem({
-          image: base64,
+          image: webp,
           category: newCategory || undefined,
-          sortOrder: items.length,
+          sortOrder: items.length + uploaded,
         });
+        uploaded++;
       }
-      await loadData();
+      if (uploaded > 0) await loadData();
+      if (errors.length > 0) alert('Algunos archivos no se pudieron subir:\n• ' + errors.join('\n• '));
     } catch (err: any) {
       alert('Error al subir imagen: ' + (err?.message ?? 'desconocido'));
     } finally {
@@ -119,12 +187,12 @@ export function GalleryEditor() {
   const handleBeforeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      alert('La imagen supera 5MB. Redimensiona antes de subir.');
-      return;
+    try {
+      const webp = await compressToWebP(file);
+      setEditState((s) => ({ ...s, beforeImage: webp }));
+    } catch (err: any) {
+      alert('Error al procesar imagen "antes": ' + err.message);
     }
-    const base64 = await fileToBase64(file);
-    setEditState((s) => ({ ...s, beforeImage: base64 }));
   };
 
   const saveEdit = async (item: GalleryItem) => {
@@ -277,7 +345,7 @@ export function GalleryEditor() {
       </div>
 
       <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
-        Formatos: JPG, PNG, WebP • Máximo 5MB por imagen • Puedes subir varias a la vez
+        Formatos: JPG, PNG, WebP • Hasta 15MB por imagen • Se optimizan automáticamente a WebP (máx. 1200px, 800KB) • Puedes subir varias a la vez
       </p>
 
       {/* Category filter */}
