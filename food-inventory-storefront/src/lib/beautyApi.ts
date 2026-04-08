@@ -133,9 +133,8 @@ export async function getBeautyServices(tenantId: string): Promise<BeautyService
       `${API_BASE_URL}/public/beauty-services/${tenantId}`,
       {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
       }
     );
 
@@ -159,9 +158,8 @@ export async function getProfessionals(tenantId: string): Promise<Professional[]
       `${API_BASE_URL}/public/professionals/${tenantId}`,
       {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
       }
     );
 
@@ -240,9 +238,8 @@ export async function getBeautyGallery(tenantId: string): Promise<GalleryItem[]>
       `${API_BASE_URL}/public/beauty-gallery/${tenantId}`,
       {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
       }
     );
 
@@ -266,9 +263,8 @@ export async function getBeautyReviews(tenantId: string): Promise<Review[]> {
       `${API_BASE_URL}/public/beauty-reviews/${tenantId}`,
       {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
       }
     );
 

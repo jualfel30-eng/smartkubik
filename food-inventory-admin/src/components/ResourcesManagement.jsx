@@ -292,13 +292,14 @@ function ResourcesManagement() {
     setFormData({
       name: resource.name,
       type: resource.type || 'person',
-      description: resource.description || '',
+      // beauty: description→bio, specializations→specialties
+      description: resource.description || resource.bio || '',
       email: resource.email || '',
       phone: resource.phone || '',
       status: resourceStatus,
       color: resource.color || '#10B981',
       schedule,
-      specializations: resource.specializations || [],
+      specializations: resource.specializations || resource.specialties || [],
       capacity: resource.capacity || 1,
       allowedServiceIds: resource.allowedServiceIds || [],
       baseRate: resource.baseRate
@@ -451,17 +452,23 @@ function ResourcesManagement() {
         ? { isActive: formData.status === 'active' }
         : { status: formData.status, type: formData.type };
 
+      // Beauty: description→bio, specializations→specialties
+      const descriptionFields = isBeautyVertical
+        ? { bio: formData.description?.trim() || undefined }
+        : { description: formData.description?.trim() || undefined };
+      const specializationsField = isBeautyVertical
+        ? { specialties: Array.isArray(formData.specializations) ? formData.specializations.filter(Boolean) : [] }
+        : { specializations: Array.isArray(formData.specializations) ? formData.specializations.filter(Boolean) : [] };
+
       const payload = {
         name: formData.name.trim(),
-        description: formData.description?.trim() || undefined,
+        ...descriptionFields,
         email: formData.email?.trim() || undefined,
         phone: formData.phone?.trim() || undefined,
         ...statusFields,
         color: formData.color,
         schedule: normalizedSchedule,
-        specializations: Array.isArray(formData.specializations)
-          ? formData.specializations.filter(Boolean)
-          : [],
+        ...specializationsField,
         capacity: Number(formData.capacity) || 1,
         allowedServiceIds: Array.isArray(formData.allowedServiceIds)
           ? formData.allowedServiceIds.filter(Boolean)
