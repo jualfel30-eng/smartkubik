@@ -47,11 +47,13 @@ export interface Professional {
 
 export interface GalleryItem {
   _id: string;
-  title: string;
-  category: string;
-  imageUrl: string;
-  description?: string;
-  isPinned: boolean;
+  image: string;
+  beforeImage?: string;
+  caption?: string;
+  category?: string;
+  tags: string[];
+  isActive: boolean;
+  sortOrder: number;
 }
 
 export interface Review {

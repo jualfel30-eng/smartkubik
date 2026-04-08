@@ -7,9 +7,10 @@ import { SocialMediaEditor } from './SocialMediaEditor';
 import { ContactInfoEditor } from './ContactInfoEditor';
 import { WhatsAppIntegrationEditor } from './WhatsAppIntegrationEditor';
 import { PaymentMethodsEditor } from './PaymentMethodsEditor';
+import { GalleryEditor } from './GalleryEditor';
 import { PreviewModal } from './PreviewModal';
 
-type TabType = 'theme' | 'seo' | 'domain' | 'social' | 'contact' | 'whatsapp' | 'payments';
+type TabType = 'theme' | 'seo' | 'domain' | 'social' | 'contact' | 'whatsapp' | 'payments' | 'gallery';
 
 export default function StorefrontSettings() {
   const { config, loading, error, saving, updateConfig, createConfig, resetConfig, deleteConfig } = useStorefrontConfig();
@@ -101,6 +102,7 @@ export default function StorefrontSettings() {
     { id: 'contact' as TabType, label: '📞 Contacto', icon: '📞' },
     { id: 'whatsapp' as TabType, label: '💬 WhatsApp', icon: '💬' },
     { id: 'payments' as TabType, label: '💳 Métodos de Pago', icon: '💳' },
+    { id: 'gallery' as TabType, label: '🖼️ Galería', icon: '🖼️' },
   ];
 
   return (
@@ -190,6 +192,9 @@ export default function StorefrontSettings() {
             )}
             {activeTab === 'payments' && (
               <PaymentMethodsEditor />
+            )}
+            {activeTab === 'gallery' && (
+              <GalleryEditor />
             )}
           </div>
         </div>

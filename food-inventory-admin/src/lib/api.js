@@ -2737,4 +2737,39 @@ export const getConsolidatedDashboard = () => {
   return fetchApi('/organizations/subsidiaries/dashboard');
 };
 
+// ==================== Beauty Gallery API ====================
+
+export const getBeautyGallery = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') queryParams.append(k, v);
+  });
+  const qs = queryParams.toString();
+  return fetchApi(`/beauty-gallery${qs ? `?${qs}` : ''}`);
+};
+
+export const getBeautyGalleryCategories = () => {
+  return fetchApi('/beauty-gallery/categories');
+};
+
+export const createBeautyGalleryItem = (data) => {
+  return fetchApi('/beauty-gallery', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateBeautyGalleryItem = (id, data) => {
+  return fetchApi(`/beauty-gallery/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteBeautyGalleryItem = (id) => {
+  return fetchApi(`/beauty-gallery/${id}`, {
+    method: 'DELETE',
+  });
+};
+
 // ==================== IVA Declaration API ====================

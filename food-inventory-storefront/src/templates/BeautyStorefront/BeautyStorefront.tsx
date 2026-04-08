@@ -166,10 +166,11 @@ interface BeautyStorefrontProps {
   }>;
   gallery: Array<{
     _id: string;
-    title: string;
-    category: string;
-    imageUrl: string;
-    description?: string;
+    image: string;
+    beforeImage?: string;
+    caption?: string;
+    category?: string;
+    tags: string[];
   }>;
   reviews: Array<{
     _id: string;
