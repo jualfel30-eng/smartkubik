@@ -8,9 +8,10 @@ import { ContactInfoEditor } from './ContactInfoEditor';
 import { WhatsAppIntegrationEditor } from './WhatsAppIntegrationEditor';
 import { PaymentMethodsEditor } from './PaymentMethodsEditor';
 import { GalleryEditor } from './GalleryEditor';
+import { GoogleBusinessEditor } from './GoogleBusinessEditor';
 import { PreviewModal } from './PreviewModal';
 
-type TabType = 'theme' | 'seo' | 'domain' | 'social' | 'contact' | 'whatsapp' | 'payments' | 'gallery';
+type TabType = 'theme' | 'seo' | 'domain' | 'social' | 'contact' | 'whatsapp' | 'payments' | 'gallery' | 'google';
 
 export default function StorefrontSettings() {
   const { config, loading, error, saving, updateConfig, createConfig, resetConfig, deleteConfig } = useStorefrontConfig();
@@ -103,6 +104,7 @@ export default function StorefrontSettings() {
     { id: 'whatsapp' as TabType, label: '💬 WhatsApp', icon: '💬' },
     { id: 'payments' as TabType, label: '💳 Métodos de Pago', icon: '💳' },
     { id: 'gallery' as TabType, label: '🖼️ Galería', icon: '🖼️' },
+    { id: 'google' as TabType, label: '📍 Google', icon: '📍' },
   ];
 
   return (
@@ -195,6 +197,9 @@ export default function StorefrontSettings() {
             )}
             {activeTab === 'gallery' && (
               <GalleryEditor />
+            )}
+            {activeTab === 'google' && (
+              <GoogleBusinessEditor config={config} onUpdate={updateConfig} saving={saving} />
             )}
           </div>
         </div>

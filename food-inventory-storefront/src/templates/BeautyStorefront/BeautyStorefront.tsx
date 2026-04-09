@@ -7,6 +7,7 @@ import BeautyTeam from './components/BeautyTeam';
 import BeautyGallery from './components/BeautyGallery';
 import BeautyReviews from './components/BeautyReviews';
 import BeautyLocation from './components/BeautyLocation';
+import type { GooglePlacesData } from '@/lib/beautyApi';
 import SmoothScrollProvider from './components/premium/SmoothScrollProvider';
 import GrainOverlay from './components/premium/GrainOverlay';
 import LoadingScreen from './components/premium/LoadingScreen';
@@ -180,6 +181,8 @@ interface BeautyStorefrontProps {
     comment: string;
     createdAt: string;
   }>;
+  googlePlaceId?: string;
+  googlePlacesData?: GooglePlacesData | null;
   domain?: string;
 }
 
@@ -189,6 +192,8 @@ export default function BeautyStorefront({
   professionals,
   gallery,
   reviews,
+  googlePlaceId,
+  googlePlacesData,
   domain,
 }: BeautyStorefrontProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -403,7 +408,13 @@ export default function BeautyStorefront({
             </h2>
             <div className="w-16 h-1 mx-auto rounded-full mb-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
           </div>
-          <BeautyLocation config={config} primaryColor={primaryColor} colors={colors} />
+          <BeautyLocation
+            config={config}
+            primaryColor={primaryColor}
+            colors={colors}
+            googlePlaceId={googlePlaceId}
+            googlePlacesData={googlePlacesData}
+          />
         </div>
       </section>
 

@@ -162,6 +162,9 @@ export class StorefrontConfig {
   @Prop({ type: WhatsAppIntegrationConfigSchema })
   whatsappIntegration?: WhatsAppIntegrationConfig;
 
+  @Prop({ type: String })
+  googlePlaceId?: string;
+
   @Prop({ type: Object })
   beautyConfig?: {
     enabled: boolean;

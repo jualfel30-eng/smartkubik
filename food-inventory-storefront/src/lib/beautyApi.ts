@@ -66,6 +66,26 @@ export interface Review {
   status: string;
 }
 
+export interface GoogleReview {
+  author_name: string;
+  author_url?: string;
+  profile_photo_url?: string;
+  rating: number;
+  text: string;
+  relative_time_description: string;
+  time: number;
+}
+
+export interface GooglePlacesData {
+  name: string;
+  rating?: number;
+  user_ratings_total?: number;
+  reviews?: GoogleReview[];
+  url?: string;
+  formatted_address?: string;
+  formatted_phone_number?: string;
+}
+
 export interface AvailabilitySlot {
   time: string;
   endTime: string;
@@ -276,6 +296,30 @@ export async function getBeautyReviews(tenantId: string): Promise<Review[]> {
   } catch (error) {
     console.error('Error fetching reviews:', error);
     throw error;
+  }
+}
+
+/**
+ * Get Google Places data (reviews + rating + map info) — cached 24h by backend
+ */
+export async function getGooglePlacesData(placeId: string): Promise<GooglePlacesData | null> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/public/google-places/${placeId}`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      }
+    );
+
+    if (!response.ok) return null;
+
+    const json = await response.json();
+    return json.data ?? null;
+  } catch (error) {
+    console.error('Error fetching Google Places data:', error);
+    return null;
   }
 }
 

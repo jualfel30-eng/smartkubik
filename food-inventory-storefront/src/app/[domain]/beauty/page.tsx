@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getStorefrontConfig } from '@/lib/api';
-import { getBeautyServices, getProfessionals, getBeautyGallery, getBeautyReviews } from '@/lib/beautyApi';
+import { getBeautyServices, getProfessionals, getBeautyGallery, getBeautyReviews, getGooglePlacesData, type GooglePlacesData } from '@/lib/beautyApi';
 import BeautyStorefront from '@/templates/BeautyStorefront';
 
 interface BeautyPageProps {
@@ -30,12 +30,15 @@ export default async function BeautyPage({ params }: BeautyPageProps) {
 
   const tenantId = typeof cfg.tenantId === 'object' ? cfg.tenantId._id : cfg.tenantId;
 
+  const googlePlaceId: string | undefined = cfg.googlePlaceId || undefined;
+
   // Fetch all beauty data in parallel
-  const [services, professionals, gallery, reviews] = await Promise.all([
+  const [services, professionals, gallery, reviews, googlePlacesData] = await Promise.all([
     getBeautyServices(tenantId),
     getProfessionals(tenantId),
     getBeautyGallery(tenantId),
     getBeautyReviews(tenantId),
+    googlePlaceId ? getGooglePlacesData(googlePlaceId) : Promise.resolve(null),
   ]);
 
   // Map API response to BeautyStorefront expected config shape
@@ -71,6 +74,8 @@ export default async function BeautyPage({ params }: BeautyPageProps) {
       professionals={professionals}
       gallery={gallery}
       reviews={reviews}
+      googlePlaceId={googlePlaceId}
+      googlePlacesData={googlePlacesData}
       domain={domain}
     />
   );

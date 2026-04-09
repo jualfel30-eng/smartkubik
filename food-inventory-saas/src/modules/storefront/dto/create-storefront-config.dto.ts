@@ -298,6 +298,14 @@ export class CreateStorefrontConfigDto {
   @IsString()
   customCSS?: string;
 
+  @ApiPropertyOptional({
+    description: "Google Place ID del negocio (para mapa y reseñas de Google)",
+    example: "ChIJN1t_tDeuEmsRUsoyG83frY4",
+  })
+  @IsOptional()
+  @IsString()
+  googlePlaceId?: string;
+
   @ApiProperty({
     description: "Configuración SEO",
     type: SeoConfigDto,
