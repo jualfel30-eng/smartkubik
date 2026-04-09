@@ -9,6 +9,15 @@ import './index.css';
 import './custom.css';
 import App from './App.jsx';
 
+// Prevent scroll from accidentally changing values in number inputs.
+// When a focused number input detects a wheel event, blur it so the scroll
+// passes through to the page instead of incrementing/decrementing the value.
+document.addEventListener('wheel', () => {
+  if (document.activeElement?.type === 'number') {
+    document.activeElement.blur();
+  }
+}, { passive: true });
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <HelmetProvider>

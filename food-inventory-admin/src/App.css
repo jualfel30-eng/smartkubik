@@ -695,13 +695,18 @@ Link.btn-secondary:hover::before {
   animation: pulse-scale 4s ease-in-out infinite;
 }
 
-/* Hide spinner arrows on numeric inputs */
+/* Hide spinner arrows on ALL numeric inputs globally.
+   Scroll-to-increment is a UX hazard in ERP forms — users scroll to navigate,
+   not to change values. The onWheel blur listener in main.jsx handles the rest. */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button,
 .no-spinners::-webkit-inner-spin-button,
 .no-spinners::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
+input[type=number],
 .no-spinners[type=number] {
   -moz-appearance: textfield;
   appearance: textfield;
