@@ -500,9 +500,9 @@ export default function BookingPage() {
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex gap-4">
-                          {professional.avatar ? (
+                          {(professional.images?.[0] || professional.avatar) ? (
                             <img
-                              src={professional.avatar}
+                              src={professional.images?.[0] || professional.avatar}
                               alt={professional.name}
                               className="w-16 h-16 rounded-xl object-cover"
                             />
@@ -562,19 +562,17 @@ export default function BookingPage() {
 
               <div className="mb-8">
                 <label className={`block font-semibold mb-2 ${colors.text}`}>Fecha</label>
-                <div className="w-full overflow-hidden">
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => {
-                      setSelectedDate(e.target.value);
-                      setSelectedTime('');
-                    }}
-                    min={new Date().toISOString().split('T')[0]}
-                    className={`w-full min-w-0 px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${colors.card} ${colors.text} ${colors.border}`}
-                    style={{ borderColor: selectedDate ? primaryColor : undefined, maxWidth: '100%', boxSizing: 'border-box' }}
-                  />
-                </div>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => {
+                    setSelectedDate(e.target.value);
+                    setSelectedTime('');
+                  }}
+                  min={new Date().toISOString().split('T')[0]}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${colors.card} ${colors.text} ${colors.border}`}
+                  style={{ borderColor: selectedDate ? primaryColor : undefined, maxWidth: '100%', boxSizing: 'border-box', display: 'block' }}
+                />
               </div>
 
               {selectedDate && (
@@ -740,25 +738,35 @@ export default function BookingPage() {
         {/* Running total — fixed sticky bar at bottom of viewport */}
         {step < 5 && selectedServices.length > 0 && (
           <div className="fixed bottom-0 left-0 right-0 z-40 px-4">
-            <div className={`max-w-4xl mx-auto mb-0`}>
+            <div className="max-w-4xl mx-auto">
               <div
-                className={`${darkMode ? 'bg-neutral-900/95 border-neutral-700' : 'bg-white/95 border-stone-200'} backdrop-blur-md rounded-t-2xl border border-b-0 px-5 py-4 flex justify-between items-center shadow-[0_-4px_24px_rgba(0,0,0,0.12)]`}
+                className={`${darkMode ? 'bg-neutral-900/95 border-neutral-700' : 'bg-white/95 border-stone-200'} backdrop-blur-md rounded-t-2xl border border-b-0 px-5 py-4 flex items-center gap-4 shadow-[0_-4px_24px_rgba(0,0,0,0.12)]`}
               >
-                <div className="flex items-center gap-3">
+                {/* Summary info */}
+                <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
                     style={{ backgroundColor: primaryColor }}
                   >
                     {selectedServices.length}
                   </div>
-                  <div>
-                    <p className={`text-sm font-semibold ${colors.text}`}>
-                      {selectedServices.length} servicio{selectedServices.length > 1 ? 's' : ''}
+                  <div className="min-w-0">
+                    <p className={`text-sm font-semibold ${colors.text} truncate`}>
+                      {selectedServices.length} servicio{selectedServices.length > 1 ? 's' : ''} · {totalDuration} min
                     </p>
-                    <p className={`text-xs ${colors.textMuted}`}>{totalDuration} min</p>
+                    <p className="text-base font-bold" style={{ color: primaryColor }}>${totalPrice.toFixed(2)}</p>
                   </div>
                 </div>
-                <span className="text-xl font-bold" style={{ color: primaryColor }}>${totalPrice.toFixed(2)}</span>
+
+                {/* Siguiente button */}
+                <button
+                  onClick={nextStep}
+                  disabled={!canGoToStep(step + 1)}
+                  className="flex-shrink-0 px-6 py-2.5 rounded-xl font-semibold text-sm tracking-wide text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-lg hover:scale-[1.02]"
+                  style={{ background: canGoToStep(step + 1) ? `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` : '#9CA3AF' }}
+                >
+                  {step === 4 ? 'Revisar' : 'Siguiente →'}
+                </button>
               </div>
             </div>
           </div>
