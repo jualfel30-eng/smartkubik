@@ -257,7 +257,7 @@ export default function BookingPage() {
   const { totalPrice, totalDuration } = calculateTotals();
 
   return (
-    <div className={`min-h-screen ${colors.bg} transition-colors duration-300 ${step < 5 && selectedServices.length > 0 ? 'pb-24' : ''}`}>
+    <div className={`min-h-screen ${colors.bg} transition-colors duration-300 pb-24`}>
       {/* Header */}
       <header className={`sticky top-0 z-50 backdrop-blur-md border-b transition-colors duration-300 ${
         darkMode ? 'bg-neutral-950/90 border-neutral-800' : 'bg-white/90 border-stone-200'
@@ -735,74 +735,57 @@ export default function BookingPage() {
           )}
         </div>
 
-        {/* Running total — fixed sticky bar at bottom of viewport */}
-        {step < 5 && selectedServices.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 z-40 px-4">
-            <div className="max-w-4xl mx-auto">
-              <div
-                className={`${darkMode ? 'bg-neutral-900/95 border-neutral-700' : 'bg-white/95 border-stone-200'} backdrop-blur-md rounded-t-2xl border border-b-0 px-5 py-4 flex items-center gap-4 shadow-[0_-4px_24px_rgba(0,0,0,0.12)]`}
+        {/* Sticky bottom nav bar — always visible */}
+        <div className="fixed bottom-0 left-0 right-0 z-40 px-4">
+          <div className="max-w-4xl mx-auto">
+            <div
+              className={`${darkMode ? 'bg-neutral-900/95 border-neutral-700' : 'bg-white/95 border-stone-200'} backdrop-blur-md rounded-t-2xl border border-b-0 px-5 py-4 flex items-center gap-3 shadow-[0_-4px_24px_rgba(0,0,0,0.12)]`}
+            >
+              {/* Atrás */}
+              <button
+                onClick={prevStep}
+                disabled={step === 1}
+                className={`flex-shrink-0 px-4 py-2.5 rounded-xl border-2 font-semibold text-sm tracking-wide transition-all disabled:opacity-30 disabled:cursor-not-allowed ${colors.border} ${colors.text}`}
               >
-                {/* Summary info */}
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    {selectedServices.length}
-                  </div>
+                ← Atrás
+              </button>
+
+              {/* Summary (shown when services selected and not on confirmation step) */}
+              <div className="flex-1 min-w-0">
+                {selectedServices.length > 0 ? (
                   <div className="min-w-0">
                     <p className={`text-sm font-semibold ${colors.text} truncate`}>
                       {selectedServices.length} servicio{selectedServices.length > 1 ? 's' : ''} · {totalDuration} min
                     </p>
-                    <p className="text-base font-bold" style={{ color: primaryColor }}>${totalPrice.toFixed(2)}</p>
+                    <p className="text-sm font-bold" style={{ color: primaryColor }}>${totalPrice.toFixed(2)}</p>
                   </div>
-                </div>
+                ) : (
+                  <div />
+                )}
+              </div>
 
-                {/* Siguiente button */}
+              {/* Siguiente / Confirmar */}
+              {step < 5 ? (
                 <button
                   onClick={nextStep}
                   disabled={!canGoToStep(step + 1)}
                   className="flex-shrink-0 px-6 py-2.5 rounded-xl font-semibold text-sm tracking-wide text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-lg hover:scale-[1.02]"
                   style={{ background: canGoToStep(step + 1) ? `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` : '#9CA3AF' }}
                 >
-                  {step === 4 ? 'Revisar' : 'Siguiente →'}
+                  Siguiente →
                 </button>
-              </div>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="flex-shrink-0 px-6 py-2.5 rounded-xl font-semibold text-sm tracking-wide text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:scale-[1.02]"
+                  style={{ background: !submitting ? `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` : '#9CA3AF' }}
+                >
+                  {submitting ? 'Procesando...' : 'Confirmar ✓'}
+                </button>
+              )}
             </div>
           </div>
-        )}
-
-        {/* Navigation */}
-        <div className="flex justify-between gap-4">
-          <button
-            onClick={prevStep}
-            disabled={step === 1}
-            className={`px-6 py-3 rounded-xl border-2 font-semibold text-sm tracking-wide transition-all disabled:opacity-30 disabled:cursor-not-allowed ${colors.border} ${colors.text} ${
-              step > 1 ? 'hover:shadow-md' : ''
-            }`}
-          >
-            Atrás
-          </button>
-
-          {step < 5 ? (
-            <button
-              onClick={nextStep}
-              disabled={!canGoToStep(step + 1)}
-              className="px-8 py-3 rounded-xl font-semibold text-sm tracking-wide text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-lg hover:scale-[1.02]"
-              style={{ background: canGoToStep(step + 1) ? `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` : undefined }}
-            >
-              Siguiente
-            </button>
-          ) : (
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="px-8 py-3 rounded-xl font-semibold text-sm tracking-wide text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:scale-[1.02]"
-              style={{ background: !submitting ? `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` : undefined }}
-            >
-              {submitting ? 'Procesando...' : 'Confirmar Reserva'}
-            </button>
-          )}
         </div>
       </div>
     </div>
