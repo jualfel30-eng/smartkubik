@@ -570,8 +570,18 @@ export default function BookingPage() {
                     setSelectedTime('');
                   }}
                   min={new Date().toISOString().split('T')[0]}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${colors.card} ${colors.text} ${colors.border}`}
-                  style={{ borderColor: selectedDate ? primaryColor : undefined, maxWidth: '100%', boxSizing: 'border-box', display: 'block' }}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors appearance-none ${colors.card} ${colors.text} ${colors.border}`}
+                  style={{
+                    borderColor: selectedDate ? primaryColor : undefined,
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    appearance: 'none',
+                    maxWidth: '100%',
+                    minWidth: '0',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    display: 'block',
+                  }}
                 />
               </div>
 
