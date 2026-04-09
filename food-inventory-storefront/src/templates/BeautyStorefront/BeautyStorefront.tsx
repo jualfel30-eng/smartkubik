@@ -236,7 +236,7 @@ export default function BeautyStorefront({
         <nav className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-2 md:gap-3">
             {config.logoUrl && (
-              <img src={config.logoUrl} alt={config.name} className="w-9 h-9 md:w-12 md:h-12 object-contain" />
+              <img src={config.logoUrl} alt={config.name} className={`w-9 h-9 md:w-12 md:h-12 object-contain transition-all duration-300 ${darkMode ? 'invert' : ''}`} />
             )}
             <span className="text-lg md:text-2xl font-bold tracking-tight" style={{ color: primaryColor }}>
               {config.name}
