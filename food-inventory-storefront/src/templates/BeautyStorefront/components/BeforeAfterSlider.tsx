@@ -69,7 +69,7 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, alt }: Befo
       onClick={onContainerClick}
       style={{ touchAction: 'pan-y' }}
     >
-      {/* After image (full, behind) */}
+      {/* After image — full size, fixed, always behind */}
       <img
         src={afterImage}
         alt={alt ? `${alt} — después` : 'Después'}
@@ -77,19 +77,15 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, alt }: Befo
         draggable={false}
       />
 
-      {/* Before image (clipped by position) */}
-      <div
-        className="absolute inset-0 overflow-hidden pointer-events-none"
-        style={{ width: `${position}%` }}
-      >
-        <img
-          src={beforeImage}
-          alt={alt ? `${alt} — antes` : 'Antes'}
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{ width: containerRef.current?.offsetWidth ?? '100%' }}
-          draggable={false}
-        />
-      </div>
+      {/* Before image — full size, fixed, revealed left of the divider via clip-path mask.
+          clip-path: inset(0 X% 0 0) trims X% from the right, keeping the image pixel-perfect. */}
+      <img
+        src={beforeImage}
+        alt={alt ? `${alt} — antes` : 'Antes'}
+        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
+        draggable={false}
+      />
 
       {/* Divider line */}
       <div
