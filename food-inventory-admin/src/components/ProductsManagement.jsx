@@ -1419,6 +1419,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       }),
       variants: sanitizedVariants,
       sendToKitchen: editingProduct.sendToKitchen, // CRITICAL: Ensure this is saved
+      isActive: editingProduct.isActive ?? true,
     };
 
     if (productAttributesPayload !== undefined) {
@@ -1611,6 +1612,22 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       console.error("Selling unit inline update failed", error);
       toast.error("Error al guardar cambio");
       setProducts(previousProducts);
+    }
+  };
+
+  const handleToggleProductStatus = async (product) => {
+    const newStatus = !product.isActive;
+    const previousProducts = products;
+    try {
+      setProducts(prev => prev.map(p => p._id === product._id ? { ...p, isActive: newStatus } : p));
+      await fetchApi(`/products/${product._id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive: newStatus }),
+      });
+      toast.success(newStatus ? `"${product.name}" activado` : `"${product.name}" desactivado`);
+    } catch (err) {
+      setProducts(previousProducts);
+      toast.error(`Error al cambiar estado: ${err.message}`);
     }
   };
 
@@ -4453,9 +4470,15 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     )}
                     {visibleColumns.status && (
                       <TableCell>
-                        {product.isActive ?
-                          <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Activo</Badge> :
-                          <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Inactivo</Badge>}
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={product.isActive ?? true}
+                            onCheckedChange={() => handleToggleProductStatus(product)}
+                          />
+                          {product.isActive
+                            ? <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Activo</Badge>
+                            : <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Inactivo</Badge>}
+                        </div>
                       </TableCell>
                     )}
                     {visibleColumns.actions && (
@@ -4716,6 +4739,23 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     </div>
                   </div>
                 )}
+
+                <div className="flex items-center justify-between rounded-md border px-3 py-2 col-span-2">
+                  <div>
+                    <Label htmlFor="edit-isActive" className="text-sm font-medium">Estado del producto</Label>
+                    <p className="text-xs text-muted-foreground">Los productos inactivos no aparecen en ventas ni en búsquedas de compras</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm ${editingProduct.isActive ?? true ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                      {editingProduct.isActive ?? true ? 'Activo' : 'Inactivo'}
+                    </span>
+                    <Switch
+                      id="edit-isActive"
+                      checked={editingProduct.isActive ?? true}
+                      onCheckedChange={(checked) => setEditingProduct({ ...editingProduct, isActive: checked })}
+                    />
+                  </div>
+                </div>
 
                 {verticalConfig?.allowsWeight && (
                   <div className="flex items-center space-x-2 pt-2">
