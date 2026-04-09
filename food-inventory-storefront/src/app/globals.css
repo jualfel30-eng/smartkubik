@@ -103,6 +103,47 @@ img {
   aspect-ratio: 16 / 9;
 }
 
+/* react-phone-number-input overrides for booking page */
+.PhoneInput {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+}
+.PhoneInputCountry {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.PhoneInputInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  color: inherit;
+  min-width: 0;
+}
+.PhoneInputCountrySelect {
+  background: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  color: inherit;
+}
+/* Booking page specific overrides */
+.booking-phone-input .PhoneInputInput {
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.booking-phone-input .PhoneInputCountrySelectArrow {
+  color: inherit;
+  opacity: 0.5;
+}
+
 /* Remove diagonal wave transitions */
 section::before,
 section::after {

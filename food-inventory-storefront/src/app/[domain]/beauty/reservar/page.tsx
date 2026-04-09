@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 import {
   getBeautyServices,
   getProfessionals,
@@ -255,7 +257,7 @@ export default function BookingPage() {
   const { totalPrice, totalDuration } = calculateTotals();
 
   return (
-    <div className={`min-h-screen ${colors.bg} transition-colors duration-300`}>
+    <div className={`min-h-screen ${colors.bg} transition-colors duration-300 ${step < 5 && selectedServices.length > 0 ? 'pb-24' : ''}`}>
       {/* Header */}
       <header className={`sticky top-0 z-50 backdrop-blur-md border-b transition-colors duration-300 ${
         darkMode ? 'bg-neutral-950/90 border-neutral-800' : 'bg-white/90 border-stone-200'
@@ -560,17 +562,19 @@ export default function BookingPage() {
 
               <div className="mb-8">
                 <label className={`block font-semibold mb-2 ${colors.text}`}>Fecha</label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value);
-                    setSelectedTime('');
-                  }}
-                  min={new Date().toISOString().split('T')[0]}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${colors.card} ${colors.text} ${colors.border}`}
-                  style={{ borderColor: selectedDate ? primaryColor : undefined }}
-                />
+                <div className="w-full overflow-hidden">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => {
+                      setSelectedDate(e.target.value);
+                      setSelectedTime('');
+                    }}
+                    min={new Date().toISOString().split('T')[0]}
+                    className={`w-full min-w-0 px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${colors.card} ${colors.text} ${colors.border}`}
+                    style={{ borderColor: selectedDate ? primaryColor : undefined, maxWidth: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
               </div>
 
               {selectedDate && (
@@ -625,17 +629,18 @@ export default function BookingPage() {
 
                 <div>
                   <label className={`block font-semibold mb-2 ${colors.text}`}>Teléfono *</label>
-                  <input
-                    type="tel"
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    placeholder="+58 412 1234567"
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors ${colors.card} ${colors.text} ${colors.border}`}
+                  <div
+                    className={`flex items-center border-2 rounded-xl px-4 py-3 transition-colors ${colors.card} ${colors.border}`}
                     style={{ borderColor: clientPhone ? primaryColor : undefined }}
-                  />
-                  <p className={`text-xs mt-1.5 ${colors.textLight}`}>
-                    Incluye el código de país (ej: +58 para Venezuela, +1 para USA)
-                  </p>
+                  >
+                    <PhoneInput
+                      defaultCountry="VE"
+                      value={clientPhone}
+                      onChange={(val) => setClientPhone(val || '')}
+                      placeholder="412 1234567"
+                      className={`w-full booking-phone-input ${colors.text}`}
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -732,15 +737,30 @@ export default function BookingPage() {
           )}
         </div>
 
-        {/* Running total (shown during steps 1-4) */}
+        {/* Running total — fixed sticky bar at bottom of viewport */}
         {step < 5 && selectedServices.length > 0 && (
-          <div className={`${colors.card} rounded-xl border ${colors.border} p-4 mb-6 flex justify-between items-center transition-colors`}>
-            <div>
-              <span className={`text-sm ${colors.textMuted}`}>{selectedServices.length} servicio{selectedServices.length > 1 ? 's' : ''}</span>
-              <span className={`text-sm mx-2 ${colors.textLight}`}>·</span>
-              <span className={`text-sm ${colors.textMuted}`}>{totalDuration} min</span>
+          <div className="fixed bottom-0 left-0 right-0 z-40 px-4">
+            <div className={`max-w-4xl mx-auto mb-0`}>
+              <div
+                className={`${darkMode ? 'bg-neutral-900/95 border-neutral-700' : 'bg-white/95 border-stone-200'} backdrop-blur-md rounded-t-2xl border border-b-0 px-5 py-4 flex justify-between items-center shadow-[0_-4px_24px_rgba(0,0,0,0.12)]`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    {selectedServices.length}
+                  </div>
+                  <div>
+                    <p className={`text-sm font-semibold ${colors.text}`}>
+                      {selectedServices.length} servicio{selectedServices.length > 1 ? 's' : ''}
+                    </p>
+                    <p className={`text-xs ${colors.textMuted}`}>{totalDuration} min</p>
+                  </div>
+                </div>
+                <span className="text-xl font-bold" style={{ color: primaryColor }}>${totalPrice.toFixed(2)}</span>
+              </div>
             </div>
-            <span className="text-lg font-bold" style={{ color: primaryColor }}>${totalPrice.toFixed(2)}</span>
           </div>
         )}
 
