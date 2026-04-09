@@ -138,13 +138,17 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
 
     const loadProductOptions = async (inputValue) => {
         try {
-            const response = await fetchApi(`/products?search=${encodeURIComponent(inputValue)}&limit=10`);
+            const response = await fetchApi(`/products?search=${encodeURIComponent(inputValue)}&limit=20`);
             const products = response.data || [];
             return products.map(p => {
                 const alreadyLinked = linkedProducts.some(lp => lp._id === p._id);
+                const parts = [p.name];
+                if (p.sku) parts.push(`SKU: ${p.sku}`);
+                if (p.brand) parts.push(`Marca: ${p.brand}`);
+                if (alreadyLinked) parts.push('(Ya vinculado)');
                 return {
                     value: p._id,
-                    label: `${p.name} (${p.sku}) ${alreadyLinked ? '(Ya vinculado)' : ''}`,
+                    label: parts.join(' · '),
                     product: p,
                     isDisabled: alreadyLinked
                 };
@@ -489,7 +493,11 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
                                                 onSelection={handleProductSelect}
                                                 value={selectedProductToLink ? {
                                                     value: selectedProductToLink._id,
-                                                    label: `${selectedProductToLink.name} (${selectedProductToLink.sku})`,
+                                                    label: [
+                                                        selectedProductToLink.name,
+                                                        selectedProductToLink.sku ? `SKU: ${selectedProductToLink.sku}` : null,
+                                                        selectedProductToLink.brand ? `Marca: ${selectedProductToLink.brand}` : null
+                                                    ].filter(Boolean).join(' · '),
                                                     product: selectedProductToLink
                                                 } : null}
                                                 isCreatable={false}
