@@ -234,11 +234,11 @@ export default function BeautyStorefront({
         } border-b`}
       >
         <nav className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             {config.logoUrl && (
-              <img src={config.logoUrl} alt={config.name} className="w-12 h-12 object-contain" />
+              <img src={config.logoUrl} alt={config.name} className="w-9 h-9 md:w-12 md:h-12 object-contain" />
             )}
-            <span className="text-2xl font-bold tracking-tight" style={{ color: primaryColor }}>
+            <span className="text-lg md:text-2xl font-bold tracking-tight" style={{ color: primaryColor }}>
               {config.name}
             </span>
           </div>
@@ -279,7 +279,7 @@ export default function BeautyStorefront({
               className="px-6 py-2.5 text-white rounded-full font-semibold text-sm tracking-wide hover:shadow-lg hover:scale-[1.02] transition-all duration-200"
               style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
             >
-              Reservar Cita
+              Reservar
             </a>
           </div>
         </nav>
