@@ -2329,18 +2329,10 @@ export default function ComprasManagement() {
                         <span>Total:</span>
                         <span>${poTotals.total.toFixed(2)}</span>
                       </div>
-                      {po.actualPaymentMethod === 'bolivares_bcv' && usdRate && (
-                        <div className="flex justify-between text-sm text-green-600 dark:text-green-400 border-t pt-1 mt-1">
-                          <span>Total en Bs (Tasa $ BCV):</span>
-                          <span>Bs. {(poTotals.total * usdRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
-                      {po.actualPaymentMethod === 'euro_bcv' && eurRate && (
-                        <div className="flex justify-between text-sm text-green-600 dark:text-green-400 border-t pt-1 mt-1">
-                          <span>Total en Bs (Tasa € BCV):</span>
-                          <span>Bs. {(poTotals.total * eurRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
+                      {/* Total en Bs oculto del diálogo de compra — el monto en Bs se calcula
+                          al momento del pago en Cuentas por Pagar según la tasa BCV del día,
+                          no a la tasa del momento de creación de la compra (hiperinflación VE).
+                          El valor sigue siendo guardado en totalAmountVes como referencia. */}
                     </div>
                   </div>
                   </>
