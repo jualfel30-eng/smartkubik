@@ -2208,19 +2208,22 @@ function AppointmentsManagement() {
                     {/* Booked services list */}
                     {beautyBookingServices.length > 0 ? (
                       <div className="rounded-md border border-border divide-y divide-border">
-                        {beautyBookingServices.map((s, i) => (
-                          <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
-                            <span className="font-medium">{s.name}</span>
-                            <div className="flex items-center gap-3 text-muted-foreground">
-                              <span>{s.duration} min</span>
-                              {s.price > 0 && <span className="font-medium text-foreground">${s.price.toFixed(2)}</span>}
+                        {beautyBookingServices.map((s, i) => {
+                          const price = Number(s.price) || 0;
+                          return (
+                            <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
+                              <span className="font-medium">{s.name}</span>
+                              <div className="flex items-center gap-3 text-muted-foreground">
+                                <span>{s.duration} min</span>
+                                {price > 0 && <span className="font-medium text-foreground">${price.toFixed(2)}</span>}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                         {beautyBookingServices.length > 1 && (
                           <div className="flex items-center justify-between px-3 py-2 text-sm font-semibold bg-muted/40">
                             <span>Total</span>
-                            <span>${beautyBookingServices.reduce((sum, s) => sum + (s.price || 0), 0).toFixed(2)}</span>
+                            <span>${beautyBookingServices.reduce((sum, s) => sum + (Number(s.price) || 0), 0).toFixed(2)}</span>
                           </div>
                         )}
                       </div>
@@ -2240,7 +2243,7 @@ function AppointmentsManagement() {
                           <SelectItem value={SERVICE_UNSET_VALUE}>Agregar servicio extra...</SelectItem>
                           {(Array.isArray(services) ? services : []).map((svc) => (
                             <SelectItem key={svc._id} value={svc._id}>
-                              {svc.name} ({svc.duration} min){svc.price > 0 ? ` — $${svc.price.toFixed(2)}` : ''}
+                              {svc.name} ({svc.duration} min){Number(svc.price) > 0 ? ` — $${Number(svc.price).toFixed(2)}` : ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -2255,7 +2258,7 @@ function AppointmentsManagement() {
                           if (!svc) return;
                           setBeautyBookingServices((prev) => [
                             ...prev,
-                            { name: svc.name, duration: svc.duration, price: svc.price || 0, service: svc._id },
+                            { name: svc.name, duration: svc.duration, price: Number(svc.price) || 0, service: svc._id },
                           ]);
                           setExtraBeautyServiceId('');
                         }}
