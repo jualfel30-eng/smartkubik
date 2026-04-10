@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useCallback } from 'react';
 import { motion } from 'framer-motion';
 import type { ColorScheme } from '../BeautyStorefront';
 
@@ -23,17 +23,15 @@ export default function BeautyHero({
   secondaryColor,
   domain,
 }: BeautyHeroProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-
   // Safari bug: React's `muted` prop doesn't set the DOM `muted` attribute.
-  // Safari requires the attribute on the DOM node itself for autoplay to work.
-  useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.muted = true;
-      videoRef.current.play().catch(() => {
-        // Autoplay blocked — silently ignore (user interaction required in some browsers)
-      });
-    }
+  // useCallback ref fires synchronously when the node is created (before browser
+  // autoplay policy runs), ensuring muted is set before play() is called.
+  const videoRef = useCallback((node: HTMLVideoElement | null) => {
+    if (!node) return;
+    node.muted = true;
+    node.play().catch(() => {
+      // Autoplay blocked — silently ignore
+    });
   }, []);
 
   return (
@@ -51,7 +49,6 @@ export default function BeautyHero({
       {config.videoUrl && (
         <video
           ref={videoRef}
-          autoPlay
           loop
           muted
           playsInline

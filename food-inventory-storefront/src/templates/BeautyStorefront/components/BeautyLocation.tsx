@@ -52,6 +52,22 @@ export default function BeautyLocation({
   const daysOfWeek = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
   const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
+  // Build embed src: official Embed API if key available, else free classic embed
+  const mapSrc = (() => {
+    if (googlePlaceId && mapsApiKey) {
+      return `https://www.google.com/maps/embed/v1/place?key=${mapsApiKey}&q=place_id:${googlePlaceId}&language=es`;
+    }
+    if (googlePlaceId) {
+      return `https://maps.google.com/maps?q=place_id:${googlePlaceId}&output=embed&hl=es`;
+    }
+    const q = encodeURIComponent(
+      [config.contactInfo.address, config.contactInfo.city, config.contactInfo.country]
+        .filter(Boolean)
+        .join(', ')
+    );
+    return `https://maps.google.com/maps?q=${q}&output=embed&hl=es`;
+  })();
+
   const reviewUrl = googlePlaceId
     ? `https://search.google.com/local/writereview?placeid=${googlePlaceId}`
     : null;
@@ -150,37 +166,19 @@ export default function BeautyLocation({
         </div>
 
         <div>
-          {/* Google Maps embed */}
-          {googlePlaceId && mapsApiKey ? (
-            <div className="rounded-xl overflow-hidden shadow-lg mb-6" style={{ height: '320px' }}>
-              <iframe
-                title="Ubicación en Google Maps"
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                loading="lazy"
-                allowFullScreen
-                referrerPolicy="no-referrer-when-downgrade"
-                src={`https://www.google.com/maps/embed/v1/place?key=${mapsApiKey}&q=place_id:${googlePlaceId}&language=es`}
-              />
-            </div>
-          ) : (
-            // Fallback: text-based address card
-            <div className={`${colors.card} rounded-xl p-6 shadow-lg mb-6 flex items-center justify-center`} style={{ height: '320px' }}>
-              <div className="text-center">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: `${primaryColor}20` }}>
-                  <svg className="w-8 h-8" style={{ color: primaryColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </div>
-                <p className={`font-medium ${colors.text}`}>{config.contactInfo.address}</p>
-                {config.contactInfo.city && (
-                  <p className={colors.textMuted}>{config.contactInfo.city}</p>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Google Maps embed — always shown (key optional) */}
+          <div className="rounded-xl overflow-hidden shadow-lg mb-6" style={{ height: '320px' }}>
+            <iframe
+              title="Ubicación en Google Maps"
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+              src={mapSrc}
+            />
+          </div>
 
           {/* Payment methods */}
           <h3 className={`text-xl font-bold mb-4 ${colors.text}`}>Métodos de Pago</h3>
