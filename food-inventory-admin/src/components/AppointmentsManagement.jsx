@@ -565,6 +565,8 @@ function AppointmentsManagement() {
   const [auditTrail, setAuditTrail] = useState([]);
   const [isAuditTrailExpanded, setIsAuditTrailExpanded] = useState(false);
   const [customerNameInput, setCustomerNameInput] = useState('');
+  const [beautyBookingServices, setBeautyBookingServices] = useState([]); // services from beauty booking
+  const [extraBeautyServiceId, setExtraBeautyServiceId] = useState(''); // service being added as extra
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [paymentDialogAppointment, setPaymentDialogAppointment] = useState(null);
   const depositFileInputRef = useRef(null);
@@ -1505,7 +1507,6 @@ function AppointmentsManagement() {
     try {
       setLoading(true);
       const detail = await fetchAppointmentDetail(appointment._id);
-      await applyCustomerDetailFromAppointment(detail);
 
       setEditingAppointment(detail);
       setDepositRecords(detail?.depositRecords || []);
@@ -1521,31 +1522,62 @@ function AppointmentsManagement() {
         depositActionFileInputRef.current.value = '';
       }
       const audit = await fetchAppointmentAudit(appointment._id);
-      setFormData({
-        customerId:
-          normalizeId(detail.customerId?._id) ||
-          normalizeId(detail.customerId) ||
-          '',
-        customerName: detail.customerName || detail.customer?.name || '',
-        serviceId:
-          normalizeId(detail.serviceId?._id) ||
-          normalizeId(detail.serviceId) ||
-          '',
-        resourceId:
-          normalizeId(detail.resourceId?._id) ||
-          normalizeId(detail.resourceId) ||
-          UNASSIGNED_RESOURCE,
-        startTime: isBeautyVertical && detail.date && detail.startTime
-          ? `${new Date(detail.date).toISOString().slice(0, 10)}T${detail.startTime}`
-          : new Date(detail.startTime).toISOString().slice(0, 16),
-        endTime: isBeautyVertical && detail.date && detail.endTime
-          ? `${new Date(detail.date).toISOString().slice(0, 10)}T${detail.endTime}`
-          : new Date(detail.endTime).toISOString().slice(0, 16),
-        notes: detail.notes || '',
-        status: detail.status,
-      });
+
+      if (isBeautyVertical && detail.client) {
+        // Beauty bookings: client data lives in detail.client, not customerId/customerName
+        const clientName = detail.client.name || '';
+        setSelectedCustomerRecord(null);
+        setCustomerProfile({
+          ...initialCustomerProfile,
+          taxName: clientName,
+          phone: detail.client.phone || '',
+          email: detail.client.email || '',
+        });
+        setCustomerNameInput('');
+        // Track all booked services
+        setBeautyBookingServices(Array.isArray(detail.services) ? detail.services : []);
+        setExtraBeautyServiceId('');
+        setFormData({
+          customerId: '',
+          customerName: clientName,
+          serviceId: normalizeId(detail.services?.[0]?.service) || normalizeId(detail.services?.[0]?._id) || '',
+          resourceId: normalizeId(detail.professional) || UNASSIGNED_RESOURCE,
+          startTime: detail.date && detail.startTime
+            ? `${new Date(detail.date).toISOString().slice(0, 10)}T${detail.startTime}`
+            : '',
+          endTime: detail.date && detail.endTime
+            ? `${new Date(detail.date).toISOString().slice(0, 10)}T${detail.endTime}`
+            : '',
+          notes: detail.notes || '',
+          status: detail.status,
+        });
+      } else {
+        await applyCustomerDetailFromAppointment(detail);
+        setBeautyBookingServices([]);
+        setExtraBeautyServiceId('');
+        setFormData({
+          customerId:
+            normalizeId(detail.customerId?._id) ||
+            normalizeId(detail.customerId) ||
+            '',
+          customerName: detail.customerName || detail.customer?.name || '',
+          serviceId:
+            normalizeId(detail.serviceId?._id) ||
+            normalizeId(detail.serviceId) ||
+            '',
+          resourceId:
+            normalizeId(detail.resourceId?._id) ||
+            normalizeId(detail.resourceId) ||
+            UNASSIGNED_RESOURCE,
+          startTime: new Date(detail.startTime).toISOString().slice(0, 16),
+          endTime: new Date(detail.endTime).toISOString().slice(0, 16),
+          notes: detail.notes || '',
+          status: detail.status,
+        });
+        setCustomerNameInput('');
+      }
+
       setAuditTrail(audit);
-      setCustomerNameInput('');
       setIsDialogOpen(true);
     } catch (error) {
       console.error('Error loading appointment detail:', error);
@@ -1583,14 +1615,24 @@ function AppointmentsManagement() {
       }
       try {
         const detail = await fetchAppointmentDetail(target._id);
-        setPaymentDialogAppointment(detail || target);
+        const base = detail || target;
+        // If we have extra services added in the edit dialog, merge them in
+        if (isBeautyVertical && beautyBookingServices.length > 0) {
+          setPaymentDialogAppointment({
+            ...base,
+            services: beautyBookingServices,
+            totalPrice: beautyBookingServices.reduce((sum, s) => sum + (s.price || 0), 0) || base.totalPrice,
+          });
+        } else {
+          setPaymentDialogAppointment(base);
+        }
       } catch (error) {
         console.warn('No se pudo cargar el detalle antes de abrir el pago:', error);
         setPaymentDialogAppointment(target);
       }
       setIsPaymentDialogOpen(true);
     },
-    [editingAppointment, fetchAppointmentDetail],
+    [editingAppointment, fetchAppointmentDetail, isBeautyVertical, beautyBookingServices],
   );
 
   const handleServiceChange = (serviceId) => {
@@ -2158,24 +2200,88 @@ function AppointmentsManagement() {
                 )}
               </div>
 
-              <div>
-                <Label htmlFor="serviceId">Servicio</Label>
-                <Select
-                  value={formData.serviceId || SERVICE_UNSET_VALUE}
-                  onValueChange={handleServiceChange}
-                >
-                  <SelectTrigger id="serviceId">
-                    <SelectValue placeholder="Selecciona un servicio" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={SERVICE_UNSET_VALUE}>Sin servicio adicional</SelectItem>
-                    {(Array.isArray(services) ? services : []).map((service) => (
-                      <SelectItem key={service._id} value={service._id}>
-                        {service.name} ({service.duration} min)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className={isBeautyVertical ? 'col-span-2' : ''}>
+                <Label htmlFor="serviceId">{isBeautyVertical ? 'Servicios' : 'Servicio'}</Label>
+
+                {isBeautyVertical ? (
+                  <div className="space-y-2 mt-1">
+                    {/* Booked services list */}
+                    {beautyBookingServices.length > 0 ? (
+                      <div className="rounded-md border border-border divide-y divide-border">
+                        {beautyBookingServices.map((s, i) => (
+                          <div key={i} className="flex items-center justify-between px-3 py-2 text-sm">
+                            <span className="font-medium">{s.name}</span>
+                            <div className="flex items-center gap-3 text-muted-foreground">
+                              <span>{s.duration} min</span>
+                              {s.price > 0 && <span className="font-medium text-foreground">${s.price.toFixed(2)}</span>}
+                            </div>
+                          </div>
+                        ))}
+                        {beautyBookingServices.length > 1 && (
+                          <div className="flex items-center justify-between px-3 py-2 text-sm font-semibold bg-muted/40">
+                            <span>Total</span>
+                            <span>${beautyBookingServices.reduce((sum, s) => sum + (s.price || 0), 0).toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Sin servicios registrados</p>
+                    )}
+                    {/* Add extra service */}
+                    <div className="flex gap-2">
+                      <Select
+                        value={extraBeautyServiceId || SERVICE_UNSET_VALUE}
+                        onValueChange={(val) => setExtraBeautyServiceId(val === SERVICE_UNSET_VALUE ? '' : val)}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Agregar servicio extra..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={SERVICE_UNSET_VALUE}>Agregar servicio extra...</SelectItem>
+                          {(Array.isArray(services) ? services : []).map((svc) => (
+                            <SelectItem key={svc._id} value={svc._id}>
+                              {svc.name} ({svc.duration} min){svc.price > 0 ? ` — $${svc.price.toFixed(2)}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!extraBeautyServiceId}
+                        onClick={() => {
+                          const svc = services.find((s) => s._id === extraBeautyServiceId);
+                          if (!svc) return;
+                          setBeautyBookingServices((prev) => [
+                            ...prev,
+                            { name: svc.name, duration: svc.duration, price: svc.price || 0, service: svc._id },
+                          ]);
+                          setExtraBeautyServiceId('');
+                        }}
+                      >
+                        + Añadir
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Select
+                    value={formData.serviceId || SERVICE_UNSET_VALUE}
+                    onValueChange={handleServiceChange}
+                  >
+                    <SelectTrigger id="serviceId">
+                      <SelectValue placeholder="Selecciona un servicio" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SERVICE_UNSET_VALUE}>Sin servicio adicional</SelectItem>
+                      {(Array.isArray(services) ? services : []).map((service) => (
+                        <SelectItem key={service._id} value={service._id}>
+                          {service.name} ({service.duration} min)
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div>
