@@ -273,6 +273,8 @@ export class StorefrontService {
       updateData.customCSS = updateDto.customCSS;
     if (updateDto.isActive !== undefined)
       updateData.isActive = updateDto.isActive;
+    if (updateDto.googlePlaceId !== undefined)
+      updateData.googlePlaceId = updateDto.googlePlaceId || null;
 
     // Helper: extraer datos planos de subdocumento (sin _id de Mongoose)
     const stripId = (obj: any) => {

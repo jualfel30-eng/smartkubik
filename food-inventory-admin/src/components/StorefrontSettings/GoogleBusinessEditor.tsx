@@ -8,12 +8,12 @@ interface GoogleBusinessEditorProps {
 }
 
 export function GoogleBusinessEditor({ config, onUpdate, saving }: GoogleBusinessEditorProps) {
-  const [placeId, setPlaceId] = useState((config as any).googlePlaceId || '');
+  const [placeId, setPlaceId] = useState(config.googlePlaceId || '');
   const [success, setSuccess] = useState(false);
 
   const handleSave = async () => {
     setSuccess(false);
-    const result = await onUpdate({ googlePlaceId: placeId.trim() || undefined } as any);
+    const result = await onUpdate({ googlePlaceId: placeId.trim() || undefined });
     if (result?.success !== false) {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);

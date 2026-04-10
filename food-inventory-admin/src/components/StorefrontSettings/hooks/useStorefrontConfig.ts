@@ -46,6 +46,7 @@ export interface StorefrontConfig {
     sendPaymentInstructions?: boolean;
     includeStoreLink?: boolean;
   };
+  googlePlaceId?: string;
   suggestedDomain?: string;
 }
 
