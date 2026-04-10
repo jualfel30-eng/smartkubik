@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import type { ColorScheme } from '../BeautyStorefront';
 
@@ -22,6 +23,19 @@ export default function BeautyHero({
   secondaryColor,
   domain,
 }: BeautyHeroProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Safari bug: React's `muted` prop doesn't set the DOM `muted` attribute.
+  // Safari requires the attribute on the DOM node itself for autoplay to work.
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = true;
+      videoRef.current.play().catch(() => {
+        // Autoplay blocked — silently ignore (user interaction required in some browsers)
+      });
+    }
+  }, []);
+
   return (
     <section
       className="relative py-24 text-white overflow-hidden"
@@ -36,14 +50,18 @@ export default function BeautyHero({
       {/* Video Background */}
       {config.videoUrl && (
         <video
+          ref={videoRef}
           autoPlay
           loop
           muted
           playsInline
           className="absolute inset-0 w-full h-full object-cover"
           style={{ zIndex: 0 }}
+          // webkit-playsinline is needed for older iOS Safari
+          {...({ 'webkit-playsinline': 'true' } as any)}
         >
           <source src={config.videoUrl} type="video/mp4" />
+          <source src={config.videoUrl} type="video/quicktime" />
         </video>
       )}
 
