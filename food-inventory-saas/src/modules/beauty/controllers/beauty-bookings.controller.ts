@@ -33,6 +33,8 @@ export class BeautyBookingsController {
   async findAll(
     @Request() req,
     @Query('date') date?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
     @Query('status') status?: string,
     @Query('professionalId') professionalId?: string,
     @Query('clientPhone') clientPhone?: string,
@@ -40,6 +42,8 @@ export class BeautyBookingsController {
   ) {
     return this.beautyBookingsService.findAll(req.user.tenantId, {
       date,
+      startDate,
+      endDate,
       status,
       professionalId,
       clientPhone,

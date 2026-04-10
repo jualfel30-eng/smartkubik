@@ -199,6 +199,8 @@ export class BeautyBookingsService {
     tenantId: string,
     filters?: {
       date?: string;
+      startDate?: string;
+      endDate?: string;
       status?: string;
       professionalId?: string;
       clientPhone?: string;
@@ -210,6 +212,17 @@ export class BeautyBookingsService {
     if (filters) {
       if (filters.date) {
         query.date = new Date(filters.date);
+      } else if (filters.startDate || filters.endDate) {
+        query.date = {};
+        if (filters.startDate) {
+          query.date.$gte = new Date(filters.startDate);
+        }
+        if (filters.endDate) {
+          // Include full end day
+          const end = new Date(filters.endDate);
+          end.setHours(23, 59, 59, 999);
+          query.date.$lte = end;
+        }
       }
       if (filters.status) {
         query.status = filters.status;
