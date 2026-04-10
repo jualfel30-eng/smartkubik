@@ -203,6 +203,7 @@ const calculateFinancialSummary = (appointment, resourceDetail, exchangeRate) =>
       appointment.totalAmount,
       appointment.billing?.total,
       appointment.billing?.totalAmount,
+      appointment.totalPrice, // beauty bookings
     ];
     for (const candidate of appointmentTotals) {
       const numeric = safeNumber(candidate, 0);
@@ -309,9 +310,10 @@ const calculateFinancialSummary = (appointment, resourceDetail, exchangeRate) =>
     }
   });
 
-  if (paidUsd <= 0 && paidVes <= 0 && safeNumber(appointment.paidAmount, 0) > 0) {
+  const directPaid = safeNumber(appointment.paidAmount ?? appointment.amountPaid, 0);
+  if (paidUsd <= 0 && paidVes <= 0 && directPaid > 0) {
     const fallback = convertAmount(
-      appointment.paidAmount,
+      directPaid,
       appointment.paymentCurrency || baseCurrency,
     );
     paidUsd += fallback.usd;
@@ -356,7 +358,7 @@ const mapPaymentMethodToName = (methodId) => {
   return mapping[methodId] || methodId;
 };
 
-export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaymentSuccess }) {
+export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaymentSuccess, isBeautyVertical = false }) {
   const { paymentMethods, loading: crmLoading } = useCrmContext();
   const { triggerRefresh } = useAccountingContext();
 
@@ -742,6 +744,20 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
         resolvedAmount ?? payload.amountUsd ?? payload.amountVes ?? 0,
       );
 
+      if (isBeautyVertical) {
+        // Beauty bookings: update paymentStatus + amountPaid via status endpoint
+        const methodLabel = METHOD_LABELS[payload.method] || payload.method || '';
+        await fetchApi(`/beauty-bookings/${appointmentId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            paymentStatus: 'paid',
+            paymentMethod: methodLabel,
+            amountPaid: confirmedAmount,
+          }),
+        });
+        return;
+      }
+
       const transactionDate = new Date().toISOString();
 
       const body = {
@@ -764,7 +780,7 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
         body: JSON.stringify(body),
       });
     },
-    [effectiveExchangeRate],
+    [effectiveExchangeRate, isBeautyVertical],
   );
 
   const handleSubmit = async () => {
@@ -778,7 +794,8 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
       return;
     }
 
-    if (remainingAmount <= 0) {
+    // For beauty bookings, allow payment even if amount is 0 (manual entry)
+    if (!isBeautyVertical && remainingAmount <= 0) {
       toast.error('No hay saldo pendiente para registrar.');
       return;
     }
@@ -805,20 +822,23 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
 
       const isVesSingle = isVesMethod(singlePayment.method);
       const epsilon = 0.01;
-      if (!isVesSingle && rawAmount - remainingAmount > epsilon) {
-        toast.error('El monto en USD no puede exceder el saldo pendiente.');
-        return;
-      }
-      if (isVesSingle) {
-        if (remainingAmountVes > 0 && rawAmount - remainingAmountVes > 0.5) {
-          toast.error('El monto en VES no puede exceder el saldo pendiente.');
+      // Skip over-payment validation for beauty (allow exact manual amount entry)
+      if (!isBeautyVertical) {
+        if (!isVesSingle && rawAmount - remainingAmount > epsilon) {
+          toast.error('El monto en USD no puede exceder el saldo pendiente.');
           return;
         }
-        if (remainingAmountVes <= 0 && effectiveExchangeRate) {
-          const usdEquivalent = rawAmount / effectiveExchangeRate;
-          if (usdEquivalent - remainingAmount > epsilon) {
-            toast.error('El monto en VES excede el saldo pendiente.');
+        if (isVesSingle) {
+          if (remainingAmountVes > 0 && rawAmount - remainingAmountVes > 0.5) {
+            toast.error('El monto en VES no puede exceder el saldo pendiente.');
             return;
+          }
+          if (remainingAmountVes <= 0 && effectiveExchangeRate) {
+            const usdEquivalent = rawAmount / effectiveExchangeRate;
+            if (usdEquivalent - remainingAmount > epsilon) {
+              toast.error('El monto en VES excede el saldo pendiente.');
+              return;
+            }
           }
         }
       }
@@ -927,16 +947,37 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[625px]">
         <DialogHeader>
-          <DialogTitle>Registrar pago de reserva</DialogTitle>
+          <DialogTitle>Registrar pago</DialogTitle>
           <DialogDescription>
-            Cita #{appointment._id?.slice(-6) || appointment.id?.slice(-6) || ''}
+            {isBeautyVertical
+              ? `Reserva #${appointment.bookingNumber || appointment._id?.slice(-6) || ''}`
+              : `Cita #${appointment._id?.slice(-6) || appointment.id?.slice(-6) || ''}`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="py-4 space-y-4">
+          {/* Beauty: services breakdown */}
+          {isBeautyVertical && Array.isArray(appointment.services) && appointment.services.length > 0 && (
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2 space-y-1">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Servicios</p>
+              {appointment.services.map((s, i) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span className="text-foreground">{s.name}</span>
+                  <span className="font-medium">{formatCurrency(s.price, 'USD')}</span>
+                </div>
+              ))}
+              {appointment.services.length > 1 && (
+                <div className="flex justify-between text-sm font-semibold border-t border-border pt-1 mt-1">
+                  <span>Total</span>
+                  <span>{formatCurrency(totalUsd, 'USD')}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 sm:grid-cols-3">
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Total estimado</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Total</p>
               <p className="font-semibold">
                 {formatCurrency(totalUsd, 'USD')}
               </p>
@@ -945,7 +986,7 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
                   {formatCurrency(totalVes, 'VES')}
                 </p>
               ) : null}
-              {baseAmount > 0 ? (
+              {!isBeautyVertical && baseAmount > 0 ? (
                 <p className="text-[11px] text-muted-foreground">
                   Tarifa base: {formatCurrency(baseAmount, baseCurrency)}{nights > 1 ? ` · ${nights} noches` : ''}
                   {addonsUsd > 0
@@ -979,8 +1020,10 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
           </div>
 
           {totalUsd <= 0 && !resourceLoading ? (
-            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-              Configura una tarifa base en la habitación o asigna un servicio con precio para calcular el saldo automáticamente.
+            <p className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-700 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+              {isBeautyVertical
+                ? 'Los servicios de esta cita no tienen precio registrado. Puedes ingresar el monto manualmente.'
+                : 'Configura una tarifa base en la habitación o asigna un servicio con precio para calcular el saldo automáticamente.'}
             </p>
           ) : null}
 

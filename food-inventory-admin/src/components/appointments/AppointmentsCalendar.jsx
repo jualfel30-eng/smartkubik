@@ -136,6 +136,9 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment }) {
     };
   }, [profileKey]);
 
+  const [view, setView] = useState('month');
+  const [currentDate, setCurrentDate] = useState(new Date());
+
   // Filtrar TIME_SLOTS por horario de negocio (solo para week/day views)
   const businessHours = tenant?.settings?.businessHours || { start: '00:00', end: '23:30' };
 
@@ -149,9 +152,6 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment }) {
       return slotTime >= startTime && slotTime <= endTime;
     });
   }, [view, businessHours]);
-
-  const [view, setView] = useState('month');
-  const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);

@@ -34,6 +34,7 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  DollarSign,
 } from 'lucide-react';
 
 const UNASSIGNED_RESOURCE = '__UNASSIGNED__';
@@ -233,6 +234,12 @@ function AppointmentsManagement() {
       // Map professional to resource
       resourceId: booking.professional || booking.professionalId,
       resourceName: booking.professionalName || '',
+      // Combine date + startTime into ISO datetime so new Date() works correctly
+      // booking.date comes as ISO string from MongoDB (e.g. "2026-04-10T00:00:00.000Z")
+      // booking.startTime is a plain "HH:mm" string
+      startTime: booking.date && booking.startTime
+        ? `${new Date(booking.date).toISOString().slice(0, 10)}T${booking.startTime}:00`
+        : booking.startTime,
       // Keep original fields for beauty-specific display
       bookingNumber: booking.bookingNumber,
       totalPrice: booking.totalPrice,
@@ -1482,6 +1489,8 @@ function AppointmentsManagement() {
   }, [endpoints.appointments]);
 
   const fetchAppointmentAudit = useCallback(async (id) => {
+    // Beauty bookings don't have an audit endpoint
+    if (isBeautyVertical) return [];
     const response = await fetchApi(`${endpoints.appointments}/${id}/audit`);
     if (Array.isArray(response)) {
       return response;
@@ -1490,7 +1499,7 @@ function AppointmentsManagement() {
       return response.data;
     }
     return [];
-  }, []);
+  }, [isBeautyVertical]);
 
   const openEditDialog = async (appointment) => {
     try {
@@ -1526,8 +1535,12 @@ function AppointmentsManagement() {
           normalizeId(detail.resourceId?._id) ||
           normalizeId(detail.resourceId) ||
           UNASSIGNED_RESOURCE,
-        startTime: new Date(detail.startTime).toISOString().slice(0, 16),
-        endTime: new Date(detail.endTime).toISOString().slice(0, 16),
+        startTime: isBeautyVertical && detail.date && detail.startTime
+          ? `${new Date(detail.date).toISOString().slice(0, 10)}T${detail.startTime}`
+          : new Date(detail.startTime).toISOString().slice(0, 16),
+        endTime: isBeautyVertical && detail.date && detail.endTime
+          ? `${new Date(detail.date).toISOString().slice(0, 10)}T${detail.endTime}`
+          : new Date(detail.endTime).toISOString().slice(0, 16),
         notes: detail.notes || '',
         status: detail.status,
       });
@@ -1780,11 +1793,20 @@ function AppointmentsManagement() {
   const handleStatusChange = async (appointmentId, newStatus) => {
     try {
       setLoading(true);
-      await fetchApi(`${endpoints.appointments}/${appointmentId}`, {
-        method: 'PUT',
+      const statusEndpoint = isBeautyVertical
+        ? `${endpoints.appointments}/${appointmentId}/status`
+        : `${endpoints.appointments}/${appointmentId}`;
+      const statusMethod = isBeautyVertical ? 'PATCH' : 'PUT';
+      await fetchApi(statusEndpoint, {
+        method: statusMethod,
         body: JSON.stringify({ status: newStatus }),
       });
-      loadAppointments();
+      await loadAppointments();
+      // Auto-open payment dialog when marking a beauty booking as completed
+      if (isBeautyVertical && newStatus === 'completed') {
+        const apt = appointments.find((a) => a._id === appointmentId) || { _id: appointmentId };
+        await handleOpenPaymentDialog(apt);
+      }
     } catch (error) {
       console.error('Error updating status:', error);
       alert('Error al actualizar el estado');
@@ -1835,7 +1857,7 @@ function AppointmentsManagement() {
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList>
           <TabsTrigger value="list">Lista</TabsTrigger>
-          <TabsTrigger value="calendar">Calendario hotel</TabsTrigger>
+          <TabsTrigger value="calendar">{isBeautyVertical ? 'Calendario' : 'Calendario hotel'}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="space-y-6">
@@ -1973,6 +1995,17 @@ function AppointmentsManagement() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
+                            {isBeautyVertical && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Cobrar"
+                                onClick={() => handleOpenPaymentDialog(apt)}
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                              >
+                                <DollarSign className="h-4 w-4" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -3271,6 +3304,7 @@ function AppointmentsManagement() {
       <AppointmentsPaymentDialog
         isOpen={isPaymentDialogOpen}
         appointment={paymentDialogAppointment}
+        isBeautyVertical={isBeautyVertical}
         onClose={() => {
           setIsPaymentDialogOpen(false);
           setPaymentDialogAppointment(null);
