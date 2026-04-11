@@ -11,18 +11,18 @@ const dishSchema = z.object({
   name: z.string().min(1, 'Requerido'),
   categoryId: z.string().optional(),
   description: z.string().optional(),
-  price: z.coerce.number().min(0, 'Precio inválido'),
+  price: z.number().min(0, 'Precio inválido'),
   imageUrl: z.string().url('URL inválida').optional().or(z.literal('')),
-  isAvailable: z.boolean().default(true),
-  allowsCustomization: z.boolean().default(true),
-  displayOrder: z.coerce.number().default(0),
+  isAvailable: z.boolean(),
+  allowsCustomization: z.boolean(),
+  displayOrder: z.number(),
   baseIngredients: z.array(z.object({
     ingredientId: z.string().min(1),
-    isRemovable: z.boolean().default(true),
+    isRemovable: z.boolean(),
   })).optional(),
   availableExtras: z.array(z.object({
     ingredientId: z.string().min(1),
-    maxQuantity: z.coerce.number().min(1).default(1),
+    maxQuantity: z.number().min(1),
   })).optional(),
 });
 
@@ -115,7 +115,7 @@ export default function DishForm({ initialData, categories, ingredients, onSaved
 
           <div className="space-y-1">
             <label className="text-sm font-semibold text-white">Precio Base ($) *</label>
-            <input type="number" step="0.01" {...register('price')} className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-accent font-mono" />
+            <input type="number" step="0.01" {...register('price', { valueAsNumber: true })} className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-accent font-mono" />
             {errors.price && <p className="text-red-400 text-xs">{errors.price.message}</p>}
           </div>
 
@@ -196,7 +196,7 @@ export default function DishForm({ initialData, categories, ingredients, onSaved
                       </select>
                       <div className="flex items-center gap-2 pt-1">
                         <span className="text-xs text-muted">Cantidad máx:</span>
-                        <input type="number" min="1" {...register(`availableExtras.${index}.maxQuantity`)} className="w-16 bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-xs text-white focus:outline-accent" />
+                        <input type="number" min="1" {...register(`availableExtras.${index}.maxQuantity`, { valueAsNumber: true })} className="w-16 bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-xs text-white focus:outline-accent" />
                       </div>
                     </div>
                     <button type="button" onClick={() => removeExtra(index)} className="p-2 text-muted hover:text-red-400 bg-white/5 rounded-lg">
