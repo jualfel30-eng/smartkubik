@@ -12,7 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const ingredientSchema = z.object({
     name: z.string().min(1, 'Requerido').max(100),
     category: z.string().optional(),
-    extraPrice: z.coerce.number().min(0),
+    extraPrice: z.number().min(0),
     isActive: z.boolean().default(true),
 });
 
@@ -173,7 +173,7 @@ export default function IngredientsPage() {
                                 </div>
                                 <div>
                                     <label className="text-sm text-white mb-1 block">Precio si es Extra ($)</label>
-                                    <input type="number" step="0.01" {...register('extraPrice')} className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-accent font-mono" />
+                                    <input type="number" step="0.01" {...register('extraPrice', { valueAsNumber: true })} className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-accent font-mono" />
                                 </div>
                                 <div className="pt-2">
                                     <label className="flex items-center gap-2 cursor-pointer">
