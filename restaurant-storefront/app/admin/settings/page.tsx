@@ -11,7 +11,7 @@ const settingsSchema = z.object({
   restaurantName: z.string().min(1, 'Requerido'),
   whatsappNumber: z.string().min(8, 'Número de WhatsApp inválido. Ej: 584141234567'),
   paymentInstructions: z.string().min(1, 'Instrucciones requeridas'),
-  currency: z.string().max(10).default('USD'),
+  currency: z.string().max(10),
   accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Color Hex inválido. Ej: #FF4500'),
   logoUrl: z.string().url('URL inválida').optional().or(z.literal('')),
   heroVideoUrl: z.string().url('URL inválida').optional().or(z.literal('')),
