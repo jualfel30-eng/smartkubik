@@ -13,7 +13,7 @@ const ingredientSchema = z.object({
     name: z.string().min(1, 'Requerido').max(100),
     category: z.string().optional(),
     extraPrice: z.number().min(0),
-    isActive: z.boolean().default(true),
+    isActive: z.boolean(),
 });
 
 type IngredientForm = z.infer<typeof ingredientSchema>;
