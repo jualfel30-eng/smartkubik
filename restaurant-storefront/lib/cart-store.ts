@@ -7,7 +7,7 @@ interface CartState {
     subtotal: number;
     total: number;
     addItem: (
-        dish: { id: number; name: string; price: number },
+        dish: { _id: string; name: string; price: number },
         quantity: number,
         customizations: CartCustomization[]
     ) => void;
@@ -17,11 +17,11 @@ interface CartState {
 }
 
 // Helper to generate a unique footprint for identical item collapsing
-const generateCartItemId = (dishId: number, customizations: CartCustomization[]) => {
+const generateCartItemId = (dishId: string, customizations: CartCustomization[]) => {
     const sortedMods = [...customizations].sort((a, b) =>
         a.ingredient_id === b.ingredient_id
             ? a.action.localeCompare(b.action)
-            : a.ingredient_id - b.ingredient_id
+            : a.ingredient_id.localeCompare(b.ingredient_id)
     );
     return `${dishId}-${JSON.stringify(sortedMods)}`;
 };
@@ -34,7 +34,7 @@ export const useCartStore = create<CartState>()(
             total: 0,
 
             addItem: (dish, quantity, customizations) => {
-                const cartItemId = generateCartItemId(dish.id, customizations);
+                const cartItemId = generateCartItemId(dish._id, customizations);
 
                 // Calculate the per-item final price based on additions
                 const modsDelta = customizations.reduce((acc, mod) => acc + (mod.price_delta * mod.quantity), 0);
@@ -51,7 +51,7 @@ export const useCartStore = create<CartState>()(
                         // Add new line item
                         newItems.push({
                             cart_item_id: cartItemId,
-                            dish_id: dish.id,
+                            dish_id: dish._id,
                             name: dish.name,
                             base_price: Number(dish.price),
                             final_price: finalPrice,
