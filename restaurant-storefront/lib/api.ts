@@ -118,7 +118,7 @@ export const restaurantAdminApi = {
 
   // Config del storefront (restaurantConfig)
   getStorefrontConfig: (token: string) =>
-    api.get('/restaurant-storefront/config', { token }),
+    api.get<{ restaurantConfig?: Record<string, string> }>('/restaurant-storefront/config', { token }),
   updateStorefrontConfig: (token: string, restaurantConfig: Record<string, unknown>) =>
     api.put('/restaurant-storefront/config', { restaurantConfig }, { token }),
 
