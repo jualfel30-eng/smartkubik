@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #0A0A0A; /* Near-black, premium feel */
+    --surface: #141414;
+    --foreground: #F5F5F5;
+    --muted: #888888;
+    --accent: #FF4500; /* Default bold orange, will be overridden by settings */
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
