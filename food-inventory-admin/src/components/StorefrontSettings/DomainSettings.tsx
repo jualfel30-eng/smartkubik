@@ -162,6 +162,7 @@ export function DomainSettings({ config, onUpdate, onDelete, saving }: DomainSet
             <option value="services">Servicios</option>
             <option value="beauty">Beauty (Salones de Belleza)</option>
             <option value="premium">Premium (Maximalist)</option>
+            <option value="restaurant">Restaurante</option>
           </select>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Elige el tipo de plantilla según tu modelo de negocio
