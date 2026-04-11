@@ -105,8 +105,9 @@ export default function DishCustomizer({ dish, isOpen, onClose }: Props) {
                     >
                         {/* Header Image */}
                         <div className="relative w-full h-48 sm:h-56 bg-[#1a1a1a] shrink-0">
-                            {dish.image_url && (
-                                <img src={dish.image_url} alt={dish.name} className="w-full h-full object-cover" />
+                            {dish.imageUrl && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={dish.imageUrl} alt={dish.name} className="w-full h-full object-cover" />
                             )}
                             <div className="absolute inset-0 bg-gradient-to-t from-surface to-transparent" />
 

@@ -52,7 +52,7 @@ export const api = {
 export const storefrontApi = {
   /** Configuración completa del storefront por tenantId (incluye restaurantConfig) */
   getConfig: (tenantId: string) =>
-    api.get<{ success: boolean; data: any }>(`/public/storefront/by-tenant/${tenantId}`),
+    api.get<{ success: boolean; data: unknown }>(`/public/storefront/by-tenant/${tenantId}`),
 };
 
 // ─── API pública del restaurante (sin auth, requiere tenantId) ─────────────
@@ -67,7 +67,7 @@ export const restaurantApi = {
 
   /** Solo platos (con filtros opcionales) */
   getDishes: (tenantId: string, params?: { categoryId?: string; search?: string }) =>
-    api.get(`/public/restaurant/${tenantId}/dishes`, { params: params as any }),
+    api.get(`/public/restaurant/${tenantId}/dishes`, { params: params as Record<string, string> }),
 
   /** Detalle de un plato */
   getDish: (tenantId: string, dishId: string) =>
@@ -124,7 +124,7 @@ export const restaurantAdminApi = {
 
   // Pedidos
   getOrders: (token: string, params?: { status?: string; limit?: number; offset?: number }) =>
-    api.get('/restaurant-orders', { token, params: params as any }),
+    api.get('/restaurant-orders', { token, params: params as Record<string, string> }),
   getOrder: (token: string, id: string) =>
     api.get(`/restaurant-orders/${id}`, { token }),
   updateOrderStatus: (token: string, id: string, status: string) =>

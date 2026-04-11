@@ -187,7 +187,8 @@ export default function MenuManagementPage() {
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-lg bg-[#1a1a1a] overflow-hidden shrink-0">
                                 {dish.imageUrl ? (
-                                  <img src={dish.imageUrl} alt="" className="w-full h-full object-cover" />
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={dish.imageUrl} alt="" className="w-full h-full object-cover" />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center font-bold text-muted/50">{dish.name[0]}</div>
                                 )}

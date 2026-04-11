@@ -16,7 +16,7 @@ export default function DishCard({ dish }: Props) {
     const addItem = useCartStore(state => state.addItem);
 
     const handleQuickAdd = () => {
-        if (dish.allows_customization) {
+        if (dish.allowsCustomization) {
             setIsModalOpen(true);
         } else {
             // Directly add to cart with base items (no active customizations)
@@ -37,9 +37,10 @@ export default function DishCard({ dish }: Props) {
             >
                 {/* Image Container */}
                 <div className="relative w-full aspect-[4/3] bg-[#1a1a1a] overflow-hidden">
-                    {dish.image_url ? (
-                        <img // Using standard img because next/image would require configured domains for white-label
-                            src={dish.image_url}
+                    {dish.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                            src={dish.imageUrl}
                             alt={dish.name}
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                         />
@@ -50,7 +51,7 @@ export default function DishCard({ dish }: Props) {
                     )}
 
                     {/* Customization Badge */}
-                    {dish.allows_customization && (
+                    {dish.allowsCustomization && (
                         <div className="absolute top-4 left-4 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-background/80 backdrop-blur text-white border border-white/10">
                             Personalizable
                         </div>
@@ -74,14 +75,14 @@ export default function DishCard({ dish }: Props) {
                         onClick={handleQuickAdd}
                         className="w-full py-3.5 rounded-full bg-white/5 hover:bg-white/10 text-foreground font-semibold flex items-center justify-center gap-2 transition-colors border border-white/10"
                     >
-                        {dish.allows_customization ? 'Personalizar y Añadir' : 'Añadir al Carrito'}
+                        {dish.allowsCustomization ? 'Personalizar y Añadir' : 'Añadir al Carrito'}
                         <Plus className="w-5 h-5 text-accent" />
                     </button>
                 </div>
             </motion.div>
 
             {/* The customization modal */}
-            {dish.allows_customization && (
+            {dish.allowsCustomization && (
                 <DishCustomizer
                     dish={dish}
                     isOpen={isModalOpen}

@@ -34,7 +34,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const token = localStorage.getItem('admin_token')!;
     restaurantAdminApi.getStorefrontConfig(token)
-      .then((data: any) => {
+      .then((data: { restaurantConfig?: Record<string, string> }) => {
         const rc = data?.restaurantConfig || {};
         reset({
           restaurantName: rc.restaurantName || '',
