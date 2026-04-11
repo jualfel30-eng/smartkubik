@@ -49,17 +49,29 @@ export async function resolveTenantId(): Promise<string> {
 async function resolveTenantFromDomain(host: string): Promise<string | null> {
   const cleanHost = host.split(':')[0]; // quitar puerto si lo hay
 
-  try {
-    const res = await fetch(
-      `${API_URL}/public/restaurant/by-domain/${cleanHost}`,
-      { next: { revalidate: 300 } }, // cachear 5 minutos en producción
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data?.tenantId ?? null;
-  } catch {
-    return null;
+  // Candidatos a probar en orden:
+  // 1. Host completo: "savagerestaurant.smartkubik.com"
+  // 2. Solo subdomain: "savagerestaurant"  (como se guarda desde DomainSettings)
+  const parts = cleanHost.split('.');
+  const candidates: string[] = [cleanHost];
+  if (parts.length >= 2) candidates.push(parts[0]); // subdomain slug
+
+  for (const candidate of candidates) {
+    try {
+      const res = await fetch(
+        `${API_URL}/public/restaurant/by-domain/${encodeURIComponent(candidate)}`,
+        { next: { revalidate: 300 } },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.tenantId) return data.tenantId;
+      }
+    } catch {
+      // continuar con el siguiente candidato
+    }
   }
+
+  return null;
 }
 
 /**
