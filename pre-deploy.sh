@@ -14,7 +14,7 @@ NC='\033[0m'
 
 BACKEND_LOCAL="./food-inventory-saas"
 FRONTEND_LOCAL="./food-inventory-admin"
-STOREFRONT_LOCAL="./food-inventory-storefront"
+STOREFRONT_LOCAL="./restaurant-storefront"
 BLOG_LOCAL="./smartkubik-blog/frontend"
 ROOT_DIR=$(pwd)
 

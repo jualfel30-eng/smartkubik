@@ -141,7 +141,7 @@ export class StorefrontConfig {
 
   @Prop({
     type: String,
-    enum: ["ecommerce", "services", "beauty", "premium"],
+    enum: ["ecommerce", "services", "beauty", "premium", "restaurant"],
     required: true,
     default: "ecommerce",
   })
@@ -187,6 +187,35 @@ export class StorefrontConfig {
     loyalty: {
       enabled: boolean;
     };
+  };
+
+  // ==================== RESTAURANT-SPECIFIC CONFIG ====================
+  @Prop({ type: Object })
+  restaurantConfig?: {
+    enabled: boolean;
+
+    // Branding
+    restaurantName?: string;
+    tagline?: string;
+    logoUrl?: string;
+    heroVideoUrl?: string;
+    heroImageUrl?: string;
+
+    // Pedidos
+    whatsappNumber?: string;        // Número destino de los pedidos (formato: 584141234567)
+    paymentInstructions?: string;   // Instrucciones de pago que se muestran en checkout
+    currency?: string;              // "USD", "VES", "COP"
+
+    // Tema visual (sobreescribe StorefrontConfig.theme para el template restaurant)
+    accentColor?: string;           // Hex ej: "#FF4500" — mapea a CSS var(--accent)
+
+    // Horario visible en el storefront (informativo, no bloquea pedidos)
+    businessHours?: Array<{
+      day: number;     // 0=domingo
+      open: string;    // "11:00"
+      close: string;   // "22:00"
+      isOpen: boolean;
+    }>;
   };
 }
 

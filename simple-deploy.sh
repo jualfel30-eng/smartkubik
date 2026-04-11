@@ -16,7 +16,7 @@ export RSYNC_RSH="ssh -o ServerAliveInterval=60"
 SERVER="deployer@178.156.182.177"
 BACKEND_LOCAL="./food-inventory-saas"
 FRONTEND_LOCAL="./food-inventory-admin"
-STOREFRONT_LOCAL="./food-inventory-storefront"
+STOREFRONT_LOCAL="./restaurant-storefront"
 BLOG_LOCAL="./smartkubik-blog/frontend"
 ROOT_DIR=$(pwd)
 
@@ -117,7 +117,7 @@ rsync -avz --delete $STOREFRONT_LOCAL/.next/ $SERVER:~/smartkubik/food-inventory
 rsync -avz $STOREFRONT_LOCAL/public/ $SERVER:~/smartkubik/food-inventory-storefront/public/
 rsync -avz $STOREFRONT_LOCAL/package.json $SERVER:~/smartkubik/food-inventory-storefront/
 rsync -avz $STOREFRONT_LOCAL/package-lock.json $SERVER:~/smartkubik/food-inventory-storefront/
-rsync -avz $STOREFRONT_LOCAL/next.config.ts $SERVER:~/smartkubik/food-inventory-storefront/
+rsync -avz $STOREFRONT_LOCAL/next.config.mjs $SERVER:~/smartkubik/food-inventory-storefront/
 rsync -avz $STOREFRONT_LOCAL/.env.production $SERVER:~/smartkubik/food-inventory-storefront/.env.local
 # Upload nginx configuration
 rsync -avz ./nginx-configs/storefront-subdomain.conf $SERVER:~/smartkubik/nginx-configs/

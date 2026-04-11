@@ -7,3 +7,11 @@ backend_ssl_errors_sample.log
 backend_ssl_errors_with_context.log
 backend_ssl_errors.log
 food-inventory-saas/logs/
+
+# Dependencies & build artifacts
+**/node_modules/
+**/.next/
+**/dist/
+restaurant-storefront/.env.local
+restaurant-storefront/tsconfig.tsbuildinfo
+restaurant-storefront/temp_next_logs.txt

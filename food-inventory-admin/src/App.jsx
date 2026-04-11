@@ -85,6 +85,7 @@ import {
   Link2,
   ArrowRightLeft,
   MapPin,
+  Globe,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
@@ -188,6 +189,7 @@ const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'))
 const OrganizationsManagement = lazy(() => import('@/components/OrganizationsManagement.jsx'));
 const TablesPage = lazy(() => import('./pages/TablesPage.jsx'));
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
+const RestaurantStorefrontPage = lazy(() => import('./pages/RestaurantStorefrontPage.jsx'));
 const ReservationsPage = lazy(() => import('./pages/ReservationsPage.jsx'));
 const TipsPage = lazy(() => import('./pages/TipsPage.jsx'));
 const CommissionsPage = lazy(() => import('./pages/CommissionsPage.jsx'));
@@ -447,6 +449,7 @@ function TenantLayout() {
     { name: 'Reservas', href: 'restaurant/reservations', icon: Calendar, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Ingeniería de Menú', href: 'restaurant/menu-engineering', icon: Target, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Órdenes de Compra', href: 'restaurant/purchase-orders', icon: FileText, permission: 'restaurant_read', requiresModule: 'restaurant' },
+    { name: 'Menú en Línea', href: 'restaurant/storefront', icon: Globe, permission: 'restaurant_read', requiresModule: 'restaurant' },
 
     // Módulos específicos de Hotel (solo hospitality profile)
     { name: 'Operaciones Hotel', href: 'hospitality/operations', icon: Building2, permission: 'appointments_read', requiresModule: 'appointments', requiresVertical: ['SERVICES', 'HOSPITALITY'], requiresProfileKey: 'hospitality' },
@@ -1277,6 +1280,11 @@ function TenantLayout() {
                 <Route path="restaurant/menu-engineering" element={<MenuEngineeringPage />} />
                 <Route path="restaurant/recipes" element={<RecipesPage />} />
                 <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />
+                <Route path="restaurant/storefront" element={
+                  restaurantModuleEnabled
+                    ? <RestaurantStorefrontPage />
+                    : <Navigate to="/dashboard" replace />
+                } />
                 <Route path="waste-control" element={<WasteManagementPage />} />
                 <Route path="marketing" element={
                   <CrmProvider>

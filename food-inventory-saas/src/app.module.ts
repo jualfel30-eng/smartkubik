@@ -134,6 +134,7 @@ import { NewsletterModule } from "./modules/newsletter/newsletter.module";
 import { SocialLinksModule } from "./modules/social-links/social-links.module";
 import { ProductDedupModule } from "./modules/product-dedup/product-dedup.module";
 import { BeautyModule } from "./modules/beauty/beauty.module";
+import { RestaurantStorefrontModule } from "./modules/restaurant-storefront/restaurant-storefront.module";
 
 import { Redis } from "ioredis";
 
@@ -566,6 +567,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     SocialLinksModule,
     ProductDedupModule,
     BeautyModule,
+    RestaurantStorefrontModule,
   ],
   controllers: [AppController, TenantController],
   providers: [
