@@ -7,6 +7,7 @@ import { RestaurantIngredient, RestaurantIngredientSchema } from '../../schemas/
 import { RestaurantDish, RestaurantDishSchema } from '../../schemas/restaurant-dish.schema';
 import { RestaurantOrder, RestaurantOrderSchema } from '../../schemas/restaurant-order.schema';
 import { StorefrontConfig, StorefrontConfigSchema } from '../../schemas/storefront-config.schema';
+import { Product, ProductSchema } from '../../schemas/product.schema';
 
 // Services
 import { RestaurantCategoriesService } from './services/restaurant-categories.service';
@@ -51,6 +52,7 @@ import { RestaurantConfigPublicController } from './controllers/restaurant-confi
       { name: RestaurantDish.name, schema: RestaurantDishSchema },
       { name: RestaurantOrder.name, schema: RestaurantOrderSchema },
       { name: StorefrontConfig.name, schema: StorefrontConfigSchema },
+      { name: Product.name, schema: ProductSchema },
     ]),
   ],
   controllers: [

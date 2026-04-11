@@ -9,12 +9,55 @@ import {
   CreateRestaurantDishDto,
   UpdateRestaurantDishDto,
 } from '../dto/restaurant-dish.dto';
+import { Product, ProductDocument } from '../../../schemas/product.schema';
+
+/** Reemplaza referencias a localhost por la URL pública del API en producción */
+function fixImageUrl(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  return url.replace(/https?:\/\/localhost:\d+/, 'https://api.smartkubik.com');
+}
+
+/** Mapea un producto ERP al shape de plato del storefront */
+function productToDish(p: any): any {
+  const variant = p.variants?.[0];
+  const price = variant?.basePrice ?? p.pricingRules?.usdPrice ?? 0;
+  const imageUrl = fixImageUrl(variant?.images?.[0]);
+  const categoryName = p.subcategory?.[0] ?? p.category?.[0] ?? 'Sin Categoría';
+  return {
+    _id: p._id.toString(),
+    name: p.name,
+    description: p.description ?? '',
+    price,
+    imageUrl,
+    isAvailable: p.isActive !== false,
+    allowsCustomization: false,
+    displayOrder: 0,
+    baseIngredients: [],
+    availableExtras: [],
+    // virtual category slug para filtrado
+    categoryId: { _id: slugId(categoryName), name: categoryName, slug: toSlug(categoryName) },
+  };
+}
+
+function toSlug(s: string): string {
+  return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+
+/** Genera un _id determinístico de 24 hex chars a partir de un string */
+function slugId(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) { h = ((h << 5) - h + s.charCodeAt(i)) | 0; }
+  const hex = Math.abs(h).toString(16).padStart(8, '0');
+  return hex.repeat(3); // 24 chars
+}
 
 @Injectable()
 export class RestaurantDishesService {
   constructor(
     @InjectModel(RestaurantDish.name)
     private dishModel: Model<RestaurantDishDocument>,
+    @InjectModel(Product.name)
+    private productModel: Model<ProductDocument>,
   ) {}
 
   async findAll(
@@ -41,6 +84,11 @@ export class RestaurantDishesService {
   async getPublicMenu(tenantId: string): Promise<{ dishes: any[]; categories: any[] }> {
     const dishes = await this.findAll(tenantId, { onlyAvailable: true });
 
+    // Fallback: si no hay restaurantdishes, servir desde los productos ERP
+    if (dishes.length === 0) {
+      return this.getMenuFromProducts(tenantId);
+    }
+
     // Extraer categorías únicas de los platos
     const categoryMap = new Map<string, any>();
     for (const dish of dishes) {
@@ -52,6 +100,46 @@ export class RestaurantDishesService {
 
     return {
       dishes,
+      categories: Array.from(categoryMap.values()),
+    };
+  }
+
+  /** Fallback: lee productos del ERP y los sirve como menú del storefront */
+  private async getMenuFromProducts(tenantId: string): Promise<{ dishes: any[]; categories: any[] }> {
+    const products = await this.productModel
+      .find({
+        tenantId: new Types.ObjectId(tenantId),
+        isActive: true,
+        // Solo productos vendibles (excluir materia prima)
+        productType: { $in: ['simple', 'finished_good', 'service', null, undefined] },
+        // Solo los que tienen precio
+        $or: [
+          { 'variants.0.basePrice': { $gt: 0 } },
+          { 'pricingRules.usdPrice': { $gt: 0 } },
+        ],
+      })
+      .lean()
+      .exec();
+
+    const mappedDishes = products.map(productToDish);
+
+    // Construir categorías únicas
+    const categoryMap = new Map<string, any>();
+    for (const dish of mappedDishes) {
+      const cat = dish.categoryId;
+      if (cat?._id && !categoryMap.has(cat._id)) {
+        categoryMap.set(cat._id, {
+          _id: cat._id,
+          name: cat.name,
+          slug: cat.slug,
+          displayOrder: categoryMap.size,
+          isActive: true,
+        });
+      }
+    }
+
+    return {
+      dishes: mappedDishes,
       categories: Array.from(categoryMap.values()),
     };
   }
