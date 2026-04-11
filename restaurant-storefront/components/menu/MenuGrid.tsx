@@ -12,10 +12,15 @@ interface Props {
 }
 
 export default function MenuGrid({ initialDishes, initialCategories }: Props) {
-    const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
+    const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
 
     const filteredDishes = activeCategoryId
-        ? initialDishes.filter(dish => dish.category_id === activeCategoryId)
+        ? initialDishes.filter(dish => {
+            const catId = typeof dish.categoryId === 'object' && dish.categoryId !== null
+                ? (dish.categoryId as Category)._id
+                : dish.categoryId as string;
+            return catId === activeCategoryId;
+        })
         : initialDishes;
 
     return (
@@ -33,7 +38,7 @@ export default function MenuGrid({ initialDishes, initialCategories }: Props) {
                         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8"
                     >
                         {filteredDishes.map(dish => (
-                            <DishCard key={dish.id} dish={dish} />
+                            <DishCard key={dish._id} dish={dish} />
                         ))}
                     </motion.div>
                 </AnimatePresence>

@@ -5,8 +5,8 @@ import { motion } from 'framer-motion';
 
 interface Props {
     categories: Category[];
-    activeCategoryId: number | null;
-    onSelectCategory: (id: number | null) => void;
+    activeCategoryId: string | null;
+    onSelectCategory: (id: string | null) => void;
 }
 
 export default function CategoryFilter({ categories, activeCategoryId, onSelectCategory }: Props) {
@@ -31,13 +31,13 @@ export default function CategoryFilter({ categories, activeCategoryId, onSelectC
 
                 {categories.map((category) => (
                     <button
-                        key={category.id}
-                        onClick={() => onSelectCategory(category.id)}
-                        className={`relative px-5 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${activeCategoryId === category.id ? 'text-white' : 'text-muted hover:text-foreground'
+                        key={category._id}
+                        onClick={() => onSelectCategory(category._id)}
+                        className={`relative px-5 py-2.5 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${activeCategoryId === category._id ? 'text-white' : 'text-muted hover:text-foreground'
                             }`}
                     >
                         {category.name}
-                        {activeCategoryId === category.id && (
+                        {activeCategoryId === category._id && (
                             <motion.div
                                 layoutId="category-pill-active"
                                 className="absolute inset-0 bg-accent rounded-full -z-10"
