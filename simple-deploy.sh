@@ -16,7 +16,8 @@ export RSYNC_RSH="ssh -o ServerAliveInterval=60"
 SERVER="deployer@178.156.182.177"
 BACKEND_LOCAL="./food-inventory-saas"
 FRONTEND_LOCAL="./food-inventory-admin"
-STOREFRONT_LOCAL="./restaurant-storefront"
+STOREFRONT_LOCAL="./food-inventory-storefront"
+RESTAURANT_STOREFRONT_LOCAL="./restaurant-storefront"
 BLOG_LOCAL="./smartkubik-blog/frontend"
 ROOT_DIR=$(pwd)
 
@@ -58,6 +59,14 @@ fi
 echo -e "${GREEN}✅ Storefront dependencies valid${NC}"
 cd "$ROOT_DIR"
 
+cd "$ROOT_DIR/$RESTAURANT_STOREFRONT_LOCAL"
+if ! npm ls --depth=0 > /dev/null 2>&1; then
+  echo -e "${RED}❌ Restaurant storefront dependencies are broken. Run 'npm install' first.${NC}"
+  exit 1
+fi
+echo -e "${GREEN}✅ Restaurant storefront dependencies valid${NC}"
+cd "$ROOT_DIR"
+
 cd "$ROOT_DIR/$BLOG_LOCAL"
 if ! npm ls --depth=0 > /dev/null 2>&1; then
   echo -e "${RED}❌ Blog dependencies are broken. Run 'npm install' first.${NC}"
@@ -80,13 +89,20 @@ npm run build
 echo -e "${GREEN}✅ Frontend built${NC}"
 cd "$ROOT_DIR"
 
-# Step 2.5: Build storefront locally
-echo -e "${YELLOW}📦 Building storefront locally...${NC}"
+# Step 2.5: Build general storefront locally
+echo -e "${YELLOW}📦 Building storefront (general) locally...${NC}"
 cd "$ROOT_DIR/$STOREFRONT_LOCAL"
-# Copy production env before build
-cp .env.production .env.local
 npm run build
-echo -e "${GREEN}✅ Storefront built${NC}"
+echo -e "${GREEN}✅ Storefront (general) built${NC}"
+cd "$ROOT_DIR"
+
+# Step 2.6: Build restaurant storefront locally
+echo -e "${YELLOW}📦 Building restaurant storefront locally...${NC}"
+cd "$ROOT_DIR/$RESTAURANT_STOREFRONT_LOCAL"
+# Copy production env before build
+[ -f .env.production ] && cp .env.production .env.local
+npm run build
+echo -e "${GREEN}✅ Restaurant storefront built${NC}"
 cd "$ROOT_DIR"
 
 # Step 2.7: Build blog locally (Next.js, SSG/SSR)
@@ -107,21 +123,27 @@ rsync -avz --delete $FRONTEND_LOCAL/dist/ $SERVER:~/smartkubik/food-inventory-ad
 ssh $SERVER "sudo chmod -R 755 ~/smartkubik/food-inventory-admin/dist"
 echo -e "${GREEN}✅ Frontend uploaded${NC}"
 
-# Step 4.3: Upload storefront
-echo -e "${YELLOW}📤 Uploading storefront...${NC}"
-# Create directories if they don't exist
-ssh $SERVER "mkdir -p ~/smartkubik/food-inventory-storefront"
-ssh $SERVER "mkdir -p ~/smartkubik/nginx-configs"
-# Upload Next.js build output and necessary files
+# Step 4.3: Upload general storefront (port 3001 - all templates)
+echo -e "${YELLOW}📤 Uploading storefront (general)...${NC}"
+ssh $SERVER "mkdir -p ~/smartkubik/food-inventory-storefront ~/smartkubik/nginx-configs"
 rsync -avz --delete $STOREFRONT_LOCAL/.next/ $SERVER:~/smartkubik/food-inventory-storefront/.next/
 rsync -avz $STOREFRONT_LOCAL/public/ $SERVER:~/smartkubik/food-inventory-storefront/public/
 rsync -avz $STOREFRONT_LOCAL/package.json $SERVER:~/smartkubik/food-inventory-storefront/
 rsync -avz $STOREFRONT_LOCAL/package-lock.json $SERVER:~/smartkubik/food-inventory-storefront/
-rsync -avz $STOREFRONT_LOCAL/next.config.mjs $SERVER:~/smartkubik/food-inventory-storefront/
-rsync -avz $STOREFRONT_LOCAL/.env.production $SERVER:~/smartkubik/food-inventory-storefront/.env.local
-# Upload nginx configuration
-rsync -avz ./nginx-configs/storefront-subdomain.conf $SERVER:~/smartkubik/nginx-configs/
-echo -e "${GREEN}✅ Storefront uploaded${NC}"
+rsync -avz $STOREFRONT_LOCAL/next.config.ts $SERVER:~/smartkubik/food-inventory-storefront/
+[ -f ./nginx-configs/storefront-subdomain.conf ] && rsync -avz ./nginx-configs/storefront-subdomain.conf $SERVER:~/smartkubik/nginx-configs/
+echo -e "${GREEN}✅ Storefront (general) uploaded${NC}"
+
+# Step 4.33: Upload restaurant storefront (port 3002 - savagerestaurant.smartkubik.com)
+echo -e "${YELLOW}📤 Uploading restaurant storefront...${NC}"
+ssh $SERVER "mkdir -p ~/smartkubik/restaurant-storefront"
+rsync -avz --delete $RESTAURANT_STOREFRONT_LOCAL/.next/ $SERVER:~/smartkubik/restaurant-storefront/.next/
+rsync -avz $RESTAURANT_STOREFRONT_LOCAL/public/ $SERVER:~/smartkubik/restaurant-storefront/public/ 2>/dev/null || true
+rsync -avz $RESTAURANT_STOREFRONT_LOCAL/package.json $SERVER:~/smartkubik/restaurant-storefront/
+rsync -avz $RESTAURANT_STOREFRONT_LOCAL/package-lock.json $SERVER:~/smartkubik/restaurant-storefront/
+rsync -avz $RESTAURANT_STOREFRONT_LOCAL/next.config.ts $SERVER:~/smartkubik/restaurant-storefront/
+[ -f $RESTAURANT_STOREFRONT_LOCAL/.env.production ] && rsync -avz $RESTAURANT_STOREFRONT_LOCAL/.env.production $SERVER:~/smartkubik/restaurant-storefront/.env.local
+echo -e "${GREEN}✅ Restaurant storefront uploaded${NC}"
 
 # Step 4.35: Upload blog
 echo -e "${YELLOW}📤 Uploading blog...${NC}"
@@ -199,7 +221,7 @@ echo -e "${GREEN}✅ Backend PM2 reloaded${NC}"
 echo -e "${YELLOW}⏳ Waiting for backend to fully start...${NC}"
 sleep 5
 
-# Step 5.5: Start or reload storefront with PM2
+# Step 5.5: Start or reload general storefront with PM2 (port 3001)
 echo -e "${YELLOW}🔄 Managing storefront PM2 process...${NC}"
 STOREFRONT_PM2_STATUS=$(ssh $SERVER "pm2 list | grep smartkubik-storefront || echo 'NOT_RUNNING'")
 
@@ -212,6 +234,21 @@ else
   echo -e "${YELLOW}🔄 Reloading storefront...${NC}"
   ssh $SERVER "cd ~/smartkubik/food-inventory-storefront && pm2 reload smartkubik-storefront"
   echo -e "${GREEN}✅ Storefront PM2 reloaded${NC}"
+fi
+
+# Step 5.55: Start or reload restaurant storefront with PM2 (port 3002)
+echo -e "${YELLOW}🔄 Managing restaurant storefront PM2 process...${NC}"
+RESTAURANT_PM2_STATUS=$(ssh $SERVER "pm2 list | grep smartkubik-restaurant || echo 'NOT_RUNNING'")
+
+if [[ "$RESTAURANT_PM2_STATUS" == "NOT_RUNNING" ]]; then
+  echo -e "${YELLOW}📦 Starting restaurant storefront with PM2 (first time)...${NC}"
+  ssh $SERVER "cd ~/smartkubik/restaurant-storefront && pm2 start npm --name smartkubik-restaurant -- start"
+  ssh $SERVER "pm2 save"
+  echo -e "${GREEN}✅ Restaurant storefront started with PM2${NC}"
+else
+  echo -e "${YELLOW}🔄 Reloading restaurant storefront...${NC}"
+  ssh $SERVER "cd ~/smartkubik/restaurant-storefront && pm2 reload smartkubik-restaurant"
+  echo -e "${GREEN}✅ Restaurant storefront PM2 reloaded${NC}"
 fi
 
 # Step 5.6: Start or reload blog with PM2

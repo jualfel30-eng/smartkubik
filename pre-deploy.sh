@@ -14,7 +14,8 @@ NC='\033[0m'
 
 BACKEND_LOCAL="./food-inventory-saas"
 FRONTEND_LOCAL="./food-inventory-admin"
-STOREFRONT_LOCAL="./restaurant-storefront"
+STOREFRONT_LOCAL="./food-inventory-storefront"
+RESTAURANT_STOREFRONT_LOCAL="./restaurant-storefront"
 BLOG_LOCAL="./smartkubik-blog/frontend"
 ROOT_DIR=$(pwd)
 
@@ -82,7 +83,7 @@ fi
 echo -e "${GREEN}✅ Frontend dependencies installed${NC}"
 cd ..
 
-# Step 3.5: Install storefront dependencies
+# Step 3.5: Install storefront dependencies (general)
 echo -e "${YELLOW}📦 Installing storefront dependencies...${NC}"
 cd $STOREFRONT_LOCAL
 
@@ -99,6 +100,25 @@ if [ $? -ne 0 ]; then
 fi
 
 echo -e "${GREEN}✅ Storefront dependencies installed${NC}"
+cd ..
+
+# Step 3.55: Install restaurant storefront dependencies
+echo -e "${YELLOW}📦 Installing restaurant storefront dependencies...${NC}"
+cd $RESTAURANT_STOREFRONT_LOCAL
+
+if [ ! -f "package.json" ]; then
+    echo -e "${RED}❌ package.json not found in restaurant storefront${NC}"
+    exit 1
+fi
+
+npm install
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Restaurant storefront dependency installation failed${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Restaurant storefront dependencies installed${NC}"
 cd ..
 
 # Step 3.6: Install blog dependencies
@@ -146,6 +166,14 @@ if ! npm ls --depth=0 > /dev/null 2>&1; then
     exit 1
 fi
 echo -e "${GREEN}✅ Storefront dependencies verified${NC}"
+cd "$ROOT_DIR"
+
+cd "$ROOT_DIR/$RESTAURANT_STOREFRONT_LOCAL"
+if ! npm ls --depth=0 > /dev/null 2>&1; then
+    echo -e "${RED}❌ Restaurant storefront dependencies verification failed${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✅ Restaurant storefront dependencies verified${NC}"
 cd "$ROOT_DIR"
 
 cd "$ROOT_DIR/$BLOG_LOCAL"

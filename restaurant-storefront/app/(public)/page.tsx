@@ -13,15 +13,18 @@ export default async function HomePage() {
   let featuredDishes: Dish[] = [];
 
   if (tenantId) {
-    try {
-      const [configData, menuRes] = await Promise.all([
-        restaurantApi.getConfig(tenantId),
-        restaurantApi.getMenu(tenantId) as Promise<MenuResponse>,
-      ]);
-      config = configData as RestaurantConfig;
-      featuredDishes = (menuRes.dishes ?? []).slice(0, 4);
-    } catch (error) {
-      console.error('Error cargando homepage:', error);
+    const [configResult, menuResult] = await Promise.allSettled([
+      restaurantApi.getConfig(tenantId),
+      restaurantApi.getMenu(tenantId) as Promise<MenuResponse>,
+    ]);
+    if (configResult.status === 'fulfilled') {
+      config = configResult.value as RestaurantConfig;
+    }
+    if (menuResult.status === 'fulfilled') {
+      const menu = menuResult.value as MenuResponse;
+      featuredDishes = (menu.dishes ?? []).slice(0, 4);
+    } else {
+      console.error('Error cargando menú:', menuResult.reason);
     }
   }
 
