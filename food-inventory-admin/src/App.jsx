@@ -419,8 +419,8 @@ function TenantLayout() {
         { name: 'Sedes', href: 'business-locations', icon: MapPin, permission: 'inventory_read' },
       ]
     },
-    { name: 'Entregas', href: 'fulfillment', icon: PackageCheck, permission: 'orders_read' },
-    { name: 'Portal Repartidores', href: 'driver', icon: Truck, permission: 'orders_read' }, // TODO: Add driver permission
+    { name: 'Entregas', href: 'fulfillment', icon: PackageCheck, permission: 'orders_read', requiresModule: 'fulfillment' },
+    { name: 'Portal Repartidores', href: 'driver', icon: Truck, permission: 'orders_read', requiresModule: 'driver' },
     { name: 'WhatsApp', href: 'whatsapp', icon: MessageCircleMore, permission: 'chat_read' },
     { name: 'Compras', href: 'purchases', icon: Truck, permission: 'purchases_read' },
     {
@@ -599,8 +599,8 @@ function TenantLayout() {
     { name: 'tips', href: 'tips', icon: CircleDollarSign, permission: 'tips_read', requiresModule: 'tips', dynamicLabel: true }, // Dynamic label: Tips or Commissions
     { name: 'Comisiones y Metas', href: 'commissions', icon: HandCoins, permission: 'commissions_read', requiresModule: 'commissions' },
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
-    { name: 'Activos Fijos', href: 'fixed-assets', icon: Building, permission: 'reports_read' },
-    { name: 'Inversiones', href: 'investments', icon: Briefcase, permission: 'reports_read' },
+    { name: 'Activos Fijos', href: 'fixed-assets', icon: Building, permission: 'reports_read', requiresModule: 'accounting' },
+    { name: 'Inversiones', href: 'investments', icon: Briefcase, permission: 'reports_read', requiresModule: 'accounting' },
     { name: 'Cierre de Caja', href: 'cash-register', icon: Receipt, permission: 'cash_register_read', requiresModule: 'cashRegister' },
     // Facturación Electrónica ahora vive dentro de Contabilidad General
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },

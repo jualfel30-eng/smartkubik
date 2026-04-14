@@ -111,7 +111,7 @@ const MODULE_GROUPS = {
   logistics: {
     title: 'Logística',
     description: 'Para empresas de transporte y distribución',
-    modules: ['shipments', 'tracking', 'routes', 'fleet', 'warehousing', 'dispatch']
+    modules: ['fulfillment', 'driver', 'shipments', 'tracking', 'routes', 'fleet', 'warehousing', 'dispatch']
   },
   manufacturing: {
     title: 'Producción / Manufactura',
@@ -151,6 +151,8 @@ const MODULE_LABELS = {
   resources: 'Recursos',
   booking: 'Reservas',
   servicePackages: 'Paquetes de Servicio',
+  fulfillment: 'Entregas',
+  driver: 'Portal Repartidores',
   shipments: 'Envíos',
   tracking: 'Rastreo',
   routes: 'Rutas',

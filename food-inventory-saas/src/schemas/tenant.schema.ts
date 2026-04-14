@@ -360,6 +360,8 @@ export class Tenant {
     servicePackages?: boolean;
 
     // LOGISTICS specific modules
+    fulfillment?: boolean; // Gestión de entregas (módulo Entregas)
+    driver?: boolean;      // Portal de repartidores
     shipments?: boolean;
     tracking?: boolean;
     routes?: boolean;
