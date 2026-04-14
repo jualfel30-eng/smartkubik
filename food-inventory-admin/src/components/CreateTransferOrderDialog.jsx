@@ -155,11 +155,14 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     const search = productSearch.toLowerCase();
     setFilteredProducts(
       inventoryItems
-        .filter(
-          (inv) =>
+        .filter((inv) => {
+          const populatedProduct = typeof inv.productId === 'object' ? inv.productId : null;
+          return (
             inv.productName?.toLowerCase().includes(search) ||
-            inv.productSku?.toLowerCase().includes(search),
-        )
+            inv.productSku?.toLowerCase().includes(search) ||
+            populatedProduct?.brand?.toLowerCase().includes(search)
+          );
+        })
         .slice(0, 20),
     );
   }, [productSearch, inventoryItems]);
@@ -334,12 +337,11 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           productName: i.productName,
           productSku: i.productSku,
           requestedQuantity: i.quantity,
-          // Include unit conversion fields when a non-base unit is selected
-          ...(i.conversionFactor !== 1 && {
-            selectedUnit: i.selectedUnit,
-            conversionFactor: i.conversionFactor,
-            unitOfMeasure: i.unitOfMeasure,
-          }),
+          // Always persist unit info so the detail view can display it correctly
+          selectedUnit: i.selectedUnit,
+          unitOfMeasure: i.unitOfMeasure,
+          // Only include conversionFactor when it's a non-base unit
+          ...(i.conversionFactor !== 1 && { conversionFactor: i.conversionFactor }),
         })),
       };
 
