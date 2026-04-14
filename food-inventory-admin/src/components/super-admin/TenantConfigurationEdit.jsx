@@ -86,7 +86,7 @@ const MODULE_GROUPS = {
   core: {
     title: 'Módulos Core',
     description: 'Funcionalidades básicas disponibles para todos',
-    modules: ['inventory', 'orders', 'customers', 'suppliers', 'reports', 'accounting', 'bankAccounts', 'payments', 'tips', 'cashRegister']
+    modules: ['inventory', 'orders', 'customers', 'suppliers', 'reports', 'accounting', 'fixedAssets', 'investments', 'bankAccounts', 'payments', 'tips', 'cashRegister']
   },
   communication: {
     title: 'Comunicación & Marketing',
@@ -151,6 +151,8 @@ const MODULE_LABELS = {
   resources: 'Recursos',
   booking: 'Reservas',
   servicePackages: 'Paquetes de Servicio',
+  fixedAssets: 'Activos Fijos',
+  investments: 'Inversiones',
   fulfillment: 'Entregas',
   driver: 'Portal Repartidores',
   shipments: 'Envíos',

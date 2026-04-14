@@ -599,8 +599,8 @@ function TenantLayout() {
     { name: 'tips', href: 'tips', icon: CircleDollarSign, permission: 'tips_read', requiresModule: 'tips', dynamicLabel: true }, // Dynamic label: Tips or Commissions
     { name: 'Comisiones y Metas', href: 'commissions', icon: HandCoins, permission: 'commissions_read', requiresModule: 'commissions' },
     { name: 'Cuentas Bancarias', href: 'bank-accounts', icon: CreditCard, permission: 'accounting_read', requiresModule: 'bankAccounts' },
-    { name: 'Activos Fijos', href: 'fixed-assets', icon: Building, permission: 'reports_read', requiresModule: 'accounting' },
-    { name: 'Inversiones', href: 'investments', icon: Briefcase, permission: 'reports_read', requiresModule: 'accounting' },
+    { name: 'Activos Fijos', href: 'fixed-assets', icon: Building, permission: 'reports_read', requiresModule: 'fixedAssets' },
+    { name: 'Inversiones', href: 'investments', icon: Briefcase, permission: 'reports_read', requiresModule: 'investments' },
     { name: 'Cierre de Caja', href: 'cash-register', icon: Receipt, permission: 'cash_register_read', requiresModule: 'cashRegister' },
     // Facturación Electrónica ahora vive dentro de Contabilidad General
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
