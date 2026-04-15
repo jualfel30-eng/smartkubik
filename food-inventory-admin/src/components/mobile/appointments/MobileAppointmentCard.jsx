@@ -1,0 +1,192 @@
+import { useRef, useState } from 'react';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { format } from 'date-fns';
+import { Check, Receipt, X, User } from 'lucide-react';
+import { fetchApi } from '@/lib/api';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import MobilePOS from '../pos/MobilePOS.jsx';
+
+const STATUS_COLOR = {
+  pending: 'bg-amber-500',
+  confirmed: 'bg-blue-500',
+  in_progress: 'bg-emerald-500',
+  completed: 'bg-muted-foreground',
+  cancelled: 'bg-destructive',
+  no_show: 'bg-destructive',
+};
+
+const STATUS_LABEL = {
+  pending: 'Pendiente',
+  confirmed: 'Confirmada',
+  in_progress: 'En curso',
+  completed: 'Completada',
+  cancelled: 'Cancelada',
+  no_show: 'No vino',
+};
+
+const REVEAL = 168; // ancho de las 3 acciones (56px × 3)
+
+export default function MobileAppointmentCard({ appointment, onTap, onChanged }) {
+  const [posOpen, setPosOpen] = useState(false);
+  const x = useMotionValue(0);
+  const actionsOpacity = useTransform(x, [-REVEAL, -40, 0], [1, 0.3, 0]);
+  const draggedRef = useRef(false);
+
+  const start = appointment.startTime ? new Date(appointment.startTime) : null;
+  const end = appointment.endTime ? new Date(appointment.endTime) : null;
+  const timeLabel = start
+    ? `${format(start, 'HH:mm')}${end ? ` – ${format(end, 'HH:mm')}` : ''}`
+    : '';
+
+  const statusDot = STATUS_COLOR[appointment.status] || 'bg-muted';
+  const statusLabel = STATUS_LABEL[appointment.status] || appointment.status;
+  const inProgress = appointment.status === 'in_progress';
+
+  const close = () => animate(x, 0, { type: 'spring', stiffness: 400, damping: 35 });
+
+  const onDragEnd = (_, info) => {
+    draggedRef.current = Math.abs(info.offset.x) > 6;
+    if (info.offset.x < -REVEAL / 2) {
+      animate(x, -REVEAL, { type: 'spring', stiffness: 400, damping: 35 });
+    } else {
+      close();
+    }
+  };
+
+  const quickAction = async (action) => {
+    try {
+      if (action === 'complete') {
+        await fetchApi(`/beauty-bookings/${appointment._id}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'completed' }),
+        });
+        toast.success('Cita completada');
+      } else if (action === 'cancel') {
+        if (!confirm('¿Cancelar esta cita?')) return;
+        await fetchApi(`/beauty-bookings/${appointment._id}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'cancelled' }),
+        });
+        toast.success('Cita cancelada');
+      } else if (action === 'charge') {
+        setPosOpen(true);
+        return;
+      }
+      close();
+      onChanged?.();
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo actualizar');
+    }
+  };
+
+  return (
+    <>
+    <div className="relative rounded-2xl overflow-hidden bg-card border border-border">
+      {/* Acciones reveladas al hacer swipe-left */}
+      <motion.div
+        aria-hidden
+        style={{ opacity: actionsOpacity }}
+        className="absolute inset-y-0 right-0 flex"
+      >
+        <button
+          type="button"
+          aria-label="Completar"
+          onClick={() => quickAction('complete')}
+          className="h-full w-14 flex items-center justify-center bg-emerald-600 text-white no-tap-highlight"
+        >
+          <Check size={20} />
+        </button>
+        <button
+          type="button"
+          aria-label="Cobrar"
+          onClick={() => quickAction('charge')}
+          className="h-full w-14 flex items-center justify-center bg-primary text-primary-foreground no-tap-highlight"
+        >
+          <Receipt size={20} />
+        </button>
+        <button
+          type="button"
+          aria-label="Cancelar"
+          onClick={() => quickAction('cancel')}
+          className="h-full w-14 flex items-center justify-center bg-destructive text-destructive-foreground no-tap-highlight"
+        >
+          <X size={20} />
+        </button>
+      </motion.div>
+
+      {/* Card draggable */}
+      <motion.button
+        type="button"
+        drag="x"
+        dragConstraints={{ left: -REVEAL, right: 0 }}
+        dragElastic={0.1}
+        onDragEnd={onDragEnd}
+        onClick={(e) => {
+          if (draggedRef.current) {
+            e.preventDefault();
+            draggedRef.current = false;
+            return;
+          }
+          close();
+          onTap?.();
+        }}
+        style={{ x }}
+        className={cn(
+          'relative z-[1] w-full text-left bg-card no-tap-highlight no-select',
+          'flex items-stretch gap-3 p-3',
+          inProgress && 'ring-2 ring-emerald-500/60',
+        )}
+      >
+        <div className="flex flex-col items-center justify-center shrink-0 w-14">
+          <div className="text-base font-semibold tabular-nums leading-tight">
+            {start ? format(start, 'HH:mm') : '--:--'}
+          </div>
+          {end && (
+            <div className="text-[11px] text-muted-foreground tabular-nums">
+              {format(end, 'HH:mm')}
+            </div>
+          )}
+        </div>
+        <div className="w-0.5 rounded-full bg-muted shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className={cn('inline-block w-2 h-2 rounded-full', statusDot)} />
+            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+              {statusLabel}
+            </span>
+          </div>
+          <div className="mt-0.5 font-semibold truncate">
+            {appointment.customerName || 'Sin cliente'}
+          </div>
+          <div className="text-sm text-muted-foreground truncate">
+            {appointment.serviceName || 'Servicio'}
+          </div>
+          {appointment.resourceName && (
+            <div className="mt-0.5 text-xs text-muted-foreground flex items-center gap-1">
+              <User size={12} />
+              <span className="truncate">{appointment.resourceName}</span>
+            </div>
+          )}
+        </div>
+        {appointment.totalPrice != null && (
+          <div className="shrink-0 text-right">
+            <div className="text-sm font-semibold tabular-nums">
+              ${Number(appointment.totalPrice).toFixed(2)}
+            </div>
+          </div>
+        )}
+      </motion.button>
+    </div>
+
+    {posOpen && (
+      <MobilePOS
+        appointment={appointment}
+        onClose={() => { setPosOpen(false); close(); }}
+        onPaid={() => { setPosOpen(false); close(); onChanged?.(); }}
+      />
+    )}
+  </>
+  );
+}

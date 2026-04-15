@@ -145,6 +145,7 @@ const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const OrganizationSelector = lazy(() => import('./pages/OrganizationSelector'));
 const OnboardingWizard = lazy(() => import('./pages/OnboardingWizard'));
 const DashboardView = lazy(() => import('./components/DashboardView.jsx'));
+const TodayDashboard = lazy(() => import('./components/mobile/home/TodayDashboard.jsx'));
 const SettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
 const InventoryDashboard = lazy(() => import('@/components/InventoryDashboard.jsx'));
 const PayablesManagement = lazy(() => import('@/components/PayablesManagement.jsx'));
@@ -159,6 +160,9 @@ const AccountingPeriods = lazy(() => import('@/components/accounting/AccountingP
 const RecurringEntries = lazy(() => import('@/components/accounting/RecurringEntries.jsx'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage.jsx'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+const MobileBottomNav = lazy(() => import('./components/mobile/MobileBottomNav.jsx'));
+const MobileMoreMenu = lazy(() => import('./components/mobile/MobileMoreMenu.jsx'));
+const MobileInstallPrompt = lazy(() => import('./components/mobile/MobileInstallPrompt.jsx'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
 const FoundersPage = lazy(() => import('./pages/FoundersPage'));
 const TrialExpired = lazy(() => import('./pages/TrialExpired'));
@@ -185,6 +189,7 @@ import BusinessLocationSelector from '@/components/BusinessLocationSelector.jsx'
 const ServicesManagement = lazy(() => import('@/components/ServicesManagement.jsx'));
 const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.jsx'));
 const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManagement.jsx'));
+const AppointmentsRouteGate = lazy(() => import('@/components/mobile/appointments/AppointmentsRouteGate.jsx'));
 const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'));
 const OrganizationsManagement = lazy(() => import('@/components/OrganizationsManagement.jsx'));
 const TablesPage = lazy(() => import('./pages/TablesPage.jsx'));
@@ -1135,11 +1140,11 @@ function TenantLayout() {
               </Button>
             </div>
           </div>
-          <div className="flex-1 min-h-0 overflow-auto p-4 md:p-6">
+          <div className="flex-1 min-h-0 overflow-auto p-4 md:p-6 mobile-content-pad">
             <TrialBanner />
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
-                <Route path="dashboard" element={<DashboardView />} />
+                <Route path="dashboard" element={<><TodayDashboard /><DashboardView /></>} />
                 <Route path="inventory-management" element={<InventoryDashboard />} />
                 <Route
                   path="storefront"
@@ -1252,7 +1257,7 @@ function TenantLayout() {
                 } />
                 <Route path="appointments" element={
                   <CrmProvider>
-                    <AppointmentsManagement />
+                    <AppointmentsRouteGate />
                   </CrmProvider>
                 } />
                 <Route path="services" element={<ServicesManagement />} />
@@ -1303,10 +1308,15 @@ function TenantLayout() {
                 <Route path="data-import" element={<DataImportPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="assistant" element={<AssistantPage />} />
+                <Route path="mas" element={<MobileMoreMenu />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
           </div>
+          <Suspense fallback={null}>
+            <MobileBottomNav />
+            <MobileInstallPrompt />
+          </Suspense>
         </div>
         <TenantPickerDialog
           isOpen={isTenantDialogOpen}
