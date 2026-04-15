@@ -1,0 +1,150 @@
+/* ==========================================================================
+   Mobile Design Tokens — SmartKubik
+   Fase 1 Roadmap Mobile UX Beauty-first
+   ==========================================================================
+   Scope: estilos y utilidades táctiles para la experiencia móvil.
+   Úsense SIEMPRE en componentes dentro de src/components/mobile/.
+   ========================================================================== */
+
+:root {
+  /* Safe areas (iOS notch/home bar) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Touch targets (Apple HIG 44pt, Material 48dp) */
+  --tap-min: 44px;
+  --tap-comfortable: 48px;
+  --tap-large: 56px;
+
+  /* Mobile shell heights */
+  --mobile-topbar-h: 56px;
+  --mobile-bottomnav-h: 64px;
+  --mobile-fab-size: 56px;
+  --mobile-content-pad-bottom: calc(var(--mobile-bottomnav-h) + var(--safe-bottom) + 8px);
+
+  /* Z-index scale (mobile-first) */
+  --z-mobile-content: 1;
+  --z-mobile-topbar: 40;
+  --z-mobile-bottomnav: 50;
+  --z-mobile-fab: 55;
+  --z-mobile-sheet: 60;
+  --z-mobile-modal: 70;
+  --z-mobile-toast: 80;
+
+  /* Mobile typography scale (rem-based, works with App.css base) */
+  --mobile-text-xs: 0.75rem;
+  --mobile-text-sm: 0.875rem;
+  --mobile-text-base: 1rem;
+  --mobile-text-lg: 1.125rem;
+  --mobile-text-xl: 1.25rem;
+  --mobile-text-2xl: 1.5rem;
+
+  /* Mobile spacing */
+  --mobile-gap-xs: 4px;
+  --mobile-gap-sm: 8px;
+  --mobile-gap-md: 12px;
+  --mobile-gap-lg: 16px;
+  --mobile-gap-xl: 24px;
+
+  /* Mobile radii */
+  --mobile-radius-sm: 8px;
+  --mobile-radius-md: 12px;
+  --mobile-radius-lg: 16px;
+  --mobile-radius-full: 9999px;
+
+  /* Animation */
+  --mobile-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --mobile-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --mobile-duration-fast: 150ms;
+  --mobile-duration-base: 250ms;
+  --mobile-duration-slow: 350ms;
+}
+
+/* --------------------------------------------------------------------------
+   Utilities
+   -------------------------------------------------------------------------- */
+
+.safe-top {
+  padding-top: var(--safe-top);
+}
+.safe-bottom {
+  padding-bottom: var(--safe-bottom);
+}
+.safe-x {
+  padding-left: var(--safe-left);
+  padding-right: var(--safe-right);
+}
+
+.tap-target {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Prevent tap highlight flash on iOS */
+.no-tap-highlight {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Momentum scroll + hide scrollbars on mobile scroll areas */
+.mobile-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.mobile-scroll::-webkit-scrollbar {
+  display: none;
+}
+.mobile-scroll {
+  scrollbar-width: none;
+}
+
+/* Snap-scroll row (for day columns / chips) */
+.snap-row {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: var(--mobile-gap-md);
+}
+.snap-row > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* Disable text selection on interactive mobile UI (avoid long-press menu) */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --mobile-duration-fast: 0ms;
+    --mobile-duration-base: 0ms;
+    --mobile-duration-slow: 0ms;
+  }
+}
+
+/* Hide on desktop helper (Tailwind's md:hidden is fine, but this is a
+   semantic alternative for mobile-only primitives) */
+@media (min-width: 768px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+@media (max-width: 767.98px) {
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+/* Content padding helper: deja espacio para bottom-nav en mobile */
+@media (max-width: 767.98px) {
+  .mobile-content-pad {
+    padding-bottom: var(--mobile-content-pad-bottom);
+  }
+}

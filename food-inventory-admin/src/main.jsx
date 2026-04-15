@@ -7,6 +7,7 @@ import { FeatureFlagsProvider } from './hooks/use-feature-flags.jsx';
 import { ThemeProvider } from '@/components/ThemeProvider.jsx';
 import './index.css';
 import './custom.css';
+import './styles/mobile-tokens.css';
 import App from './App.jsx';
 
 // Prevent scroll from accidentally changing values in number inputs.

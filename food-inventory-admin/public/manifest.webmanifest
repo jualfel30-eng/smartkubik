@@ -1,0 +1,48 @@
+{
+  "name": "SmartKubik",
+  "short_name": "SmartKubik",
+  "description": "Gestiona tu negocio desde el móvil — citas, clientes, caja y más.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "lang": "es",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/favicon-smartkubik.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-smartkubik.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-smartkubik.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nueva cita",
+      "short_name": "Nueva cita",
+      "url": "/appointments?new=1",
+      "icons": [{ "src": "/favicon-smartkubik.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Hoy",
+      "short_name": "Hoy",
+      "url": "/dashboard",
+      "icons": [{ "src": "/favicon-smartkubik.png", "sizes": "192x192" }]
+    }
+  ],
+  "categories": ["business", "productivity"]
+}
