@@ -1,11 +1,12 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { CalendarDays, Home, Users, Menu } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { cn } from '@/lib/utils';
+import { SPRING } from '@/lib/motion';
+import haptics from '@/lib/haptics';
 import MobileFAB from './MobileFAB.jsx';
 
-// Tabs por vertical. Hoy solo beauty tiene un set específico; el resto
-// recibe un set por defecto coherente con el ERP actual.
 const TAB_CONFIGS = {
   beauty: [
     { to: '/dashboard', label: 'Hoy', icon: Home },
@@ -27,14 +28,29 @@ function TabItem({ to, label, Icon, active }) {
   return (
     <NavLink
       to={to}
+      onClick={() => { if (!active) haptics.tap(); }}
       className={cn(
-        'flex flex-1 flex-col items-center justify-center gap-0.5 tap-target no-tap-highlight no-select',
-        'text-[11px] font-medium transition-colors',
+        'relative flex flex-1 flex-col items-center justify-center gap-0.5 tap-target no-tap-highlight no-select',
+        'text-[11px] font-medium',
         active ? 'text-primary' : 'text-muted-foreground',
       )}
     >
-      <Icon size={22} strokeWidth={active ? 2.2 : 1.8} />
-      <span className="leading-none">{label}</span>
+      {active && (
+        <motion.span
+          layoutId="mobile-nav-pill"
+          className="absolute top-1.5 h-1 w-8 rounded-full bg-primary"
+          transition={SPRING.soft}
+          aria-hidden
+        />
+      )}
+      <motion.span
+        animate={{ scale: active ? 1.08 : 1, y: active ? -1 : 0 }}
+        transition={SPRING.soft}
+        className="flex flex-col items-center gap-0.5"
+      >
+        <Icon size={22} strokeWidth={active ? 2.2 : 1.8} />
+        <span className="leading-none transition-colors">{label}</span>
+      </motion.span>
     </NavLink>
   );
 }
@@ -61,6 +77,7 @@ export default function MobileBottomNav() {
       style={{
         height: `calc(var(--mobile-bottomnav-h) + var(--safe-bottom))`,
         zIndex: 'var(--z-mobile-bottomnav)',
+        boxShadow: 'var(--elevation-raised)',
       }}
     >
       {tabs.map((tab, idx) => {

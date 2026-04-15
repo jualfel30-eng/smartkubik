@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { trackEvent } from '@/lib/analytics';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import { cn } from '@/lib/utils';
+import haptics from '@/lib/haptics';
 
 const toTimeInputValue = (d) => format(d, "yyyy-MM-dd'T'HH:mm");
 
@@ -162,6 +163,7 @@ export default function MobileQuickCreateAppointment({
           };
 
       await fetchApi(endpoint, { method: 'POST', body: JSON.stringify(payload) });
+      haptics.success();
       trackEvent('appointment_created', { serviceId, resourceId: resourceId || null, isBeauty });
 
       // Toast with WhatsApp action if client has phone
@@ -191,6 +193,7 @@ export default function MobileQuickCreateAppointment({
       onClose?.(true);
     } catch (err) {
       console.error(err);
+      haptics.error();
       toast.error(err.message || 'No se pudo crear la cita');
     } finally {
       setSubmitting(false);
@@ -301,7 +304,7 @@ export default function MobileQuickCreateAppointment({
                 <button
                   key={id}
                   type="button"
-                  onClick={() => setServiceId(id)}
+                  onClick={() => { haptics.select(); setServiceId(id); }}
                   className={cn(
                     'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight transition-colors',
                     active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground',
@@ -329,7 +332,7 @@ export default function MobileQuickCreateAppointment({
                 <button
                   key={q.label}
                   type="button"
-                  onClick={() => setStartAt(q.at)}
+                  onClick={() => { haptics.select(); setStartAt(q.at); }}
                   className={cn(
                     'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
                     active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border',
@@ -358,7 +361,7 @@ export default function MobileQuickCreateAppointment({
             <div className="mt-1 flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => setResourceId('')}
+                onClick={() => { haptics.select(); setResourceId(''); }}
                 className={cn(
                   'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
                   !resourceId ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border',
@@ -372,7 +375,7 @@ export default function MobileQuickCreateAppointment({
                   <button
                     key={id}
                     type="button"
-                    onClick={() => setResourceId(id)}
+                    onClick={() => { haptics.select(); setResourceId(id); }}
                     className={cn(
                       'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
                       resourceId === id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border',

@@ -6,26 +6,57 @@ import {
   TrendingUp, CalendarDays, Clock, CheckCircle2,
   AlertCircle, RefreshCw, ChevronRight, Scissors, DollarSign,
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { fetchApi } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { listItem, STAGGER, DUR, EASE } from '@/lib/motion';
+import haptics from '@/lib/haptics';
 import MobilePushPrompt from '../MobilePushPrompt.jsx';
+import AnimatedNumber from '../primitives/AnimatedNumber.jsx';
 
 // ─── mini sparkline svg ───────────────────────────────────────────────────────
 function Sparkline({ values = [], color = '#22c55e' }) {
   if (!values.length) return null;
   const max = Math.max(...values, 1);
   const w = 80, h = 28;
-  const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w;
-    const y = h - (v / max) * h;
-    return `${x},${y}`;
-  }).join(' ');
+  const coords = values.map((v, i) => {
+    const x = values.length === 1 ? w / 2 : (i / (values.length - 1)) * w;
+    const y = h - (v / max) * (h - 2) - 1;
+    return [x, y];
+  });
+  const linePath = coords
+    .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`)
+    .join(' ');
+  const areaPath = `${linePath} L${w} ${h} L0 ${h} Z`;
+  const gradId = `spark-${color.replace(/[^a-z0-9]/gi, '')}`;
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" aria-hidden>
-      <polyline points={pts} stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <motion.path
+        d={areaPath}
+        fill={`url(#${gradId})`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: DUR.hero, delay: 0.25, ease: EASE.out }}
+      />
+      <motion.path
+        d={linePath}
+        stroke={color}
+        strokeWidth="2"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: DUR.hero, ease: EASE.out }}
+      />
     </svg>
   );
 }
@@ -45,14 +76,19 @@ function UpcomingCard({ apt, onAction }) {
   const isInProgress = apt.status === 'in_progress';
 
   return (
-    <button
+    <motion.button
       type="button"
-      onClick={() => navigate('/appointments')}
+      variants={listItem}
+      whileTap={{ scale: 0.98 }}
+      onClick={() => { haptics.tap(); navigate('/appointments'); }}
       className={cn(
-        'w-full text-left rounded-2xl border border-border bg-card p-3',
-        'flex items-center gap-3 no-tap-highlight active:scale-[0.98] transition-transform',
-        isInProgress && 'ring-2 ring-emerald-500/50',
+        'relative w-full text-left border border-border bg-card p-3',
+        'flex items-center gap-3 no-tap-highlight',
       )}
+      style={{
+        borderRadius: 'var(--mobile-radius-lg)',
+        boxShadow: isInProgress ? 'var(--ring-active-glow)' : 'var(--elevation-rest)',
+      }}
     >
       <div className="shrink-0 flex flex-col items-center justify-center w-12">
         <div className="text-base font-bold tabular-nums leading-none">
@@ -80,7 +116,7 @@ function UpcomingCard({ apt, onAction }) {
           </button>
         </div>
       )}
-    </button>
+    </motion.button>
   );
 }
 
@@ -198,9 +234,14 @@ export default function TodayDashboard() {
   }
 
   return (
-    <div className="md:hidden mobile-content-pad space-y-4 pb-2">
+    <motion.div
+      className="md:hidden mobile-content-pad space-y-4 pb-2"
+      initial="initial"
+      animate="animate"
+      variants={STAGGER(0.05, 0.05)}
+    >
       {/* Greeting */}
-      <div className="flex items-center justify-between">
+      <motion.div variants={listItem} className="flex items-center justify-between">
         <div>
           <p className="text-xs text-muted-foreground capitalize">
             {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
@@ -211,21 +252,31 @@ export default function TodayDashboard() {
         </div>
         <button
           type="button"
-          onClick={() => load(true)}
+          onClick={() => { haptics.tap(); load(true); }}
           aria-label="Actualizar"
           className="tap-target no-tap-highlight text-muted-foreground"
         >
           <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
         </button>
-      </div>
+      </motion.div>
 
       {/* Hero revenue card */}
-      <div className="rounded-2xl bg-card border border-border p-4">
+      <motion.div
+        variants={listItem}
+        className="bg-card border border-border p-4"
+        style={{
+          borderRadius: 'var(--mobile-radius-lg)',
+          boxShadow: 'var(--elevation-raised)',
+        }}
+      >
         <div className="flex items-start justify-between">
           <div>
             <p className="text-xs text-muted-foreground">Ingresos hoy</p>
             <p className="text-3xl font-bold tabular-nums mt-0.5">
-              ${Number(salesToday).toFixed(2)}
+              <AnimatedNumber
+                value={Number(salesToday)}
+                format={(n) => `$${n.toFixed(2)}`}
+              />
             </p>
           </div>
           <div className="flex flex-col items-end gap-1">
@@ -250,26 +301,27 @@ export default function TodayDashboard() {
             <div className="text-[11px] text-muted-foreground">Pendientes</div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Alerts */}
       {alerts.length > 0 && (
-        <div className="space-y-2">
+        <motion.div variants={STAGGER(0.04)} className="space-y-2">
           {alerts.map(a => (
-            <AlertCard
-              key={a.id}
-              icon={a.icon}
-              color={a.color}
-              label={a.label}
-              onAction={() => navigate(a.to)}
-            />
+            <motion.div key={a.id} variants={listItem}>
+              <AlertCard
+                icon={a.icon}
+                color={a.color}
+                label={a.label}
+                onAction={() => { haptics.tap(); navigate(a.to); }}
+              />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {/* Upcoming appointments */}
       {upcoming.length > 0 && (
-        <section>
+        <motion.section variants={listItem}>
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-sm font-semibold flex items-center gap-1.5">
               <CalendarDays size={14} /> Próximas citas
@@ -282,7 +334,7 @@ export default function TodayDashboard() {
               Ver agenda
             </button>
           </div>
-          <div className="space-y-2">
+          <motion.div className="space-y-2" variants={STAGGER(0.035)}>
             {upcoming.map(apt => (
               <UpcomingCard
                 key={apt._id}
@@ -290,8 +342,8 @@ export default function TodayDashboard() {
                 onAction={(a) => navigate(`/appointments?cobrar=${a._id}`)}
               />
             ))}
-          </div>
-        </section>
+          </motion.div>
+        </motion.section>
       )}
 
       {/* Completed today */}
@@ -306,9 +358,9 @@ export default function TodayDashboard() {
       <MobilePushPrompt />
 
       {/* Quick nav */}
-      <section>
+      <motion.section variants={listItem}>
         <h2 className="text-sm font-semibold mb-2">Acceso rápido</h2>
-        <div className="grid grid-cols-2 gap-2">
+        <motion.div className="grid grid-cols-2 gap-2" variants={STAGGER(0.03)}>
           {[
             { label: 'Agenda', icon: CalendarDays, to: '/appointments' },
             { label: 'Caja', icon: DollarSign, to: '/cash-register' },
@@ -317,19 +369,25 @@ export default function TodayDashboard() {
           ].map(item => {
             const Icon = item.icon;
             return (
-              <button
+              <motion.button
                 key={item.to}
                 type="button"
-                onClick={() => navigate(item.to)}
-                className="rounded-2xl border border-border bg-card p-4 flex flex-col items-start gap-2 no-tap-highlight active:scale-[0.98] transition-transform"
+                variants={listItem}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => { haptics.tap(); navigate(item.to); }}
+                className="border border-border bg-card p-4 flex flex-col items-start gap-2 no-tap-highlight"
+                style={{
+                  borderRadius: 'var(--mobile-radius-lg)',
+                  boxShadow: 'var(--elevation-rest)',
+                }}
               >
                 <Icon size={20} className="text-primary" />
                 <span className="text-sm font-medium">{item.label}</span>
-              </button>
+              </motion.button>
             );
           })}
-        </div>
-      </section>
-    </div>
+        </motion.div>
+      </motion.section>
+    </motion.div>
   );
 }

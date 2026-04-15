@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
-import { format, isSameDay, isToday, isTomorrow } from 'date-fns';
+import { format, isToday, isTomorrow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarDays } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { listItem, STAGGER } from '@/lib/motion';
+import haptics from '@/lib/haptics';
 
 const STATUS_COLOR = {
   pending: 'bg-amber-500',
@@ -56,7 +59,12 @@ export default function MobileAgendaList({ items = [], onSelect }) {
   }
 
   return (
-    <div className="py-2 space-y-5">
+    <motion.div
+      className="py-2 space-y-5"
+      initial="initial"
+      animate="animate"
+      variants={STAGGER(0.04)}
+    >
       {groups.map(({ date: d, items: dayItems }) => (
         <section key={format(d, 'yyyy-MM-dd')}>
           <div className="flex items-center gap-2 mb-2 px-1">
@@ -64,15 +72,21 @@ export default function MobileAgendaList({ items = [], onSelect }) {
             <div className="flex-1 h-px bg-border" />
             <span className="text-xs text-muted-foreground">{dayItems.length} cita{dayItems.length !== 1 ? 's' : ''}</span>
           </div>
-          <div className="space-y-2">
+          <motion.div className="space-y-2" variants={STAGGER(0.035)}>
             {dayItems.map((apt) => {
               const dot = STATUS_COLOR[apt.status] || 'bg-muted';
               return (
-                <button
+                <motion.button
                   key={apt._id}
                   type="button"
-                  onClick={() => onSelect?.(apt)}
-                  className="w-full text-left rounded-2xl border border-border bg-card p-3 flex items-center gap-3 no-tap-highlight active:scale-[0.99] transition-transform"
+                  variants={listItem}
+                  whileTap={{ scale: 0.985 }}
+                  onClick={() => { haptics.tap(); onSelect?.(apt); }}
+                  className="w-full text-left border border-border bg-card p-3 flex items-center gap-3 no-tap-highlight"
+                  style={{
+                    borderRadius: 'var(--mobile-radius-lg)',
+                    boxShadow: 'var(--elevation-rest)',
+                  }}
                 >
                   <div className="shrink-0 text-center w-12">
                     <p className="text-base font-bold tabular-nums leading-none">
@@ -97,12 +111,12 @@ export default function MobileAgendaList({ items = [], onSelect }) {
                       ${Number(apt.totalPrice).toFixed(2)}
                     </div>
                   )}
-                </button>
+                </motion.button>
               );
             })}
-          </div>
+          </motion.div>
         </section>
       ))}
-    </div>
+    </motion.div>
   );
 }

@@ -5,6 +5,8 @@ import { Check, Receipt, X, User } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { SPRING, listItem } from '@/lib/motion';
+import haptics from '@/lib/haptics';
 import MobilePOS from '../pos/MobilePOS.jsx';
 
 const STATUS_COLOR = {
@@ -25,30 +27,37 @@ const STATUS_LABEL = {
   no_show: 'No vino',
 };
 
-const REVEAL = 168; // ancho de las 3 acciones (56px × 3)
+const REVEAL = 168; // 3 actions × 56px
 
 export default function MobileAppointmentCard({ appointment, onTap, onChanged }) {
   const [posOpen, setPosOpen] = useState(false);
   const x = useMotionValue(0);
   const actionsOpacity = useTransform(x, [-REVEAL, -40, 0], [1, 0.3, 0]);
   const draggedRef = useRef(false);
+  const revealHapticFiredRef = useRef(false);
 
   const start = appointment.startTime ? new Date(appointment.startTime) : null;
   const end = appointment.endTime ? new Date(appointment.endTime) : null;
-  const timeLabel = start
-    ? `${format(start, 'HH:mm')}${end ? ` – ${format(end, 'HH:mm')}` : ''}`
-    : '';
 
   const statusDot = STATUS_COLOR[appointment.status] || 'bg-muted';
   const statusLabel = STATUS_LABEL[appointment.status] || appointment.status;
   const inProgress = appointment.status === 'in_progress';
 
-  const close = () => animate(x, 0, { type: 'spring', stiffness: 400, damping: 35 });
+  const close = () => animate(x, 0, SPRING.snappy);
+
+  const onDrag = (_, info) => {
+    if (!revealHapticFiredRef.current && info.offset.x < -REVEAL / 2) {
+      haptics.select();
+      revealHapticFiredRef.current = true;
+    } else if (revealHapticFiredRef.current && info.offset.x > -REVEAL / 2) {
+      revealHapticFiredRef.current = false;
+    }
+  };
 
   const onDragEnd = (_, info) => {
     draggedRef.current = Math.abs(info.offset.x) > 6;
     if (info.offset.x < -REVEAL / 2) {
-      animate(x, -REVEAL, { type: 'spring', stiffness: 400, damping: 35 });
+      animate(x, -REVEAL, SPRING.snappy);
     } else {
       close();
     }
@@ -61,6 +70,7 @@ export default function MobileAppointmentCard({ appointment, onTap, onChanged })
           method: 'PATCH',
           body: JSON.stringify({ status: 'completed' }),
         });
+        haptics.success();
         toast.success('Cita completada');
       } else if (action === 'cancel') {
         if (!confirm('¿Cancelar esta cita?')) return;
@@ -68,8 +78,10 @@ export default function MobileAppointmentCard({ appointment, onTap, onChanged })
           method: 'PATCH',
           body: JSON.stringify({ status: 'cancelled' }),
         });
+        haptics.warning();
         toast.success('Cita cancelada');
       } else if (action === 'charge') {
+        haptics.tap();
         setPosOpen(true);
         return;
       }
@@ -77,14 +89,34 @@ export default function MobileAppointmentCard({ appointment, onTap, onChanged })
       onChanged?.();
     } catch (err) {
       console.error(err);
+      haptics.error();
       toast.error('No se pudo actualizar');
     }
   };
 
   return (
     <>
-    <div className="relative rounded-2xl overflow-hidden bg-card border border-border">
-      {/* Acciones reveladas al hacer swipe-left */}
+    <motion.div
+      variants={listItem}
+      className="relative overflow-hidden bg-card border border-border"
+      style={{
+        borderRadius: 'var(--mobile-radius-lg)',
+        boxShadow: 'var(--elevation-rest)',
+      }}
+    >
+      {inProgress && (
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-[2]"
+          style={{
+            borderRadius: 'var(--mobile-radius-lg)',
+            boxShadow: 'var(--ring-active-glow)',
+          }}
+          animate={{ opacity: [0.55, 1, 0.55] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      )}
+      {/* Swipe-reveal actions */}
       <motion.div
         aria-hidden
         style={{ opacity: actionsOpacity }}
@@ -94,7 +126,7 @@ export default function MobileAppointmentCard({ appointment, onTap, onChanged })
           type="button"
           aria-label="Completar"
           onClick={() => quickAction('complete')}
-          className="h-full w-14 flex items-center justify-center bg-emerald-600 text-white no-tap-highlight"
+          className="h-full w-14 flex items-center justify-center bg-emerald-600 text-white no-tap-highlight active:opacity-80"
         >
           <Check size={20} />
         </button>
@@ -102,7 +134,7 @@ export default function MobileAppointmentCard({ appointment, onTap, onChanged })
           type="button"
           aria-label="Cobrar"
           onClick={() => quickAction('charge')}
-          className="h-full w-14 flex items-center justify-center bg-primary text-primary-foreground no-tap-highlight"
+          className="h-full w-14 flex items-center justify-center bg-primary text-primary-foreground no-tap-highlight active:opacity-80"
         >
           <Receipt size={20} />
         </button>
@@ -110,25 +142,28 @@ export default function MobileAppointmentCard({ appointment, onTap, onChanged })
           type="button"
           aria-label="Cancelar"
           onClick={() => quickAction('cancel')}
-          className="h-full w-14 flex items-center justify-center bg-destructive text-destructive-foreground no-tap-highlight"
+          className="h-full w-14 flex items-center justify-center bg-destructive text-destructive-foreground no-tap-highlight active:opacity-80"
         >
           <X size={20} />
         </button>
       </motion.div>
 
-      {/* Card draggable */}
+      {/* Draggable card */}
       <motion.button
         type="button"
         drag="x"
         dragConstraints={{ left: -REVEAL, right: 0 }}
         dragElastic={0.1}
+        onDrag={onDrag}
         onDragEnd={onDragEnd}
+        whileTap={{ scale: 0.985 }}
         onClick={(e) => {
           if (draggedRef.current) {
             e.preventDefault();
             draggedRef.current = false;
             return;
           }
+          haptics.tap();
           close();
           onTap?.();
         }}
@@ -136,7 +171,6 @@ export default function MobileAppointmentCard({ appointment, onTap, onChanged })
         className={cn(
           'relative z-[1] w-full text-left bg-card no-tap-highlight no-select',
           'flex items-stretch gap-3 p-3',
-          inProgress && 'ring-2 ring-emerald-500/60',
         )}
       >
         <div className="flex flex-col items-center justify-center shrink-0 w-14">
@@ -178,7 +212,7 @@ export default function MobileAppointmentCard({ appointment, onTap, onChanged })
           </div>
         )}
       </motion.button>
-    </div>
+    </motion.div>
 
     {posOpen && (
       <MobilePOS

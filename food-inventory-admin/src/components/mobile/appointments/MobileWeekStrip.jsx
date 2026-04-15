@@ -1,20 +1,18 @@
 import { useMemo } from 'react';
 import { format, startOfWeek, addDays, isSameDay, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { SPRING } from '@/lib/motion';
+import haptics from '@/lib/haptics';
 
 /**
  * Tira horizontal de 7 días con dots de ocupación.
- * Permite navegar al día tocando. El día seleccionado está resaltado.
- *
- * Props:
- *  - date: Date  (día actualmente seleccionado)
- *  - items: appointment[]  (todas las citas cargadas, para contar por día)
- *  - onSelect: (date: Date) => void
+ * Props: date, items[], onSelect(date)
  */
 export default function MobileWeekStrip({ date, items = [], onSelect }) {
   const weekStart = useMemo(
-    () => startOfWeek(date, { weekStartsOn: 1 }), // lunes
+    () => startOfWeek(date, { weekStartsOn: 1 }),
     [date],
   );
 
@@ -23,7 +21,6 @@ export default function MobileWeekStrip({ date, items = [], onSelect }) {
     [weekStart],
   );
 
-  // Count appointments per day
   const countByDay = useMemo(() => {
     const map = new Map();
     for (const apt of items) {
@@ -46,28 +43,35 @@ export default function MobileWeekStrip({ date, items = [], onSelect }) {
           <button
             key={key}
             type="button"
-            onClick={() => onSelect(d)}
+            onClick={() => { if (!selected) haptics.select(); onSelect(d); }}
             className={cn(
-              'flex flex-col items-center gap-0.5 rounded-xl py-1.5 px-1 flex-1 no-tap-highlight transition-colors',
-              selected ? 'bg-primary text-primary-foreground' : 'hover:bg-muted',
+              'relative flex flex-col items-center gap-0.5 py-1.5 px-1 flex-1 no-tap-highlight',
+              !selected && 'hover:bg-muted rounded-xl',
             )}
+            style={selected ? { color: 'var(--primary-foreground, #fff)' } : undefined}
           >
-            {/* Day letter */}
+            {selected && (
+              <motion.span
+                layoutId="week-strip-pill"
+                className="absolute inset-0 bg-primary"
+                style={{ borderRadius: 'var(--mobile-radius-md)' }}
+                transition={SPRING.soft}
+                aria-hidden
+              />
+            )}
             <span className={cn(
-              'text-[10px] font-medium uppercase',
+              'relative z-[1] text-[10px] font-medium uppercase',
               selected ? 'text-primary-foreground' : 'text-muted-foreground',
             )}>
               {format(d, 'EEEEE', { locale: es })}
             </span>
-            {/* Day number */}
             <span className={cn(
-              'text-sm font-bold leading-none',
-              today && !selected ? 'text-primary' : '',
+              'relative z-[1] text-sm font-bold leading-none',
+              selected ? 'text-primary-foreground' : (today ? 'text-primary' : ''),
             )}>
               {format(d, 'd')}
             </span>
-            {/* Occupation dots */}
-            <div className="flex gap-0.5 h-1.5 items-center justify-center mt-0.5">
+            <div className="relative z-[1] flex gap-0.5 h-1.5 items-center justify-center mt-0.5">
               {count === 0 ? (
                 <span className="w-1 h-1 rounded-full bg-transparent" />
               ) : count <= 3 ? (

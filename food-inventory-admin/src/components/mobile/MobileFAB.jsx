@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, CalendarPlus, UserPlus, Receipt, ShoppingCart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import MobileActionSheet from './MobileActionSheet.jsx';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
-import { CalendarPlus, UserPlus, Receipt, ShoppingCart } from 'lucide-react';
+import { SPRING } from '@/lib/motion';
+import haptics from '@/lib/haptics';
 
 const ACTIONS_BY_VERTICAL = {
   beauty: [
@@ -25,29 +27,43 @@ export default function MobileFAB() {
   const { isBeauty } = useMobileVertical();
   const actions = isBeauty ? ACTIONS_BY_VERTICAL.beauty : ACTIONS_BY_VERTICAL.default;
 
+  const handleToggle = () => {
+    haptics.select();
+    setOpen((o) => !o);
+  };
+
   const handlePick = (action) => {
+    haptics.tap();
     setOpen(false);
     navigate(action.to);
   };
 
   return (
     <>
-      <button
+      <motion.button
         type="button"
-        aria-label="Acciones rápidas"
-        onClick={() => setOpen(true)}
+        aria-label={open ? 'Cerrar acciones rápidas' : 'Acciones rápidas'}
+        aria-expanded={open}
+        onClick={handleToggle}
+        whileTap={{ scale: 0.92 }}
         className="no-tap-highlight no-select absolute left-1/2 -translate-x-1/2 -top-6
                    rounded-full bg-primary text-primary-foreground
-                   shadow-lg active:scale-95 transition-transform
                    flex items-center justify-center"
         style={{
           width: 'var(--mobile-fab-size)',
           height: 'var(--mobile-fab-size)',
           zIndex: 'var(--z-mobile-fab)',
+          boxShadow: 'var(--elevation-floating)',
         }}
       >
-        <Plus size={28} strokeWidth={2.4} />
-      </button>
+        <motion.span
+          animate={{ rotate: open ? 45 : 0 }}
+          transition={SPRING.soft}
+          className="flex items-center justify-center"
+        >
+          <Plus size={28} strokeWidth={2.4} />
+        </motion.span>
+      </motion.button>
 
       <MobileActionSheet
         open={open}
@@ -58,17 +74,21 @@ export default function MobileFAB() {
           {actions.map((action) => {
             const Icon = action.icon;
             return (
-              <button
+              <motion.button
                 key={action.id}
                 type="button"
                 onClick={() => handlePick(action)}
+                whileTap={{ scale: 0.96 }}
                 className="no-tap-highlight no-select flex flex-col items-center justify-center gap-2
-                           rounded-2xl border border-border bg-card p-4
-                           min-h-[96px] active:scale-[0.98] transition-transform"
+                           border border-border bg-card p-4 min-h-[96px]"
+                style={{
+                  borderRadius: 'var(--mobile-radius-lg)',
+                  boxShadow: 'var(--elevation-rest)',
+                }}
               >
                 <Icon size={26} className="text-primary" />
                 <span className="text-sm font-medium">{action.label}</span>
-              </button>
+              </motion.button>
             );
           })}
         </div>

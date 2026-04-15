@@ -5,7 +5,9 @@ import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { toast } from 'sonner';
 import { trackEvent } from '@/lib/analytics';
 import { cn } from '@/lib/utils';
+import haptics from '@/lib/haptics';
 import MobileActionSheet from '../MobileActionSheet.jsx';
+import AnimatedNumber from '../primitives/AnimatedNumber.jsx';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const METHOD_LABELS = {
@@ -34,6 +36,7 @@ const VES_METHODS = new Set(['efectivo_ves', 'transferencia_ves', 'pago_movil_ve
 // ─── NumPad ───────────────────────────────────────────────────────────────────
 function NumPad({ value, onChange }) {
   const press = (key) => {
+    haptics.tap();
     if (key === 'backspace') { onChange(value.slice(0, -1) || '0'); }
     else if (key === '.') { if (!value.includes('.')) onChange(value + '.'); }
     else {
@@ -61,7 +64,7 @@ function TipPicker({ base, value, onChange }) {
   return (
     <div className="flex gap-2">
       {[0, 10, 15, 20].map(pct => (
-        <button key={pct} type="button" onClick={() => onChange(pct)}
+        <button key={pct} type="button" onClick={() => { haptics.select(); onChange(pct); }}
           className={cn('flex-1 rounded-xl border py-2.5 text-sm font-medium no-tap-highlight transition-colors',
             value === pct ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
           {pct === 0 ? 'Sin propina' : `${pct}%`}
@@ -251,9 +254,11 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
         trackEvent('payment_completed', { mode: 'single', method, total: grandTotal });
       }
 
+      haptics.success();
       onPaid?.();
     } catch (err) {
       console.error(err);
+      haptics.error();
       toast.error(err.message || 'Error al registrar el pago');
     } finally {
       setSubmitting(false);
@@ -315,7 +320,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
                 {methods.slice(0, 8).map(m => {
                   const Icon = METHOD_ICONS[m.id] || Banknote;
                   return (
-                    <button key={m.id} type="button" onClick={() => setMethod(m.id)}
+                    <button key={m.id} type="button" onClick={() => { haptics.select(); setMethod(m.id); }}
                       className={cn('flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium no-tap-highlight transition-colors',
                         method === m.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
                       <Icon size={14} />
@@ -369,7 +374,11 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
       <div className="absolute inset-x-0 bottom-0 px-4 pt-3 pb-4 bg-card border-t border-border" style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}>
         <div className="flex items-center justify-between mb-2 text-sm">
           <span className="text-muted-foreground">Total a cobrar</span>
-          <span className="font-bold text-lg tabular-nums">${grandTotal.toFixed(2)}</span>
+          <AnimatedNumber
+            value={grandTotal}
+            format={(n) => `$${n.toFixed(2)}`}
+            className="font-bold text-lg tabular-nums"
+          />
         </div>
         <button type="button" disabled={submitting || (mixedMode ? !mixedBalanced || linesTotal <= 0 : Number(amount) <= 0)} onClick={submit}
           className="w-full rounded-xl bg-emerald-600 text-white py-4 text-base font-bold no-tap-highlight flex items-center justify-center gap-2 disabled:opacity-50">

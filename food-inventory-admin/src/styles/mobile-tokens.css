@@ -56,10 +56,48 @@
 
   /* Animation */
   --mobile-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --mobile-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --mobile-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --mobile-duration-fast: 150ms;
   --mobile-duration-base: 250ms;
   --mobile-duration-slow: 350ms;
+  --mobile-duration-hero: 600ms;
+
+  /* Elevation scale — subtle, premium, dark-mode aware via .dark override below */
+  --elevation-rest:
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 1px 3px rgb(0 0 0 / 0.06);
+  --elevation-raised:
+    0 4px 12px rgb(0 0 0 / 0.06),
+    0 2px 4px rgb(0 0 0 / 0.04);
+  --elevation-floating:
+    0 12px 32px rgb(0 0 0 / 0.12),
+    0 4px 8px rgb(0 0 0 / 0.06);
+  --elevation-overlay:
+    0 24px 64px rgb(0 0 0 / 0.18),
+    0 8px 16px rgb(0 0 0 / 0.08);
+
+  /* Status glow rings — used for "in_progress" and other active states */
+  --ring-active-glow: 0 0 0 3px rgb(16 185 129 / 0.25), 0 0 18px rgb(16 185 129 / 0.35);
+  --ring-pending-glow: 0 0 0 3px rgb(245 158 11 / 0.25);
+  --ring-danger-glow: 0 0 0 3px rgb(239 68 68 / 0.25);
+}
+
+/* Dark mode: deeper shadows, slightly stronger glows */
+.dark {
+  --elevation-rest:
+    0 1px 2px rgb(0 0 0 / 0.35),
+    0 1px 3px rgb(0 0 0 / 0.45);
+  --elevation-raised:
+    0 4px 12px rgb(0 0 0 / 0.45),
+    0 2px 4px rgb(0 0 0 / 0.35);
+  --elevation-floating:
+    0 12px 32px rgb(0 0 0 / 0.55),
+    0 4px 8px rgb(0 0 0 / 0.4);
+  --elevation-overlay:
+    0 24px 64px rgb(0 0 0 / 0.7),
+    0 8px 16px rgb(0 0 0 / 0.5);
+  --ring-active-glow: 0 0 0 3px rgb(16 185 129 / 0.35), 0 0 24px rgb(16 185 129 / 0.5);
 }
 
 /* --------------------------------------------------------------------------
