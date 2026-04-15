@@ -36,8 +36,13 @@ export default function MobileAppointmentCard({ appointment, onTap, onChanged })
   const draggedRef = useRef(false);
   const revealHapticFiredRef = useRef(false);
 
-  const start = appointment.startTime ? new Date(appointment.startTime) : null;
-  const end = appointment.endTime ? new Date(appointment.endTime) : null;
+  const toValidDate = (v) => {
+    if (!v) return null;
+    const d = v instanceof Date ? v : new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  const start = toValidDate(appointment.startTime);
+  const end = toValidDate(appointment.endTime);
 
   const statusDot = STATUS_COLOR[appointment.status] || 'bg-muted';
   const statusLabel = STATUS_LABEL[appointment.status] || appointment.status;
