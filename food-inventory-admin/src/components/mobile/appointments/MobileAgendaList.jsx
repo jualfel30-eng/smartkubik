@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { listItem, STAGGER } from '@/lib/motion';
 import haptics from '@/lib/haptics';
+import MobileListSkeleton from '../primitives/MobileListSkeleton.jsx';
 
 const STATUS_COLOR = {
   pending: 'bg-amber-500',
@@ -33,7 +34,15 @@ function dayLabel(d) {
  * Vista lista de próximas citas agrupadas por día.
  * Muestra días con citas, ordena por hora.
  */
-export default function MobileAgendaList({ items = [], onSelect }) {
+export default function MobileAgendaList({ items = [], onSelect, loading = false }) {
+  if (loading && items.length === 0) {
+    return (
+      <div className="py-4">
+        <MobileListSkeleton count={6} height="h-20" />
+      </div>
+    );
+  }
+
   const groups = useMemo(() => {
     const future = items
       .filter((a) => a.startTime && a.status !== 'cancelled')

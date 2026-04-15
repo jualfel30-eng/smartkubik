@@ -1,6 +1,6 @@
 import { Bell, X } from 'lucide-react';
 import { usePushNotifications } from '@/hooks/use-push-notifications';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 // Mostramos el prompt de permisos con contexto claro DESPUÉS de que el usuario
 // ha usado la app un momento (se monta en TodayDashboard con delay).
@@ -24,11 +24,11 @@ export default function MobilePushPrompt() {
 
   return (
     <div
-      className="md:hidden flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4"
+      className="md:hidden flex items-start gap-3 rounded-[var(--mobile-radius-lg)] border border-primary/20 bg-primary/5 p-4"
       role="dialog"
       aria-label="Activar notificaciones"
     >
-      <div className="shrink-0 rounded-xl bg-primary/10 p-2 text-primary mt-0.5">
+      <div className="shrink-0 rounded-[var(--mobile-radius-md)] bg-primary/10 p-2 text-primary mt-0.5">
         <Bell size={18} />
       </div>
       <div className="flex-1 min-w-0">

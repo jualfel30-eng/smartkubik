@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion, useMotionValue, useTransform, animate, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SPRING, DUR, EASE } from '@/lib/motion';
 
 /**
  * Bottom sheet mobile.
@@ -63,14 +64,31 @@ export default function MobileActionSheet({
       aria-modal="true"
       aria-label={title}
     >
-      <button type="button" aria-label="Cerrar" onClick={onClose}
-        className="absolute inset-0 bg-black/50 animate-in fade-in" />
-      <div className={cn(
-        'absolute bottom-0 inset-x-0 bg-card rounded-t-2xl shadow-2xl',
-        'animate-in slide-in-from-bottom duration-300',
-        'safe-bottom',
-        className,
-      )}>
+      <motion.button
+        type="button"
+        aria-label="Cerrar"
+        onClick={onClose}
+        className="absolute inset-0 bg-black"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.5 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: DUR.base, ease: EASE.out }}
+      />
+      <motion.div
+        className={cn(
+          'absolute bottom-0 inset-x-0 bg-card shadow-2xl safe-bottom',
+          className,
+        )}
+        style={{
+          borderTopLeftRadius: 'var(--mobile-radius-xl)',
+          borderTopRightRadius: 'var(--mobile-radius-xl)',
+          boxShadow: 'var(--elevation-overlay)',
+        }}
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={SPRING.drawer}
+      >
         <div className="flex justify-center pt-2 pb-1">
           <span className="block w-10 h-1 rounded-full bg-muted-foreground/40" aria-hidden />
         </div>
@@ -82,7 +100,7 @@ export default function MobileActionSheet({
           </button>
         </div>
         <div className="px-4 pb-4 pt-2">{children}</div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -101,7 +119,7 @@ function SnapSheet({ onClose, title, children, className, snapPoints, defaultSna
   const dragStartY = useRef(0);
 
   const snapTo = (idx) => {
-    animate(y, vh - heights[idx], { type: 'spring', stiffness: 400, damping: 35 });
+    animate(y, vh - heights[idx], SPRING.drawer);
   };
 
   const onDragStart = () => { dragStartY.current = y.get(); };

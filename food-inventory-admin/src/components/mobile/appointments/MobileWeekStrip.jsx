@@ -46,7 +46,7 @@ export default function MobileWeekStrip({ date, items = [], onSelect }) {
             onClick={() => { if (!selected) haptics.select(); onSelect(d); }}
             className={cn(
               'relative flex flex-col items-center gap-0.5 py-1.5 px-1 flex-1 no-tap-highlight',
-              !selected && 'hover:bg-muted rounded-xl',
+              !selected && 'hover:bg-muted rounded-[var(--mobile-radius-md)]',
             )}
             style={selected ? { color: 'var(--primary-foreground, #fff)' } : undefined}
           >

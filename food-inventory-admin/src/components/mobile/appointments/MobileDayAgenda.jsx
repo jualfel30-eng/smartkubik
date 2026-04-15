@@ -3,6 +3,7 @@ import { format, parseISO, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Clock, Plus } from 'lucide-react';
 import MobileAppointmentCard from './MobileAppointmentCard.jsx';
+import MobileListSkeleton from '../primitives/MobileListSkeleton.jsx';
 
 // Lista cronológica vertical agrupada por franja horaria.
 // (Fase 2 luego agregará columnas por recurso con swipe horizontal.)
@@ -31,7 +32,9 @@ export default function MobileDayAgenda({ date, items, loading, onSelect, onCrea
 
   if (loading && items.length === 0) {
     return (
-      <div className="py-10 text-center text-muted-foreground text-sm">Cargando agenda…</div>
+      <div className="py-4">
+        <MobileListSkeleton count={6} height="h-20" />
+      </div>
     );
   }
 

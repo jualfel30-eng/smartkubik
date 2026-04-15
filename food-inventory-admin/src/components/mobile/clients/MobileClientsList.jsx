@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Phone, MessageCircle, CalendarPlus, User, RefreshCw, X } from 'lucide-react';
 import { motion, useMotionValue, animate } from 'framer-motion';
 import { fetchApi } from '@/lib/api';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -43,7 +43,7 @@ function ClientCard({ client, onTap, onNewAppointment }) {
   const lastVisit = client.lastPurchaseDate || client.updatedAt;
 
   return (
-    <div className="relative rounded-2xl overflow-hidden bg-card border border-border">
+    <div className="relative rounded-[var(--mobile-radius-lg)] overflow-hidden bg-card border border-border">
       {/* Actions behind card */}
       <div className="absolute inset-y-0 right-0 flex" aria-hidden>
         {tel && (

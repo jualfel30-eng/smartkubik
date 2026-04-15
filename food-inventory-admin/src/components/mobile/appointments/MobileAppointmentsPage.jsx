@@ -5,7 +5,7 @@ import { es } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, RefreshCw, Filter, X, Check, List, CalendarDays } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { useOfflineSync } from '@/lib/useOfflineSync';
 import OfflineIndicator from '../OfflineIndicator.jsx';
@@ -15,6 +15,7 @@ import MobileWeekStrip from './MobileWeekStrip.jsx';
 import MobileAppointmentDetailSheet from './MobileAppointmentDetailSheet.jsx';
 import MobileQuickCreateAppointment from './MobileQuickCreateAppointment.jsx';
 import MobileActionSheet from '../MobileActionSheet.jsx';
+import PullProgress from '../primitives/PullProgress.jsx';
 
 function useIsBeauty() {
   const { tenant } = useAuth();
@@ -253,13 +254,13 @@ export default function MobileAppointmentsPage() {
 
       {/* Pull indicator */}
       {pullProps.pulling && (
-        <div className="flex items-center justify-center transition-all" style={{ height: Math.min(pullProps.distance, pullProps.THRESHOLD * 1.5) }}>
-          <RefreshCw size={20} className={cn('text-primary transition-transform', pullProps.distance >= pullProps.THRESHOLD ? 'animate-spin' : '')} style={{ transform: `rotate(${(pullProps.distance / pullProps.THRESHOLD) * 360}deg)` }} />
+        <div className="flex items-center justify-center text-primary transition-all" style={{ height: Math.min(pullProps.distance, pullProps.THRESHOLD * 1.5) }}>
+          <PullProgress progress={pullProps.distance / pullProps.THRESHOLD} />
         </div>
       )}
       {refreshing && (
-        <div className="flex items-center justify-center py-2">
-          <RefreshCw size={16} className="animate-spin text-primary" />
+        <div className="flex items-center justify-center py-2 text-primary">
+          <PullProgress progress={1} spinning size={20} />
         </div>
       )}
 
@@ -314,6 +315,7 @@ export default function MobileAppointmentsPage() {
         <MobileAgendaList
           items={filteredItems}
           onSelect={setSelected}
+          loading={loading}
         />
       )}
 
@@ -359,12 +361,12 @@ export default function MobileAppointmentsPage() {
 
             {activeFilterCount > 0 && (
               <button type="button" onClick={() => { setStatusFilter(''); setResourceFilter(''); setFilterOpen(false); }}
-                className="w-full rounded-xl border border-destructive/30 text-destructive py-3 text-sm font-medium no-tap-highlight flex items-center justify-center gap-2">
+                className="w-full rounded-[var(--mobile-radius-md)] border border-destructive/30 text-destructive py-3 text-sm font-medium no-tap-highlight flex items-center justify-center gap-2">
                 <X size={14} /> Limpiar filtros
               </button>
             )}
             <button type="button" onClick={() => setFilterOpen(false)}
-              className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-semibold no-tap-highlight flex items-center justify-center gap-2">
+              className="w-full rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground py-3 text-sm font-semibold no-tap-highlight flex items-center justify-center gap-2">
               <Check size={14} /> Aplicar
             </button>
           </div>

@@ -6,7 +6,7 @@ import {
   Tag, StickyNote, Check, Scissors, Clock, Edit2, Save,
 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 const STATUS_COLOR = {
@@ -49,14 +49,14 @@ function BeautyPreferences({ client, onSave }) {
             value={prefs[field] || ''}
             onChange={(e) => setPrefs({ ...prefs, [field]: e.target.value })}
             rows={2}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2 text-sm"
             placeholder={placeholder}
           />
         ) : (
           <input
             value={prefs[field] || ''}
             onChange={(e) => setPrefs({ ...prefs, [field]: e.target.value })}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2 text-sm"
             placeholder={placeholder}
           />
         )
@@ -69,7 +69,7 @@ function BeautyPreferences({ client, onSave }) {
   );
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+    <div className="rounded-[var(--mobile-radius-lg)] border border-border bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-1.5">
           <Scissors size={14} className="text-primary" /> Preferencias beauty
@@ -119,7 +119,7 @@ function TagsEditor({ client, onSave }) {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
+    <div className="rounded-[var(--mobile-radius-lg)] border border-border bg-card p-4 space-y-2">
       <h3 className="text-sm font-semibold flex items-center gap-1.5">
         <Tag size={14} className="text-primary" /> Tags
       </h3>
@@ -137,9 +137,9 @@ function TagsEditor({ client, onSave }) {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && addTag()}
           placeholder="Nuevo tag…"
-          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm"
+          className="flex-1 rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2 text-sm"
         />
-        <button type="button" onClick={addTag} className="rounded-xl bg-primary text-primary-foreground px-3 py-2 text-sm font-medium no-tap-highlight">
+        <button type="button" onClick={addTag} className="rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground px-3 py-2 text-sm font-medium no-tap-highlight">
           +
         </button>
       </div>
@@ -217,7 +217,7 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
       </button>
 
       {/* Hero */}
-      <div className="rounded-2xl border border-border bg-card p-4 text-center">
+      <div className="rounded-[var(--mobile-radius-lg)] border border-border bg-card p-4 text-center">
         <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xl mx-auto mb-2">
           {initials}
         </div>
@@ -239,20 +239,20 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
       <div className="grid grid-cols-3 gap-2">
         {phone && (
           <a href={`tel:${phone}`}
-            className="rounded-2xl border border-border bg-card flex flex-col items-center gap-1.5 py-3 no-tap-highlight">
+            className="rounded-[var(--mobile-radius-lg)] border border-border bg-card flex flex-col items-center gap-1.5 py-3 no-tap-highlight">
             <Phone size={18} className="text-primary" />
             <span className="text-xs font-medium">Llamar</span>
           </a>
         )}
         {wa && (
           <a href={wa} target="_blank" rel="noopener noreferrer"
-            className="rounded-2xl border border-border bg-card flex flex-col items-center gap-1.5 py-3 no-tap-highlight">
+            className="rounded-[var(--mobile-radius-lg)] border border-border bg-card flex flex-col items-center gap-1.5 py-3 no-tap-highlight">
             <MessageCircle size={18} className="text-emerald-600" />
             <span className="text-xs font-medium">WhatsApp</span>
           </a>
         )}
         <button type="button" onClick={() => onNewAppointment?.(localClient)}
-          className="rounded-2xl border border-border bg-card flex flex-col items-center gap-1.5 py-3 no-tap-highlight">
+          className="rounded-[var(--mobile-radius-lg)] border border-border bg-card flex flex-col items-center gap-1.5 py-3 no-tap-highlight">
           <CalendarPlus size={18} className="text-primary" />
           <span className="text-xs font-medium">Nueva cita</span>
         </button>
@@ -268,14 +268,14 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
 
       {/* Appointment history */}
       {isBeauty && (
-        <div className="rounded-2xl border border-border bg-card p-4">
+        <div className="rounded-[var(--mobile-radius-lg)] border border-border bg-card p-4">
           <h3 className="text-sm font-semibold flex items-center gap-1.5 mb-3">
             <Clock size={14} className="text-primary" /> Historial de citas
           </h3>
           {loadingHistory ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-12 rounded-xl bg-muted animate-pulse" />
+                <div key={i} className="h-12 rounded-[var(--mobile-radius-md)] bg-muted animate-pulse" />
               ))}
             </div>
           ) : (

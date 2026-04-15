@@ -52,6 +52,7 @@
   --mobile-radius-sm: 8px;
   --mobile-radius-md: 12px;
   --mobile-radius-lg: 16px;
+  --mobile-radius-xl: 22px;
   --mobile-radius-full: 9999px;
 
   /* Animation */
@@ -98,6 +99,8 @@
     0 24px 64px rgb(0 0 0 / 0.7),
     0 8px 16px rgb(0 0 0 / 0.5);
   --ring-active-glow: 0 0 0 3px rgb(16 185 129 / 0.35), 0 0 24px rgb(16 185 129 / 0.5);
+  --ring-pending-glow: 0 0 0 3px rgb(245 158 11 / 0.35), 0 0 16px rgb(245 158 11 / 0.4);
+  --ring-danger-glow: 0 0 0 3px rgb(239 68 68 / 0.35), 0 0 16px rgb(239 68 68 / 0.4);
 }
 
 /* --------------------------------------------------------------------------

@@ -1076,7 +1076,7 @@ function TenantLayout() {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <Toaster richColors />
+      <Toaster richColors closeButton position="top-center" expand={false} />
       <Sidebar collapsible="icon" className="bg-card border-r border-border">
 
         <SidebarHeader className="border-b border-border px-2 py-3">
@@ -1353,7 +1353,7 @@ function TenantLayout() {
 function AppContent() {
   return (
     <>
-      <Toaster richColors />
+      <Toaster richColors closeButton position="top-center" expand={false} />
       <ShadcnToaster />
       <Suspense fallback={<LoadingFallback />}>
 

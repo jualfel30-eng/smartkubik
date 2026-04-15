@@ -51,7 +51,7 @@ export default function MobileMoreMenu() {
               key={item.to}
               to={item.to}
               className="no-tap-highlight no-select flex flex-col items-start gap-2
-                         rounded-2xl border border-border bg-card p-4
+                         rounded-[var(--mobile-radius-lg)] border border-border bg-card p-4
                          min-h-[96px] active:scale-[0.98] transition-transform"
             >
               <Icon size={22} className="text-primary" />

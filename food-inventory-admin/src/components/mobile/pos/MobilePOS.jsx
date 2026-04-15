@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, Check, Banknote, Smartphone, CreditCard, Zap, ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { cn } from '@/lib/utils';
 import haptics from '@/lib/haptics';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import AnimatedNumber from '../primitives/AnimatedNumber.jsx';
+import { useRipple } from '../primitives/RippleOverlay.jsx';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const METHOD_LABELS = {
@@ -34,6 +35,25 @@ const METHOD_ICONS = {
 const VES_METHODS = new Set(['efectivo_ves', 'transferencia_ves', 'pago_movil_ves', 'pos_ves', 'tarjeta_ves', 'otros_ves']);
 
 // ─── NumPad ───────────────────────────────────────────────────────────────────
+function NumPadKey({ k, onPress }) {
+  const ripple = useRipple({ color: k === 'backspace' ? 'rgba(120,120,120,0.3)' : 'rgba(99,102,241,0.25)' });
+  return (
+    <button
+      type="button"
+      onPointerDown={ripple.trigger}
+      onClick={() => onPress(k)}
+      className={cn(
+        'relative overflow-hidden tap-target no-tap-highlight no-select font-semibold text-xl flex items-center justify-center h-14 active:scale-95 transition-transform',
+        k === 'backspace' ? 'bg-muted text-muted-foreground' : 'bg-card border border-border',
+      )}
+      style={{ borderRadius: 'var(--mobile-radius-md)' }}
+    >
+      {k === 'backspace' ? '⌫' : k}
+      {ripple.element}
+    </button>
+  );
+}
+
 function NumPad({ value, onChange }) {
   const press = (key) => {
     haptics.tap();
@@ -48,13 +68,7 @@ function NumPad({ value, onChange }) {
   const keys = ['7','8','9','4','5','6','1','2','3','.','0','backspace'];
   return (
     <div className="grid grid-cols-3 gap-1.5">
-      {keys.map(k => (
-        <button key={k} type="button" onClick={() => press(k)}
-          className={cn('tap-target no-tap-highlight no-select rounded-xl font-semibold text-xl flex items-center justify-center h-14 active:scale-95 transition-transform',
-            k === 'backspace' ? 'bg-muted text-muted-foreground' : 'bg-card border border-border')}>
-          {k === 'backspace' ? '⌫' : k}
-        </button>
-      ))}
+      {keys.map(k => <NumPadKey key={k} k={k} onPress={press} />)}
     </div>
   );
 }
@@ -65,7 +79,7 @@ function TipPicker({ base, value, onChange }) {
     <div className="flex gap-2">
       {[0, 10, 15, 20].map(pct => (
         <button key={pct} type="button" onClick={() => { haptics.select(); onChange(pct); }}
-          className={cn('flex-1 rounded-xl border py-2.5 text-sm font-medium no-tap-highlight transition-colors',
+          className={cn('flex-1 rounded-[var(--mobile-radius-md)] border py-2.5 text-sm font-medium no-tap-highlight transition-colors',
             value === pct ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
           {pct === 0 ? 'Sin propina' : `${pct}%`}
         </button>
@@ -77,7 +91,7 @@ function TipPicker({ base, value, onChange }) {
 // ─── PaymentLine (for mixed payments) ────────────────────────────────────────
 function PaymentLine({ line, methods, onChange, onRemove, canRemove }) {
   return (
-    <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-2">
+    <div className="rounded-[var(--mobile-radius-md)] border border-border bg-muted/40 p-3 space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">Pago {line.idx + 1}</span>
         {canRemove && (
@@ -108,7 +122,7 @@ function PaymentLine({ line, methods, onChange, onRemove, canRemove }) {
           inputMode="decimal"
           value={line.amount}
           onChange={(e) => onChange({ ...line, amount: e.target.value })}
-          className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-base font-semibold tabular-nums"
+          className="flex-1 rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2 text-base font-semibold tabular-nums"
           placeholder="0.00"
           min="0"
           step="0.01"
@@ -270,7 +284,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
       <div className="flex-1 overflow-y-auto mobile-scroll space-y-4 pb-28">
 
         {/* Summary */}
-        <div className="rounded-xl bg-muted px-3 py-2.5">
+        <div className="rounded-[var(--mobile-radius-md)] bg-muted px-3 py-2.5">
           <p className="font-semibold">{appointment?.customerName || 'Sin cliente'}</p>
           <p className="text-sm text-muted-foreground">{appointment?.serviceName || 'Servicio'}</p>
         </div>
@@ -278,12 +292,12 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
         {/* Mode toggle */}
         <div className="flex gap-2">
           <button type="button" onClick={() => setMixedMode(false)}
-            className={cn('flex-1 rounded-xl border py-2.5 text-sm font-medium no-tap-highlight transition-colors',
+            className={cn('flex-1 rounded-[var(--mobile-radius-md)] border py-2.5 text-sm font-medium no-tap-highlight transition-colors',
               !mixedMode ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
             Un método
           </button>
           <button type="button" onClick={() => setMixedMode(true)}
-            className={cn('flex-1 rounded-xl border py-2.5 text-sm font-medium no-tap-highlight transition-colors',
+            className={cn('flex-1 rounded-[var(--mobile-radius-md)] border py-2.5 text-sm font-medium no-tap-highlight transition-colors',
               mixedMode ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
             Pago mixto
           </button>
@@ -321,7 +335,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
                   const Icon = METHOD_ICONS[m.id] || Banknote;
                   return (
                     <button key={m.id} type="button" onClick={() => { haptics.select(); setMethod(m.id); }}
-                      className={cn('flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium no-tap-highlight transition-colors',
+                      className={cn('flex items-center gap-2 rounded-[var(--mobile-radius-md)] border px-3 py-2.5 text-sm font-medium no-tap-highlight transition-colors',
                         method === m.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
                       <Icon size={14} />
                       <span className="truncate">{m.name || METHOD_LABELS[m.id] || m.id}</span>
@@ -336,7 +350,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
               <p className="text-xs font-medium text-muted-foreground mb-1">Referencia (opcional)</p>
               <input type="text" value={reference} onChange={e => setReference(e.target.value)}
                 placeholder="Nro. de confirmación…"
-                className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm" />
+                className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2.5 text-sm" />
             </div>
           </>
         ) : (
@@ -356,12 +370,12 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
             </div>
 
             <button type="button" onClick={addLine}
-              className="w-full rounded-xl border border-dashed border-border py-3 text-sm font-medium text-primary no-tap-highlight flex items-center justify-center gap-2">
+              className="w-full rounded-[var(--mobile-radius-md)] border border-dashed border-border py-3 text-sm font-medium text-primary no-tap-highlight flex items-center justify-center gap-2">
               <Plus size={14} /> Agregar línea de pago
             </button>
 
             {/* Balance indicator */}
-            <div className={cn('rounded-xl px-3 py-2 text-sm flex items-center justify-between',
+            <div className={cn('rounded-[var(--mobile-radius-md)] px-3 py-2 text-sm flex items-center justify-between',
               mixedBalanced ? 'bg-emerald-500/10 text-emerald-700' : 'bg-amber-500/10 text-amber-700')}>
               <span>Suma de pagos</span>
               <span className="font-bold tabular-nums">${linesTotal.toFixed(2)} / ${grandTotal.toFixed(2)}</span>
@@ -372,7 +386,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
 
       {/* Sticky confirm */}
       <div className="absolute inset-x-0 bottom-0 px-4 pt-3 pb-4 bg-card border-t border-border" style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}>
-        <div className="flex items-center justify-between mb-2 text-sm">
+        <div className="flex items-center justify-between mb-2 text-sm" aria-live="polite" aria-atomic="true">
           <span className="text-muted-foreground">Total a cobrar</span>
           <AnimatedNumber
             value={grandTotal}
@@ -381,7 +395,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
           />
         </div>
         <button type="button" disabled={submitting || (mixedMode ? !mixedBalanced || linesTotal <= 0 : Number(amount) <= 0)} onClick={submit}
-          className="w-full rounded-xl bg-emerald-600 text-white py-4 text-base font-bold no-tap-highlight flex items-center justify-center gap-2 disabled:opacity-50">
+          className="w-full rounded-[var(--mobile-radius-md)] bg-emerald-600 text-white py-4 text-base font-bold no-tap-highlight flex items-center justify-center gap-2 disabled:opacity-50">
           <Check size={20} />
           {submitting ? 'Procesando…' : 'Confirmar pago'}
         </button>

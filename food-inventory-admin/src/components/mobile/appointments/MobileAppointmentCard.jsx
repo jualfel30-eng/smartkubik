@@ -3,7 +3,7 @@ import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { format } from 'date-fns';
 import { Check, Receipt, X, User } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { SPRING, listItem } from '@/lib/motion';
 import haptics from '@/lib/haptics';
@@ -190,8 +190,8 @@ export default function MobileAppointmentCard({ appointment, onTap, onChanged })
         </div>
         <div className="w-0.5 rounded-full bg-muted shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className={cn('inline-block w-2 h-2 rounded-full', statusDot)} />
+          <div className="flex items-center gap-1.5" aria-live="polite">
+            <span className={cn('inline-block w-2 h-2 rounded-full', statusDot)} aria-hidden />
             <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
               {statusLabel}
             </span>

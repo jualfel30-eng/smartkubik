@@ -16,7 +16,7 @@ export default function MobileEmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-14 px-4 text-center gap-3">
-      <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center">
+      <div className="w-14 h-14 rounded-[var(--mobile-radius-lg)] bg-muted flex items-center justify-center">
         <Icon size={26} className="text-muted-foreground" />
       </div>
       <div>

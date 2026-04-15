@@ -6,7 +6,7 @@ import {
   ChevronLeft, Image as ImageIcon,
 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import MobileListSkeleton from '../primitives/MobileListSkeleton.jsx';
 import MobileEmptyState from '../primitives/MobileEmptyState.jsx';
@@ -92,7 +92,7 @@ function ServiceCard({ service, onSaved, onToggleActive }) {
   return (
     <Reorder.Item value={service} dragListener={false} dragControls={controls}>
       <div className={cn(
-        'rounded-2xl border border-border bg-card overflow-hidden transition-opacity',
+        'rounded-[var(--mobile-radius-lg)] border border-border bg-card overflow-hidden transition-opacity',
         !service.isActive && 'opacity-60',
       )}>
         <div className="flex items-start gap-3 p-4">
@@ -106,7 +106,7 @@ function ServiceCard({ service, onSaved, onToggleActive }) {
           </button>
 
           {/* Thumbnail */}
-          <div className="w-12 h-12 rounded-xl bg-muted shrink-0 overflow-hidden flex items-center justify-center">
+          <div className="w-12 h-12 rounded-[var(--mobile-radius-md)] bg-muted shrink-0 overflow-hidden flex items-center justify-center">
             {imageUrl ? (
               <img src={imageUrl} alt={service.name} loading="lazy" className="w-full h-full object-cover" />
             ) : (
@@ -241,7 +241,7 @@ function CreateServiceSheet({ onClose, onCreated }) {
         onChange={(e) => set(field)(e.target.value)}
         required={required}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary"
+        className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary"
       />
     </div>
   );
@@ -262,7 +262,7 @@ function CreateServiceSheet({ onClose, onCreated }) {
         <Field label="Descripción" field="description" placeholder="Descripción opcional" />
         <div className="pb-safe-bottom">
           <button type="submit" disabled={submitting}
-            className="w-full rounded-2xl bg-primary text-primary-foreground py-4 text-base font-bold disabled:opacity-50">
+            className="w-full rounded-[var(--mobile-radius-lg)] bg-primary text-primary-foreground py-4 text-base font-bold disabled:opacity-50">
             {submitting ? 'Guardando…' : 'Crear servicio'}
           </button>
         </div>
@@ -360,7 +360,7 @@ export default function MobileServicesPage() {
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="flex items-center gap-1.5 rounded-xl bg-primary text-primary-foreground px-3 py-2 text-sm font-semibold no-tap-highlight"
+          className="flex items-center gap-1.5 rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground px-3 py-2 text-sm font-semibold no-tap-highlight"
         >
           <Plus size={16} /> Nuevo
         </button>
@@ -392,7 +392,7 @@ export default function MobileServicesPage() {
               <button
                 type="button"
                 onClick={() => setCreating(true)}
-                className="rounded-xl bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold"
+                className="rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold"
               >
                 Crear servicio
               </button>

@@ -69,7 +69,7 @@ export default function MobileInstallPrompt() {
 
   return (
     <div
-      className="md:hidden fixed inset-x-3 bottom-3 rounded-2xl border border-border bg-card shadow-2xl p-4 flex items-start gap-3 animate-in slide-in-from-bottom"
+      className="md:hidden fixed inset-x-3 bottom-3 rounded-[var(--mobile-radius-lg)] border border-border bg-card shadow-2xl p-4 flex items-start gap-3 animate-in slide-in-from-bottom"
       style={{
         zIndex: 'var(--z-mobile-toast)',
         marginBottom: `calc(var(--mobile-bottomnav-h) + var(--safe-bottom))`,
@@ -77,7 +77,7 @@ export default function MobileInstallPrompt() {
       role="dialog"
       aria-label="Instalar aplicación"
     >
-      <div className="shrink-0 rounded-xl bg-primary/10 p-2 text-primary">
+      <div className="shrink-0 rounded-[var(--mobile-radius-md)] bg-primary/10 p-2 text-primary">
         <Download size={22} />
       </div>
       <div className="flex-1 min-w-0">

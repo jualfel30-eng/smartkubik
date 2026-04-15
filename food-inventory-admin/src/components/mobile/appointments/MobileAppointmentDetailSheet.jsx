@@ -5,7 +5,7 @@ import { Phone, MessageCircle, PlayCircle, CheckCircle2, XCircle, Receipt, Calen
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import MobilePOS from '../pos/MobilePOS.jsx';
 import { fetchApi } from '@/lib/api';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 const STATUS_LABELS = {
   pending: 'Pendiente',
@@ -61,7 +61,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
           )}
         </div>
 
-        <div className="rounded-xl border border-border p-3 space-y-1.5">
+        <div className="rounded-[var(--mobile-radius-md)] border border-border p-3 space-y-1.5">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Servicio</span>
             <span className="font-medium text-right">{appointment.serviceName || '—'}</span>
@@ -93,7 +93,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
             {telLink && (
               <a
                 href={telLink}
-                className="tap-target rounded-xl bg-muted flex items-center justify-center gap-2 py-3 font-medium text-sm no-tap-highlight"
+                className="tap-target rounded-[var(--mobile-radius-md)] bg-muted flex items-center justify-center gap-2 py-3 font-medium text-sm no-tap-highlight"
               >
                 <Phone size={16} /> Llamar
               </a>
@@ -103,7 +103,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
                 href={whatsAppLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="tap-target rounded-xl bg-emerald-600 text-white flex items-center justify-center gap-2 py-3 font-medium text-sm no-tap-highlight"
+                className="tap-target rounded-[var(--mobile-radius-md)] bg-emerald-600 text-white flex items-center justify-center gap-2 py-3 font-medium text-sm no-tap-highlight"
               >
                 <MessageCircle size={16} /> WhatsApp
               </a>
@@ -116,7 +116,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
             <button
               type="button"
               onClick={() => updateStatus('in_progress')}
-              className="tap-target rounded-xl bg-primary text-primary-foreground flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
+              className="tap-target rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
             >
               <PlayCircle size={18} /> Iniciar
             </button>
@@ -125,7 +125,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
             <button
               type="button"
               onClick={() => updateStatus('completed')}
-              className="tap-target rounded-xl bg-emerald-600 text-white flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
+              className="tap-target rounded-[var(--mobile-radius-md)] bg-emerald-600 text-white flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
             >
               <CheckCircle2 size={18} /> Completar
             </button>
@@ -133,7 +133,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
           <button
             type="button"
             onClick={() => setPosOpen(true)}
-            className="tap-target rounded-xl border border-border flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
+            className="tap-target rounded-[var(--mobile-radius-md)] border border-border flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
           >
             <Receipt size={18} /> Cobrar
           </button>
@@ -143,7 +143,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
               onClick={() => {
                 if (confirm('¿Cancelar esta cita?')) updateStatus('cancelled');
               }}
-              className="tap-target rounded-xl border border-destructive/30 text-destructive flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
+              className="tap-target rounded-[var(--mobile-radius-md)] border border-destructive/30 text-destructive flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
             >
               <XCircle size={18} /> Cancelar
             </button>

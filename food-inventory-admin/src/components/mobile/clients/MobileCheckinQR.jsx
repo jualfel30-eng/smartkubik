@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { QrCode, Copy, Check, ExternalLink } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://api.smartkubik.com/api/v1';
@@ -35,7 +35,7 @@ export default function MobileCheckinQR() {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 space-y-4">
+    <div className="rounded-[var(--mobile-radius-lg)] border border-border bg-card p-4 space-y-4">
       <div className="flex items-center gap-2">
         <QrCode size={18} className="text-primary" />
         <h3 className="text-sm font-semibold">Check-in por QR</h3>
@@ -48,17 +48,17 @@ export default function MobileCheckinQR() {
       {tenantId ? (
         <>
           <div className="flex justify-center">
-            <img src={qrSrc} alt="QR Check-in" className="w-[180px] h-[180px] rounded-xl border border-border" />
+            <img src={qrSrc} alt="QR Check-in" className="w-[180px] h-[180px] rounded-[var(--mobile-radius-md)] border border-border" />
           </div>
 
           <div className="flex gap-2">
             <button type="button" onClick={copyLink}
-              className={cn('flex-1 rounded-xl border py-2.5 text-sm font-medium no-tap-highlight flex items-center justify-center gap-1.5 transition-colors',
+              className={cn('flex-1 rounded-[var(--mobile-radius-md)] border py-2.5 text-sm font-medium no-tap-highlight flex items-center justify-center gap-1.5 transition-colors',
                 copied ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-card border-border')}>
               {copied ? <><Check size={14} /> Copiado</> : <><Copy size={14} /> Copiar link</>}
             </button>
             <a href={checkinUrl} target="_blank" rel="noopener noreferrer"
-              className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium no-tap-highlight flex items-center gap-1.5">
+              className="rounded-[var(--mobile-radius-md)] border border-border bg-card px-4 py-2.5 text-sm font-medium no-tap-highlight flex items-center gap-1.5">
               <ExternalLink size={14} /> Probar
             </a>
           </div>

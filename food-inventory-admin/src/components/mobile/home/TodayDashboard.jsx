@@ -10,7 +10,7 @@ import { motion } from 'framer-motion';
 import { fetchApi } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { listItem, STAGGER, DUR, EASE } from '@/lib/motion';
 import haptics from '@/lib/haptics';
@@ -110,7 +110,7 @@ function UpcomingCard({ apt, onAction }) {
             type="button"
             aria-label="Cobrar"
             onClick={(e) => { e.stopPropagation(); onAction?.(apt); }}
-            className="tap-target rounded-xl bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold no-tap-highlight"
+            className="tap-target rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold no-tap-highlight"
           >
             {apt.status === 'in_progress' ? 'Cobrar' : 'Iniciar'}
           </button>
@@ -127,7 +127,7 @@ function AlertCard({ icon: Icon, color, label, action, onAction }) {
       type="button"
       onClick={onAction}
       className={cn(
-        'flex items-center gap-3 rounded-2xl border px-3 py-2.5 w-full text-left no-tap-highlight',
+        'flex items-center gap-3 rounded-[var(--mobile-radius-lg)] border px-3 py-2.5 w-full text-left no-tap-highlight',
         color === 'amber' && 'border-amber-500/30 bg-amber-500/5',
         color === 'red' && 'border-destructive/30 bg-destructive/5',
         color === 'blue' && 'border-blue-500/30 bg-blue-500/5',
@@ -226,9 +226,9 @@ export default function TodayDashboard() {
     return (
       <div className="mobile-content-pad px-1 space-y-3 animate-pulse">
         <div className="h-6 w-48 bg-muted rounded-full" />
-        <div className="h-32 bg-muted rounded-2xl" />
-        <div className="h-20 bg-muted rounded-2xl" />
-        <div className="h-20 bg-muted rounded-2xl" />
+        <div className="h-32 bg-muted rounded-[var(--mobile-radius-lg)]" />
+        <div className="h-20 bg-muted rounded-[var(--mobile-radius-lg)]" />
+        <div className="h-20 bg-muted rounded-[var(--mobile-radius-lg)]" />
       </div>
     );
   }

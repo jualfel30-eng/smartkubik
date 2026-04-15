@@ -10,7 +10,7 @@ import { Search, X } from 'lucide-react';
  */
 export default function MobileSearchBar({ value, onChange, placeholder = 'Buscar…', className = '' }) {
   return (
-    <div className={`flex items-center gap-2 rounded-2xl bg-muted px-3 border border-border ${className}`}>
+    <div className={`flex items-center gap-2 rounded-[var(--mobile-radius-lg)] bg-muted px-3 border border-border ${className}`}>
       <Search size={16} className="text-muted-foreground shrink-0" />
       <input
         type="search"

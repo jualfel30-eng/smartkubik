@@ -35,14 +35,14 @@ export default function MobileSwipeCard({ children, actions = [], onTap, classNa
 
   if (!actions.length) {
     return (
-      <div className={`rounded-2xl border border-border bg-card overflow-hidden ${className}`} onClick={handleTap}>
+      <div className={`rounded-[var(--mobile-radius-lg)] border border-border bg-card overflow-hidden ${className}`} onClick={handleTap}>
         {children}
       </div>
     );
   }
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl ${className}`}>
+    <div className={`relative overflow-hidden rounded-[var(--mobile-radius-lg)] ${className}`}>
       {/* Action strip (behind the card) */}
       <div
         className="absolute inset-y-0 right-0 flex"
@@ -70,7 +70,7 @@ export default function MobileSwipeCard({ children, actions = [], onTap, classNa
         style={{ x }}
         onDragEnd={onDragEnd}
         onClick={handleTap}
-        className="relative z-10 rounded-2xl border border-border bg-card overflow-hidden cursor-pointer"
+        className="relative z-10 rounded-[var(--mobile-radius-lg)] border border-border bg-card overflow-hidden cursor-pointer"
       >
         {children}
       </motion.div>

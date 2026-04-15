@@ -3,7 +3,7 @@ import { format, addMinutes, startOfDay, setHours, setMinutes, roundToNearestMin
 import { es } from 'date-fns/locale';
 import { Search, ChevronRight, Clock, User, Scissors, X } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import { cn } from '@/lib/utils';
@@ -213,7 +213,7 @@ export default function MobileQuickCreateAppointment({
         <section>
           <label className="text-xs font-medium text-muted-foreground">Cliente</label>
           {customerName ? (
-            <div className="mt-1 flex items-center justify-between rounded-xl bg-muted px-3 py-3">
+            <div className="mt-1 flex items-center justify-between rounded-[var(--mobile-radius-md)] bg-muted px-3 py-3">
               <div className="flex items-center gap-2">
                 <User size={16} className="text-muted-foreground" />
                 <div>
@@ -248,7 +248,7 @@ export default function MobileQuickCreateAppointment({
                 </div>
               )}
               {/* Search */}
-              <div className="mt-1.5 flex items-center gap-2 rounded-xl bg-muted px-3">
+              <div className="mt-1.5 flex items-center gap-2 rounded-[var(--mobile-radius-md)] bg-muted px-3">
                 <Search size={16} className="text-muted-foreground shrink-0" />
                 <input
                   value={query}
@@ -258,7 +258,7 @@ export default function MobileQuickCreateAppointment({
                 />
               </div>
               {customers.length > 0 && (
-                <ul className="mt-1 rounded-xl border border-border overflow-hidden">
+                <ul className="mt-1 rounded-[var(--mobile-radius-md)] border border-border overflow-hidden">
                   {customers.map((c) => (
                     <li key={c._id || c.id}>
                       <button
@@ -347,7 +347,7 @@ export default function MobileQuickCreateAppointment({
             type="datetime-local"
             value={toTimeInputValue(startAt)}
             onChange={(e) => setStartAt(new Date(e.target.value))}
-            className="mt-2 w-full rounded-xl border border-border bg-background px-3 py-3 text-base"
+            className="mt-2 w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-3 text-base"
           />
           <p className="mt-1 text-xs text-muted-foreground">
             Duración: {duration} min · Termina a las {format(endAt, 'HH:mm')}
@@ -396,7 +396,7 @@ export default function MobileQuickCreateAppointment({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2 text-sm"
             placeholder="Preferencias, observaciones…"
           />
         </section>
@@ -411,7 +411,7 @@ export default function MobileQuickCreateAppointment({
           type="button"
           disabled={submitting}
           onClick={submit}
-          className="w-full rounded-xl bg-primary text-primary-foreground py-4 text-base font-semibold no-tap-highlight disabled:opacity-60"
+          className="w-full rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground py-4 text-base font-semibold no-tap-highlight disabled:opacity-60"
         >
           {submitting ? 'Guardando…' : 'Guardar cita'}
         </button>

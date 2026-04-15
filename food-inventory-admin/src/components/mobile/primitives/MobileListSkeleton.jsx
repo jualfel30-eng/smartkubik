@@ -8,7 +8,7 @@ export default function MobileListSkeleton({ count = 5, height = 'h-16', classNa
   return (
     <div className={`space-y-2 ${className}`}>
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className={`${height} rounded-2xl bg-muted animate-pulse`} />
+        <div key={i} className={`${height} rounded-[var(--mobile-radius-lg)] bg-muted animate-pulse`} />
       ))}
     </div>
   );
