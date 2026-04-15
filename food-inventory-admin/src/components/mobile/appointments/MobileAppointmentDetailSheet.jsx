@@ -20,8 +20,13 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
   const [posOpen, setPosOpen] = useState(false);
   if (!appointment) return null;
 
-  const start = appointment.startTime ? new Date(appointment.startTime) : null;
-  const end = appointment.endTime ? new Date(appointment.endTime) : null;
+  const toValidDate = (v) => {
+    if (!v) return null;
+    const d = v instanceof Date ? v : new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  const start = toValidDate(appointment.startTime);
+  const end = toValidDate(appointment.endTime);
   const phone = appointment.customerPhone || appointment.client?.phone || '';
 
   const updateStatus = async (next) => {
