@@ -15,7 +15,7 @@ import { JwtAuthGuard } from '../../../guards/jwt-auth.guard';
 import { TenantGuard } from '../../../guards/tenant.guard';
 import { BeautyBookingsService } from '../services/beauty-bookings.service';
 import { BeautyWhatsAppNotificationsService } from '../services/beauty-whatsapp-notifications.service';
-import { UpdateBookingStatusDto } from '../../../dto/beauty';
+import { UpdateBookingStatusDto, AdminCreateBeautyBookingDto } from '../../../dto/beauty';
 
 @ApiTags('Beauty Bookings (Private)')
 @ApiBearerAuth()
@@ -26,6 +26,28 @@ export class BeautyBookingsController {
     private readonly beautyBookingsService: BeautyBookingsService,
     private readonly whatsappService: BeautyWhatsAppNotificationsService,
   ) {}
+
+  @Post()
+  @ApiOperation({ summary: 'Crear reserva desde panel admin' })
+  async create(@Body() dto: AdminCreateBeautyBookingDto, @Request() req) {
+    // Convertir al formato completo que espera el servicio
+    const fullDto = {
+      tenantId: req.user.tenantId,
+      client: {
+        name: dto.client.name,
+        // Teléfono requerido por el schema; placeholder si admin no tiene el dato
+        phone: dto.client.phone || '+10000000000',
+        email: dto.client.email,
+      },
+      professionalId: dto.professionalId || undefined,
+      services: dto.services,
+      date: dto.date,
+      startTime: dto.startTime,
+      notes: dto.notes,
+      locationId: dto.locationId,
+    };
+    return this.beautyBookingsService.create(fullDto as any);
+  }
 
   @Get()
   // @Permissions('beauty_bookings_read')

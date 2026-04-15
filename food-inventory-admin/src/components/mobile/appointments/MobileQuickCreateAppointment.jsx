@@ -7,12 +7,6 @@ import { toast } from 'sonner';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import { cn } from '@/lib/utils';
 
-// Crear cita rápida en 1 pantalla mobile.
-// - Cliente: búsqueda (client local / create inline)
-// - Servicio: chips con top frecuentes
-// - Hora: sugerencias rápidas + picker manual
-// - Recurso: preseleccionado
-
 const toTimeInputValue = (d) => format(d, "yyyy-MM-dd'T'HH:mm");
 
 function nextQuarterHour(base) {
@@ -28,9 +22,9 @@ export default function MobileQuickCreateAppointment({
 }) {
   const [services, setServices] = useState([]);
   const [resources, setResources] = useState([]);
+  const [recentClients, setRecentClients] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [query, setQuery] = useState('');
-  const [customerId, setCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [serviceId, setServiceId] = useState('');
@@ -44,24 +38,44 @@ export default function MobileQuickCreateAppointment({
   const servicesEndpoint = isBeauty ? '/beauty-services' : '/services/active';
   const resourcesEndpoint = isBeauty ? '/professionals' : '/resources';
 
+  // Load services, resources, and recent clients
   useEffect(() => {
-    (async () => {
-      try {
-        const [svc, res] = await Promise.all([
-          fetchApi(servicesEndpoint),
-          fetchApi(resourcesEndpoint),
-        ]);
-        const svcList = Array.isArray(svc?.data) ? svc.data : Array.isArray(svc) ? svc : [];
-        const resList = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-        setServices(svcList);
-        setResources(resList);
-      } catch (err) {
-        console.error(err);
-      }
-    })();
-  }, [servicesEndpoint, resourcesEndpoint]);
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const tomorrow = format(addMinutes(startOfDay(new Date()), 24 * 60), 'yyyy-MM-dd');
 
-  // Customer search
+    Promise.allSettled([
+      fetchApi(servicesEndpoint),
+      fetchApi(resourcesEndpoint),
+      fetchApi(`${endpoint}?startDate=${today}&endDate=${tomorrow}&limit=50`),
+    ]).then(([svcRes, resRes, apptRes]) => {
+      if (svcRes.status === 'fulfilled') {
+        const list = Array.isArray(svcRes.value?.data) ? svcRes.value.data : Array.isArray(svcRes.value) ? svcRes.value : [];
+        setServices(list);
+      }
+      if (resRes.status === 'fulfilled') {
+        const list = Array.isArray(resRes.value?.data) ? resRes.value.data : Array.isArray(resRes.value) ? resRes.value : [];
+        setResources(list);
+      }
+      if (apptRes.status === 'fulfilled') {
+        const raw = Array.isArray(apptRes.value?.data) ? apptRes.value.data : Array.isArray(apptRes.value) ? apptRes.value : [];
+        // Extract unique clients from today's bookings
+        const seen = new Set();
+        const recent = [];
+        for (const apt of raw) {
+          const name = apt.client?.name || apt.customerName || '';
+          const phone = apt.client?.phone || apt.customerPhone || '';
+          const key = name.toLowerCase();
+          if (name && !seen.has(key)) {
+            seen.add(key);
+            recent.push({ name, phone });
+          }
+        }
+        setRecentClients(recent.slice(0, 5));
+      }
+    });
+  }, [servicesEndpoint, resourcesEndpoint, endpoint]);
+
+  // Customer async search
   useEffect(() => {
     if (query.length < 2) {
       setCustomers([]);
@@ -79,10 +93,7 @@ export default function MobileQuickCreateAppointment({
         if (err.name !== 'AbortError') console.error(err);
       }
     }, 300);
-    return () => {
-      clearTimeout(t);
-      controller.abort();
-    };
+    return () => { clearTimeout(t); controller.abort(); };
   }, [query]);
 
   const selectedService = useMemo(
@@ -96,10 +107,10 @@ export default function MobileQuickCreateAppointment({
   const quickTimes = useMemo(() => {
     const base = startOfDay(date);
     const now = new Date();
-    const isToday = format(date, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
-    const pivot = isToday ? nextQuarterHour(now) : setMinutes(setHours(base, 10), 0);
+    const isTodayFlag = format(date, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+    const pivot = isTodayFlag ? nextQuarterHour(now) : setMinutes(setHours(base, 10), 0);
     return [
-      { label: isToday ? 'Ahora' : '10:00', at: pivot },
+      { label: isTodayFlag ? 'Ahora' : '10:00', at: pivot },
       { label: format(addMinutes(pivot, 60), 'HH:mm'), at: addMinutes(pivot, 60) },
       { label: format(addMinutes(pivot, 120), 'HH:mm'), at: addMinutes(pivot, 120) },
       { label: format(addMinutes(pivot, 180), 'HH:mm'), at: addMinutes(pivot, 180) },
@@ -107,45 +118,54 @@ export default function MobileQuickCreateAppointment({
   }, [date]);
 
   const handlePickCustomer = (c) => {
-    setCustomerId(String(c._id || c.id));
     setCustomerName(c.name || c.companyName || c.fullName || '');
     setCustomerPhone(c.phone || c.mobile || '');
     setQuery('');
     setCustomers([]);
   };
 
+  const clearCustomer = () => {
+    setCustomerName('');
+    setCustomerPhone('');
+  };
+
   const submit = async () => {
-    if (!customerName && !customerId) {
-      toast.error('Selecciona un cliente');
-      return;
-    }
-    if (!serviceId) {
-      toast.error('Selecciona un servicio');
-      return;
-    }
+    if (!customerName) { toast.error('Selecciona un cliente'); return; }
+    if (!serviceId) { toast.error('Selecciona un servicio'); return; }
 
     try {
       setSubmitting(true);
-      const payload = {
-        customerId: customerId || undefined,
-        customerName: customerName || undefined,
-        serviceId,
-        resourceId: resourceId || undefined,
-        startTime: startAt.toISOString(),
-        endTime: endAt.toISOString(),
-        notes: notes || undefined,
-        status: 'pending',
-      };
-      await fetchApi(endpoint, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
 
-      // Toast con acción WhatsApp si hay teléfono del cliente
+      const payload = isBeauty
+        ? {
+            client: {
+              name: customerName,
+              phone: customerPhone || undefined,
+            },
+            services: [{ service: serviceId }],
+            professionalId: resourceId || undefined,
+            date: format(startAt, 'yyyy-MM-dd'),
+            startTime: format(startAt, 'HH:mm'),
+            notes: notes || undefined,
+          }
+        : {
+            customerName,
+            serviceId,
+            resourceId: resourceId || undefined,
+            startTime: startAt.toISOString(),
+            endTime: endAt.toISOString(),
+            notes: notes || undefined,
+            status: 'pending',
+          };
+
+      await fetchApi(endpoint, { method: 'POST', body: JSON.stringify(payload) });
+
+      // Toast with WhatsApp action if client has phone
       const phone = customerPhone?.replace(/\D/g, '');
       const svcName = selectedService?.name || 'el servicio';
       const timeStr = format(startAt, 'HH:mm');
       const dateStr = format(startAt, "d 'de' MMM", { locale: es });
+
       if (phone) {
         const waText = encodeURIComponent(
           `Hola ${customerName}, te confirmamos tu cita para ${svcName} el ${dateStr} a las ${timeStr}. ¡Te esperamos!`,
@@ -159,7 +179,9 @@ export default function MobileQuickCreateAppointment({
           duration: 8000,
         });
       } else {
-        toast.success('Cita creada', { description: `${customerName || 'Sin cliente'} · ${timeStr}` });
+        toast.success('Cita creada', {
+          description: `${customerName} · ${timeStr}`,
+        });
       }
 
       onClose?.(true);
@@ -179,6 +201,7 @@ export default function MobileQuickCreateAppointment({
       className="max-h-[92vh] overflow-y-auto mobile-scroll"
     >
       <div className="space-y-4 pb-20">
+
         {/* Cliente */}
         <section>
           <label className="text-xs font-medium text-muted-foreground">Cliente</label>
@@ -186,15 +209,15 @@ export default function MobileQuickCreateAppointment({
             <div className="mt-1 flex items-center justify-between rounded-xl bg-muted px-3 py-3">
               <div className="flex items-center gap-2">
                 <User size={16} className="text-muted-foreground" />
-                <span className="font-medium">{customerName}</span>
+                <div>
+                  <p className="font-medium">{customerName}</p>
+                  {customerPhone && <p className="text-xs text-muted-foreground">{customerPhone}</p>}
+                </div>
               </div>
               <button
                 type="button"
                 aria-label="Quitar"
-                onClick={() => {
-                  setCustomerId('');
-                  setCustomerName('');
-                }}
+                onClick={clearCustomer}
                 className="tap-target no-tap-highlight text-muted-foreground"
               >
                 <X size={16} />
@@ -202,8 +225,24 @@ export default function MobileQuickCreateAppointment({
             </div>
           ) : (
             <>
-              <div className="mt-1 flex items-center gap-2 rounded-xl bg-muted px-3">
-                <Search size={16} className="text-muted-foreground" />
+              {/* Recent clients chips */}
+              {recentClients.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {recentClients.map((c) => (
+                    <button
+                      key={c.name}
+                      type="button"
+                      onClick={() => handlePickCustomer(c)}
+                      className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium no-tap-highlight border border-border"
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* Search */}
+              <div className="mt-1.5 flex items-center gap-2 rounded-xl bg-muted px-3">
+                <Search size={16} className="text-muted-foreground shrink-0" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -220,10 +259,13 @@ export default function MobileQuickCreateAppointment({
                         onClick={() => handlePickCustomer(c)}
                         className="w-full text-left px-3 py-3 flex items-center justify-between hover:bg-muted no-tap-highlight"
                       >
-                        <span className="font-medium">
-                          {c.name || c.companyName || c.fullName}
-                        </span>
-                        <ChevronRight size={14} className="text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{c.name || c.companyName || c.fullName}</p>
+                          {(c.phone || c.mobile) && (
+                            <p className="text-xs text-muted-foreground">{c.phone || c.mobile}</p>
+                          )}
+                        </div>
+                        <ChevronRight size={14} className="text-muted-foreground shrink-0" />
                       </button>
                     </li>
                   ))}
@@ -232,10 +274,7 @@ export default function MobileQuickCreateAppointment({
               {query.length >= 2 && customers.length === 0 && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setCustomerName(query);
-                    setQuery('');
-                  }}
+                  onClick={() => { setCustomerName(query); setQuery(''); }}
                   className="mt-2 text-sm font-medium text-primary no-tap-highlight"
                 >
                   + Crear "{query}" como nuevo cliente
@@ -261,9 +300,7 @@ export default function MobileQuickCreateAppointment({
                   onClick={() => setServiceId(id)}
                   className={cn(
                     'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight transition-colors',
-                    active
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-card border-border text-foreground',
+                    active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground',
                   )}
                 >
                   {s.name}
@@ -291,9 +328,7 @@ export default function MobileQuickCreateAppointment({
                   onClick={() => setStartAt(q.at)}
                   className={cn(
                     'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
-                    active
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-card border-border',
+                    active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border',
                   )}
                 >
                   {q.label}
@@ -312,7 +347,7 @@ export default function MobileQuickCreateAppointment({
           </p>
         </section>
 
-        {/* Recurso */}
+        {/* Recurso/Profesional */}
         {resources.length > 0 && (
           <section>
             <label className="text-xs font-medium text-muted-foreground">Profesional</label>
@@ -329,7 +364,6 @@ export default function MobileQuickCreateAppointment({
               </button>
               {resources.map((r) => {
                 const id = String(r._id || r.id);
-                const active = id === resourceId;
                 return (
                   <button
                     key={id}
@@ -337,7 +371,7 @@ export default function MobileQuickCreateAppointment({
                     onClick={() => setResourceId(id)}
                     className={cn(
                       'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
-                      active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border',
+                      resourceId === id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border',
                     )}
                   >
                     {r.name || r.fullName}

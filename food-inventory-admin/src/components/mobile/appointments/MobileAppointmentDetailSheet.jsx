@@ -43,7 +43,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
 
   return (
     <>
-    <MobileActionSheet open onClose={onClose} title="Detalle de la cita">
+    <MobileActionSheet open onClose={onClose} title="Detalle de la cita" snapPoints={[0.42, 0.92]} defaultSnap={0}>
       <div className="space-y-4">
         <div>
           <div className="text-xs text-muted-foreground uppercase tracking-wide">

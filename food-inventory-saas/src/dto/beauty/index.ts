@@ -4,6 +4,7 @@ export * from './update-beauty-service.dto';
 export * from './create-professional.dto';
 export * from './update-professional.dto';
 export * from './create-beauty-booking.dto';
+export * from './admin-create-beauty-booking.dto';
 export * from './update-booking-status.dto';
 export * from './get-availability.dto';
 export * from './create-review.dto';
