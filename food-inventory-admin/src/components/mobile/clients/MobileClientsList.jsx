@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useNavigate } from 'react-router-dom';
 import { Search, Phone, MessageCircle, CalendarPlus, User, RefreshCw, X } from 'lucide-react';
 import { motion, useMotionValue, animate } from 'framer-motion';
@@ -7,6 +8,9 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import MobileListSkeleton from '../primitives/MobileListSkeleton.jsx';
+import MobileSearchBar from '../primitives/MobileSearchBar.jsx';
+import MobileEmptyState from '../primitives/MobileEmptyState.jsx';
 
 const REVEAL = 168; // 3 acciones × 56px
 
@@ -103,6 +107,8 @@ function ClientCard({ client, onTap, onNewAppointment }) {
 }
 
 // ─── Main list ────────────────────────────────────────────────────────────────
+const ITEM_HEIGHT = 76; // px — approx card height + gap
+
 export default function MobileClientsList({ onSelectClient, onNewAppointment }) {
   const [clients, setClients] = useState([]);
   const [query, setQuery] = useState('');
@@ -111,8 +117,9 @@ export default function MobileClientsList({ onSelectClient, onNewAppointment }) 
   const [hasMore, setHasMore] = useState(true);
   const limit = 20;
   const controllerRef = useRef(null);
+  const parentRef = useRef(null);
 
-  const fetch = useCallback(async (q = '', p = 1, append = false) => {
+  const loadClients = useCallback(async (q = '', p = 1, append = false) => {
     controllerRef.current?.abort();
     controllerRef.current = new AbortController();
     try {
@@ -133,66 +140,80 @@ export default function MobileClientsList({ onSelectClient, onNewAppointment }) 
   }, []);
 
   // Initial load
-  useEffect(() => { fetch('', 1); }, [fetch]);
+  useEffect(() => { loadClients('', 1); }, [loadClients]);
 
   // Search with debounce
   useEffect(() => {
-    const t = setTimeout(() => { setPage(1); fetch(query, 1); }, 300);
+    const t = setTimeout(() => { setPage(1); loadClients(query, 1); }, 300);
     return () => clearTimeout(t);
-  }, [query, fetch]);
+  }, [query, loadClients]);
 
   const loadMore = () => {
     const next = page + 1;
     setPage(next);
-    fetch(query, next, true);
+    loadClients(query, next, true);
   };
+
+  // Virtual scrolling — renders only visible cards in DOM
+  const rowVirtualizer = useVirtualizer({
+    count: clients.length + (hasMore ? 1 : 0), // +1 for "load more" sentinel
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ITEM_HEIGHT,
+    overscan: 5,
+  });
 
   return (
     <div className="space-y-3">
-      {/* Search bar */}
-      <div className="flex items-center gap-2 rounded-2xl bg-muted px-3 border border-border">
-        <Search size={16} className="text-muted-foreground shrink-0" />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar cliente…"
-          className="flex-1 bg-transparent py-3 text-base outline-none"
-        />
-        {query && (
-          <button type="button" onClick={() => setQuery('')} className="tap-target no-tap-highlight text-muted-foreground">
-            <X size={14} />
-          </button>
-        )}
-      </div>
+      <MobileSearchBar value={query} onChange={setQuery} placeholder="Buscar cliente…" />
 
-      {/* List */}
       {loading && clients.length === 0 ? (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-16 rounded-2xl bg-muted animate-pulse" />
-          ))}
-        </div>
+        <MobileListSkeleton count={6} />
       ) : clients.length === 0 ? (
-        <div className="py-12 text-center">
-          <User size={28} className="mx-auto text-muted-foreground mb-2" />
-          <p className="text-sm text-muted-foreground">No se encontraron clientes</p>
-        </div>
+        <MobileEmptyState icon={User} title="Sin clientes" description="No se encontraron resultados" />
       ) : (
-        <div className="space-y-2">
-          {clients.map((c) => (
-            <ClientCard
-              key={c._id || c.id}
-              client={c}
-              onTap={onSelectClient}
-              onNewAppointment={onNewAppointment}
-            />
-          ))}
-          {hasMore && (
-            <button type="button" onClick={loadMore} disabled={loading}
-              className="w-full py-3 text-sm font-medium text-primary no-tap-highlight flex items-center justify-center gap-2">
-              {loading ? <RefreshCw size={14} className="animate-spin" /> : 'Cargar más'}
-            </button>
-          )}
+        // Scroll container for virtual list
+        <div
+          ref={parentRef}
+          className="overflow-auto"
+          style={{ height: Math.min(clients.length * ITEM_HEIGHT + 80, window.innerHeight - 280) }}
+        >
+          <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const isLoaderRow = virtualRow.index === clients.length;
+              return (
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                    paddingBottom: 8,
+                  }}
+                >
+                  {isLoaderRow ? (
+                    <button
+                      type="button"
+                      onClick={loadMore}
+                      disabled={loading}
+                      className="w-full py-3 text-sm font-medium text-primary no-tap-highlight flex items-center justify-center gap-2"
+                    >
+                      {loading ? <RefreshCw size={14} className="animate-spin" /> : 'Cargar más'}
+                    </button>
+                  ) : (
+                    <ClientCard
+                      client={clients[virtualRow.index]}
+                      onTap={onSelectClient}
+                      onNewAppointment={onNewAppointment}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

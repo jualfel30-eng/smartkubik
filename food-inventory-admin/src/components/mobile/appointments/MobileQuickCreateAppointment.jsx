@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale';
 import { Search, ChevronRight, Clock, User, Scissors, X } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { toast } from 'sonner';
+import { trackEvent } from '@/lib/analytics';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import { cn } from '@/lib/utils';
 
@@ -161,6 +162,7 @@ export default function MobileQuickCreateAppointment({
           };
 
       await fetchApi(endpoint, { method: 'POST', body: JSON.stringify(payload) });
+      trackEvent('appointment_created', { serviceId, resourceId: resourceId || null, isBeauty });
 
       // Toast with WhatsApp action if client has phone
       const phone = customerPhone?.replace(/\D/g, '');

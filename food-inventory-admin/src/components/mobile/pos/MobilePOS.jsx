@@ -3,6 +3,7 @@ import { X, Check, Banknote, Smartphone, CreditCard, Zap, ArrowRight, Plus, Tras
 import { fetchApi } from '@/lib/api';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { toast } from 'sonner';
+import { trackEvent } from '@/lib/analytics';
 import { cn } from '@/lib/utils';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 
@@ -228,6 +229,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
           }
         }
         showWhatsAppToast(linesTotal);
+        trackEvent('payment_completed', { mode: 'mixed', total: linesTotal });
       } else {
         const methodLabel = METHOD_LABELS[method] || method;
         if (isBeauty) {
@@ -246,6 +248,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
           });
         }
         showWhatsAppToast(grandTotal);
+        trackEvent('payment_completed', { mode: 'single', method, total: grandTotal });
       }
 
       onPaid?.();

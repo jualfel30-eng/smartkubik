@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CheckCircle2, XCircle, Phone } from 'lucide-react';
+import { trackEvent } from '@/lib/analytics';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
@@ -27,6 +28,7 @@ export default function PublicCheckinPage() {
       );
       const data = await res.json();
       setResult(data);
+      if (data.success) trackEvent('checkin_scanned', { tenantId });
     } catch (err) {
       setResult({ success: false, message: 'Error de conexión. Intenta de nuevo.' });
     } finally {

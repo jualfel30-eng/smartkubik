@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
+import { initClarity, identifyUser } from '@/lib/analytics';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -192,6 +193,7 @@ const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.
 const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManagement.jsx'));
 const AppointmentsRouteGate = lazy(() => import('@/components/mobile/appointments/AppointmentsRouteGate.jsx'));
 const CrmRouteGate = lazy(() => import('@/components/mobile/clients/CrmRouteGate.jsx'));
+const ServicesRouteGate = lazy(() => import('@/components/mobile/services/ServicesRouteGate.jsx'));
 const PublicCheckinPage = lazy(() => import('./pages/PublicCheckinPage.jsx'));
 const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'));
 const OrganizationsManagement = lazy(() => import('@/components/OrganizationsManagement.jsx'));
@@ -299,6 +301,15 @@ function TenantLayout() {
     document.body.classList.add('erp-active');
     return () => document.body.classList.remove('erp-active');
   }, []);
+
+  // Analytics: init Clarity + identify user once tenant is loaded
+  useEffect(() => {
+    const clarityId = import.meta.env.VITE_CLARITY_ID;
+    if (clarityId) initClarity(clarityId);
+    if (user?._id || user?.id) {
+      identifyUser(user._id || user.id, { tenantId: tenant?._id || tenant?.id });
+    }
+  }, [user, tenant]);
 
   const handleLogout = () => {
     logout();
@@ -1254,7 +1265,7 @@ function TenantLayout() {
                     <AppointmentsRouteGate />
                   </CrmProvider>
                 } />
-                <Route path="services" element={<ServicesManagement />} />
+                <Route path="services" element={<ServicesRouteGate />} />
                 <Route path="resources" element={<ResourcesManagement />} />
                 <Route path="fichar" element={<TimeClock />} />
                 <Route path="hospitality/deposits" element={

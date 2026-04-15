@@ -57,6 +57,7 @@
     "@sanity/image-url": "^1.2.0",
     "@tailwindcss/vite": "^4.1.7",
     "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.13.23",
     "@zxing/browser": "^0.1.5",
     "axios": "^1.13.2",
     "class-variance-authority": "^0.7.1",
