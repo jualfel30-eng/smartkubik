@@ -112,9 +112,10 @@ function SnapSheet({ onClose, title, children, className, snapPoints, defaultSna
   const heights = snapPoints.map((p) => Math.round(p * vh));
   const startH = heights[defaultSnap];
 
-  const y = useMotionValue(vh - startH); // y = distance from top = vh - height
-  const sheetHeight = useTransform(y, (v) => vh - v);
-  const backdropOpacity = useTransform(y, [vh - heights[heights.length - 1], vh], [0.5, 0]);
+  // y = translateY applied to a full-height (h-screen) sheet anchored at top:0.
+  // y = 0 → fully open; y = vh - heights[i] → only heights[i] visible at the top.
+  const y = useMotionValue(vh - startH);
+  const backdropOpacity = useTransform(y, [0, vh - heights[0] * 0.3], [0.5, 0]);
 
   const dragStartY = useRef(0);
 
@@ -127,14 +128,14 @@ function SnapSheet({ onClose, title, children, className, snapPoints, defaultSna
   const onDragEnd = (_, info) => {
     const currentY = y.get();
     const vel = info.velocity.y;
-    // Close if dragged far down or fast flick down
     if (currentY > vh - heights[0] * 0.7 || vel > 600) { onClose?.(); return; }
-    // Snap to nearest height
     const currentH = vh - currentY;
     const nearest = heights.reduce((prev, h) => Math.abs(h - currentH) < Math.abs(prev - currentH) ? h : prev, heights[0]);
     const idx = heights.indexOf(nearest);
     snapTo(idx >= 0 ? idx : 0);
   };
+
+  const topHeight = heights[heights.length - 1];
 
   return (
     <div className="fixed inset-0 md:hidden" style={{ zIndex: 'var(--z-mobile-sheet)' }} role="dialog" aria-modal="true" aria-label={title}>
@@ -150,13 +151,19 @@ function SnapSheet({ onClose, title, children, className, snapPoints, defaultSna
       {/* Sheet */}
       <motion.div
         drag="y"
-        dragConstraints={{ top: vh - heights[heights.length - 1], bottom: vh - heights[0] * 0.3 }}
+        dragConstraints={{ top: vh - topHeight, bottom: vh - heights[0] * 0.3 }}
         dragElastic={0.1}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
-        style={{ y, height: sheetHeight }}
+        style={{
+          y,
+          height: topHeight,
+          borderTopLeftRadius: 'var(--mobile-radius-xl)',
+          borderTopRightRadius: 'var(--mobile-radius-xl)',
+          boxShadow: 'var(--elevation-overlay)',
+        }}
         className={cn(
-          'absolute bottom-0 inset-x-0 bg-card rounded-t-2xl shadow-2xl overflow-hidden safe-bottom',
+          'absolute top-0 inset-x-0 bg-card overflow-hidden safe-bottom',
           className,
         )}
       >
