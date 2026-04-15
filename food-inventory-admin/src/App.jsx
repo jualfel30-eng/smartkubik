@@ -191,6 +191,8 @@ const ServicesManagement = lazy(() => import('@/components/ServicesManagement.js
 const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.jsx'));
 const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManagement.jsx'));
 const AppointmentsRouteGate = lazy(() => import('@/components/mobile/appointments/AppointmentsRouteGate.jsx'));
+const CrmRouteGate = lazy(() => import('@/components/mobile/clients/CrmRouteGate.jsx'));
+const PublicCheckinPage = lazy(() => import('./pages/PublicCheckinPage.jsx'));
 const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'));
 const OrganizationsManagement = lazy(() => import('@/components/OrganizationsManagement.jsx'));
 const TablesPage = lazy(() => import('./pages/TablesPage.jsx'));
@@ -1148,7 +1150,7 @@ function TenantLayout() {
                 />
                 <Route path="crm" element={
                   <CrmProvider>
-                    <CRMManagement hideEmployeeTab />
+                    <CrmRouteGate hideEmployeeTab />
                   </CrmProvider>
                 } />
                 <Route
@@ -1368,6 +1370,7 @@ function AppContent() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/checkin/:tenantId" element={<PublicCheckinPage />} />
           <Route
             path="/organizations"
             element={

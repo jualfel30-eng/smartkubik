@@ -17,6 +17,7 @@ export default function MobileQuickCreateAppointment({
   date,
   endpoint,
   isBeauty,
+  isOnline = true,
   initialStart,
   onClose,
 }) {
@@ -132,6 +133,7 @@ export default function MobileQuickCreateAppointment({
   const submit = async () => {
     if (!customerName) { toast.error('Selecciona un cliente'); return; }
     if (!serviceId) { toast.error('Selecciona un servicio'); return; }
+    if (!isOnline) { toast.error('Sin conexión — no se puede crear una cita ahora'); return; }
 
     try {
       setSubmitting(true);

@@ -7,6 +7,8 @@ import { fetchApi } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useOfflineSync } from '@/lib/useOfflineSync';
+import OfflineIndicator from '../OfflineIndicator.jsx';
 import MobileDayAgenda from './MobileDayAgenda.jsx';
 import MobileAgendaList from './MobileAgendaList.jsx';
 import MobileWeekStrip from './MobileWeekStrip.jsx';
@@ -108,6 +110,8 @@ const STATUS_OPTS = [
 
 export default function MobileAppointmentsPage() {
   const isBeauty = useIsBeauty();
+  const { tenant } = useAuth();
+  const { isOnline, cacheAppointments, getCachedAppointments } = useOfflineSync();
   const [searchParams, setSearchParams] = useSearchParams();
   const [date, setDate] = useState(startOfDay(new Date()));
   const [items, setItems] = useState([]);
@@ -134,6 +138,16 @@ export default function MobileAppointmentsPage() {
       const weekFrom = format(addDays(date, -3), 'yyyy-MM-dd');
       const weekTo = format(addDays(date, 7), 'yyyy-MM-dd');
 
+      if (!navigator.onLine) {
+        // Offline — read from Dexie cache for today
+        const tenantId = tenant?._id || tenant?.id || '';
+        const cached = await getCachedAppointments(tenantId, from);
+        const parsed = isBeauty ? cached.map(transformBeautyBooking) : cached;
+        setItems(parsed);
+        setAllItems(parsed);
+        return;
+      }
+
       const [dayRes, weekRes] = await Promise.allSettled([
         fetchApi(`${endpoint}?startDate=${from}&endDate=${to}`),
         fetchApi(`${endpoint}?startDate=${weekFrom}&endDate=${weekTo}`),
@@ -146,15 +160,37 @@ export default function MobileAppointmentsPage() {
         return isBeauty ? raw.map(transformBeautyBooking) : raw;
       };
 
-      setItems(parseList(dayRes));
-      setAllItems(parseList(weekRes));
+      const dayItems = parseList(dayRes);
+      const weekItems = parseList(weekRes);
+      setItems(dayItems);
+      setAllItems(weekItems);
+
+      // Cache for offline use (store raw booking objects with tenantId + date)
+      const tenantId = tenant?._id || tenant?.id || '';
+      if (tenantId && dayItems.length) {
+        const toCache = dayItems.map((item) => ({ ...item, tenantId, date: from }));
+        cacheAppointments(toCache).catch(() => {});
+      }
     } catch (err) {
       console.error(err);
-      toast.error('No se pudo cargar la agenda');
+      // Network error — try cache
+      try {
+        const tenantId = tenant?._id || tenant?.id || '';
+        const from = format(date, 'yyyy-MM-dd');
+        const cached = await getCachedAppointments(tenantId, from);
+        if (cached.length) {
+          setItems(isBeauty ? cached.map(transformBeautyBooking) : cached);
+          toast.info('Mostrando datos en caché');
+        } else {
+          toast.error('No se pudo cargar la agenda');
+        }
+      } catch {
+        toast.error('No se pudo cargar la agenda');
+      }
     } finally {
       setLoading(false); setRefreshing(false);
     }
-  }, [date, endpoint, isBeauty]);
+  }, [date, endpoint, isBeauty, tenant, cacheAppointments, getCachedAppointments]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -212,6 +248,9 @@ export default function MobileAppointmentsPage() {
       onTouchMove={pullProps.onTouchMove}
       onTouchEnd={handleTouchEnd}
     >
+      {/* Offline indicator */}
+      <OfflineIndicator isOnline={isOnline} />
+
       {/* Pull indicator */}
       {pullProps.pulling && (
         <div className="flex items-center justify-center transition-all" style={{ height: Math.min(pullProps.distance, pullProps.THRESHOLD * 1.5) }}>
@@ -346,6 +385,7 @@ export default function MobileAppointmentsPage() {
           date={date}
           endpoint={endpoint}
           isBeauty={isBeauty}
+          isOnline={isOnline}
           initialStart={typeof quickOpen === 'object' ? quickOpen.startAt : null}
           onClose={handleCloseQuick}
         />
