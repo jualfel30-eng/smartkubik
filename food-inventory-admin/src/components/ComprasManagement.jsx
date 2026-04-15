@@ -1595,13 +1595,11 @@ export default function ComprasManagement() {
       return;
     }
 
-    // Si no hay nombre pero sí RIF, usar el RIF como nombre temporal
-    let finalSupplierName = supplierNameTrimmed;
-    if (!finalSupplierName && supplierRifTrimmed) {
-      finalSupplierName = `Proveedor ${po.taxType}-${supplierRifTrimmed}`;
-      console.log('⚠️ DEBUG - Usando RIF como nombre temporal:', finalSupplierName);
-      // Actualizar el estado para que el backend reciba el nombre
-      po.supplierName = finalSupplierName;
+    if (!po.supplierId && !supplierNameTrimmed) {
+      toast.error('Error de Validación', {
+        description: 'Debes ingresar el Nombre o Razón Social del proveedor.'
+      });
+      return;
     }
 
     const normalizedTaxType = (po.taxType || 'J').toUpperCase();
@@ -1987,6 +1985,7 @@ export default function ComprasManagement() {
                       minSearchLength={2}
                       debounceMs={300}
                       onSelection={handleSupplierSelection}
+                      onInputChange={handleSupplierNameInputChange}
                       value={po.supplierName ? {
                         value: po.supplierId || po.supplierName,
                         label: po.supplierName
