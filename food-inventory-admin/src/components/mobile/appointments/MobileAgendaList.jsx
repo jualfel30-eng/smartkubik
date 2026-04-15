@@ -47,6 +47,7 @@ export default function MobileAgendaList({ items = [], onSelect, loading = false
     const future = items
       .filter((a) => a.startTime && a.status !== 'cancelled')
       .map((a) => ({ ...a, _dt: new Date(a.startTime) }))
+      .filter((a) => !Number.isNaN(a._dt.getTime()))
       .sort((a, b) => a._dt - b._dt);
 
     const map = new Map();

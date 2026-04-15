@@ -25,7 +25,9 @@ export default function MobileWeekStrip({ date, items = [], onSelect }) {
     const map = new Map();
     for (const apt of items) {
       if (!apt.startTime) continue;
-      const key = format(new Date(apt.startTime), 'yyyy-MM-dd');
+      const dt = new Date(apt.startTime);
+      if (Number.isNaN(dt.getTime())) continue;
+      const key = format(dt, 'yyyy-MM-dd');
       map.set(key, (map.get(key) ?? 0) + 1);
     }
     return map;

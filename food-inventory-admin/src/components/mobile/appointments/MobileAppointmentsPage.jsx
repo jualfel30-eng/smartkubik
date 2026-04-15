@@ -23,7 +23,14 @@ function useIsBeauty() {
   return key.includes('beauty') || key.includes('salon');
 }
 
+function safeDateOnly(v) {
+  if (!v) return null;
+  const d = v instanceof Date ? v : new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
 function transformBeautyBooking(booking) {
+  const dateOnly = safeDateOnly(booking.date);
   return {
     ...booking,
     _id: booking._id || booking.id,
@@ -34,9 +41,9 @@ function transformBeautyBooking(booking) {
     resourceId: booking.professional || booking.professionalId,
     resourceName: booking.professionalName || '',
     startTime:
-      booking.date && booking.startTime
-        ? `${new Date(booking.date).toISOString().slice(0, 10)}T${booking.startTime}:00`
-        : booking.startTime,
+      dateOnly && booking.startTime
+        ? `${dateOnly}T${booking.startTime}:00`
+        : booking.startTime || null,
     endTime: booking.endTime,
     bookingNumber: booking.bookingNumber,
     totalPrice: booking.totalPrice,
