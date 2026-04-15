@@ -28,6 +28,7 @@ import {
   GetAvailabilityDto,
 } from '../../../dto/beauty';
 import { BeautyWhatsAppNotificationsService } from './beauty-whatsapp-notifications.service';
+import { WebPushService } from '../../notification-center/web-push.service';
 
 /**
  * Servicio para gestión de reservas de belleza
@@ -47,6 +48,7 @@ export class BeautyBookingsService {
     @InjectModel(StorefrontConfig.name)
     private storefrontConfigModel: Model<StorefrontConfigDocument>,
     private readonly whatsappService: BeautyWhatsAppNotificationsService,
+    private readonly webPushService: WebPushService,
   ) {}
 
   /**
@@ -189,6 +191,19 @@ export class BeautyBookingsService {
       );
     }
 
+    // 9. Push notification al equipo del salón
+    try {
+      const clientName = booking.client?.name || 'Un cliente';
+      const serviceNames = booking.services?.map((s) => s.name).join(', ') || 'servicio';
+      await this.webPushService.sendToTenant(dto.tenantId, {
+        title: '📅 Nueva reserva',
+        body: `${clientName} — ${serviceNames} a las ${booking.startTime}`,
+        url: '/appointments',
+      });
+    } catch (error) {
+      this.logger.error(`Push notification error on create: ${error.message}`);
+    }
+
     return booking;
   }
 
@@ -298,6 +313,19 @@ export class BeautyBookingsService {
       if (dto.status === 'confirmed') {
         booking.confirmedBy = new Types.ObjectId(userId);
         booking.confirmedAt = new Date();
+
+        // Push al equipo: cita confirmada
+        try {
+          const clientName = booking.client?.name || 'Cliente';
+          const serviceNames = booking.services?.map((s) => s.name).join(', ') || 'servicio';
+          await this.webPushService.sendToTenant(tenantId, {
+            title: '✅ Cita confirmada',
+            body: `${clientName} — ${serviceNames} a las ${booking.startTime}`,
+            url: '/appointments',
+          });
+        } catch (error) {
+          this.logger.error(`Push notification error on confirm: ${error.message}`);
+        }
       } else if (dto.status === 'cancelled') {
         booking.cancelledBy = new Types.ObjectId(userId);
         booking.cancelledAt = new Date();

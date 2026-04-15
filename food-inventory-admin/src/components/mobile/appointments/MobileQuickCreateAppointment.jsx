@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format, addMinutes, startOfDay, setHours, setMinutes, roundToNearestMinutes } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Search, ChevronRight, Clock, User, Scissors, X } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { toast } from 'sonner';
@@ -31,6 +32,7 @@ export default function MobileQuickCreateAppointment({
   const [query, setQuery] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [serviceId, setServiceId] = useState('');
   const [resourceId, setResourceId] = useState('');
   const [startAt, setStartAt] = useState(
@@ -107,6 +109,7 @@ export default function MobileQuickCreateAppointment({
   const handlePickCustomer = (c) => {
     setCustomerId(String(c._id || c.id));
     setCustomerName(c.name || c.companyName || c.fullName || '');
+    setCustomerPhone(c.phone || c.mobile || '');
     setQuery('');
     setCustomers([]);
   };
@@ -137,7 +140,28 @@ export default function MobileQuickCreateAppointment({
         method: 'POST',
         body: JSON.stringify(payload),
       });
-      toast.success('Cita creada');
+
+      // Toast con acción WhatsApp si hay teléfono del cliente
+      const phone = customerPhone?.replace(/\D/g, '');
+      const svcName = selectedService?.name || 'el servicio';
+      const timeStr = format(startAt, 'HH:mm');
+      const dateStr = format(startAt, "d 'de' MMM", { locale: es });
+      if (phone) {
+        const waText = encodeURIComponent(
+          `Hola ${customerName}, te confirmamos tu cita para ${svcName} el ${dateStr} a las ${timeStr}. ¡Te esperamos!`,
+        );
+        toast.success('Cita creada', {
+          description: `${customerName} · ${timeStr}`,
+          action: {
+            label: 'Enviar WhatsApp',
+            onClick: () => window.open(`https://wa.me/${phone}?text=${waText}`, '_blank'),
+          },
+          duration: 8000,
+        });
+      } else {
+        toast.success('Cita creada', { description: `${customerName || 'Sin cliente'} · ${timeStr}` });
+      }
+
       onClose?.(true);
     } catch (err) {
       console.error(err);

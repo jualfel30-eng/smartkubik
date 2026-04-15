@@ -41,6 +41,7 @@ import { BeautyReviewsService } from './services/beauty-reviews.service';
 import { BeautyLoyaltyService } from './services/beauty-loyalty.service';
 import { BeautyWhatsAppNotificationsService } from './services/beauty-whatsapp-notifications.service';
 import { BeautyBookingsJobsService } from './services/beauty-bookings-jobs.service';
+import { NotificationCenterModule } from '../notification-center/notification-center.module';
 
 // Controllers - Private
 import { BeautyServicesController } from './controllers/beauty-services.controller';
@@ -87,6 +88,7 @@ import { BeautyLoyaltyPublicController } from './controllers/beauty-loyalty-publ
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    NotificationCenterModule,
     MongooseModule.forFeature([
       { name: BeautyService.name, schema: BeautyServiceSchema },
       { name: Professional.name, schema: ProfessionalSchema },

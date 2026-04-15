@@ -163,6 +163,7 @@ const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const MobileBottomNav = lazy(() => import('./components/mobile/MobileBottomNav.jsx'));
 const MobileMoreMenu = lazy(() => import('./components/mobile/MobileMoreMenu.jsx'));
 const MobileInstallPrompt = lazy(() => import('./components/mobile/MobileInstallPrompt.jsx'));
+const MobileTopBar = lazy(() => import('./components/mobile/MobileTopBar.jsx'));
 const SuperAdminLayout = lazy(() => import('./layouts/SuperAdminLayout'));
 const FoundersPage = lazy(() => import('./pages/FoundersPage'));
 const TrialExpired = lazy(() => import('./pages/TrialExpired'));
@@ -1078,25 +1079,16 @@ function TenantLayout() {
       </Sidebar>
       <SidebarInset className="bg-background">
         <div className="flex h-screen flex-col overflow-hidden">
-          <div className="flex items-center justify-between border-b border-border bg-card px-4 py-3 md:hidden">
-            <div className="flex items-center gap-2">
-              <SidebarTrigger className="text-muted-foreground" />
-              <img src={logoSrc} alt="Smart Kubik" className="h-[18px] w-auto" />
-            </div>
-            <div className="flex items-center gap-2">
+          <Suspense fallback={null}>
+            <MobileTopBar
+              logoSrc={logoSrc}
+              onAssistantOpen={() => setAssistantSheetOpen(true)}
+              onLogout={handleLogout}
+            >
               <ShiftTimer />
-              <Button variant="ghost" size="icon" onClick={() => setAssistantSheetOpen(true)} title="Asistente">
-                <Sparkles className="h-5 w-5" />
-              </Button>
               <ThemeToggle />
-              <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
-                <Settings className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={handleLogout}>
-                <LogOut className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
+            </MobileTopBar>
+          </Suspense>
           <div className="hidden items-center justify-between border-b border-border bg-card px-6 py-4 md:flex">
             <div className="flex items-center gap-3">
               <img src={logoSrc} alt="Smart Kubik" className="h-8 w-auto" />
