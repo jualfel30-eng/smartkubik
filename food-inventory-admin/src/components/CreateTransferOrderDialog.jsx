@@ -156,7 +156,7 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     setFilteredProducts(
       inventoryItems
         .filter((inv) => {
-          const populatedProduct = typeof inv.productId === 'object' ? inv.productId : null;
+          const populatedProduct = inv.productId && typeof inv.productId === 'object' ? inv.productId : null;
           return (
             inv.productName?.toLowerCase().includes(search) ||
             inv.productSku?.toLowerCase().includes(search) ||
@@ -201,14 +201,14 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
   };
 
   const addItem = (invRecord) => {
-    const productId = typeof invRecord.productId === 'object'
+    const productId = invRecord.productId && typeof invRecord.productId === 'object'
       ? (invRecord.productId._id || invRecord.productId.id || String(invRecord.productId))
       : invRecord.productId;
     if (form.items.some((i) => i.productId === productId)) {
       toast.error('Producto ya agregado');
       return;
     }
-    const populatedProduct = typeof invRecord.productId === 'object' ? invRecord.productId : null;
+    const populatedProduct = invRecord.productId && typeof invRecord.productId === 'object' ? invRecord.productId : null;
 
     // Extract multi-unit configuration from populated product
     const hasMultiUnit = populatedProduct?.hasMultipleSellingUnits && populatedProduct?.sellingUnits?.length > 0;
@@ -604,11 +604,11 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
                 {productSearch.trim() && filteredProducts.length > 0 && (
                   <div className="border rounded-md mt-1 max-h-48 overflow-y-auto">
                     {filteredProducts.map((inv) => {
-                      const pid = typeof inv.productId === 'object'
+                      const pid = inv.productId && typeof inv.productId === 'object'
                         ? (inv.productId._id || inv.productId.id || String(inv.productId))
                         : inv.productId;
                       const alreadyAdded = form.items.some((i) => i.productId === pid);
-                      const populatedProduct = typeof inv.productId === 'object' ? inv.productId : null;
+                      const populatedProduct = inv.productId && typeof inv.productId === 'object' ? inv.productId : null;
                       return (
                         <button
                           key={inv._id || pid}
