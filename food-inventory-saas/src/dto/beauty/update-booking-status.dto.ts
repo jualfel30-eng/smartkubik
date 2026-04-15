@@ -11,10 +11,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class UpdateBookingStatusDto {
   @ApiPropertyOptional({
     example: 'confirmed',
-    enum: ['pending', 'confirmed', 'completed', 'cancelled', 'no_show'],
+    enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'],
   })
   @IsOptional()
-  @IsEnum(['pending', 'confirmed', 'completed', 'cancelled', 'no_show'])
+  @IsEnum(['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'])
   status?: string;
 
   @ApiPropertyOptional({

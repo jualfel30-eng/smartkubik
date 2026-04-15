@@ -87,7 +87,7 @@ export class BeautyBooking {
   // Estado de la reserva
   @Prop({
     type: String,
-    enum: ['pending', 'confirmed', 'completed', 'cancelled', 'no_show'],
+    enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'],
     default: 'pending',
     index: true
   })
