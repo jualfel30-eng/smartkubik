@@ -1,0 +1,335 @@
+import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { format, isToday } from 'date-fns';
+import { es } from 'date-fns/locale';
+import {
+  TrendingUp, CalendarDays, Clock, CheckCircle2,
+  AlertCircle, RefreshCw, ChevronRight, Scissors, DollarSign,
+} from 'lucide-react';
+import { fetchApi } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
+import { useMobileVertical } from '@/hooks/use-mobile-vertical';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import MobilePushPrompt from '../MobilePushPrompt.jsx';
+
+// ─── mini sparkline svg ───────────────────────────────────────────────────────
+function Sparkline({ values = [], color = '#22c55e' }) {
+  if (!values.length) return null;
+  const max = Math.max(...values, 1);
+  const w = 80, h = 28;
+  const pts = values.map((v, i) => {
+    const x = (i / (values.length - 1)) * w;
+    const y = h - (v / max) * h;
+    return `${x},${y}`;
+  }).join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" aria-hidden>
+      <polyline points={pts} stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ─── appointment mini-card ────────────────────────────────────────────────────
+const STATUS_COLOR = {
+  pending: 'bg-amber-500',
+  confirmed: 'bg-blue-500',
+  in_progress: 'bg-emerald-500',
+  completed: 'bg-muted-foreground',
+};
+
+function UpcomingCard({ apt, onAction }) {
+  const navigate = useNavigate();
+  const start = apt.startTime ? new Date(apt.startTime) : null;
+  const dot = STATUS_COLOR[apt.status] || 'bg-muted-foreground';
+  const isInProgress = apt.status === 'in_progress';
+
+  return (
+    <button
+      type="button"
+      onClick={() => navigate('/appointments')}
+      className={cn(
+        'w-full text-left rounded-2xl border border-border bg-card p-3',
+        'flex items-center gap-3 no-tap-highlight active:scale-[0.98] transition-transform',
+        isInProgress && 'ring-2 ring-emerald-500/50',
+      )}
+    >
+      <div className="shrink-0 flex flex-col items-center justify-center w-12">
+        <div className="text-base font-bold tabular-nums leading-none">
+          {start ? format(start, 'HH:mm') : '--:--'}
+        </div>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5">
+          <span className={cn('inline-block w-1.5 h-1.5 rounded-full', dot)} />
+          <span className="font-semibold truncate">{apt.customerName || 'Sin cliente'}</span>
+        </div>
+        <div className="text-xs text-muted-foreground truncate mt-0.5">
+          {apt.serviceName || 'Servicio'}{apt.resourceName ? ` · ${apt.resourceName}` : ''}
+        </div>
+      </div>
+      {(apt.status === 'pending' || apt.status === 'confirmed' || apt.status === 'in_progress') && (
+        <div className="shrink-0">
+          <button
+            type="button"
+            aria-label="Cobrar"
+            onClick={(e) => { e.stopPropagation(); onAction?.(apt); }}
+            className="tap-target rounded-xl bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold no-tap-highlight"
+          >
+            {apt.status === 'in_progress' ? 'Cobrar' : 'Iniciar'}
+          </button>
+        </div>
+      )}
+    </button>
+  );
+}
+
+// ─── alert card ──────────────────────────────────────────────────────────────
+function AlertCard({ icon: Icon, color, label, action, onAction }) {
+  return (
+    <button
+      type="button"
+      onClick={onAction}
+      className={cn(
+        'flex items-center gap-3 rounded-2xl border px-3 py-2.5 w-full text-left no-tap-highlight',
+        color === 'amber' && 'border-amber-500/30 bg-amber-500/5',
+        color === 'red' && 'border-destructive/30 bg-destructive/5',
+        color === 'blue' && 'border-blue-500/30 bg-blue-500/5',
+      )}
+    >
+      <Icon size={16} className={cn(
+        color === 'amber' && 'text-amber-500',
+        color === 'red' && 'text-destructive',
+        color === 'blue' && 'text-blue-500',
+      )} />
+      <span className="flex-1 text-sm">{label}</span>
+      <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+    </button>
+  );
+}
+
+// ─── main component ───────────────────────────────────────────────────────────
+function transformBeautyBooking(b) {
+  return {
+    ...b,
+    _id: b._id || b.id,
+    customerName: b.client?.name || '',
+    serviceName: b.services?.map(s => s.name).join(' + ') || '',
+    resourceName: b.professionalName || '',
+    startTime: b.date && b.startTime
+      ? `${new Date(b.date).toISOString().slice(0, 10)}T${b.startTime}:00`
+      : b.startTime,
+    status: b.status || 'pending',
+  };
+}
+
+export default function TodayDashboard() {
+  const { tenant } = useAuth();
+  const { isBeauty } = useMobileVertical();
+  const navigate = useNavigate();
+
+  const [summary, setSummary] = useState(null);
+  const [appointments, setAppointments] = useState([]);
+  const [cashSession, setCashSession] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const apptEndpoint = isBeauty ? '/beauty-bookings' : '/appointments';
+
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    else setRefreshing(true);
+
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const tomorrow = format(new Date(Date.now() + 86400000), 'yyyy-MM-dd');
+
+    try {
+      const [dashRes, apptRes, cashRes] = await Promise.allSettled([
+        fetchApi('/dashboard/summary'),
+        fetchApi(`${apptEndpoint}?startDate=${today}&endDate=${tomorrow}`),
+        fetchApi('/cash-register/sessions/open'),
+      ]);
+
+      if (dashRes.status === 'fulfilled') setSummary(dashRes.value?.data ?? dashRes.value);
+      if (apptRes.status === 'fulfilled') {
+        const raw = Array.isArray(apptRes.value?.data) ? apptRes.value.data
+          : Array.isArray(apptRes.value) ? apptRes.value : [];
+        setAppointments(isBeauty ? raw.map(transformBeautyBooking) : raw);
+      }
+      if (cashRes.status === 'fulfilled') setCashSession(cashRes.value?.data ?? cashRes.value);
+    } catch (err) {
+      toast.error('Error al cargar');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [apptEndpoint, isBeauty]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const pending = appointments.filter(a => a.status === 'pending' || a.status === 'confirmed');
+  const inProgress = appointments.filter(a => a.status === 'in_progress');
+  const done = appointments.filter(a => a.status === 'completed');
+  const upcoming = [...inProgress, ...pending].slice(0, 4);
+
+  const salesToday = summary?.salesToday ?? summary?.todaySales ?? 0;
+  const weekValues = summary?.weeklyRevenue ?? summary?.revenueByDay ?? [];
+
+  // Alerts
+  const alerts = [];
+  if (pending.length > 0)
+    alerts.push({ id: 'pending', icon: Clock, color: 'amber', label: `${pending.length} cita${pending.length > 1 ? 's' : ''} sin confirmar hoy`, to: '/appointments' });
+  if (!cashSession)
+    alerts.push({ id: 'cash', icon: DollarSign, color: 'red', label: 'Caja no abierta', to: '/cash-register' });
+
+  const ownerName = tenant?.ownerFirstName || 'Bienvenido';
+  const hourNow = new Date().getHours();
+  const greeting = hourNow < 12 ? 'Buenos días' : hourNow < 19 ? 'Buenas tardes' : 'Buenas noches';
+
+  if (loading) {
+    return (
+      <div className="mobile-content-pad px-1 space-y-3 animate-pulse">
+        <div className="h-6 w-48 bg-muted rounded-full" />
+        <div className="h-32 bg-muted rounded-2xl" />
+        <div className="h-20 bg-muted rounded-2xl" />
+        <div className="h-20 bg-muted rounded-2xl" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="md:hidden mobile-content-pad space-y-4 pb-2">
+      {/* Greeting */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-muted-foreground capitalize">
+            {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
+          </p>
+          <h1 className="text-xl font-bold leading-tight">
+            {greeting}, {ownerName} 👋
+          </h1>
+        </div>
+        <button
+          type="button"
+          onClick={() => load(true)}
+          aria-label="Actualizar"
+          className="tap-target no-tap-highlight text-muted-foreground"
+        >
+          <RefreshCw size={18} className={refreshing ? 'animate-spin' : ''} />
+        </button>
+      </div>
+
+      {/* Hero revenue card */}
+      <div className="rounded-2xl bg-card border border-border p-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-xs text-muted-foreground">Ingresos hoy</p>
+            <p className="text-3xl font-bold tabular-nums mt-0.5">
+              ${Number(salesToday).toFixed(2)}
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-1 text-emerald-500">
+              <TrendingUp size={14} />
+              <span className="text-xs font-medium">Esta semana</span>
+            </div>
+            <Sparkline values={weekValues.map(Number)} />
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-3 divide-x divide-border">
+          <div className="text-center px-2">
+            <div className="text-lg font-bold">{appointments.length}</div>
+            <div className="text-[11px] text-muted-foreground">Citas</div>
+          </div>
+          <div className="text-center px-2">
+            <div className="text-lg font-bold text-emerald-500">{done.length}</div>
+            <div className="text-[11px] text-muted-foreground">Completadas</div>
+          </div>
+          <div className="text-center px-2">
+            <div className="text-lg font-bold text-amber-500">{pending.length}</div>
+            <div className="text-[11px] text-muted-foreground">Pendientes</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Alerts */}
+      {alerts.length > 0 && (
+        <div className="space-y-2">
+          {alerts.map(a => (
+            <AlertCard
+              key={a.id}
+              icon={a.icon}
+              color={a.color}
+              label={a.label}
+              onAction={() => navigate(a.to)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Upcoming appointments */}
+      {upcoming.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold flex items-center gap-1.5">
+              <CalendarDays size={14} /> Próximas citas
+            </h2>
+            <button
+              type="button"
+              onClick={() => navigate('/appointments')}
+              className="text-xs text-primary font-medium no-tap-highlight"
+            >
+              Ver agenda
+            </button>
+          </div>
+          <div className="space-y-2">
+            {upcoming.map(apt => (
+              <UpcomingCard
+                key={apt._id}
+                apt={apt}
+                onAction={(a) => navigate(`/appointments?cobrar=${a._id}`)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Completed today */}
+      {done.length > 0 && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <CheckCircle2 size={14} className="text-emerald-500" />
+          <span>{done.length} cita{done.length > 1 ? 's' : ''} completada{done.length > 1 ? 's' : ''} hoy</span>
+        </div>
+      )}
+
+      {/* Push notifications prompt — aparece con contexto, no al entrar */}
+      <MobilePushPrompt />
+
+      {/* Quick nav */}
+      <section>
+        <h2 className="text-sm font-semibold mb-2">Acceso rápido</h2>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { label: 'Agenda', icon: CalendarDays, to: '/appointments' },
+            { label: 'Caja', icon: DollarSign, to: '/cash-register' },
+            { label: isBeauty ? 'Servicios' : 'Productos', icon: Scissors, to: isBeauty ? '/services' : '/products' },
+            { label: 'Clientes', icon: CheckCircle2, to: '/crm' },
+          ].map(item => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.to}
+                type="button"
+                onClick={() => navigate(item.to)}
+                className="rounded-2xl border border-border bg-card p-4 flex flex-col items-start gap-2 no-tap-highlight active:scale-[0.98] transition-transform"
+              >
+                <Icon size={20} className="text-primary" />
+                <span className="text-sm font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+    </div>
+  );
+}

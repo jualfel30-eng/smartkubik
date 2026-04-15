@@ -74,6 +74,18 @@ export class User {
   /**
    * Preferencias de notificaciones del usuario
    */
+  /**
+   * Web Push subscriptions para notificaciones móviles nativas.
+   * Cada entrada es un objeto PushSubscription serializado por el browser.
+   */
+  @Prop({ type: [Object], default: [] })
+  pushSubscriptions?: Array<{
+    endpoint: string;
+    keys: { p256dh: string; auth: string };
+    userAgent?: string;
+    createdAt?: Date;
+  }>;
+
   @Prop({
     type: Object,
     default: () => ({

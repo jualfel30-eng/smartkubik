@@ -121,6 +121,7 @@
     "sharp": "^0.33.5",
     "socket.io": "^4.8.1",
     "uuid": "^9.0.1",
+    "web-push": "^3.6.7",
     "winston": "^3.13.0",
     "xlsx": "^0.18.5"
   },
@@ -141,6 +142,7 @@
     "@types/sanitize-html": "^2.16.0",
     "@types/supertest": "^2.0.12",
     "@types/uuid": "^9.0.8",
+    "@types/web-push": "^3.6.4",
     "@types/xlsx": "^0.0.35",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
