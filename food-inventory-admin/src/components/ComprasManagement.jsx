@@ -1815,7 +1815,7 @@ export default function ComprasManagement() {
           <DialogTrigger asChild>
             <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full md:w-auto"><PlusCircle className="mr-2 h-5 w-5" /> Añadir Inventario</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -2352,7 +2352,7 @@ export default function ComprasManagement() {
           <DialogTrigger asChild>
             <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full md:w-auto"><PlusCircle className="mr-2 h-5 w-5" /> Compra de Producto Nuevo</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader className="px-6 pt-6">
               <div className="flex items-center justify-between">
                 <div>
