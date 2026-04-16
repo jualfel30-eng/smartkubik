@@ -1497,9 +1497,10 @@ export class AppointmentsService {
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     const count = await this.appointmentModel.countDocuments({
-      tenantId,
+      tenantId: { $in: [tenantId, new Types.ObjectId(tenantId)] },
       startTime: { $gte: startOfDay, $lte: endOfDay },
       status: { $in: ['pending', 'confirmed'] },
+      isDeleted: { $ne: true },
     });
     return { count };
   }
