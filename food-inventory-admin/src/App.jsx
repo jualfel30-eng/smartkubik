@@ -91,6 +91,7 @@ import {
   User,
   Search,
   Star,
+  LayoutGrid,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -205,6 +206,7 @@ const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManag
 const AppointmentsRouteGate = lazy(() => import('@/components/mobile/appointments/AppointmentsRouteGate.jsx'));
 const CrmRouteGate = lazy(() => import('@/components/mobile/clients/CrmRouteGate.jsx'));
 const ServicesRouteGate = lazy(() => import('@/components/mobile/services/ServicesRouteGate.jsx'));
+const FloorViewRouteGate = lazy(() => import('@/components/mobile/floor/FloorViewRouteGate.jsx'));
 const PublicCheckinPage = lazy(() => import('./pages/PublicCheckinPage.jsx'));
 const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'));
 const OrganizationsManagement = lazy(() => import('@/components/OrganizationsManagement.jsx'));
@@ -520,6 +522,7 @@ function TenantLayout() {
         { name: 'Calendario', href: 'appointments?tab=calendar', icon: Calendar },
       ]
     },
+    { name: 'Tablero de Piso', href: 'floor-view', icon: LayoutGrid, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
 
     // 2. Marketing y CRM
     {
@@ -1370,6 +1373,7 @@ function TenantLayout() {
                 } />
                 <Route path="services" element={<ServicesRouteGate />} />
                 <Route path="resources" element={<ResourcesManagement />} />
+                <Route path="floor-view" element={<FloorViewRouteGate />} />
                 <Route path="reviews" element={<ReviewsManagement />} />
                 <Route path="fichar" element={<TimeClock />} />
                 <Route path="hospitality/deposits" element={

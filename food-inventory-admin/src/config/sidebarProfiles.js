@@ -20,6 +20,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'dashboard',              // Panel de Control
     'subsidiaries',           // Mis Sedes (filtered by requiresSubsidiaries)
     'appointments',           // Agenda (dynamicLabel)
+    'floor-view',             // Tablero de Piso (live status of professionals)
     'services',               // Servicios
     'resources',              // Estaciones (dynamicLabel)
     'crm',                    // CRM — Clientes
@@ -60,6 +61,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'dashboard',              // Panel de Control
     'subsidiaries',           // Mis Sedes
     'appointments',           // Consultas (dynamicLabel)
+    'floor-view',             // Tablero de Piso (live status of professionals)
     'services',               // Servicios / Tratamientos
     'resources',              // Consultorios (dynamicLabel)
     'crm',                    // CRM — Pacientes/clientes

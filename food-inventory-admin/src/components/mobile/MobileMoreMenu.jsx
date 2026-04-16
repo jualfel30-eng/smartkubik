@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import {
   Package, Truck, BarChart3, DollarSign, Settings, Users, Briefcase,
-  FileText, Boxes, Store, Layers, Palette,
+  FileText, Boxes, Store, Layers, Palette, LayoutGrid,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
@@ -10,6 +10,7 @@ import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 // Para beauty, exponemos solo lo relevante. Otras verticales reciben un set más amplio.
 
 const BEAUTY_ITEMS = [
+  { to: '/floor-view', label: 'Tablero', icon: LayoutGrid },
   { to: '/services', label: 'Servicios', icon: Palette },
   { to: '/resources', label: 'Recursos / Empleados', icon: Users },
   { to: '/inventory-management', label: 'Inventario', icon: Boxes },
