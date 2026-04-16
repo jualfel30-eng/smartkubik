@@ -168,6 +168,13 @@ export class AppointmentsController {
     return this.appointmentsService.findAll(req.user.tenantId, filters);
   }
 
+  @Get("count-today")
+  @ApiOperation({ summary: "Contar citas de hoy pendientes/confirmadas" })
+  @ApiResponse({ status: 200, description: "Conteo de citas" })
+  async countToday(@Request() req) {
+    return this.appointmentsService.countToday(req.user.tenantId);
+  }
+
   @Get("deposits/pending")
   @ApiOperation({
     summary: "Listar depósitos manuales pendientes de validar",

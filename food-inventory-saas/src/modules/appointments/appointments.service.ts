@@ -1492,6 +1492,18 @@ export class AppointmentsService {
     };
   }
 
+  async countToday(tenantId: string): Promise<{ count: number }> {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const count = await this.appointmentModel.countDocuments({
+      tenantId,
+      startTime: { $gte: startOfDay, $lte: endOfDay },
+      status: { $in: ['pending', 'confirmed'] },
+    });
+    return { count };
+  }
+
   async findAll(
     tenantId: string,
     filters?: AppointmentFilterDto,
