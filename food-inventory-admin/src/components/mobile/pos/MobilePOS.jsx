@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, Check, Banknote, Smartphone, CreditCard, Zap, ArrowRight, Plus, Trash2 } from 'lucide-react';
-import { fetchApi, getLoyaltyBalance } from '@/lib/api';
+import { X, Check, Banknote, Smartphone, CreditCard, Zap, ArrowRight, Plus, Trash2, Package } from 'lucide-react';
+import { fetchApi, getLoyaltyBalance, getProducts } from '@/lib/api';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/lib/toast';
@@ -159,6 +159,13 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
   const [loyaltyBalance, setLoyaltyBalance] = useState(null); // null = not loaded / not applicable
   const [loyaltyApplied, setLoyaltyApplied] = useState(false);
 
+  // Product upsell state
+  const [addedProducts, setAddedProducts] = useState([]);
+  const [productSearchOpen, setProductSearchOpen] = useState(false);
+  const [productSearchQuery, setProductSearchQuery] = useState('');
+  const [productSearchResults, setProductSearchResults] = useState([]);
+  const [productSearchLoading, setProductSearchLoading] = useState(false);
+
   // Mixed payment state
   const [mixedMode, setMixedMode] = useState(false);
   const [lines, setLines] = useState([
@@ -196,8 +203,9 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
       .catch(() => { /* no mostrar error, es opcional */ });
   }, [isBeauty, tenant, appointment]);
 
+  const addonsTotal = addedProducts.reduce((sum, p) => sum + (p.price * p.quantity), 0);
   const tipAmount = tipPct > 0 ? (Number(amount) * tipPct / 100) : 0;
-  const grandTotal = Number(amount) + tipAmount;
+  const grandTotal = Number(amount) + tipAmount + addonsTotal;
   const isVes = VES_METHODS.has(method);
   const grandTotalVes = exchangeRate ? grandTotal * exchangeRate : null;
 
@@ -229,6 +237,47 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
   const updateLine = useCallback((idx, updated) => {
     setLines(prev => prev.map((l, i) => i === idx ? { ...updated, idx: i } : l));
   }, []);
+
+  const searchProducts = useCallback(async (query) => {
+    if (!query || query.length < 2) { setProductSearchResults([]); return; }
+    setProductSearchLoading(true);
+    try {
+      const res = await getProducts({ search: query, limit: 20 });
+      const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      // Only show products with available stock
+      setProductSearchResults(items.filter(p => (p.totalQuantity ?? p.availableQuantity ?? 1) > 0));
+    } catch (e) {
+      console.error('Product search error:', e);
+    } finally {
+      setProductSearchLoading(false);
+    }
+  }, []);
+
+  const addProduct = useCallback((product) => {
+    const price = product.sellingPrice ?? product.price?.amount ?? product.price ?? 0;
+    setAddedProducts(prev => {
+      const existing = prev.find(p => p._id === product._id);
+      if (existing) return prev.map(p => p._id === product._id ? { ...p, quantity: p.quantity + 1 } : p);
+      return [...prev, { ...product, price, quantity: 1 }];
+    });
+    setProductSearchOpen(false);
+    setProductSearchQuery('');
+    setProductSearchResults([]);
+  }, []);
+
+  const updateProductQty = useCallback((productId, delta) => {
+    setAddedProducts(prev =>
+      prev
+        .map(p => p._id === productId ? { ...p, quantity: Math.max(0, p.quantity + delta) } : p)
+        .filter(p => p.quantity > 0)
+    );
+  }, []);
+
+  const removeProduct = useCallback((productId) => {
+    setAddedProducts(prev => prev.filter(p => p._id !== productId));
+  }, []);
+
+  const formatCurrency = (val) => `$${Number(val).toFixed(2)}`;
 
   const showWhatsAppToast = useCallback((paidTotal) => {
     const phone = appointment?.customerPhone?.replace(/\D/g, '');
@@ -265,6 +314,9 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
               loyaltyPointsRedeemed: loyaltyPointsToRedeem,
               loyaltyDiscount: appliedLoyaltyDiscount,
             }),
+            ...(addedProducts.length > 0 && {
+              addons: addedProducts.map(p => ({ name: p.name, price: p.price, quantity: p.quantity, productId: p._id })),
+            }),
           }),
         });
       } else {
@@ -284,6 +336,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
       haptics.success();
       showWhatsAppToast(effectiveTotal);
       trackEvent('payment_completed', { mode: 'quickpay', method: methodId, total: effectiveTotal });
+      setAddedProducts([]);
       onPaid?.();
     } catch (err) {
       haptics.error();
@@ -315,7 +368,15 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
           if (isBeauty) {
             await fetchApi(`/beauty-bookings/${aptId}/status`, {
               method: 'PATCH',
-              body: JSON.stringify({ paymentStatus: 'paid', paymentMethod: methodLabel, amountPaid: Number(line.amount), ...loyaltyFields }),
+              body: JSON.stringify({
+                paymentStatus: 'paid',
+                paymentMethod: methodLabel,
+                amountPaid: Number(line.amount),
+                ...loyaltyFields,
+                ...(idx === 0 && addedProducts.length > 0 && {
+                  addons: addedProducts.map(p => ({ name: p.name, price: p.price, quantity: p.quantity, productId: p._id })),
+                }),
+              }),
             });
           } else {
             await fetchApi(`/appointments/${aptId}/manual-deposits`, {
@@ -347,6 +408,9 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
                 loyaltyPointsRedeemed: loyaltyPointsToRedeem,
                 loyaltyDiscount: appliedLoyaltyDiscount,
               }),
+              ...(addedProducts.length > 0 && {
+                addons: addedProducts.map(p => ({ name: p.name, price: p.price, quantity: p.quantity, productId: p._id })),
+              }),
             }),
           });
         } else {
@@ -364,6 +428,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
       }
 
       haptics.success();
+      setAddedProducts([]);
       onPaid?.();
     } catch (err) {
       console.error(err);
@@ -383,6 +448,79 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
           <p className="font-semibold">{appointment?.customerName || 'Sin cliente'}</p>
           <p className="text-sm text-muted-foreground">{appointment?.serviceName || 'Servicio'}</p>
         </div>
+
+        {/* Product upsell — beauty vertical only */}
+        {isBeauty && (
+          <div className="border-t pt-3 mt-1">
+            {addedProducts.length > 0 && (
+              <div className="space-y-1 mb-2">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Productos adicionales</p>
+                {addedProducts.map(p => (
+                  <div key={p._id} className="flex items-center gap-2 text-sm">
+                    <span className="flex-1 truncate">{p.name}</span>
+                    <div className="flex items-center gap-1">
+                      <button type="button" onClick={() => updateProductQty(p._id, -1)}
+                        className="w-5 h-5 rounded border text-xs flex items-center justify-center">-</button>
+                      <span className="w-4 text-center text-xs">{p.quantity}</span>
+                      <button type="button" onClick={() => updateProductQty(p._id, 1)}
+                        className="w-5 h-5 rounded border text-xs flex items-center justify-center">+</button>
+                    </div>
+                    <span className="text-xs text-muted-foreground w-16 text-right">{formatCurrency(p.price * p.quantity)}</span>
+                    <button type="button" onClick={() => removeProduct(p._id)} className="text-red-400 hover:text-red-600">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setProductSearchOpen(true)}
+              className="w-full text-xs text-muted-foreground border border-dashed rounded-md py-1.5 flex items-center justify-center gap-1 hover:border-primary hover:text-primary transition-colors"
+            >
+              <Package className="h-3 w-3" /> Agregar producto
+            </button>
+
+            {/* Product search bottom sheet */}
+            {productSearchOpen && (
+              <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setProductSearchOpen(false)}>
+                <div className="bg-background w-full rounded-t-xl p-4 max-h-[70vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <h3 className="font-medium mb-3 text-sm">Buscar producto</h3>
+                  <input
+                    autoFocus
+                    className="w-full border rounded-md px-3 py-2 text-sm mb-3 bg-background"
+                    placeholder="Nombre o código..."
+                    value={productSearchQuery}
+                    onChange={e => { setProductSearchQuery(e.target.value); searchProducts(e.target.value); }}
+                  />
+                  {productSearchLoading && <p className="text-sm text-muted-foreground text-center py-4">Buscando...</p>}
+                  {productSearchResults.map(p => {
+                    const price = p.sellingPrice ?? p.price?.amount ?? p.price ?? 0;
+                    return (
+                      <button key={p._id} type="button" onClick={() => addProduct(p)}
+                        className="w-full text-left p-2 hover:bg-accent rounded-md flex justify-between items-center mb-1">
+                        <div>
+                          <p className="text-sm font-medium">{p.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Stock: {p.availableQuantity ?? p.totalQuantity ?? '—'}
+                          </p>
+                        </div>
+                        <span className="text-sm font-medium">{formatCurrency(price)}</span>
+                      </button>
+                    );
+                  })}
+                  {!productSearchLoading && productSearchResults.length === 0 && productSearchQuery.length >= 2 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">Sin resultados</p>
+                  )}
+                  <button type="button" onClick={() => setProductSearchOpen(false)}
+                    className="mt-2 w-full text-sm text-muted-foreground py-2 border rounded-md">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Loyalty points — only shown for beauty vertical when client has points */}
         {isBeauty && loyaltyBalance > 0 && (

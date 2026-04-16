@@ -90,6 +90,7 @@ import {
   ChevronDown,
   User,
   Search,
+  Star,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -198,6 +199,7 @@ import { DriverDashboard } from '@/components/drivers/DriverDashboard.jsx';
 import { RubikLoader } from '@/components/RubikLoader.jsx';
 import BusinessLocationSelector from '@/components/BusinessLocationSelector.jsx';
 const ServicesManagement = lazy(() => import('@/components/ServicesManagement.jsx'));
+const ReviewsManagement = lazy(() => import('@/components/ReviewsManagement.jsx'));
 const ResourcesManagement = lazy(() => import('@/components/ResourcesManagement.jsx'));
 const AppointmentsManagement = lazy(() => import('@/components/AppointmentsManagement.jsx'));
 const AppointmentsRouteGate = lazy(() => import('@/components/mobile/appointments/AppointmentsRouteGate.jsx'));
@@ -488,6 +490,7 @@ function TenantLayout() {
       ]
     },
     { name: 'Mi Sitio Web', href: 'storefront', icon: Store, permission: 'dashboard_read', requiresModule: 'ecommerce' },
+    { name: 'Reseñas', href: 'reviews', icon: Star, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
 
     // Módulos específicos de Restaurante
     { name: 'Mesas', href: 'restaurant/floor-plan', icon: Utensils, permission: 'restaurant_read', requiresModule: 'restaurant' },
@@ -1367,6 +1370,7 @@ function TenantLayout() {
                 } />
                 <Route path="services" element={<ServicesRouteGate />} />
                 <Route path="resources" element={<ResourcesManagement />} />
+                <Route path="reviews" element={<ReviewsManagement />} />
                 <Route path="fichar" element={<TimeClock />} />
                 <Route path="hospitality/deposits" element={
                   <CrmProvider>

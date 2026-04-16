@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCrmContext } from '@/context/CrmContext';
 import { useAccountingContext } from '@/context/AccountingContext';
-import { fetchApi } from '@/lib/api';
+import { fetchApi, getProducts } from '@/lib/api';
 import { toast } from 'sonner';
 
 const METHOD_LABELS = {
@@ -379,6 +379,13 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
   const [resourceDetail, setResourceDetail] = useState(null);
   const [resourceLoading, setResourceLoading] = useState(false);
 
+  // Product upsell state (beauty vertical)
+  const [addedProducts, setAddedProducts] = useState([]);
+  const [productSearch, setProductSearch] = useState('');
+  const [productSearchResults, setProductSearchResults] = useState([]);
+  const [productSearchLoading, setProductSearchLoading] = useState(false);
+  const productSearchTimeout = useRef(null);
+
   const defaultPaymentMethodId = useMemo(
     () => getDefaultPaymentMethodId(paymentMethods),
     [paymentMethods],
@@ -469,6 +476,9 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
       });
       setSingleAmountTouched(false);
       setMixedPayments([]);
+      setAddedProducts([]);
+      setProductSearch('');
+      setProductSearchResults([]);
     }
   }, [appointment, isOpen, defaultPaymentMethodId, computeDefaultAmountForMethod]);
 
@@ -727,6 +737,50 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
     [effectiveExchangeRate],
   );
 
+  // ── Product upsell helpers ─────────────────────────────────────────────────
+  const handleProductSearch = useCallback((query) => {
+    setProductSearch(query);
+    if (productSearchTimeout.current) clearTimeout(productSearchTimeout.current);
+    if (!query || query.length < 2) { setProductSearchResults([]); return; }
+    productSearchTimeout.current = setTimeout(async () => {
+      setProductSearchLoading(true);
+      try {
+        const res = await getProducts({ search: query, limit: 20 });
+        const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        setProductSearchResults(items.filter(p => (p.totalQuantity ?? p.availableQuantity ?? 1) > 0));
+      } catch (e) {
+        console.error('Product search error:', e);
+      } finally {
+        setProductSearchLoading(false);
+      }
+    }, 300);
+  }, []);
+
+  const addProductToList = useCallback((product) => {
+    const price = product.sellingPrice ?? product.price?.amount ?? product.price ?? 0;
+    setAddedProducts(prev => {
+      const existing = prev.find(p => p._id === product._id);
+      if (existing) return prev.map(p => p._id === product._id ? { ...p, quantity: p.quantity + 1 } : p);
+      return [...prev, { ...product, price, quantity: 1 }];
+    });
+    setProductSearch('');
+    setProductSearchResults([]);
+  }, []);
+
+  const updateProductQtyDialog = useCallback((productId, delta) => {
+    setAddedProducts(prev =>
+      prev
+        .map(p => p._id === productId ? { ...p, quantity: Math.max(0, p.quantity + delta) } : p)
+        .filter(p => p.quantity > 0)
+    );
+  }, []);
+
+  const removeProductFromList = useCallback((productId) => {
+    setAddedProducts(prev => prev.filter(p => p._id !== productId));
+  }, []);
+
+  const addonsGrandTotal = addedProducts.reduce((sum, p) => sum + (p.price * p.quantity), 0);
+
   const registerDeposit = useCallback(
     async (appointmentId, payload, notes) => {
       let resolvedAmount =
@@ -753,6 +807,9 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
             paymentStatus: 'paid',
             paymentMethod: methodLabel,
             amountPaid: confirmedAmount,
+            ...(addedProducts.length > 0 && {
+              addons: addedProducts.map(p => ({ name: p.name, price: p.price, quantity: p.quantity, productId: p._id })),
+            }),
           }),
         });
         return;
@@ -927,6 +984,7 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
         await registerDeposit(appointmentId, line.payload, line.notes);
       }
       toast.success('Pago registrado correctamente.');
+      setAddedProducts([]);
       if (onPaymentSuccess) {
         await onPaymentSuccess();
       }
@@ -971,6 +1029,80 @@ export function AppointmentsPaymentDialog({ isOpen, onClose, appointment, onPaym
                   <span>Total</span>
                   <span>{formatCurrency(totalUsd, 'USD')}</span>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Product upsell — beauty vertical only */}
+          {isBeautyVertical && (
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2 space-y-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Productos adicionales</p>
+
+              {/* Added products table */}
+              {addedProducts.length > 0 && (
+                <div className="space-y-1">
+                  {addedProducts.map(p => (
+                    <div key={p._id} className="flex items-center gap-2 text-sm">
+                      <span className="flex-1 truncate">{p.name}</span>
+                      <div className="flex items-center gap-1">
+                        <Button type="button" variant="outline" size="icon" className="h-6 w-6 text-xs"
+                          onClick={() => updateProductQtyDialog(p._id, -1)}>-</Button>
+                        <span className="w-6 text-center text-xs">{p.quantity}</span>
+                        <Button type="button" variant="outline" size="icon" className="h-6 w-6 text-xs"
+                          onClick={() => updateProductQtyDialog(p._id, 1)}>+</Button>
+                      </div>
+                      <span className="text-xs text-muted-foreground w-16 text-right">
+                        {formatCurrency(p.price * p.quantity)}
+                      </span>
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive"
+                        onClick={() => removeProductFromList(p._id)}>×</Button>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-xs font-semibold border-t pt-1">
+                    <span>Subtotal productos</span>
+                    <span>{formatCurrency(addonsGrandTotal)}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Search input */}
+              <div className="relative">
+                <Input
+                  className="text-sm h-8 pr-20"
+                  placeholder="Buscar producto por nombre..."
+                  value={productSearch}
+                  onChange={(e) => handleProductSearch(e.target.value)}
+                />
+                {productSearchLoading && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                    Buscando...
+                  </span>
+                )}
+              </div>
+
+              {/* Search results dropdown */}
+              {productSearchResults.length > 0 && (
+                <div className="border rounded-md overflow-hidden divide-y max-h-40 overflow-y-auto">
+                  {productSearchResults.map(p => {
+                    const price = p.sellingPrice ?? p.price?.amount ?? p.price ?? 0;
+                    return (
+                      <button key={p._id} type="button"
+                        className="w-full text-left px-3 py-1.5 hover:bg-accent text-sm flex justify-between items-center"
+                        onClick={() => addProductToList(p)}>
+                        <div>
+                          <span className="font-medium">{p.name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            Stock: {p.availableQuantity ?? p.totalQuantity ?? '—'}
+                          </span>
+                        </div>
+                        <span className="text-sm font-medium">{formatCurrency(price)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {!productSearchLoading && productSearchResults.length === 0 && productSearch.length >= 2 && (
+                <p className="text-xs text-muted-foreground">Sin resultados para "{productSearch}"</p>
               )}
             </div>
           )}

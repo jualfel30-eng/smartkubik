@@ -30,6 +30,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'bank-accounts',          // Cuentas Bancarias
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (reservas online)
+    'reviews',                // Reseñas (moderación)
     'reports',                // Reportes
     'whatsapp',               // WhatsApp (gated by permission: chat_read)
     'assistant',              // Asistente IA
@@ -68,6 +69,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'bank-accounts',          // Cuentas Bancarias
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (reservas online)
+    'reviews',                // Reseñas (moderación)
     'reports',                // Reportes
     'whatsapp',               // WhatsApp (gated by permission)
     'assistant',              // Asistente IA

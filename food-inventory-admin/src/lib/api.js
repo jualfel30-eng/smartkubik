@@ -2847,6 +2847,25 @@ export const getBeautyUtilization = (params = {}) => {
   return fetchApi(`/beauty-reports/utilization${qs ? `?${qs}` : ''}`);
 };
 
+// ==================== Beauty Reviews API ====================
+
+export const getBeautyReviews = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/beauty-reviews${qs ? '?' + qs : ''}`);
+};
+
+export const approveBeautyReview = (id) =>
+  fetchApi(`/beauty-reviews/${id}/approve`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isApproved: true }),
+  });
+
+export const rejectBeautyReview = (id, rejectionReason) =>
+  fetchApi(`/beauty-reviews/${id}/approve`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isApproved: false, rejectionReason }),
+  });
+
 // ==================== Resource Blocks API ====================
 
 export const createResourceBlock = (data) => {
