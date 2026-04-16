@@ -1,6 +1,6 @@
 import { useAuth } from './use-auth.jsx';
 
-const BEAUTY_KEYS = new Set(['beauty', 'services-beauty', 'beauty-salon', 'barbershop']);
+const BEAUTY_KEYS = new Set(['beauty', 'services-beauty', 'beauty-salon', 'barbershop', 'barbershop-salon', 'clinic-spa']);
 
 export function useMobileVertical() {
   const { tenant } = useAuth();

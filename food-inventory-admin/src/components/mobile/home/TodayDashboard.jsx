@@ -4,7 +4,7 @@ import { format, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import {
   TrendingUp, CalendarDays, Clock, CheckCircle2,
-  AlertCircle, RefreshCw, ChevronRight, Scissors, DollarSign,
+  AlertCircle, RefreshCw, ChevronRight, Scissors, DollarSign, Receipt,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { fetchApi } from '@/lib/api';
@@ -131,12 +131,14 @@ function AlertCard({ icon: Icon, color, label, action, onAction }) {
       className={cn(
         'flex items-center gap-3 rounded-[var(--mobile-radius-lg)] border px-3 py-2.5 w-full text-left no-tap-highlight',
         color === 'amber' && 'border-amber-500/30 bg-amber-500/5',
+        color === 'orange' && 'border-orange-500/30 bg-orange-500/5',
         color === 'red' && 'border-destructive/30 bg-destructive/5',
         color === 'blue' && 'border-blue-500/30 bg-info/5',
       )}
     >
       <Icon size={16} className={cn(
         color === 'amber' && 'text-amber-500',
+        color === 'orange' && 'text-orange-500',
         color === 'red' && 'text-destructive',
         color === 'blue' && 'text-blue-500',
       )} />
@@ -215,6 +217,7 @@ export default function TodayDashboard() {
   const pending = appointments.filter(a => a.status === 'pending' || a.status === 'confirmed');
   const inProgress = appointments.filter(a => a.status === 'in_progress');
   const done = appointments.filter(a => a.status === 'completed');
+  const unpaid = appointments.filter(a => a.status === 'completed' && a.paymentStatus !== 'paid');
   const upcoming = [...inProgress, ...pending].slice(0, 4);
 
   const salesToday = summary?.salesToday ?? summary?.todaySales ?? 0;
@@ -224,6 +227,8 @@ export default function TodayDashboard() {
   const alerts = [];
   if (pending.length > 0)
     alerts.push({ id: 'pending', icon: Clock, color: 'amber', label: `${pending.length} cita${pending.length > 1 ? 's' : ''} sin confirmar hoy`, to: '/appointments' });
+  if (unpaid.length > 0)
+    alerts.push({ id: 'unpaid', icon: Receipt, color: 'orange', label: `${unpaid.length} cita${unpaid.length > 1 ? 's' : ''} completada${unpaid.length > 1 ? 's' : ''} sin cobrar`, to: '/appointments' });
   if (!cashSession)
     alerts.push({ id: 'cash', icon: DollarSign, color: 'red', label: 'Caja no abierta', to: '/cash-register' });
 

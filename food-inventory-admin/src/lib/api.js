@@ -2772,4 +2772,47 @@ export const deleteBeautyGalleryItem = (id) => {
   });
 };
 
+// ==================== Beauty Packages API (combos de servicios) ====================
+
+export const getServicePackages = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.isActive !== undefined) queryParams.set('isActive', String(params.isActive));
+  const qs = queryParams.toString();
+  return fetchApi(`/beauty-packages${qs ? `?${qs}` : ''}`);
+};
+
+export const getServicePackage = (id) => {
+  return fetchApi(`/beauty-packages/${id}`);
+};
+
+export const createServicePackage = (data) => {
+  return fetchApi('/beauty-packages', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const updateServicePackage = (id, data) => {
+  return fetchApi(`/beauty-packages/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteServicePackage = (id) => {
+  return fetchApi(`/beauty-packages/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// ==================== Beauty Loyalty API ====================
+
+/**
+ * Consulta el balance de puntos de lealtad de un cliente (por teléfono).
+ * Endpoint público — no requiere autenticación de tenant, pero fetchApi la agrega sin problema.
+ */
+export const getLoyaltyBalance = (tenantId, clientPhone) => {
+  return fetchApi(`/public/beauty-loyalty/${tenantId}/balance?clientPhone=${encodeURIComponent(clientPhone)}`);
+};
+
 // ==================== IVA Declaration API ====================

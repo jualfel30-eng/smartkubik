@@ -572,6 +572,7 @@ function AppointmentsManagement() {
   const [extraBeautyServiceId, setExtraBeautyServiceId] = useState(''); // service being added as extra
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [paymentDialogAppointment, setPaymentDialogAppointment] = useState(null);
+  const [conflictWarning, setConflictWarning] = useState(null);
   const depositFileInputRef = useRef(null);
   const depositActionFileInputRef = useRef(null);
   const depositMethodOptions = useMemo(() => DEPOSIT_METHOD_OPTIONS, []);
@@ -1665,7 +1666,14 @@ function AppointmentsManagement() {
     const serviceList = Array.isArray(services) ? services : [];
     setFormData(prev => {
       const next = { ...prev, startTime };
-      if (prev.serviceId) {
+      if (isBeautyVertical) {
+        const beautyTotalDuration = beautyBookingServices.reduce((sum, s) => sum + (s.duration || 60), 0) || 60;
+        const start = new Date(startTime);
+        if (!Number.isNaN(start.getTime())) {
+          const end = new Date(start.getTime() + beautyTotalDuration * 60000);
+          next.endTime = end.toISOString().slice(0, 16);
+        }
+      } else if (prev.serviceId) {
         const service = serviceList.find(s => s._id === prev.serviceId);
         if (service?.duration) {
           const start = new Date(startTime);
@@ -1749,39 +1757,87 @@ function AppointmentsManagement() {
       return;
     }
 
-    if (formData.serviceId && !/^[a-f\d]{24}$/i.test(formData.serviceId)) {
+    if (!isBeautyVertical && formData.serviceId && !/^[a-f\d]{24}$/i.test(formData.serviceId)) {
       toast.error('El servicio seleccionado no es válido.');
       return;
     }
 
-    const serviceList = Array.isArray(services) ? services : [];
-    const selectedService = formData.serviceId
-      ? serviceList.find((service) => service._id === formData.serviceId)
-      : null;
-
-    if (formData.serviceId && !selectedService) {
-      toast.error('El servicio seleccionado ya no está disponible.');
+    if (isBeautyVertical && beautyBookingServices.length === 0) {
+      toast.error('Agrega al menos un servicio antes de guardar la cita.');
       return;
+    }
+
+    if (!isBeautyVertical) {
+      const serviceList = Array.isArray(services) ? services : [];
+      const selectedService = formData.serviceId
+        ? serviceList.find((service) => service._id === formData.serviceId)
+        : null;
+
+      if (formData.serviceId && !selectedService) {
+        toast.error('El servicio seleccionado ya no está disponible.');
+        return;
+      }
     }
 
     try {
       setLoading(true);
+
+      // Conflict detection: check if the selected professional already has an overlapping appointment
+      const resourceIdForCheck = (formData.resourceId || UNASSIGNED_RESOURCE) === UNASSIGNED_RESOURCE ? null : formData.resourceId;
+      if (resourceIdForCheck && !conflictWarning) {
+        const newStart = new Date(formData.startTime);
+        const newEnd = new Date(formData.endTime);
+        for (const apt of appointments) {
+          if (apt._id === editingAppointment?._id) continue;
+          if (apt.status === 'cancelled') continue;
+          const aptResource = apt.resourceId || apt.professionalId;
+          if (String(aptResource) !== String(resourceIdForCheck)) continue;
+          const exStart = new Date(apt.startTime);
+          const exEnd = new Date(apt.endTime);
+          if (newStart < exEnd && newEnd > exStart) {
+            setConflictWarning({
+              name: apt.resourceName || 'El profesional',
+              startStr: exStart.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
+              endStr: exEnd.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }),
+            });
+            return;
+          }
+        }
+      }
+      setConflictWarning(null);
+
       await syncCustomerProfile();
 
-      const { customerName: _customerName, ...formPayload } = formData;
-      const payload = {
-        ...formPayload,
-        customerId: actualCustomerId, // Usar el customerId actualizado (recién creado o existente)
-        startTime: new Date(formData.startTime).toISOString(),
-        endTime: new Date(formData.endTime).toISOString(),
-        resourceId:
-          (formData.resourceId || UNASSIGNED_RESOURCE) === UNASSIGNED_RESOURCE
-            ? undefined
-            : formData.resourceId,
-      };
+      let payload;
 
-      if (!formPayload.serviceId) {
-        delete payload.serviceId;
+      if (isBeautyVertical) {
+        payload = {
+          client: {
+            name: formData.customerName,
+            phone: customerProfile?.phone || undefined,
+          },
+          services: beautyBookingServices.map(s => ({ service: s.service || s._id || s.serviceId })),
+          professionalId: (formData.resourceId && formData.resourceId !== UNASSIGNED_RESOURCE) ? formData.resourceId : undefined,
+          date: formData.startTime ? new Date(formData.startTime).toISOString().slice(0, 10) : undefined,
+          startTime: formData.startTime ? new Date(formData.startTime).toTimeString().slice(0, 5) : undefined,
+          notes: formData.notes || undefined,
+        };
+      } else {
+        const { customerName: _customerName, ...formPayload } = formData;
+        payload = {
+          ...formPayload,
+          customerId: actualCustomerId,
+          startTime: new Date(formData.startTime).toISOString(),
+          endTime: new Date(formData.endTime).toISOString(),
+          resourceId:
+            (formData.resourceId || UNASSIGNED_RESOURCE) === UNASSIGNED_RESOURCE
+              ? undefined
+              : formData.resourceId,
+        };
+
+        if (!formPayload.serviceId) {
+          delete payload.serviceId;
+        }
       }
 
       let appointmentResult = null;
@@ -2231,6 +2287,14 @@ function AppointmentsManagement() {
                               <div className="flex items-center gap-3 text-muted-foreground">
                                 <span>{s.duration} min</span>
                                 {price > 0 && <span className="font-medium text-foreground">${price.toFixed(2)}</span>}
+                                <button
+                                  type="button"
+                                  className="ml-1 text-muted-foreground hover:text-destructive transition-colors"
+                                  aria-label="Eliminar servicio"
+                                  onClick={() => setBeautyBookingServices(prev => prev.filter((_, idx) => idx !== i))}
+                                >
+                                  ✕
+                                </button>
                               </div>
                             </div>
                           );
@@ -2252,10 +2316,10 @@ function AppointmentsManagement() {
                         onValueChange={(val) => setExtraBeautyServiceId(val === SERVICE_UNSET_VALUE ? '' : val)}
                       >
                         <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Agregar servicio extra..." />
+                          <SelectValue placeholder={editingAppointment ? 'Agregar servicio extra...' : 'Agregar servicio...'} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={SERVICE_UNSET_VALUE}>Agregar servicio extra...</SelectItem>
+                          <SelectItem value={SERVICE_UNSET_VALUE}>{editingAppointment ? 'Agregar servicio extra...' : 'Agregar servicio...'}</SelectItem>
                           {(Array.isArray(services) ? services : []).map((svc) => (
                             <SelectItem key={svc._id} value={svc._id}>
                               {svc.name} ({svc.duration} min){Number(svc.price?.amount ?? svc.price) > 0 ? ` — $${Number(svc.price?.amount ?? svc.price).toFixed(2)}` : ''}
@@ -2858,12 +2922,17 @@ function AppointmentsManagement() {
               </div>
             )}
 
+            {conflictWarning && (
+              <div className="mx-12 mb-2 rounded-md bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+                ⚠ {conflictWarning.name} ya tiene una cita de {conflictWarning.startStr} a {conflictWarning.endStr}. Guarda de nuevo para continuar de todas formas.
+              </div>
+            )}
             <div className="flex gap-2 pt-8 px-12 border-t dark:border-gray-700">
-              <Button type="button" variant="outline" className="flex-1 dark:border-gray-700 dark:hover:bg-gray-800" onClick={() => setIsDialogOpen(false)}>
+              <Button type="button" variant="outline" className="flex-1 dark:border-gray-700 dark:hover:bg-gray-800" onClick={() => { setIsDialogOpen(false); setConflictWarning(null); }}>
                 Cancelar
               </Button>
               <Button type="submit" className="flex-1" disabled={loading}>
-                {loading ? 'Guardando...' : editingAppointment ? 'Actualizar' : 'Crear'}
+                {loading ? 'Guardando...' : conflictWarning ? 'Guardar de todas formas' : editingAppointment ? 'Actualizar' : 'Crear'}
               </Button>
             </div>
           </form>

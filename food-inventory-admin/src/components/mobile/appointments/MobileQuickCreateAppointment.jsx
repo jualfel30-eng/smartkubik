@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { format, addMinutes, startOfDay, setHours, setMinutes, roundToNearestMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Search, ChevronRight, Clock, User, Scissors, X } from 'lucide-react';
@@ -24,13 +24,17 @@ export default function MobileQuickCreateAppointment({
   onClose,
 }) {
   const [services, setServices] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [resources, setResources] = useState([]);
   const [recentClients, setRecentClients] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [query, setQuery] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [serviceId, setServiceId] = useState('');
+  // Multi-select: array of selected service IDs
+  const [selectedServiceIds, setSelectedServiceIds] = useState([]);
+  // Package selection
+  const [selectedPackageId, setSelectedPackageId] = useState('');
   const [resourceId, setResourceId] = useState('');
   const [startAt, setStartAt] = useState(
     initialStart ? new Date(initialStart) : nextQuarterHour(new Date()),
@@ -38,6 +42,7 @@ export default function MobileQuickCreateAppointment({
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [conflictWarning, setConflictWarning] = useState(null);
 
   const servicesEndpoint = isBeauty ? '/beauty-services' : '/services/active';
   const resourcesEndpoint = isBeauty ? '/professionals' : '/resources';
@@ -47,11 +52,14 @@ export default function MobileQuickCreateAppointment({
     const today = format(new Date(), 'yyyy-MM-dd');
     const tomorrow = format(addMinutes(startOfDay(new Date()), 24 * 60), 'yyyy-MM-dd');
 
+    const pkgPromise = isBeauty ? fetchApi('/service-packages?isActive=true') : Promise.resolve(null);
+
     Promise.allSettled([
       fetchApi(servicesEndpoint),
       fetchApi(resourcesEndpoint),
       fetchApi(`${endpoint}?startDate=${today}&endDate=${tomorrow}&limit=50`),
-    ]).then(([svcRes, resRes, apptRes]) => {
+      pkgPromise,
+    ]).then(([svcRes, resRes, apptRes, pkgRes]) => {
       if (svcRes.status === 'fulfilled') {
         const list = Array.isArray(svcRes.value?.data) ? svcRes.value.data : Array.isArray(svcRes.value) ? svcRes.value : [];
         setServices(list);
@@ -59,6 +67,10 @@ export default function MobileQuickCreateAppointment({
       if (resRes.status === 'fulfilled') {
         const list = Array.isArray(resRes.value?.data) ? resRes.value.data : Array.isArray(resRes.value) ? resRes.value : [];
         setResources(list);
+      }
+      if (pkgRes?.status === 'fulfilled' && pkgRes.value) {
+        const list = Array.isArray(pkgRes.value?.data) ? pkgRes.value.data : Array.isArray(pkgRes.value) ? pkgRes.value : [];
+        setPackages(list);
       }
       if (apptRes.status === 'fulfilled') {
         const raw = Array.isArray(apptRes.value?.data) ? apptRes.value.data : Array.isArray(apptRes.value) ? apptRes.value : [];
@@ -100,13 +112,22 @@ export default function MobileQuickCreateAppointment({
     return () => { clearTimeout(t); controller.abort(); };
   }, [query]);
 
-  const selectedService = useMemo(
-    () => services.find((s) => String(s._id || s.id) === serviceId),
-    [services, serviceId],
+  // Derived: selected service objects
+  const selectedServices = useMemo(
+    () => services.filter((s) => selectedServiceIds.includes(String(s._id || s.id))),
+    [services, selectedServiceIds],
   );
 
-  const duration = selectedService?.duration || selectedService?.durationMinutes || 60;
-  const endAt = useMemo(() => addMinutes(startAt, duration), [startAt, duration]);
+  // Accumulated totals across all selected services
+  const totalDuration = selectedServices.length > 0
+    ? selectedServices.reduce((sum, s) => sum + (s.duration || s.durationMinutes || 60), 0)
+    : 60;
+  const totalPrice = selectedServices.reduce(
+    (sum, s) => sum + (Number(s.price?.amount ?? s.price) || 0),
+    0,
+  );
+
+  const endAt = useMemo(() => addMinutes(startAt, totalDuration), [startAt, totalDuration]);
 
   const quickTimes = useMemo(() => {
     const base = startOfDay(date);
@@ -133,10 +154,70 @@ export default function MobileQuickCreateAppointment({
     setCustomerPhone('');
   };
 
+  const toggleService = (id) => {
+    haptics.select();
+    // Deselect package if user manually picks services
+    if (selectedPackageId) setSelectedPackageId('');
+    setSelectedServiceIds((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id],
+    );
+  };
+
+  const selectPackage = (pkg) => {
+    haptics.select();
+    if (selectedPackageId === String(pkg._id || pkg.id)) {
+      // Deselect
+      setSelectedPackageId('');
+      setSelectedServiceIds([]);
+    } else {
+      setSelectedPackageId(String(pkg._id || pkg.id));
+      const svcIds = (pkg.services || []).map((s) => String(s._id || s.id || s));
+      setSelectedServiceIds(svcIds);
+    }
+  };
+
+  const checkConflicts = useCallback(async () => {
+    if (!resourceId) return null;
+    try {
+      const dateStr = format(startAt, 'yyyy-MM-dd');
+      const url = isBeauty
+        ? `/beauty-bookings?date=${dateStr}&professionalId=${resourceId}&limit=50`
+        : `${endpoint}?startDate=${dateStr}&endDate=${dateStr}&resourceId=${resourceId}&limit=50`;
+      const res = await fetchApi(url);
+      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      for (const existing of list) {
+        if (existing.status === 'cancelled') continue;
+        let exStart, exEnd;
+        if (isBeauty) {
+          const d = new Date(existing.date).toISOString().slice(0, 10);
+          exStart = new Date(`${d}T${existing.startTime}:00`);
+          exEnd = addMinutes(exStart, existing.totalDuration || 60);
+        } else {
+          exStart = new Date(existing.startTime);
+          exEnd = new Date(existing.endTime);
+        }
+        if (startAt < exEnd && endAt > exStart) {
+          const name = existing.professionalName || existing.resourceName || 'El profesional';
+          return { name, startStr: format(exStart, 'HH:mm'), endStr: format(exEnd, 'HH:mm') };
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }, [resourceId, startAt, endAt, isBeauty, endpoint]);
+
   const submit = async () => {
     if (!customerName) { toast.error('Selecciona un cliente'); return; }
-    if (!serviceId) { toast.error('Selecciona un servicio'); return; }
+    if (selectedServiceIds.length === 0) { toast.error('Selecciona al menos un servicio'); return; }
     if (!isOnline) { toast.error('Sin conexión — no se puede crear una cita ahora'); return; }
+
+    // Conflict detection — first attempt shows warning, second proceeds
+    if (!conflictWarning) {
+      const conflict = await checkConflicts();
+      if (conflict) { setConflictWarning(conflict); return; }
+    }
+    setConflictWarning(null);
 
     try {
       setSubmitting(true);
@@ -147,15 +228,16 @@ export default function MobileQuickCreateAppointment({
               name: customerName,
               phone: customerPhone || undefined,
             },
-            services: [{ service: serviceId }],
+            services: selectedServiceIds.map((id) => ({ service: id })),
             professionalId: resourceId || undefined,
             date: format(startAt, 'yyyy-MM-dd'),
             startTime: format(startAt, 'HH:mm'),
             notes: notes || undefined,
+            ...(selectedPackageId ? { packageId: selectedPackageId } : {}),
           }
         : {
             customerName,
-            serviceId,
+            serviceId: selectedServiceIds[0] || '',
             resourceId: resourceId || undefined,
             startTime: startAt.toISOString(),
             endTime: endAt.toISOString(),
@@ -165,11 +247,15 @@ export default function MobileQuickCreateAppointment({
 
       await fetchApi(endpoint, { method: 'POST', body: JSON.stringify(payload) });
       haptics.success();
-      trackEvent('appointment_created', { serviceId, resourceId: resourceId || null, isBeauty });
+      trackEvent('appointment_created', { serviceIds: selectedServiceIds, resourceId: resourceId || null, isBeauty });
 
       // Toast with WhatsApp action if client has phone
       const phone = customerPhone?.replace(/\D/g, '');
-      const svcName = selectedService?.name || 'el servicio';
+      const svcName = selectedServices.length === 1
+        ? selectedServices[0].name
+        : selectedServices.length > 1
+          ? `${selectedServices.length} servicios`
+          : 'el servicio';
       const timeStr = format(startAt, 'HH:mm');
       const dateStr = format(startAt, "d 'de' MMM", { locale: es });
 
@@ -292,20 +378,62 @@ export default function MobileQuickCreateAppointment({
           )}
         </section>
 
-        {/* Servicio */}
+        {/* Paquetes (solo beauty, si hay paquetes) */}
+        {isBeauty && packages.length > 0 && (
+          <section>
+            <label className="text-xs font-medium text-muted-foreground">Paquetes</label>
+            <div className="mt-1 space-y-2">
+              {packages.map((pkg) => {
+                const pkgId = String(pkg._id || pkg.id);
+                const active = selectedPackageId === pkgId;
+                const savings = Number(pkg.savings || 0);
+                return (
+                  <button
+                    key={pkgId}
+                    type="button"
+                    onClick={() => selectPackage(pkg)}
+                    className={cn(
+                      'w-full text-left rounded-[var(--mobile-radius-md)] border px-3 py-3 no-tap-highlight transition-colors',
+                      active ? 'bg-primary/10 border-primary' : 'bg-card border-border',
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-sm">{pkg.name}</span>
+                      <div className="flex items-center gap-2">
+                        {savings > 0 && (
+                          <span className="text-[10px] bg-emerald-500/10 text-emerald-600 rounded-full px-2 py-0.5 font-medium">
+                            Ahorras ${savings.toFixed(2)}
+                          </span>
+                        )}
+                        <span className={cn('font-bold text-sm', active ? 'text-primary' : '')}>
+                          ${Number(pkg.price?.amount ?? 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                    {pkg.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5">{pkg.description}</p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Servicio — multi-select chips */}
         <section>
           <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-            <Scissors size={12} /> Servicio
+            <Scissors size={12} /> {isBeauty && packages.length > 0 ? 'Servicios individuales' : 'Servicios'}
           </label>
           <div className="mt-1 flex flex-wrap gap-2">
             {services.slice(0, 12).map((s) => {
               const id = String(s._id || s.id);
-              const active = id === serviceId;
+              const active = selectedServiceIds.includes(id);
               return (
                 <button
                   key={id}
                   type="button"
-                  onClick={() => { haptics.select(); setServiceId(id); }}
+                  onClick={() => toggleService(id)}
                   className={cn(
                     'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight transition-colors',
                     active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground',
@@ -324,6 +452,13 @@ export default function MobileQuickCreateAppointment({
               <span className="text-sm text-muted-foreground">Sin servicios configurados</span>
             )}
           </div>
+          {/* Summary row */}
+          {selectedServiceIds.length > 0 && (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {selectedServiceIds.length} servicio{selectedServiceIds.length > 1 ? 's' : ''} · {totalDuration} min
+              {totalPrice > 0 ? ` · $${totalPrice.toFixed(2)}` : ''}
+            </p>
+          )}
         </section>
 
         {/* Hora */}
@@ -356,7 +491,7 @@ export default function MobileQuickCreateAppointment({
             className="mt-2 w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-3 text-base"
           />
           <p className="mt-1 text-xs text-muted-foreground">
-            Duración: {duration} min · Termina a las {format(endAt, 'HH:mm')}
+            Duración: {totalDuration} min · Termina a las {format(endAt, 'HH:mm')}
           </p>
         </section>
 
@@ -413,13 +548,18 @@ export default function MobileQuickCreateAppointment({
         className="absolute inset-x-0 bottom-0 px-4 pt-3 pb-4 bg-card border-t border-border safe-bottom"
         style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}
       >
+        {conflictWarning && (
+          <div className="mb-2 rounded-[var(--mobile-radius-md)] bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+            ⚠ {conflictWarning.name} ya tiene una cita de {conflictWarning.startStr} a {conflictWarning.endStr}. Toca "Guardar" para continuar.
+          </div>
+        )}
         <button
           type="button"
           disabled={submitting}
           onClick={submit}
           className="w-full rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground py-4 text-base font-semibold no-tap-highlight disabled:opacity-60"
         >
-          {submitting ? 'Guardando…' : 'Guardar cita'}
+          {submitting ? 'Guardando…' : conflictWarning ? 'Guardar de todas formas' : selectedServiceIds.length > 1 ? `Guardar ${selectedServiceIds.length} servicios` : 'Guardar cita'}
         </button>
       </div>
     </MobileActionSheet>

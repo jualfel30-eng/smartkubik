@@ -1,11 +1,13 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { CalendarDays, Home, Users, Menu } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { cn } from '@/lib/utils';
 import { SPRING } from '@/lib/motion';
 import haptics from '@/lib/haptics';
 import { useReducedMotionSafe } from '@/hooks/use-reduced-motion-safe';
+import { fetchApi } from '@/lib/api';
 import MobileFAB from './MobileFAB.jsx';
 
 const TAB_CONFIGS = {
@@ -25,7 +27,7 @@ const TAB_CONFIGS = {
   ],
 };
 
-function TabItem({ to, label, Icon, active }) {
+function TabItem({ to, label, Icon, active, badge = 0 }) {
   const { shouldReduce, t } = useReducedMotionSafe();
   return (
     <NavLink
@@ -50,7 +52,14 @@ function TabItem({ to, label, Icon, active }) {
         transition={t(SPRING.soft)}
         className="flex flex-col items-center gap-0.5"
       >
-        <Icon size={22} strokeWidth={active ? 2.2 : 1.8} />
+        <span className="relative">
+          <Icon size={22} strokeWidth={active ? 2.2 : 1.8} />
+          {badge > 0 && (
+            <span className="absolute -top-1 -right-2 min-w-[16px] h-4 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-0.5 leading-none">
+              {badge > 9 ? '9+' : badge}
+            </span>
+          )}
+        </span>
         <span className="leading-none transition-colors">{label}</span>
       </motion.span>
     </NavLink>
@@ -60,7 +69,32 @@ function TabItem({ to, label, Icon, active }) {
 export default function MobileBottomNav() {
   const { isBeauty } = useMobileVertical();
   const location = useLocation();
-  const tabs = isBeauty ? TAB_CONFIGS.beauty : TAB_CONFIGS.default;
+  const [pendingCount, setPendingCount] = useState(0);
+  const [unpaidCount, setUnpaidCount] = useState(0);
+
+  useEffect(() => {
+    if (!isBeauty) return;
+    const loadCounts = async () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const res = await fetchApi(`/beauty-bookings?startDate=${today}&endDate=${today}`);
+        const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+        setPendingCount(raw.filter(b => b.status === 'pending' || b.status === 'confirmed').length);
+        setUnpaidCount(raw.filter(b => b.status === 'completed' && b.paymentStatus !== 'paid').length);
+      } catch { /* silent */ }
+    };
+    loadCounts();
+    const interval = setInterval(loadCounts, 60000);
+    return () => clearInterval(interval);
+  }, [isBeauty]);
+
+  const rawTabs = isBeauty ? TAB_CONFIGS.beauty : TAB_CONFIGS.default;
+  const tabs = rawTabs.map(tab => {
+    if (!tab.to) return tab;
+    if (isBeauty && tab.to === '/appointments') return { ...tab, badge: pendingCount };
+    if (isBeauty && tab.to === '/dashboard') return { ...tab, badge: unpaidCount };
+    return tab;
+  });
 
   const isActive = (to) => {
     if (to === '/dashboard') return location.pathname === '/' || location.pathname.startsWith('/dashboard');
@@ -93,6 +127,7 @@ export default function MobileBottomNav() {
             label={tab.label}
             Icon={tab.icon}
             active={isActive(tab.to)}
+            badge={tab.badge || 0}
           />
         );
       })}

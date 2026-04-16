@@ -53,6 +53,7 @@ import { FinancialKpisDashboard } from '@/components/charts/FinancialKpisDashboa
 import { CustomAnalytics } from '@/components/charts/CustomAnalytics.jsx';
 import { useAuth } from '@/hooks/use-auth';
 import OnboardingChecklist from './OnboardingChecklist';
+import BeautyDashboardView from './BeautyDashboardView';
 import { ScrollReveal, ScrollRevealGroup } from '@/components/ui/scroll-reveal';
 import { DataHighlight } from '@/components/ui/data-highlight';
 
@@ -75,6 +76,8 @@ const getStatusBadge = (status) => {
 function DashboardView() {
   const { flags } = useFeatureFlags();
   const { tenant } = useAuth();
+  const isBeautyProfile = ['barbershop-salon', 'clinic-spa'].includes(tenant?.verticalProfile?.key);
+  if (isBeautyProfile) return <BeautyDashboardView />;
   const [summaryData, setSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

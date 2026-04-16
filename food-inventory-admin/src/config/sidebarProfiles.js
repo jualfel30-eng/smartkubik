@@ -24,6 +24,8 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'resources',              // Estaciones (dynamicLabel)
     'crm',                    // CRM — Clientes
     'inventory-management',   // Inventario (gel, shampoo, etc.)
+    'purchases',              // Compras (tintes, shampoo, cuchillas)
+    'marketing',              // Campañas, cupones, programa de lealtad, promociones
     'tips',                   // Propinas / Comisiones de barberos
     'bank-accounts',          // Cuentas Bancarias
     'cash-register',          // Cierre de Caja
