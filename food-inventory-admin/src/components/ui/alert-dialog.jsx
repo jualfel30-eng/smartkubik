@@ -18,8 +18,8 @@ const AlertDialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
     data-slot="alert-dialog-overlay"
     className={cn(
       "fixed inset-0 z-50 bg-black/50",
-      "data-[state=open]:animate-[dialog-overlay-in_250ms_cubic-bezier(0.22,1,0.36,1)]",
-      "data-[state=closed]:animate-[dialog-overlay-out_200ms_cubic-bezier(0.22,1,0.36,1)]",
+      "data-[state=open]:animate-[dialog-overlay-in_200ms_cubic-bezier(0.22,1,0.36,1)_both]",
+      "data-[state=closed]:animate-[dialog-overlay-out_150ms_cubic-bezier(0.22,1,0.36,1)_both]",
       className
     )}
     {...props} />
@@ -34,8 +34,9 @@ const AlertDialogContent = React.forwardRef(({ className, ...props }, ref) => (
       data-slot="alert-dialog-content"
       className={cn(
         "bg-background fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg sm:max-w-lg",
-        "data-[state=open]:animate-[alert-dialog-in_300ms_cubic-bezier(0.34,1.56,0.64,1)]",
-        "data-[state=closed]:animate-[alert-dialog-out_200ms_cubic-bezier(0.22,1,0.36,1)]",
+        "will-change-[transform,opacity]",
+        "data-[state=open]:animate-[alert-dialog-in_200ms_cubic-bezier(0.22,1,0.36,1)_both]",
+        "data-[state=closed]:animate-[alert-dialog-out_150ms_cubic-bezier(0.22,1,0.36,1)_both]",
         className
       )}
       {...props} />

@@ -293,8 +293,10 @@
   background-color: #EA580C !important;
 }
 
-/* ===== DIALOG SPRING ANIMATIONS ===== */
-/* Spring-like easing: cubic-bezier(0.34, 1.56, 0.64, 1) creates overshoot */
+/* ===== DIALOG ANIMATIONS ===== */
+/* Uses CSS individual transform properties (scale, translate) to avoid
+   conflicting with Tailwind v4's `translate` property for centering.
+   fill-mode:both in the component classes ensures frame-perfect start. */
 @keyframes dialog-overlay-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -304,66 +306,30 @@
   to { opacity: 0; }
 }
 @keyframes dialog-content-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
+  from { opacity: 0; scale: 0.95; }
+  to { opacity: 1; scale: 1; }
 }
 @keyframes dialog-content-out {
-  from {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.98);
-  }
+  from { opacity: 1; scale: 1; }
+  to { opacity: 0; scale: 0.97; }
 }
 /* Mobile variant: slide up from bottom */
 @keyframes dialog-mobile-in {
-  from {
-    opacity: 0;
-    transform: translateY(8%);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; translate: 0 8%; }
+  to { opacity: 1; translate: 0 0; }
 }
 @keyframes dialog-mobile-out {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(5%);
-  }
+  from { opacity: 1; translate: 0 0; }
+  to { opacity: 0; translate: 0 5%; }
 }
-/* Alert dialog: centered, no translate offset needed */
+/* Alert dialog: scale only (centering handled by Tailwind translate) */
 @keyframes alert-dialog-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -48%) scale(0.96);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
+  from { opacity: 0; scale: 0.95; }
+  to { opacity: 1; scale: 1; }
 }
 @keyframes alert-dialog-out {
-  from {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translate(-50%, -48%) scale(0.98);
-  }
+  from { opacity: 1; scale: 1; }
+  to { opacity: 0; scale: 0.97; }
 }
 
 /* Skeleton shimmer */

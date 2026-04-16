@@ -17,8 +17,8 @@ const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
     ref={ref}
     className={cn(
       "fixed inset-0 z-50 bg-black/80",
-      "data-[state=open]:animate-[dialog-overlay-in_250ms_cubic-bezier(0.22,1,0.36,1)]",
-      "data-[state=closed]:animate-[dialog-overlay-out_200ms_cubic-bezier(0.22,1,0.36,1)]",
+      "data-[state=open]:animate-[dialog-overlay-in_200ms_cubic-bezier(0.22,1,0.36,1)_both]",
+      "data-[state=closed]:animate-[dialog-overlay-out_150ms_cubic-bezier(0.22,1,0.36,1)_both]",
       className
     )}
     {...props}
@@ -34,12 +34,13 @@ const DialogContent = React.forwardRef(({ className, children, ...props }, ref) 
       className={cn(
         // Desktop: centered modal with spring animation
         "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg sm:rounded-lg",
-        "data-[state=open]:animate-[dialog-content-in_300ms_cubic-bezier(0.34,1.56,0.64,1)]",
-        "data-[state=closed]:animate-[dialog-content-out_200ms_cubic-bezier(0.22,1,0.36,1)]",
+        "will-change-[transform,opacity]",
+        "data-[state=open]:animate-[dialog-content-in_200ms_cubic-bezier(0.22,1,0.36,1)_both]",
+        "data-[state=closed]:animate-[dialog-content-out_150ms_cubic-bezier(0.22,1,0.36,1)_both]",
         // Mobile fullscreen fallback with slide-up animation
         "max-sm:left-0 max-sm:top-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-w-[100vw] max-sm:w-full max-sm:h-[100dvh] max-sm:rounded-none max-sm:border-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[env(safe-area-inset-bottom)]",
-        "max-sm:data-[state=open]:animate-[dialog-mobile-in_350ms_cubic-bezier(0.34,1.56,0.64,1)]",
-        "max-sm:data-[state=closed]:animate-[dialog-mobile-out_200ms_cubic-bezier(0.22,1,0.36,1)]",
+        "max-sm:data-[state=open]:animate-[dialog-mobile-in_250ms_cubic-bezier(0.22,1,0.36,1)_both]",
+        "max-sm:data-[state=closed]:animate-[dialog-mobile-out_150ms_cubic-bezier(0.22,1,0.36,1)_both]",
         className
       )}
       {...props}
