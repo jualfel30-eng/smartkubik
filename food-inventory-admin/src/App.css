@@ -40,6 +40,15 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-success: var(--status-success);
+  --color-success-foreground: var(--status-success-foreground);
+  --color-success-muted: var(--status-success-muted);
+  --color-warning: var(--status-warning);
+  --color-warning-foreground: var(--status-warning-foreground);
+  --color-warning-muted: var(--status-warning-muted);
+  --color-info: var(--status-info);
+  --color-info-foreground: var(--status-info-foreground);
+  --color-info-muted: var(--status-info-muted);
 }
 
 :root {
@@ -77,246 +86,57 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 
-  /* Responsive Typography Scaling */
-  font-size: 16px;
-  /* Default for large screens (1920px+) */
+  /* Semantic status colors */
+  --status-success: oklch(0.55 0.17 155);
+  --status-success-foreground: oklch(0.985 0 0);
+  --status-success-muted: oklch(0.95 0.05 155);
+  --status-warning: oklch(0.75 0.18 75);
+  --status-warning-foreground: oklch(0.3 0.08 60);
+  --status-warning-muted: oklch(0.96 0.06 85);
+  --status-info: oklch(0.6 0.15 250);
+  --status-info-foreground: oklch(0.985 0 0);
+  --status-info-muted: oklch(0.95 0.04 250);
+
+  /* Fluid typography — replaces 5-tier discrete system.
+     clamp(min, preferred, max) gives smooth scaling without breakpoint jumps.
+     16px is the browser default — never go below 14px to keep rem math sane. */
+  font-size: clamp(14px, 0.65vw + 6px, 16px);
 }
 
-/* ===== ADAPTIVE RESPONSIVE SYSTEM ===== */
-/* "Ni tan calvo ni con dos pelucas" - Optimal sizing for ALL screens */
+/* ===== ADAPTIVE SIDEBAR ===== */
+/* Sidebar width and density scale by viewport — typography handled by clamp() above */
 
-/* TIER 5: Ultra-Wide/4K (2560px+) - Generous spacing */
 @media (min-width: 2560px) {
-  :root {
-    font-size: 18px;
-    --icon-size: 1.5rem;
-    /* 24px for 4K */
-  }
-
-  body.erp-active h1 {
-    font-size: 1.25rem !important;
-  }
-
-  body.erp-active h2 {
-    font-size: 1.111rem !important;
-  }
-
-  body.erp-active h3 {
-    font-size: 1.6rem !important;
-  }
-
-  body.erp-active h4 {
-    font-size: 1.3rem !important;
-  }
-
-  [data-sidebar] {
-    --sidebar-width: 18rem;
-  }
-
-
-
-  [data-sidebar] .group\/menu-item {
-    padding-top: 0.5rem !important;
-    padding-bottom: 0.5rem !important;
-    gap: 0.75rem !important;
-    min-height: 2.75rem !important;
-  }
+  [data-sidebar] { --sidebar-width: 18rem; }
 }
-
-/* TIER 4: Large Desktop/2K (1920px-2559px) - Comfortable size */
 @media (min-width: 1920px) and (max-width: 2559px) {
-  :root {
-    font-size: 16px;
-    --icon-size: 1.25rem;
-    /* 20px for 2K */
-  }
-
-  body.erp-active h1,
-  body.erp-active h1.text-3xl,
-  body.erp-active h1.text-2xl,
-  body.erp-active h1.text-4xl,
-  body.erp-active h1.text-5xl {
-    font-size: 1.5rem !important;
-  }
-
-  body.erp-active h2,
-  body.erp-active h2.text-3xl,
-  body.erp-active h2.text-4xl,
-  body.erp-active h2.text-5xl {
-    font-size: 1.25rem !important;
-  }
-
-  body.erp-active h3 {
-    font-size: 1.5rem !important;
-  }
-
-  body.erp-active h4 {
-    font-size: 1.2rem !important;
-  }
-
-  [data-sidebar] {
-    --sidebar-width: 16rem;
-  }
-
-
-
-  [data-sidebar] .group\/menu-item {
-    padding-top: 0.4rem !important;
-    padding-bottom: 0.4rem !important;
-    gap: 0.65rem !important;
-    min-height: 2.5rem !important;
-  }
+  [data-sidebar] { --sidebar-width: 16rem; }
 }
-
-/* TIER 3: Full HD (1440px-1919px) - Balanced */
 @media (min-width: 1440px) and (max-width: 1919px) {
-  :root {
-    font-size: 14px;
-    --icon-size: 1rem;
-    /* 16px for FHD */
-  }
-
-  body.erp-active h1,
-  body.erp-active h1.text-3xl,
-  body.erp-active h1.text-2xl,
-  body.erp-active h1.text-4xl,
-  body.erp-active h1.text-5xl {
-    font-size: 1.75rem !important;
-  }
-
-  body.erp-active h2,
-  body.erp-active h2.text-3xl,
-  body.erp-active h2.text-4xl {
-    font-size: 1.428rem !important;
-  }
-
-  body.erp-active h3 {
-    font-size: 1.35rem !important;
-  }
-
-  body.erp-active h4 {
-    font-size: 1.1rem !important;
-  }
-
-  [data-sidebar] {
-    --sidebar-width: 15rem;
-  }
-
-
-
-  [data-sidebar] .group\/menu-item {
-    padding-top: 0.35rem !important;
-    padding-bottom: 0.35rem !important;
-    gap: 0.6rem !important;
-    min-height: 2.35rem !important;
-  }
+  [data-sidebar] { --sidebar-width: 15rem; }
 }
-
-/* TIER 2: Standard Laptop (1200px-1439px) - Compact */
 @media (min-width: 1200px) and (max-width: 1439px) {
-  :root {
-    font-size: 11px;
-    /* Reduced from 12px */
-    --icon-size: 0.75rem;
-    /* 12px for Laptop */
-  }
-
-  body.erp-active h1 {
-    font-size: 0.75rem !important;
-  }
-
-  body.erp-active h2 {
-    font-size: 1.818rem !important;
-  }
-
-  body.erp-active h3 {
-    font-size: 1.1rem !important;
-  }
-
-  /* 12.1px */
-  body.erp-active h4 {
-    font-size: 1rem !important;
-  }
-
-  /* 11px */
-
   [data-sidebar] {
     --sidebar-width: 13rem;
     overflow-y: auto !important;
-    /* Scroll even when collapsed */
     max-height: 100vh !important;
   }
-
-
-
-  [data-sidebar] .group\/menu-item {
-    padding-top: 0.2rem !important;
-    padding-bottom: 0.2rem !important;
-    gap: 0.4rem !important;
-    min-height: 1.9rem !important;
-  }
-
   [data-sidebar] [data-sidebar-menu] {
     overflow-y: auto !important;
     max-height: calc(100vh - 7rem) !important;
   }
 }
-
-/* TIER 1: Small Screens (<1200px) - Very Compact */
 @media (max-width: 1199px) {
-  :root {
-    font-size: 10px;
-    /* Reduced from 12px to 10px */
-    --icon-size: 0.75rem;
-    /* 12px for Small Screens */
-  }
-
-  body.erp-active h1 {
-    font-size: 0.7rem !important;
-  }
-
-  body.erp-active h2 {
-    font-size: 2rem !important;
-  }
-
-  body.erp-active h3 {
-    font-size: 1.1rem !important;
-  }
-
-  /* 11px */
-  body.erp-active h4 {
-    font-size: 1rem !important;
-  }
-
-  /* 10px */
-
   [data-sidebar] {
     --sidebar-width: 12rem;
     overflow-y: auto !important;
-    /* Scroll even when collapsed */
     max-height: 100vh !important;
   }
-
-
-
-  [data-sidebar] .group\/menu-item {
-    padding-top: 0.15rem !important;
-    padding-bottom: 0.15rem !important;
-    gap: 0.35rem !important;
-    min-height: 1.75rem !important;
-  }
-
   [data-sidebar] [data-sidebar-menu] {
     overflow-y: auto !important;
     max-height: calc(100vh - 5rem) !important;
   }
 }
-
-/* Variable overrides removed - Hardcoded in media queries */
-
-/* JavaScript enforcement */
-
-/* Enable scroll even when collapsed */
 [data-sidebar="content"] {
   overflow-y: auto !important;
 }
@@ -354,6 +174,17 @@
   --sidebar-accent-foreground: oklch(0.95 0.01 255);
   --sidebar-border: oklch(0.33 0.02 255);
   --sidebar-ring: oklch(0.58 0.18 264);
+
+  /* Semantic status colors — dark */
+  --status-success: oklch(0.65 0.19 155);
+  --status-success-foreground: oklch(0.15 0.02 155);
+  --status-success-muted: oklch(0.28 0.06 155);
+  --status-warning: oklch(0.78 0.16 75);
+  --status-warning-foreground: oklch(0.18 0.04 60);
+  --status-warning-muted: oklch(0.30 0.06 75);
+  --status-info: oklch(0.65 0.16 250);
+  --status-info-foreground: oklch(0.15 0.02 250);
+  --status-info-muted: oklch(0.28 0.05 250);
 }
 
 @layer base {
@@ -460,6 +291,86 @@
 .dark .fc .fc-button-primary:not(:disabled).fc-button-active,
 .dark .fc .fc-button-primary:not(:disabled):active {
   background-color: #EA580C !important;
+}
+
+/* ===== DIALOG SPRING ANIMATIONS ===== */
+/* Spring-like easing: cubic-bezier(0.34, 1.56, 0.64, 1) creates overshoot */
+@keyframes dialog-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes dialog-overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes dialog-content-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+@keyframes dialog-content-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.98);
+  }
+}
+/* Mobile variant: slide up from bottom */
+@keyframes dialog-mobile-in {
+  from {
+    opacity: 0;
+    transform: translateY(8%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes dialog-mobile-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(5%);
+  }
+}
+/* Alert dialog: centered, no translate offset needed */
+@keyframes alert-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+@keyframes alert-dialog-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.98);
+  }
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* Custom Animations from Landing Page */
