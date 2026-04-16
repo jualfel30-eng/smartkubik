@@ -157,6 +157,12 @@ export class BeautyWhatsAppNotificationsService {
         return { success: false, error: 'WhatsApp not enabled' };
       }
 
+      // Respetar setting de notificaciones de cambios (cancelaciones incluidas)
+      if ((storefront as any)?.beautyConfig?.notifications?.autoChangeNotify === false) {
+        this.logger.log('Change notifications disabled for this tenant — skipping cancellation');
+        return { success: false, error: 'Change notifications disabled' };
+      }
+
       const message = this.buildCancellationMessage(booking, storefront);
       const result = await this.sendWhatsAppMessage(
         booking.client.phone,
@@ -177,6 +183,60 @@ export class BeautyWhatsAppNotificationsService {
       return result;
     } catch (error) {
       this.logger.error(`Error sending cancellation: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Envía notificación de reagendamiento (cambio de fecha/hora)
+   */
+  async sendRescheduledNotification(
+    booking: BeautyBookingDocument,
+    previousDate: string,
+    previousTime: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const storefront = await this.storefrontConfigModel
+        .findOne({ tenantId: booking.tenantId })
+        .exec();
+
+      if (!storefront || !(storefront as any)?.beautyConfig?.bookingSettings?.whatsappNotification?.enabled) {
+        return { success: false, error: 'WhatsApp not enabled' };
+      }
+
+      if ((storefront as any)?.beautyConfig?.notifications?.autoChangeNotify === false) {
+        return { success: false, error: 'Change notifications disabled' };
+      }
+
+      const servicesList = booking.services.map((s) => `• ${s.name}`).join('\n');
+
+      const message =
+        `Hola ${booking.client.name}, tu cita en *${(storefront as any).name}* ha sido reagendada 📅\n\n` +
+        `*Nueva fecha:* ${this.formatDate(booking.date)}\n` +
+        `*Nueva hora:* ${booking.startTime}\n\n` +
+        `*Servicios:*\n${servicesList}\n\n` +
+        `Código de reserva: *${booking.bookingNumber}*\n\n` +
+        `Si necesitas más cambios, contáctanos.\n— ${(storefront as any).name}`;
+
+      const result = await this.sendWhatsAppMessage(
+        booking.client.phone,
+        message,
+        booking.tenantId.toString(),
+      );
+
+      if (result.success) {
+        booking.whatsappNotifications.push({
+          type: 'rescheduled' as any,
+          sentAt: new Date(),
+          status: 'sent',
+          messageId: result.messageId,
+        });
+        await booking.save();
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error(`Error sending rescheduled notification: ${error.message}`);
       return { success: false, error: error.message };
     }
   }

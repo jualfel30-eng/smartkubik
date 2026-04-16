@@ -8,6 +8,10 @@ import {
   BeautyServiceSchema,
 } from '../../schemas/beauty-service.schema';
 import {
+  BeautyPackage,
+  BeautyPackageSchema,
+} from '../../schemas/beauty-package.schema';
+import {
   Professional,
   ProfessionalSchema,
 } from '../../schemas/professional.schema';
@@ -33,6 +37,7 @@ import {
 } from '../../schemas/storefront-config.schema';
 
 // Services
+import { BeautyPackagesService } from './services/service-packages.service';
 import { BeautyServicesService } from './services/beauty-services.service';
 import { ProfessionalsService } from './services/professionals.service';
 import { BeautyBookingsService } from './services/beauty-bookings.service';
@@ -44,6 +49,7 @@ import { BeautyBookingsJobsService } from './services/beauty-bookings-jobs.servi
 import { NotificationCenterModule } from '../notification-center/notification-center.module';
 
 // Controllers - Private
+import { BeautyPackagesController } from './controllers/service-packages.controller';
 import { BeautyServicesController } from './controllers/beauty-services.controller';
 import { ProfessionalsController } from './controllers/professionals.controller';
 import { BeautyBookingsController } from './controllers/beauty-bookings.controller';
@@ -51,6 +57,7 @@ import { BeautyGalleryController } from './controllers/beauty-gallery.controller
 import { BeautyReviewsController } from './controllers/beauty-reviews.controller';
 
 // Controllers - Public
+import { BeautyPackagesPublicController } from './controllers/service-packages-public.controller';
 import { BeautyServicesPublicController } from './controllers/beauty-services-public.controller';
 import { ProfessionalsPublicController } from './controllers/professionals-public.controller';
 import { BeautyBookingsPublicController } from './controllers/beauty-bookings-public.controller';
@@ -90,6 +97,7 @@ import { BeautyLoyaltyPublicController } from './controllers/beauty-loyalty-publ
     ScheduleModule.forRoot(),
     NotificationCenterModule,
     MongooseModule.forFeature([
+      { name: BeautyPackage.name, schema: BeautyPackageSchema },
       { name: BeautyService.name, schema: BeautyServiceSchema },
       { name: Professional.name, schema: ProfessionalSchema },
       { name: BeautyBooking.name, schema: BeautyBookingSchema },
@@ -101,12 +109,14 @@ import { BeautyLoyaltyPublicController } from './controllers/beauty-loyalty-publ
   ],
   controllers: [
     // Private controllers
+    BeautyPackagesController,
     BeautyServicesController,
     ProfessionalsController,
     BeautyBookingsController,
     BeautyGalleryController,
     BeautyReviewsController,
     // Public controllers
+    BeautyPackagesPublicController,
     BeautyServicesPublicController,
     ProfessionalsPublicController,
     BeautyBookingsPublicController,
@@ -115,6 +125,7 @@ import { BeautyLoyaltyPublicController } from './controllers/beauty-loyalty-publ
     BeautyLoyaltyPublicController,
   ],
   providers: [
+    BeautyPackagesService,
     BeautyServicesService,
     ProfessionalsService,
     BeautyBookingsService,
@@ -126,6 +137,7 @@ import { BeautyLoyaltyPublicController } from './controllers/beauty-loyalty-publ
   ],
   exports: [
     // Exportar servicios para usar en otros módulos si es necesario
+    BeautyPackagesService,
     BeautyServicesService,
     ProfessionalsService,
     BeautyBookingsService,

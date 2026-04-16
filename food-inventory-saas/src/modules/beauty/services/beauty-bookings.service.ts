@@ -25,9 +25,11 @@ import {
 import {
   CreateBeautyBookingDto,
   UpdateBookingStatusDto,
+  UpdateBeautyBookingDto,
   GetAvailabilityDto,
 } from '../../../dto/beauty';
 import { BeautyWhatsAppNotificationsService } from './beauty-whatsapp-notifications.service';
+import { BeautyLoyaltyService } from './beauty-loyalty.service';
 import { WebPushService } from '../../notification-center/web-push.service';
 
 /**
@@ -48,6 +50,7 @@ export class BeautyBookingsService {
     @InjectModel(StorefrontConfig.name)
     private storefrontConfigModel: Model<StorefrontConfigDocument>,
     private readonly whatsappService: BeautyWhatsAppNotificationsService,
+    private readonly loyaltyService: BeautyLoyaltyService,
     private readonly webPushService: WebPushService,
   ) {}
 
@@ -168,21 +171,32 @@ export class BeautyBookingsService {
       locationId: dto.locationId
         ? new Types.ObjectId(dto.locationId)
         : undefined,
+      packageId: dto.packageId
+        ? new Types.ObjectId(dto.packageId)
+        : undefined,
     });
 
-    // 8. Enviar notificación WhatsApp de confirmación
+    // 8. Enviar notificación WhatsApp de confirmación (si autoConfirmation no está deshabilitado)
     try {
-      const notificationResult =
-        await this.whatsappService.sendConfirmationNotification(booking);
+      const storefront = await this.storefrontConfigModel
+        .findOne({ tenantId: dto.tenantId })
+        .exec();
+      const autoConfirmation =
+        (storefront as any)?.beautyConfig?.notifications?.autoConfirmation !== false;
 
-      if (notificationResult.success) {
-        this.logger.log(
-          `WhatsApp confirmation sent for booking ${booking.bookingNumber}`,
-        );
-      } else {
-        this.logger.warn(
-          `WhatsApp notification failed for booking ${booking.bookingNumber}: ${notificationResult.error}`,
-        );
+      if (autoConfirmation && booking.client.phone) {
+        const notificationResult =
+          await this.whatsappService.sendConfirmationNotification(booking);
+
+        if (notificationResult.success) {
+          this.logger.log(
+            `WhatsApp confirmation sent for booking ${booking.bookingNumber}`,
+          );
+        } else {
+          this.logger.warn(
+            `WhatsApp notification failed for booking ${booking.bookingNumber}: ${notificationResult.error}`,
+          );
+        }
       }
     } catch (error) {
       // No bloquear la creación del booking si falla WhatsApp
@@ -306,6 +320,7 @@ export class BeautyBookingsService {
     const booking = await this.findOne(id, tenantId);
 
     const previousStatus = booking.status;
+    const previousPaymentStatus = booking.paymentStatus;
 
     if (dto.status) {
       booking.status = dto.status;
@@ -362,7 +377,111 @@ export class BeautyBookingsService {
       booking.amountPaid = dto.amountPaid;
     }
 
+    // ── Lealtad: al marcar como pagado ──────────────────────────────────
+    if (dto.paymentStatus === 'paid' && previousPaymentStatus !== 'paid' && booking.client.phone) {
+      try {
+        const storefront = await this.storefrontConfigModel
+          .findOne({ tenantId: booking.tenantId })
+          .exec();
+        const loyaltyConfig = (storefront as any)?.beautyConfig?.loyalty;
+
+        // 1. Redimir puntos si se solicitó
+        if (dto.loyaltyPointsRedeemed && dto.loyaltyPointsRedeemed > 0) {
+          await this.loyaltyService.redeemPoints(
+            booking.tenantId.toString(),
+            booking.client.phone,
+            dto.loyaltyPointsRedeemed,
+            `Redención en cita ${booking.bookingNumber}`,
+          );
+          booking.loyaltyPointsRedeemed = dto.loyaltyPointsRedeemed;
+        }
+
+        // 2. Acumular puntos automáticamente si el programa de lealtad está activo
+        if (loyaltyConfig?.enabled && booking.loyaltyPointsAwarded === 0) {
+          const amountPaid = (dto.amountPaid ?? booking.totalPrice) - (dto.loyaltyDiscount ?? 0);
+          const pointsPerUnit = loyaltyConfig.pointsPerUnit ?? 1;
+          const pointsEarned = Math.floor(amountPaid * pointsPerUnit);
+
+          if (pointsEarned > 0) {
+            await this.loyaltyService.addPoints(
+              booking.tenantId.toString(),
+              booking.client.phone,
+              booking.client.name,
+              pointsEarned,
+              booking._id.toString(),
+              `Cita ${booking.bookingNumber}`,
+            );
+            booking.loyaltyPointsAwarded = pointsEarned;
+            this.logger.log(
+              `Loyalty: awarded ${pointsEarned} pts to ${booking.client.phone} for booking ${booking.bookingNumber}`,
+            );
+          }
+        }
+      } catch (error) {
+        // No revertir el pago si falla lealtad
+        this.logger.error(`Error handling loyalty on payment: ${error.message}`);
+      }
+    }
+
     return booking.save();
+  }
+
+  /**
+   * Actualiza datos de una reserva (reagendamiento — fecha, hora, profesional, notas).
+   * Si la fecha u hora cambian, envía notificación WhatsApp de reagendamiento.
+   */
+  async update(
+    id: string,
+    dto: UpdateBeautyBookingDto,
+    tenantId: string,
+    userId: string,
+  ): Promise<BeautyBookingDocument> {
+    const booking = await this.findOne(id, tenantId);
+
+    const previousDateStr = new Date(booking.date).toISOString().split('T')[0];
+    const previousTime = booking.startTime;
+
+    if (dto.date) booking.date = new Date(dto.date);
+
+    if (dto.startTime) {
+      booking.startTime = dto.startTime;
+      // Recalcular endTime con la nueva hora de inicio
+      booking.endTime = this.addMinutesToTime(dto.startTime, booking.totalDuration);
+    }
+
+    if (dto.professionalId !== undefined) {
+      if (dto.professionalId) {
+        booking.professional = new Types.ObjectId(dto.professionalId);
+        const prof = await this.professionalModel.findById(dto.professionalId).exec();
+        booking.professionalName = prof?.name || undefined;
+      } else {
+        booking.professional = undefined;
+        booking.professionalName = undefined;
+      }
+    }
+
+    if (dto.notes !== undefined) booking.notes = dto.notes;
+
+    const saved = await booking.save();
+
+    // Notificar al cliente si fecha u hora cambiaron
+    const newDateStr = dto.date || previousDateStr;
+    const newTime = dto.startTime || previousTime;
+    const dateTimeChanged = newDateStr !== previousDateStr || newTime !== previousTime;
+
+    if (dateTimeChanged && saved.client.phone) {
+      try {
+        await this.whatsappService.sendRescheduledNotification(
+          saved,
+          previousDateStr,
+          previousTime,
+        );
+      } catch (error) {
+        this.logger.error(`Error sending reschedule notification: ${error.message}`);
+      }
+    }
+
+    return saved;
   }
 
   /**

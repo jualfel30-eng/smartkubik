@@ -3,6 +3,7 @@ import {
   Get,
   Patch,
   Post,
+  Put,
   Param,
   Query,
   Body,
@@ -15,7 +16,7 @@ import { JwtAuthGuard } from '../../../guards/jwt-auth.guard';
 import { TenantGuard } from '../../../guards/tenant.guard';
 import { BeautyBookingsService } from '../services/beauty-bookings.service';
 import { BeautyWhatsAppNotificationsService } from '../services/beauty-whatsapp-notifications.service';
-import { UpdateBookingStatusDto, AdminCreateBeautyBookingDto } from '../../../dto/beauty';
+import { UpdateBookingStatusDto, AdminCreateBeautyBookingDto, UpdateBeautyBookingDto } from '../../../dto/beauty';
 
 @ApiTags('Beauty Bookings (Private)')
 @ApiBearerAuth()
@@ -78,6 +79,16 @@ export class BeautyBookingsController {
   @ApiOperation({ summary: 'Obtener reserva por ID' })
   async findOne(@Param('id') id: string, @Request() req) {
     return this.beautyBookingsService.findOne(id, req.user.tenantId);
+  }
+
+  @Put(':id')
+  @ApiOperation({ summary: 'Reagendar reserva (cambiar fecha, hora, profesional o notas)' })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateBeautyBookingDto,
+    @Request() req,
+  ) {
+    return this.beautyBookingsService.update(id, dto, req.user.tenantId, req.user.userId);
   }
 
   @Patch(':id/status')

@@ -313,7 +313,7 @@ export class ServicePackagesService {
     const assignment = resourceAssignments.get(item.serviceId.toString()) || {
       resourceId: undefined,
       additionalResourceIds:
-        item.defaultAdditionalResourceIds?.map((id) => id.toString()) || [],
+        item.additionalResourceIds?.map((id) => id.toString()) || [],
     };
 
     const start = packageStart.plus({ minutes: item.offsetMinutes || 0 });
