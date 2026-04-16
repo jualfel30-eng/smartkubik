@@ -17,7 +17,7 @@ import {
   Activity
 } from 'lucide-react';
 import { getAbTestResults, selectAbTestWinner } from '../../lib/api';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 /**
  * VariantComparison - Displays A/B test results comparison
@@ -27,8 +27,6 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState(false);
-  const { toast } = useToast();
-
   const loadResults = useCallback(async () => {
     try {
       setLoading(true);
@@ -36,15 +34,13 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
       setResults(response.data);
     } catch (error) {
       console.error('Error loading A/B test results:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudieron cargar los resultados del test',
-        variant: 'destructive'
       });
     } finally {
       setLoading(false);
     }
-  }, [campaignId, toast]);
+  }, [campaignId]);
 
   useEffect(() => {
     loadResults();
@@ -54,18 +50,15 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
     try {
       setSelecting(true);
       await selectAbTestWinner(campaignId, variantName);
-      toast({
-        title: 'Ganador Seleccionado',
+      toast.success('Ganador Seleccionado', {
         description: `${variantName} ha sido seleccionada como ganadora`,
       });
       await loadResults();
       onWinnerSelected?.();
     } catch (error) {
       console.error('Error selecting winner:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudo seleccionar el ganador',
-        variant: 'destructive'
       });
     } finally {
       setSelecting(false);

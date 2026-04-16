@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Button } from './ui/button';
+import { ErrorState } from './ui/error-state';
 import { useAuth } from '../hooks/use-auth';
 
 export default function TenantUserList() {
@@ -56,7 +57,7 @@ export default function TenantUserList() {
   }
 
   if (error) {
-    return <div className="text-red-500">Error: {error}</div>;
+    return <ErrorState message={error} onRetry={() => window.location.reload()} />;
   }
 
   return (

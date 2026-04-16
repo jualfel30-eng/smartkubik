@@ -726,7 +726,7 @@ const DayView = ({ currentDate, events, handleDayClick }) => {
                   {eventsAtTime.map((evt) => (
                     <div
                       key={evt.id}
-                      className="text-xs p-2 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-700 cursor-move"
+                      className="text-xs p-2 rounded bg-info-muted text-blue-800 dark:text-blue-200 border border-info/40 cursor-move"
                       draggable={!evt.id?.startsWith('todo-')}
                       onDragStart={(e) => {
                         e.stopPropagation();
@@ -780,11 +780,11 @@ const WeekView = ({ currentDate, events, handleDayClick }) => {
         {weekDates.map((date, idx) => (
           <div
             key={idx}
-            className={`p-2 text-center border-l dark:border-gray-700 ${isToday(date) ? 'bg-blue-100 dark:bg-blue-900/30' : ''
+            className={`p-2 text-center border-l dark:border-gray-700 ${isToday(date) ? 'bg-info-muted' : ''
               }`}
           >
             <div className="text-xs text-gray-600 dark:text-gray-400">{DAYS_OF_WEEK[idx]}</div>
-            <div className={`text-sm font-semibold ${isToday(date) ? 'text-blue-600 dark:text-blue-400' : 'dark:text-gray-200'}`}>
+            <div className={`text-sm font-semibold ${isToday(date) ? 'text-info' : 'dark:text-gray-200'}`}>
               {date.getDate()}
             </div>
           </div>
@@ -817,7 +817,7 @@ const WeekView = ({ currentDate, events, handleDayClick }) => {
                     {eventsAtTime.slice(0, 2).map((evt) => (
                       <div
                         key={evt.id}
-                        className="text-xs p-1 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border border-blue-300 dark:border-blue-700 truncate cursor-move"
+                        className="text-xs p-1 rounded bg-info-muted text-blue-800 dark:text-blue-200 border border-info/40 truncate cursor-move"
                         title={evt.title}
                         draggable={!evt.id?.startsWith('todo-')}
                         onDragStart={(e) => {
@@ -916,7 +916,7 @@ const MonthView = ({ currentDate, events, handleDayClick }) => {
             className={`
               min-h-[100px] p-2 border dark:border-gray-700 rounded-lg transition-all
               ${day ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow-md' : 'bg-gray-100 dark:bg-gray-800/50'}
-              ${isCurrentDay ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 border-2' : ''}
+              ${isCurrentDay ? 'bg-blue-50 dark:bg-blue-900/20 border-info/40 border-2' : ''}
               ${isPastDay && day ? 'opacity-60' : ''}
             `}
             onClick={() => day && handleDayClick(dateStr)}
@@ -933,7 +933,7 @@ const MonthView = ({ currentDate, events, handleDayClick }) => {
                     {day}
                   </span>
                   {eventsForDay.length > 0 && (
-                    <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200">
+                    <Badge variant="outline" className="text-xs bg-info-muted border-info/40 text-blue-800 dark:text-blue-200">
                       {eventsForDay.length}
                     </Badge>
                   )}
@@ -943,7 +943,7 @@ const MonthView = ({ currentDate, events, handleDayClick }) => {
                   <div className="space-y-1">
                     {eventsForDay.slice(0, 3).map((evt, idx) => {
                       const time = evt.start && !evt.allDay ? new Date(evt.start).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '';
-                      const bgColor = evt.type === 'todo' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-700' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-700';
+                      const bgColor = evt.type === 'todo' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-700' : 'bg-info-muted text-blue-800 dark:text-blue-200 border-info/40';
 
                       return (
                         <div

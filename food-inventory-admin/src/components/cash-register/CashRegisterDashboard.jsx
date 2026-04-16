@@ -561,9 +561,9 @@ export default function CashRegisterDashboard() {
   const diffVes = (closeForm.closingAmountVes || 0) - expectedVes;
 
   const getDiffBadgeColor = (diff) => {
-    if (Math.abs(diff) < 0.01) return 'text-green-600 bg-green-100 dark:bg-green-900/30';
-    if (diff > 0) return 'text-blue-600 bg-blue-100 dark:bg-blue-900/30'; // Sobrante
-    return 'text-red-600 bg-red-100 dark:bg-red-900/30'; // Faltante
+    if (Math.abs(diff) < 0.01) return 'text-green-600 bg-success-muted';
+    if (diff > 0) return 'text-blue-600 bg-info-muted'; // Sobrante
+    return 'text-red-600 bg-destructive/10'; // Faltante
   };
 
   // ============================================
@@ -603,7 +603,7 @@ export default function CashRegisterDashboard() {
 
       {/* Estado actual de la caja */}
       {currentSession && (
-        <Card className="border-green-200 bg-green-50 dark:bg-green-950/20">
+        <Card className="border-green-200 bg-success-muted">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1496,7 +1496,7 @@ export default function CashRegisterDashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                    <div className="p-4 bg-info-muted rounded-lg">
                       <p className="text-sm text-muted-foreground">IVA Recaudado</p>
                       <p className="text-2xl font-bold text-blue-600">
                         {formatCurrency(

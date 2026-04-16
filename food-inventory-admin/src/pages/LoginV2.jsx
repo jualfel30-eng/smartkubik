@@ -186,7 +186,7 @@ function LoginV2() {
                       className="bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-gray-900 dark:text-white transition-colors"
                     />
                     <div className="flex justify-end">
-                      <Link to="/forgot-password" className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-500 hover:dark:text-blue-300 hover:underline transition-colors">
+                      <Link to="/forgot-password" className="text-sm text-info hover:text-blue-500 hover:dark:text-blue-300 hover:underline transition-colors">
                         ¿Olvidaste tu contraseña?
                       </Link>
                     </div>
@@ -225,7 +225,7 @@ function LoginV2() {
                 </Button>
                 <div className="mt-4 text-center text-sm text-gray-600 dark:text-gray-300 transition-colors">
                   ¿No tienes una cuenta?{' '}
-                  <Link to="/register" className="text-blue-600 dark:text-blue-400 hover:text-blue-500 hover:dark:text-blue-300 underline font-medium transition-colors">
+                  <Link to="/register" className="text-info hover:text-blue-500 hover:dark:text-blue-300 underline font-medium transition-colors">
                     Regístrate
                   </Link>
                 </div>

@@ -22,7 +22,7 @@ import {
   Percent,
 } from 'lucide-react';
 import { getCampaignAnalytics, refreshCampaignAnalytics, exportCampaignAnalytics } from '../../lib/api';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import PerformanceCharts from './PerformanceCharts';
 
 /**
@@ -33,8 +33,6 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { toast } = useToast();
-
   const loadAnalytics = useCallback(async () => {
     try {
       setLoading(true);
@@ -42,15 +40,13 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
       setAnalytics(response.data);
     } catch (error) {
       console.error('Error loading analytics:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudieron cargar las analíticas',
-        variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
-  }, [campaignId, toast]);
+  }, [campaignId]);
 
   useEffect(() => {
     if (campaignId) {
@@ -63,16 +59,13 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
       setRefreshing(true);
       const response = await refreshCampaignAnalytics(campaignId);
       setAnalytics(response.data);
-      toast({
-        title: 'Analíticas Actualizadas',
+      toast.success('Analíticas Actualizadas', {
         description: 'Los datos han sido recalculados exitosamente',
       });
     } catch (error) {
       console.error('Error refreshing analytics:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudieron actualizar las analíticas',
-        variant: 'destructive',
       });
     } finally {
       setRefreshing(false);
@@ -104,16 +97,13 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
         window.URL.revokeObjectURL(url);
       }
 
-      toast({
-        title: 'Exportación Exitosa',
+      toast.success('Exportación Exitosa', {
         description: `Analíticas exportadas en formato ${format.toUpperCase()}`,
       });
     } catch (error) {
       console.error('Error exporting analytics:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudieron exportar las analíticas',
-        variant: 'destructive',
       });
     }
   };
@@ -353,12 +343,12 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
               </div>
 
               {analytics.improvementPercentage !== undefined && analytics.improvementPercentage !== null && (
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-success/30">
                   <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <TrendingUp className="w-5 h-5 text-success" />
                     <p className="font-semibold text-green-900 dark:text-green-100">Mejora del Ganador</p>
                   </div>
-                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                  <p className="text-3xl font-bold text-success">
                     +{analytics.improvementPercentage.toFixed(2)}%
                   </p>
                   <p className="text-sm text-green-700 dark:text-green-300 mt-1">
@@ -467,7 +457,7 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-green-600 dark:text-green-400">
+                        <p className="font-bold text-success">
                           ${product.revenue.toFixed(2)}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">

@@ -117,7 +117,7 @@ export default function AudienceSelector({ value = {}, onChange }) {
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Estimated Reach */}
-        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-info/30 rounded-lg">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Alcance Estimado</p>
@@ -125,9 +125,9 @@ export default function AudienceSelector({ value = {}, onChange }) {
             </div>
             <div className="text-right">
               {loading ? (
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">...</p>
+                <p className="text-2xl font-bold text-info">...</p>
               ) : (
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{estimatedReach}</p>
+                <p className="text-2xl font-bold text-info">{estimatedReach}</p>
               )}
               <p className="text-xs text-blue-700 dark:text-blue-300">clientes</p>
             </div>

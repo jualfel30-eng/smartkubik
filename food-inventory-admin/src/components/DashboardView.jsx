@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
+import { ErrorState } from '@/components/ui/error-state';
 import {
   Card,
   CardContent,
@@ -30,6 +31,7 @@ import {
 } from "lucide-react";
 import { fetchApi } from '../lib/api';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
+import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { ChartSkeleton } from '@/components/charts/BaseChart.jsx';
@@ -89,28 +91,29 @@ function DashboardView() {
     { value: '90d', label: 'Últimos 90 días' },
   ];
 
-  useEffect(() => {
-    const fetchSummary = async () => {
-      try {
-        setLoading(true);
-        const response = await fetchApi('/dashboard/summary');
-        setSummaryData(response.data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSummary();
+  const fetchSummary = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetchApi('/dashboard/summary');
+      setSummaryData(response.data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary]);
 
   if (loading) {
     return <RubikLoader />;
   }
 
   if (error) {
-    return <div className="text-red-500">Error al cargar el dashboard: {error}</div>;
+    return <ErrorState message={`Error al cargar el dashboard: ${error}`} onRetry={fetchSummary} />;
   }
 
   if (!summaryData) {
@@ -146,9 +149,12 @@ function DashboardView() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              ${(summaryData.salesToday || 0).toFixed(2)}
-            </div>
+            <AnimatedNumber
+              value={summaryData.salesToday || 0}
+              format={(n) => `$${n.toFixed(2)}`}
+              duration={0.6}
+              className="text-2xl font-bold"
+            />
           </CardContent>
         </Card>
         <Card>
@@ -157,7 +163,12 @@ function DashboardView() {
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+{summaryData.ordersToday || 0}</div>
+            <AnimatedNumber
+              value={summaryData.ordersToday || 0}
+              format={(n) => `+${Math.round(n)}`}
+              duration={0.6}
+              className="text-2xl font-bold"
+            />
           </CardContent>
         </Card>
         <Card>
@@ -166,7 +177,12 @@ function DashboardView() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summaryData.activeCustomers || 0}</div>
+            <AnimatedNumber
+              value={summaryData.activeCustomers || 0}
+              format={(n) => Math.round(n).toLocaleString()}
+              duration={0.6}
+              className="text-2xl font-bold"
+            />
           </CardContent>
         </Card>
         <Card>
@@ -175,7 +191,12 @@ function DashboardView() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{summaryData.productsInStock || 0}</div>
+            <AnimatedNumber
+              value={summaryData.productsInStock || 0}
+              format={(n) => Math.round(n).toLocaleString()}
+              duration={0.6}
+              className="text-2xl font-bold"
+            />
           </CardContent>
         </Card>
       </div>
@@ -189,9 +210,12 @@ function DashboardView() {
               <Boxes className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                ${(summaryData.inventoryValue.totalCostValue || 0).toFixed(2)}
-              </div>
+              <AnimatedNumber
+                value={summaryData.inventoryValue.totalCostValue || 0}
+                format={(n) => `$${n.toFixed(2)}`}
+                duration={0.6}
+                className="text-2xl font-bold"
+              />
               <p className="text-xs text-muted-foreground mt-1">
                 Inversión total en inventario
               </p>
@@ -203,9 +227,12 @@ function DashboardView() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                ${(summaryData.inventoryValue.totalRetailValue || 0).toFixed(2)}
-              </div>
+              <AnimatedNumber
+                value={summaryData.inventoryValue.totalRetailValue || 0}
+                format={(n) => `$${n.toFixed(2)}`}
+                duration={0.6}
+                className="text-2xl font-bold"
+              />
               <p className="text-xs text-muted-foreground mt-1">
                 Valor potencial de venta
               </p>
@@ -217,9 +244,12 @@ function DashboardView() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                ${(summaryData.inventoryValue.potentialProfit || 0).toFixed(2)}
-              </div>
+              <AnimatedNumber
+                value={summaryData.inventoryValue.potentialProfit || 0}
+                format={(n) => `$${n.toFixed(2)}`}
+                duration={0.6}
+                className="text-2xl font-bold text-green-600"
+              />
               <p className="text-xs text-muted-foreground mt-1">
                 Margen si se vende todo
               </p>
@@ -231,9 +261,12 @@ function DashboardView() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {(summaryData.inventoryValue.totalItems || 0).toLocaleString()}
-              </div>
+              <AnimatedNumber
+                value={summaryData.inventoryValue.totalItems || 0}
+                format={(n) => Math.round(n).toLocaleString()}
+                duration={0.6}
+                className="text-2xl font-bold"
+              />
               <p className="text-xs text-muted-foreground mt-1">
                 Unidades en inventario
               </p>

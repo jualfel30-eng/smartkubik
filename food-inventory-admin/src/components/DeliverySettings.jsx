@@ -398,7 +398,7 @@ export function DeliverySettings() {
                             </div>
                           </div>
 
-                          <div className="p-3 bg-blue-50 dark:bg-blue-950 dark:text-blue-100 rounded text-sm">
+                          <div className="p-3 bg-info-muted dark:text-blue-100 rounded text-sm">
                             <strong>Cálculo:</strong> Costo = ${zone.baseRate.toFixed(2)} + (Distancia × $
                             {zone.ratePerKm.toFixed(2)}/km)
                             <br />

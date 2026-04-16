@@ -278,7 +278,7 @@ export default function AccountingPeriods() {
                           {formatCurrency(period.totalExpenses)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <span className={period.netIncome >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                          <span className={period.netIncome >= 0 ? 'text-success' : 'text-destructive'}>
                             {formatCurrency(period.netIncome)}
                           </span>
                         </TableCell>

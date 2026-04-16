@@ -160,7 +160,7 @@ export function VolumeDiscountsManager({
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Ahorro</Label>
-                        <div className="font-semibold text-green-600 dark:text-green-400">
+                        <div className="font-semibold text-success">
                           ${savings.toFixed(2)} ({savingsPercent.toFixed(0)}%)
                         </div>
                       </div>
@@ -276,7 +276,7 @@ export function VolumeDiscountsManager({
 
           {/* Vista previa */}
           {minQuantity && discountValue && basePrice > 0 && (
-            <div className="bg-blue-50 dark:bg-blue-950/20 p-3 rounded-lg space-y-1 text-sm">
+            <div className="bg-info-muted p-3 rounded-lg space-y-1 text-sm">
               <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
                 <TrendingDown className="h-4 w-4" />
                 <span className="font-semibold">Vista Previa</span>
@@ -288,14 +288,14 @@ export function VolumeDiscountsManager({
                 {discountType === 'percentage' ? (
                   <>
                     ${(basePrice * (1 - parseFloat(discountValue) / 100)).toFixed(2)}/ud
-                    <span className="text-green-600 dark:text-green-400 ml-2">
+                    <span className="text-success ml-2">
                       (ahorra ${(basePrice * parseFloat(discountValue) / 100).toFixed(2)}/ud)
                     </span>
                   </>
                 ) : (
                   <>
                     ${parseFloat(discountValue).toFixed(2)}/ud
-                    <span className="text-green-600 dark:text-green-400 ml-2">
+                    <span className="text-success ml-2">
                       (ahorra ${(basePrice - parseFloat(discountValue)).toFixed(2)}/ud)
                     </span>
                   </>

@@ -535,7 +535,7 @@ function OrdersTab() {
 
                 {/* Notes */}
                 {selectedOrder.notes && (
-                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-warning/30 rounded-lg">
                     <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 mb-1">Notas del cliente:</p>
                     <p className="text-sm text-gray-700 dark:text-gray-300">{selectedOrder.notes}</p>
                   </div>

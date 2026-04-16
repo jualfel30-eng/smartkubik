@@ -353,8 +353,8 @@ export default function ABTestBuilder({ campaignId, existingTest, onSave, onCanc
             <div className="flex items-center gap-2">
               <span className={`text-lg font-bold ${
                 allocationError
-                  ? 'text-red-600 dark:text-red-400'
-                  : 'text-green-600 dark:text-green-400'
+                  ? 'text-destructive'
+                  : 'text-success'
               }`}>
                 {variants.reduce((sum, v) => sum + (parseFloat(v.trafficAllocation) || 0), 0).toFixed(1)}%
               </span>

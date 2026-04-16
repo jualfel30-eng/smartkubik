@@ -91,7 +91,7 @@ const InlineEditableCell = ({
 
     if (isEditing) {
         return (
-            <div className={cn("relative flex items-center min-w-[100px]", className)}>
+            <div className={cn("relative flex items-center min-w-[100px] animate-in fade-in-0 zoom-in-95 duration-150", className)}>
                 <Input
                     ref={inputRef}
                     type={type === 'currency' ? 'number' : type}
@@ -99,12 +99,26 @@ const InlineEditableCell = ({
                     onChange={(e) => setTempValue(e.target.value)}
                     onBlur={handleSave}
                     onKeyDown={handleKeyDown}
-                    className="h-8 text-sm pr-8"
+                    className="h-8 text-sm pr-16 ring-2 ring-primary/30 border-primary/50"
                     autoFocus
                 />
-                {/* Visual indicator for Enter/Esc - purely visual as Blur handles save */}
-                <div className="absolute right-1 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none opacity-50">
-                    ⏎
+                <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    <button
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
+                        className="p-0.5 rounded hover:bg-primary/10 text-primary transition-colors"
+                        tabIndex={-1}
+                    >
+                        <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                        type="button"
+                        onMouseDown={(e) => { e.preventDefault(); handleCancel(); }}
+                        className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                        tabIndex={-1}
+                    >
+                        <X className="w-3.5 h-3.5" />
+                    </button>
                 </div>
             </div>
         );
@@ -114,8 +128,9 @@ const InlineEditableCell = ({
         <div
             onClick={handleStartEdit}
             className={cn(
-                "group relative cursor-pointer hover:bg-muted/50 p-1 rounded-md transition-colors min-h-[28px] flex items-center",
-                disabled && "cursor-default hover:bg-transparent",
+                "group relative cursor-pointer hover:bg-muted/50 p-1 rounded-md transition-all duration-150 min-h-[28px] flex items-center",
+                "hover:ring-1 hover:ring-border",
+                disabled && "cursor-default hover:bg-transparent hover:ring-0",
                 className
             )}
         >
@@ -123,9 +138,8 @@ const InlineEditableCell = ({
                 {displayValue()}
             </span>
 
-            {/* Edit Indicator on Hover */}
             {!disabled && (
-                <Pencil className="w-3 h-3 ml-2 opacity-0 group-hover:opacity-100 text-muted-foreground transition-opacity absolute right-1" />
+                <Pencil className="w-3 h-3 ml-2 opacity-0 group-hover:opacity-100 text-muted-foreground transition-opacity duration-150 absolute right-1" />
             )}
         </div>
     );

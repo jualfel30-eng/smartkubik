@@ -119,7 +119,7 @@ export function PriceHistoryDrawer({ productId, open, onClose }) {
 
                   {/* Margin Info (for basePrice changes) */}
                   {entry.field === 'basePrice' && entry.marginMetrics && (
-                    <div className="text-sm space-y-1 bg-blue-50 dark:bg-blue-950/20 p-3 rounded">
+                    <div className="text-sm space-y-1 bg-info-muted p-3 rounded">
                       <div className="flex items-center gap-2 mb-2">
                         <DollarSign className="h-4 w-4" />
                         <span className="font-semibold">Impacto en Margen</span>

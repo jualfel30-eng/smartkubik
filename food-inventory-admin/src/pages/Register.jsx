@@ -357,10 +357,10 @@ const SummaryStep = ({ formData, onBack, onSubmit, loading, error }) => {
     <div className="space-y-4">
       <div className="rounded-md border border-green-500/30 bg-green-500/10 dark:bg-green-500/20 p-4 text-sm">
         <div className="flex items-start gap-3">
-          <Rocket className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+          <Rocket className="h-5 w-5 text-success mt-0.5 shrink-0" />
           <div>
             <p className="font-medium text-green-700 dark:text-green-300">Prueba gratuita de 14 días</p>
-            <p className="text-green-600 dark:text-green-400 mt-1">
+            <p className="text-success mt-1">
               Acceso completo a todos los módulos. Sin tarjeta de crédito. Sin compromisos.
             </p>
           </div>

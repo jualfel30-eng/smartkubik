@@ -656,7 +656,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                       />
                       {/* Show change calculation */}
                       {singlePayment.amountTendered && (
-                        <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                        <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-success/30 rounded-md">
                           <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2">
                             <HandCoins className="w-4 h-4" />
                             Vuelto: {isVesMethod(singlePayment.method) ? 'Bs' : '$'} {
@@ -682,7 +682,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                             return (
                               <>
                                 {parseFloat(singlePayment.amountTendered) < totalToPay && (
-                                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                  <p className="text-xs text-destructive mt-1">
                                     ⚠️ El monto recibido es menor que el total {igtfAmount > 0 && '(incluye IGTF)'}
                                   </p>
                                 )}
@@ -914,7 +914,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                             />
                             {/* Show change calculation */}
                             {line.amountTendered && lineAmount > 0 && (
-                              <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
+                              <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-success/30 rounded-md">
                                 <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2">
                                   <HandCoins className="w-4 h-4" />
                                   Vuelto: {lineIsVes ? 'Bs' : '$'} {

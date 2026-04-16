@@ -7,6 +7,7 @@ import { fetchApi } from '@/lib/api';
 import { AlertTriangle, Clock, PlusCircle, Trash2, CalendarIcon, Package, XCircle, Plus, Camera, Loader2, X, Star } from 'lucide-react';
 import { compressImage } from '@/lib/imageCompression';
 import PurchaseHistory from './PurchaseHistory.jsx';
+import { ErrorState } from '@/components/ui/error-state';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
@@ -1794,7 +1795,7 @@ export default function ComprasManagement() {
   };
 
   if (loading) return <div>Cargando...</div>;
-  if (error) return <div className="text-red-500">Error: {error}</div>;
+  if (error) return <ErrorState message={error} onRetry={() => window.location.reload()} />;
 
   return (
     <div className="space-y-6">
@@ -2854,7 +2855,7 @@ export default function ComprasManagement() {
                 </div>
 
                 {newProduct.hasMultipleSellingUnits && (
-                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                  <div className="mb-4 p-3 bg-info-muted border border-info/30 rounded-md">
                     <p className="text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">IMPORTANTE - Configuración de Contenido:</p>
                     <p className="text-xs text-blue-800 dark:text-blue-300 mb-2">
                       El inventario SIEMPRE se guarda en <span className="font-bold">"{newProduct.unitOfMeasure}"</span> (la unidad principal).
@@ -2942,7 +2943,7 @@ export default function ComprasManagement() {
                                 setNewProduct({ ...newProduct, sellingUnits: units });
                               }}
                             />
-                            <p className="text-xs text-muted-foreground font-medium text-blue-600 dark:text-blue-400 mt-1">
+                            <p className="text-xs text-muted-foreground font-medium text-info mt-1">
                               {unit.conversionFactorInput ? `1 ${newProduct.unitOfMeasure} contiene ${unit.conversionFactorInput} ${unit.abbreviation || 'unidad'}` : 'Define el contenido'}
                             </p>
                           </div>

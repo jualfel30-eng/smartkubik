@@ -110,7 +110,7 @@ const CashFlowStatement = () => {
                         <div className="space-y-4">
                             <div className="flex justify-between items-center p-4 border-2 dark:border-gray-600 rounded-lg bg-card shadow-sm">
                                 <h3 className="text-xl font-bold text-foreground">Flujo de Caja Neto</h3>
-                                <span className={`text-2xl font-bold ${reportData.netCashFlow >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                <span className={`text-2xl font-bold ${reportData.netCashFlow >= 0 ? 'text-success' : 'text-destructive'}`}>
                                     ${reportData.netCashFlow.toFixed(2)}
                                 </span>
                             </div>
@@ -118,7 +118,7 @@ const CashFlowStatement = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="p-4 border dark:border-gray-700 rounded-lg bg-muted/30">
                                     <div className="flex justify-between items-center mb-4">
-                                        <h3 className="text-lg font-semibold text-green-600 dark:text-green-400">Entradas de Efectivo</h3>
+                                        <h3 className="text-lg font-semibold text-success">Entradas de Efectivo</h3>
                                         <span className="text-lg font-bold">${reportData.cashInflows.total.toFixed(2)}</span>
                                     </div>
                                     {reportData.inflowBreakdown && reportData.inflowBreakdown.length > 0 && (
@@ -144,7 +144,7 @@ const CashFlowStatement = () => {
 
                                 <div className="p-4 border dark:border-gray-700 rounded-lg bg-muted/30 h-fit">
                                     <div className="flex justify-between items-center">
-                                        <h3 className="text-lg font-semibold text-red-600 dark:text-red-400">Salidas de Efectivo</h3>
+                                        <h3 className="text-lg font-semibold text-destructive">Salidas de Efectivo</h3>
                                         <span className="text-lg font-bold">${reportData.cashOutflows.total.toFixed(2)}</span>
                                     </div>
                                     <p className="text-sm text-muted-foreground mt-2">Pagos a proveedores y gastos registrados.</p>

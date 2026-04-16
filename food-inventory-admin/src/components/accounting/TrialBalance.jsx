@@ -197,8 +197,8 @@ export default function TrialBalance() {
                         <span
                           className={
                             account.balance >= 0
-                              ? 'text-green-600 dark:text-green-400'
-                              : 'text-red-600 dark:text-red-400'
+                              ? 'text-success'
+                              : 'text-destructive'
                           }
                         >
                           {formatCurrency(account.balance)}
@@ -221,8 +221,8 @@ export default function TrialBalance() {
                       <span
                         className={
                           trialBalance.totals.difference === 0
-                            ? 'text-green-600 dark:text-green-400'
-                            : 'text-red-600 dark:text-red-400'
+                            ? 'text-success'
+                            : 'text-destructive'
                         }
                       >
                         {formatCurrency(trialBalance.totals.difference)}
@@ -270,8 +270,8 @@ export default function TrialBalance() {
                 <div
                   className={`text-2xl font-bold ${
                     trialBalance.totals.difference === 0
-                      ? 'text-green-600 dark:text-green-400'
-                      : 'text-red-600 dark:text-red-400'
+                      ? 'text-success'
+                      : 'text-destructive'
                   }`}
                 >
                   {formatCurrency(trialBalance.totals.difference)}

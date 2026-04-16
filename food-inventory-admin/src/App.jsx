@@ -87,9 +87,18 @@ import {
   ArrowRightLeft,
   MapPin,
   Globe,
+  ChevronDown,
+  User,
+  Search,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Toaster } from '@/components/ui/sonner';
-import { Toaster as ShadcnToaster } from '@/components/ui/toaster';
 import './App.css';
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -236,6 +245,14 @@ const LoadingFallback = () => (
   <RubikLoader fullScreen message="Cargando..." />
 );
 
+import PageTransition from '@/components/PageTransition';
+import AppBreadcrumb from '@/components/AppBreadcrumb';
+import { useSidebarBadges } from '@/hooks/use-sidebar-badges';
+const CommandPalette = lazy(() => import('@/components/CommandPalette'));
+const Celebration = lazy(() => import('@/components/Celebration'));
+import { useCelebration } from '@/hooks/use-celebration';
+const OnboardingTour = lazy(() => import('@/components/OnboardingTour'));
+
 
 // Tenant Layout Component
 function TenantLayout() {
@@ -258,6 +275,17 @@ function TenantLayout() {
   } = useAuth();
   const { theme } = useTheme();
   const { isClockedIn, clockIn, clockOut, isLoading: isShiftLoading } = useShift();
+  const sidebarBadges = useSidebarBadges(!!tenant);
+  const { celebrating, stop: stopCelebrating } = useCelebration();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Show onboarding tour for new tenants after first load
+  useEffect(() => {
+    if (tenant && !tenant.onboardingCompleted) {
+      const timer = setTimeout(() => setShowOnboarding(true), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [tenant]);
   const navigate = useNavigate();
   const [resolvedTheme, setResolvedTheme] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -890,6 +918,11 @@ function TenantLayout() {
                   >
                     <item.icon strokeWidth={1.25} />
                     <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{getDisplayName(item)}</span>
+                    {sidebarBadges[item.href] > 0 && !openMenus[item.href] && (
+                      <Badge variant="secondary" className="rounded-full px-1.5 py-0.5 text-[10px] h-5 min-w-5 flex items-center justify-center group-data-[collapsible=icon]:hidden">
+                        {sidebarBadges[item.href]}
+                      </Badge>
+                    )}
                     <ChevronRight className="ml-auto transition-transform duration-200 group-data-[collapsible=icon]:hidden"
                       style={{ transform: openMenus[item.href] ? 'rotate(90deg)' : 'rotate(0deg)' }}
                     />
@@ -949,9 +982,15 @@ function TenantLayout() {
             >
               <item.icon strokeWidth={1.25} />
               <span className="text-sm font-medium group-data-[collapsible=icon]:hidden flex-1">{getDisplayName(item)}</span>
+              {/* Badge: WhatsApp unread OR sidebar badge counts */}
               {item.href === 'whatsapp' && unreadCount > 0 && (
                 <Badge variant="destructive" className="ml-auto rounded-full px-1.5 py-0.5 text-[10px] h-5 min-w-5 flex items-center justify-center group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:shadow-md">
                   {unreadCount > 99 ? '99+' : unreadCount}
+                </Badge>
+              )}
+              {item.href !== 'whatsapp' && sidebarBadges[item.href] > 0 && (
+                <Badge variant="secondary" className="ml-auto rounded-full px-1.5 py-0.5 text-[10px] h-5 min-w-5 flex items-center justify-center animate-in fade-in-0 zoom-in-75 duration-300 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:shadow-md">
+                  {sidebarBadges[item.href] > 99 ? '99+' : sidebarBadges[item.href]}
                 </Badge>
               )}
             </SidebarMenuButton>
@@ -1090,6 +1129,25 @@ function TenantLayout() {
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
+      <Suspense fallback={null}>
+        <CommandPalette />
+      </Suspense>
+      <Suspense fallback={null}>
+        {celebrating && <Celebration active={celebrating} onComplete={stopCelebrating} />}
+      </Suspense>
+      {showOnboarding && (
+        <Suspense fallback={null}>
+          <OnboardingTour
+            active={showOnboarding}
+            onComplete={() => setShowOnboarding(false)}
+            storageKey="onboarding-main-tour"
+            steps={[
+              { target: '[data-slot="sidebar-menu-button"]', title: 'Navegación', description: 'Explora todos los módulos de SmartKubik desde la barra lateral. Haz clic en cualquier sección para acceder.' },
+              { target: '[data-slot="card"]', title: 'Dashboard', description: 'Aquí verás un resumen de ventas, órdenes y métricas clave de tu negocio.' },
+            ]}
+          />
+        </Suspense>
+      )}
       <SidebarInset className="bg-background">
         <div className="flex h-screen flex-col overflow-hidden">
           <Suspense fallback={null}>
@@ -1102,52 +1160,94 @@ function TenantLayout() {
               <ThemeToggle />
             </MobileTopBar>
           </Suspense>
-          <div className="hidden items-center justify-between border-b border-border bg-card px-6 py-4 md:flex">
+          {/* Desktop Header — 3 zones: Logo | Context | Actions */}
+          <div className="hidden items-center justify-between border-b border-border bg-card px-6 py-3 md:flex">
+            {/* Zone 1: Logo */}
             <div className="flex items-center gap-3">
-              <img src={logoSrc} alt="Smart Kubik" className="h-8 w-auto" />
+              <img src={logoSrc} alt="Smart Kubik" className="h-7 w-auto" />
+              {isMultiTenantEnabled && memberships.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={openTenantDialog}
+                >
+                  <Building2 size={14} />
+                  <span className="max-w-[140px] truncate">{tenant?.name || 'Organización'}</span>
+                  <ChevronDown size={12} />
+                </Button>
+              )}
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">Hola, {tenant?.ownerFirstName || user?.firstName || 'Usuario'}</span>
+
+            {/* Zone 2: Context (shift + location) */}
+            <div className="flex items-center gap-3">
               <ShiftTimer />
               {isClockedIn ? (
                 <Button variant="destructive" size="sm" onClick={clockOut} disabled={isShiftLoading}>
-                  <StopCircle className="mr-2" size={12} />
-                  Finalizar Turno
+                  <StopCircle size={12} />
+                  Finalizar
                 </Button>
               ) : (
                 <Button variant="outline" size="sm" onClick={clockIn} disabled={isShiftLoading}>
-                  <PlayCircle className="mr-2" size={12} />
+                  <PlayCircle size={12} />
                   Iniciar Turno
                 </Button>
               )}
-              {isMultiTenantEnabled && memberships.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={openTenantDialog}
-                >
-                  <Building2 className="mr-2" size={12} />
-                  {tenant?.name || 'Seleccionar organización'}
-                </Button>
-              )}
               <BusinessLocationSelector />
+            </div>
+
+            {/* Zone 3: Actions */}
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden lg:flex gap-2 text-muted-foreground h-8 px-3"
+                onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
+              >
+                <Search size={14} />
+                <span className="text-xs">Buscar...</span>
+                <kbd className="pointer-events-none ml-1 inline-flex h-5 select-none items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  <span className="text-xs">⌘</span>K
+                </kbd>
+              </Button>
               <NotificationCenter />
-              <Button variant="outline" size="icon" onClick={() => setAssistantSheetOpen(true)} title="Asistente">
-                <Sparkles size={12} />
+              <Button variant="ghost" size="icon" onClick={() => setAssistantSheetOpen(true)} title="Asistente IA">
+                <Sparkles size={16} />
               </Button>
               <ThemeToggle />
-              <Button id="settings-button" variant="outline" size="icon" onClick={() => navigate('/settings')}>
-                <Settings size={12} />
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="mr-2" size={12} />
-                Cerrar Sesión
-              </Button>
+
+              {/* User menu — collapses Settings + Logout */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="ml-1 gap-2">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <User size={14} />
+                    </div>
+                    <span className="max-w-[100px] truncate text-sm">
+                      {tenant?.ownerFirstName || user?.firstName || 'Usuario'}
+                    </span>
+                    <ChevronDown size={12} className="text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => navigate('/settings')}>
+                    <Settings size={14} />
+                    Configuración
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                    <LogOut size={14} />
+                    Cerrar Sesión
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-auto p-4 md:p-6 mobile-content-pad">
+            <AppBreadcrumb />
             <TrialBanner />
             <Suspense fallback={<LoadingFallback />}>
+              <PageTransition>
               <Routes>
                 <Route path="dashboard" element={<><TodayDashboard /><DashboardView /></>} />
                 <Route path="inventory-management" element={<InventoryDashboard />} />
@@ -1316,6 +1416,7 @@ function TenantLayout() {
                 <Route path="mas" element={<MobileMoreMenu />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
+              </PageTransition>
             </Suspense>
           </div>
           <Suspense fallback={null}>
@@ -1354,7 +1455,6 @@ function AppContent() {
   return (
     <>
       <Toaster richColors closeButton position="top-center" expand={false} />
-      <ShadcnToaster />
       <Suspense fallback={<LoadingFallback />}>
 
         <Routes>

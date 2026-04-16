@@ -116,8 +116,8 @@ export const OrderSheetForTables = ({
             {createdOrder && !isEditing ? (
               /* Success Screen */
               <div className="flex flex-col items-center justify-center h-full space-y-6 animate-in fade-in duration-300">
-                <div className="h-20 w-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                  <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
+                <div className="h-20 w-20 bg-success-muted rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="h-10 w-10 text-success" />
                 </div>
                 <div className="text-center space-y-2">
                   <h3 className="text-3xl font-bold">¡Orden Creada!</h3>

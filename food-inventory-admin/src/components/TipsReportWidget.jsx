@@ -109,8 +109,8 @@ const TipsReportWidget = () => {
           <div className="space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-2">
+              <div className="bg-info-muted rounded-lg p-4 border border-info/30">
+                <div className="flex items-center gap-2 text-info mb-2">
                   <DollarSign className="h-5 w-5" />
                   <span className="text-sm font-medium">Total Propinas</span>
                 </div>
@@ -119,8 +119,8 @@ const TipsReportWidget = () => {
                 </div>
               </div>
 
-              <div className="bg-green-50 dark:bg-green-950 rounded-lg p-4 border border-green-200 dark:border-green-800">
-                <div className="flex items-center gap-2 text-green-600 dark:text-green-400 mb-2">
+              <div className="bg-success-muted rounded-lg p-4 border border-success/30">
+                <div className="flex items-center gap-2 text-success mb-2">
                   <TrendingUp className="h-5 w-5" />
                   <span className="text-sm font-medium">Promedio por Orden</span>
                 </div>
@@ -191,7 +191,7 @@ const TipsReportWidget = () => {
                     </TableHeader>
                     <TableBody>
                       {data.employees.map((employee, index) => (
-                        <TableRow key={employee.employeeId} className={index === 0 ? 'bg-yellow-50 dark:bg-yellow-950' : ''}>
+                        <TableRow key={employee.employeeId} className={index === 0 ? 'bg-warning-muted' : ''}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
                               {index === 0 && (

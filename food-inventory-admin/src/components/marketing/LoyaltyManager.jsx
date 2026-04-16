@@ -10,13 +10,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Award, Plus, Minus, Edit, TrendingUp, TrendingDown, Gift, AlertCircle, Calendar } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { SearchableSelect } from '@/components/orders/v2/custom/SearchableSelect';
 import { useCrmContext } from '@/context/CrmContext';
 import { fetchApi } from '@/lib/api';
 
 const LoyaltyManager = () => {
-  const { toast } = useToast();
   const { crmData: customers } = useCrmContext();
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedCustomerOption, setSelectedCustomerOption] = useState(null);
@@ -109,15 +108,13 @@ const LoyaltyManager = () => {
       setCustomerBalance(response.data);
     } catch (error) {
       console.error('Error fetching balance:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudo cargar el balance de puntos',
-        variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
-  }, [selectedCustomer, toast]);
+  }, [selectedCustomer]);
 
   const fetchTransactions = useCallback(async () => {
     if (!selectedCustomer) return;
@@ -153,8 +150,7 @@ const LoyaltyManager = () => {
         }),
       });
 
-      toast({
-        title: 'Puntos acumulados',
+      toast.success('Puntos acumulados', {
         description: `Se acumularon puntos exitosamente`,
       });
 
@@ -162,10 +158,8 @@ const LoyaltyManager = () => {
       fetchCustomerBalance();
       fetchTransactions();
     } catch (error) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error.response?.data?.message || 'No se pudieron acumular los puntos',
-        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -188,8 +182,7 @@ const LoyaltyManager = () => {
         }),
       });
 
-      toast({
-        title: 'Puntos redimidos',
+      toast.success('Puntos redimidos', {
         description: `Descuento aplicado: $${response.data.discountAmount.toFixed(2)}`,
       });
 
@@ -197,10 +190,8 @@ const LoyaltyManager = () => {
       fetchCustomerBalance();
       fetchTransactions();
     } catch (error) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error.response?.data?.message || 'No se pudieron redimir los puntos',
-        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -223,8 +214,7 @@ const LoyaltyManager = () => {
         }),
       });
 
-      toast({
-        title: 'Puntos ajustados',
+      toast.success('Puntos ajustados', {
         description: 'El ajuste se realizó exitosamente',
       });
 
@@ -232,10 +222,8 @@ const LoyaltyManager = () => {
       fetchCustomerBalance();
       fetchTransactions();
     } catch (error) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error.response?.data?.message || 'No se pudo realizar el ajuste',
-        variant: 'destructive',
       });
     } finally {
       setLoading(false);

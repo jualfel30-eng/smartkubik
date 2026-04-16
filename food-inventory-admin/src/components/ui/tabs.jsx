@@ -38,11 +38,13 @@ function TabsTrigger({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background",
+        "transition-[color,background-color,box-shadow,transform] duration-200 ease-out",
+        "outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
         "disabled:pointer-events-none disabled:opacity-50",
         "hover:bg-accent hover:text-accent-foreground",
         "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm",
+        "active:scale-[0.97]",
         className
       )}
       {...props} />
@@ -56,7 +58,12 @@ function TabsContent({
   return (
     <TabsPrimitive.Content
       data-slot="tabs-content"
-      className={cn("flex-1 outline-none", className)}
+      className={cn(
+        "flex-1 outline-none",
+        "animate-in fade-in-0 slide-in-from-bottom-1 duration-200 ease-out",
+        "data-[state=inactive]:animate-out data-[state=inactive]:fade-out-0 data-[state=inactive]:duration-150",
+        className
+      )}
       {...props} />
   );
 }

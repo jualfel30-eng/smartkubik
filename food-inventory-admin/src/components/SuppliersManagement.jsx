@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.jsx';
 import { Plus, Search, Edit, Trash2, Phone, Mail, FileText, Star } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 // ... (existing imports)
 
 // Helper to render stars
@@ -134,7 +135,15 @@ export default function SuppliersManagement() {
                                 </TableRow>
                             ) : suppliers.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8">No se encontraron proveedores.</TableCell>
+                                    <TableCell colSpan={7}>
+                                        <EmptyState
+                                          icon={FileText}
+                                          title="Sin proveedores"
+                                          description="Aún no has registrado proveedores. Agrega tu primer proveedor para gestionar compras."
+                                          actionLabel="Agregar proveedor"
+                                          onAction={() => setIsDialogOpen(true)}
+                                        />
+                                    </TableCell>
                                 </TableRow>
                             ) : (
                                 suppliers.map((supplier) => (

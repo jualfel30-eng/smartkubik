@@ -167,8 +167,8 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter }) {
         >
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Clock className="h-4 w-4 text-green-600 dark:text-green-400" />
-              <span className="text-sm font-medium text-green-600 dark:text-green-400">Al día</span>
+              <Clock className="h-4 w-4 text-success" />
+              <span className="text-sm font-medium text-success">Al día</span>
             </div>
             <p className="text-xl font-bold text-green-700 dark:text-green-300">
               {formatCurrency(summary.aging.current.amount)}
@@ -191,8 +191,8 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter }) {
         >
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Clock className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-              <span className="text-sm font-medium text-yellow-600 dark:text-yellow-400">1-30 días</span>
+              <Clock className="h-4 w-4 text-warning-foreground" />
+              <span className="text-sm font-medium text-warning-foreground">1-30 días</span>
             </div>
             <p className="text-xl font-bold text-yellow-700 dark:text-yellow-300">
               {formatCurrency(summary.aging.days30.amount)}
@@ -239,8 +239,8 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter }) {
         >
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-              <span className="text-sm font-medium text-red-600 dark:text-red-400">+90 días</span>
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              <span className="text-sm font-medium text-destructive">+90 días</span>
             </div>
             <p className="text-xl font-bold text-red-700 dark:text-red-300">
               {formatCurrency(summary.aging.days90plus.amount)}
@@ -259,7 +259,7 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter }) {
           onClick={() => onFilterChange({ overdue: true })}
         >
           <div className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+            <AlertTriangle className="h-5 w-5 text-destructive" />
             <div>
               <p className="font-medium text-red-700 dark:text-red-400">
                 {overdueCount} {overdueCount === 1 ? 'factura vencida' : 'facturas vencidas'}

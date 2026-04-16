@@ -350,8 +350,8 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
 
       {/* Audience Preview Card */}
       {audiencePreview && (
-        <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
-          <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        <Alert className="border-info/30 bg-blue-50 dark:bg-blue-900/20">
+          <CheckCircle2 className="h-4 w-4 text-info" />
           <AlertDescription className="text-blue-900 dark:text-blue-100">
             <div className="flex items-center justify-between">
               <div>
@@ -363,7 +363,7 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
                 )}
               </div>
               {testingAudience && (
-                <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
+                <Loader2 className="w-4 h-4 animate-spin text-info" />
               )}
             </div>
             {audiencePreview.segmentDistribution && (
@@ -734,9 +734,9 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
                   </div>
 
                   {/* Predictive Filters */}
-                  <div className="space-y-3 p-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 rounded-lg">
+                  <div className="space-y-3 p-4 bg-green-50 dark:bg-green-900/10 border border-success/30 rounded-lg">
                     <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <TrendingUp className="w-4 h-4 text-success" />
                       <Label className="text-green-900 dark:text-green-100 font-semibold">
                         Filtros Predictivos
                       </Label>
@@ -942,7 +942,7 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
                         }`}
                       >
                         <Icon className={`w-6 h-6 mx-auto mb-2 ${
-                          isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'
+                          isSelected ? 'text-info' : 'text-gray-400'
                         }`} />
                         <p className="text-sm font-medium dark:text-gray-100">{channel.label}</p>
                       </button>

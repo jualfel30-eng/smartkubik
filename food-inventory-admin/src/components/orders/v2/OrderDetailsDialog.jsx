@@ -331,7 +331,7 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings, onU
                   return (
                     <div key={index} className="flex justify-between text-sm">
                       <span>{part.personName || `Persona ${index + 1}`}</span>
-                      <span className={isPaid ? 'text-green-600 dark:text-green-400 font-semibold' : ''}>
+                      <span className={isPaid ? 'text-success font-semibold' : ''}>
                         {formatCurrency(totalAmount)} - {isPaid ? '✓ Pagado' : 'Pendiente'}
                       </span>
                     </div>

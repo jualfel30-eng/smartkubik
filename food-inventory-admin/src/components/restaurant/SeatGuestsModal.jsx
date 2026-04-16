@@ -93,7 +93,7 @@ export default function SeatGuestsModal({ table, onClose, onSuccess }) {
 
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-            <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            <Users className="w-6 h-6 text-info" />
             Sentar Comensales
           </h2>
           <p className="text-gray-600 dark:text-gray-300 mt-1">
@@ -166,7 +166,7 @@ export default function SeatGuestsModal({ table, onClose, onSuccess }) {
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded">
+            <div className="bg-destructive/10 border border-destructive/30 text-red-700 dark:text-red-300 px-4 py-3 rounded">
               {error}
             </div>
           )}

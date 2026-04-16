@@ -233,7 +233,7 @@ export function AvailabilityChecker({ onCreateReservation }) {
             {getSuggestedTimes()}
 
             {availabilityResult.message && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded text-sm text-blue-900 dark:text-blue-100">
+              <div className="p-3 bg-info-muted rounded text-sm text-blue-900 dark:text-blue-100">
                 {availabilityResult.message}
               </div>
             )}

@@ -276,7 +276,7 @@ export function PricingStrategySelector({
             </Select>
 
             {localStrategy.psychologicalRounding && localStrategy.psychologicalRounding !== 'none' && (
-              <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
+              <div className="text-xs text-muted-foreground bg-info-muted p-2 rounded">
                 📊 Ejemplo: Precio calculado $127.43 → $
                 {applyPsychologicalRounding(127.43, localStrategy.psychologicalRounding).toFixed(2)}
               </div>

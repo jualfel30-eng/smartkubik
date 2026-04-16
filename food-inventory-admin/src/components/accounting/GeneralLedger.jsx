@@ -284,7 +284,7 @@ const GeneralLedger = () => {
       {!loading && ledger && ledger.entries.length > 0 && (
         <>
           {/* Opening Balance */}
-          <Card className="bg-blue-50 dark:bg-blue-950/30">
+          <Card className="bg-info-muted">
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
                 <span className="font-semibold">Saldo Inicial:</span>
@@ -329,8 +329,8 @@ const GeneralLedger = () => {
                         <span
                           className={
                             entry.balance >= 0
-                              ? 'text-green-600 dark:text-green-400 font-semibold'
-                              : 'text-red-600 dark:text-red-400 font-semibold'
+                              ? 'text-success font-semibold'
+                              : 'text-destructive font-semibold'
                           }
                         >
                           {formatCurrency(entry.balance)}
@@ -349,11 +349,11 @@ const GeneralLedger = () => {
           </Card>
 
           {/* Closing Balance */}
-          <Card className="bg-green-50 dark:bg-green-950/30">
+          <Card className="bg-success-muted">
             <CardContent className="py-4">
               <div className="flex items-center justify-between">
                 <span className="font-semibold">Saldo Final:</span>
-                <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                <span className="text-lg font-bold text-success">
                   {formatCurrency(ledger.closingBalance)}
                 </span>
               </div>
@@ -408,7 +408,7 @@ const GeneralLedger = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                <div className="text-2xl font-bold text-info">
                   {formatCurrency(ledger.openingBalance)}
                 </div>
               </CardContent>
@@ -421,7 +421,7 @@ const GeneralLedger = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                <div className="text-2xl font-bold text-success">
                   {formatCurrency(ledger.closingBalance)}
                 </div>
               </CardContent>

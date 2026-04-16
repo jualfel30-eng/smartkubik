@@ -48,11 +48,11 @@ const FoodCostWidget = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'good':
-        return 'text-green-600 dark:text-green-400 border-green-600 dark:border-green-400 bg-green-50 dark:bg-green-950';
+        return 'text-success border-green-600 dark:border-green-400 bg-success-muted';
       case 'warning':
-        return 'text-yellow-600 dark:text-yellow-400 border-yellow-600 dark:border-yellow-400 bg-yellow-50 dark:bg-yellow-950';
+        return 'text-warning-foreground border-yellow-600 dark:border-yellow-400 bg-warning-muted';
       case 'danger':
-        return 'text-red-600 dark:text-red-400 border-red-600 dark:border-red-400 bg-red-50 dark:bg-red-950';
+        return 'text-destructive border-red-600 dark:border-red-400 bg-destructive/10';
       default:
         return 'text-gray-600 dark:text-gray-400 border-gray-600 dark:border-gray-400 bg-gray-50 dark:bg-gray-800';
     }
@@ -188,7 +188,7 @@ const FoodCostWidget = () => {
             </div>
 
             {/* Benchmark Comparison */}
-            <Alert className={data.variance <= 0 ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950' : 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950'}>
+            <Alert className={data.variance <= 0 ? 'border-success/30 bg-success-muted' : 'border-warning/30 bg-warning-muted'}>
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Comparación con Benchmark ({data.benchmark}%)</AlertTitle>
               <AlertDescription>

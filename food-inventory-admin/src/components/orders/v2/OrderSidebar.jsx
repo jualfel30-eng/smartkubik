@@ -118,7 +118,7 @@ export function OrderSidebar({
 
             {generalDiscountPercentage > 0 && (
               <>
-                <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
+                <div className="flex justify-between text-sm text-success">
                   <span>Descuento ({generalDiscountPercentage}%):</span>
                   <span>-${totals.generalDiscountAmount.toFixed(2)}</span>
                 </div>
@@ -185,7 +185,7 @@ export function OrderSidebar({
             )}
 
             {bcvRate && totals.total > 0 && (
-              <div className="flex justify-between text-sm font-semibold text-blue-600 dark:text-blue-400">
+              <div className="flex justify-between text-sm font-semibold text-info">
                 <span>Total en Bs.:</span>
                 <span>Bs. {(totals.total * bcvRate).toFixed(2)}</span>
               </div>

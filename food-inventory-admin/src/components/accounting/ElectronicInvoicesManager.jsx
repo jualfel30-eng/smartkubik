@@ -289,14 +289,14 @@ const ElectronicInvoicesManager = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-green-50 dark:bg-green-950/30">
+          <Card className="bg-success-muted">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Emitidas
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <div className="text-2xl font-bold text-success">
                 {stats.issuedInvoices}
               </div>
               <p className="text-sm text-muted-foreground">
@@ -307,14 +307,14 @@ const ElectronicInvoicesManager = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-blue-50 dark:bg-blue-950/30">
+          <Card className="bg-info-muted">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Con XML Generado
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <div className="text-2xl font-bold text-info">
                 {stats.withXmlGenerated}
               </div>
               <p className="text-sm text-muted-foreground">

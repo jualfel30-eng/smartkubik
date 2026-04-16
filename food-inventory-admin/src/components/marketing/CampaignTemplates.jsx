@@ -71,7 +71,7 @@ const TEMPLATES = [
     id: 'vip-nurture',
     name: 'VIP Product Nurture',
     icon: Diamond,
-    color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    color: 'bg-info-muted text-info',
     badgeColor: 'bg-blue-500 text-white',
     description: 'Recompensa a tus mejores clientes que aman ciertos productos',
     example: 'Top 20% de clientes que compraron Sushi Premium 5+ veces',
@@ -93,7 +93,7 @@ const TEMPLATES = [
     id: 'product-launch',
     name: 'Product Launch',
     icon: Sparkles,
-    color: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+    color: 'bg-success-muted text-success',
     badgeColor: 'bg-green-500 text-white',
     description: 'Anuncia nuevos productos a la audiencia correcta',
     example: 'Clientes que nunca probaron la nueva línea vegana',
@@ -115,7 +115,7 @@ const TEMPLATES = [
     id: 'loyalty-reward',
     name: 'Loyalty Reward',
     icon: Gift,
-    color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400',
+    color: 'bg-warning-muted text-warning-foreground',
     badgeColor: 'bg-yellow-500 text-white',
     description: 'Premia a clientes frecuentes de productos específicos',
     example: 'Top 5% que compran regularmente productos premium',
@@ -136,7 +136,7 @@ const TEMPLATES = [
     id: 'reactivation',
     name: 'Customer Reactivation',
     icon: Zap,
-    color: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+    color: 'bg-destructive/10 text-destructive',
     badgeColor: 'bg-red-500 text-white',
     description: 'Reactiva clientes que no han comprado en mucho tiempo',
     example: 'Clientes que no compran hace 90+ días pero solían comprar frecuentemente',
@@ -205,7 +205,7 @@ export default function CampaignTemplates({ onSelectTemplate }) {
                   <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
                     {template.benefits.map((benefit, idx) => (
                       <li key={idx} className="flex items-start gap-1">
-                        <span className="text-green-600 dark:text-green-400 mt-0.5">✓</span>
+                        <span className="text-success mt-0.5">✓</span>
                         <span>{benefit}</span>
                       </li>
                     ))}
@@ -228,7 +228,7 @@ export default function CampaignTemplates({ onSelectTemplate }) {
         })}
       </div>
 
-      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-info/30 rounded-lg">
         <p className="text-sm text-blue-900 dark:text-blue-100">
           <strong>💡 Tip:</strong> Las plantillas son puntos de partida. Después de seleccionar una,
           personaliza el mensaje, los productos específicos y los filtros de audiencia según tus necesidades.

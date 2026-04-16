@@ -126,8 +126,8 @@ export default function AudiencePreview({ insights, loading, className = '' }) {
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Header Summary */}
-      <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
-        <CheckCircle2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+      <Alert className="border-info/30 bg-blue-50 dark:bg-blue-900/20">
+        <CheckCircle2 className="h-5 w-5 text-info" />
         <AlertDescription>
           <div className="flex items-center justify-between">
             <div>
@@ -140,7 +140,7 @@ export default function AudiencePreview({ insights, loading, className = '' }) {
             </div>
             {averageAffinityScore > 0 && (
               <div className="text-right">
-                <p className="font-bold text-2xl text-blue-600 dark:text-blue-400">
+                <p className="font-bold text-2xl text-info">
                   {averageAffinityScore.toFixed(1)}%
                 </p>
                 <p className="text-xs text-blue-700 dark:text-blue-300">
@@ -180,8 +180,8 @@ export default function AudiencePreview({ insights, loading, className = '' }) {
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                  <Target className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <div className="p-3 bg-success-muted rounded-lg">
+                  <Target className="w-5 h-5 text-success" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -201,8 +201,8 @@ export default function AudiencePreview({ insights, loading, className = '' }) {
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-                  <DollarSign className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                <div className="p-3 bg-warning-muted rounded-lg">
+                  <DollarSign className="w-5 h-5 text-warning-foreground" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -377,8 +377,8 @@ export default function AudiencePreview({ insights, loading, className = '' }) {
 
       {/* Warning for low audience */}
       {totalCustomers < 10 && totalCustomers > 0 && (
-        <Alert className="border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20">
-          <AlertCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+        <Alert className="border-warning/30 bg-yellow-50 dark:bg-yellow-900/20">
+          <AlertCircle className="h-4 w-4 text-warning-foreground" />
           <AlertDescription className="text-yellow-900 dark:text-yellow-100">
             <p className="font-semibold">Audiencia pequeña detectada</p>
             <p className="text-sm mt-1">
@@ -391,8 +391,8 @@ export default function AudiencePreview({ insights, loading, className = '' }) {
 
       {/* No audience warning */}
       {totalCustomers === 0 && (
-        <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
-          <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+        <Alert className="border-destructive/30 bg-red-50 dark:bg-red-900/20">
+          <AlertCircle className="h-4 w-4 text-destructive" />
           <AlertDescription className="text-red-900 dark:text-red-100">
             <p className="font-semibold">No se encontraron clientes</p>
             <p className="text-sm mt-1">

@@ -164,7 +164,7 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
                     </div>
                     {/* Show change calculation */}
                     {line.amountTendered && Number(line.amount) > 0 && (
-                      <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md text-xs">
+                      <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-success/30 rounded-md text-xs">
                         <p className="font-bold text-green-700 dark:text-green-300 flex items-center gap-2">
                           Vuelto: ${
                             (parseFloat(line.amountTendered) - Number(line.amount)).toFixed(2)

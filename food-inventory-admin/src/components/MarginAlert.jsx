@@ -60,7 +60,7 @@ export function MarginAlert({ costPrice, sellingPrice, minimumMargin = 15, warni
   // Excellent: Margen alto (>= 30%)
   if (marginPercentage >= 30) {
     return (
-      <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 rounded-lg">
+      <div className="mt-4 p-3 bg-success-muted border border-green-200 rounded-lg">
         <p className="text-sm text-green-800 dark:text-green-200 flex items-center gap-2">
           <CheckCircle className="h-4 w-4" />
           Excelente margen de ganancia ({marginPercentage.toFixed(1)}%). Ganancia: $
@@ -72,7 +72,7 @@ export function MarginAlert({ costPrice, sellingPrice, minimumMargin = 15, warni
 
   // Good: Margen aceptable
   return (
-    <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 rounded-lg">
+    <div className="mt-4 p-3 bg-info-muted border border-blue-200 rounded-lg">
       <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
         <CheckCircle className="h-4 w-4" />
         Margen aceptable ({marginPercentage.toFixed(1)}%). Ganancia: ${profitAmount.toFixed(2)} por

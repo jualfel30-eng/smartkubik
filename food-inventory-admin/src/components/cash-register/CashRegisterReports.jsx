@@ -364,7 +364,7 @@ export default function CashRegisterReports() {
                         </CardHeader>
                         <CardContent>
                             {changeData.filter(d => d.avgChangeUsd > 20 || d.maxChangeUsd > 50).length === 0 ? (
-                                <div className="text-center py-12 text-muted-foreground bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                                <div className="text-center py-12 text-muted-foreground bg-success-muted rounded-lg border border-success/30">
                                     <TrendingUp className="h-12 w-12 mx-auto mb-4 text-green-500" />
                                     <p className="font-semibold text-green-700 dark:text-green-400">Todo parece estar en orden</p>
                                     <p className="text-sm">No se detectaron patrones inusuales en los vueltos entregados.</p>

@@ -707,7 +707,7 @@ function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChang
                   <span>Bs. {impliedRate.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-sm font-semibold text-blue-600 dark:text-blue-400 mt-1">
+              <div className="flex justify-between text-sm font-semibold text-info mt-1">
                 <span>Total en Bs.:</span>
                 <span>Bs. {displayTotalVes.toFixed(2)}</span>
               </div>

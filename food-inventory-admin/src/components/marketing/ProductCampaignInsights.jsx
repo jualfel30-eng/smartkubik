@@ -93,8 +93,8 @@ export default function ProductCampaignInsights({ campaignId }) {
 
   if (!campaign) {
     return (
-      <Alert className="border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20">
-        <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+      <Alert className="border-destructive/30 bg-red-50 dark:bg-red-900/20">
+        <AlertCircle className="h-4 w-4 text-destructive" />
         <AlertDescription className="text-red-900 dark:text-red-100">
           No se pudo cargar la campaña
         </AlertDescription>
@@ -201,8 +201,8 @@ export default function ProductCampaignInsights({ campaignId }) {
             <Card className="dark:bg-gray-800 dark:border-gray-700">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                    <Mail className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <div className="p-3 bg-info-muted rounded-lg">
+                    <Mail className="w-5 h-5 text-info" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Enviados</p>
@@ -215,13 +215,13 @@ export default function ProductCampaignInsights({ campaignId }) {
             <Card className="dark:bg-gray-800 dark:border-gray-700">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                    <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <div className="p-3 bg-success-muted rounded-lg">
+                    <CheckCircle2 className="w-5 h-5 text-success" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Entregados</p>
                     <p className="text-2xl font-bold dark:text-gray-100">{totalDelivered}</p>
-                    <p className="text-xs text-green-600 dark:text-green-400">{deliveryRate}%</p>
+                    <p className="text-xs text-success">{deliveryRate}%</p>
                   </div>
                 </div>
               </CardContent>
@@ -263,13 +263,13 @@ export default function ProductCampaignInsights({ campaignId }) {
             <Card className="dark:bg-gray-800 dark:border-gray-700">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-                    <ShoppingCart className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                  <div className="p-3 bg-warning-muted rounded-lg">
+                    <ShoppingCart className="w-5 h-5 text-warning-foreground" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Órdenes</p>
                     <p className="text-2xl font-bold dark:text-gray-100">{totalOrders}</p>
-                    <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                    <p className="text-xs text-warning-foreground">
                       {conversionRate}% conversión
                     </p>
                   </div>
@@ -280,8 +280,8 @@ export default function ProductCampaignInsights({ campaignId }) {
             <Card className="dark:bg-gray-800 dark:border-gray-700">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                    <DollarSign className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <div className="p-3 bg-success-muted rounded-lg">
+                    <DollarSign className="w-5 h-5 text-success" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Ingresos</p>
@@ -300,18 +300,18 @@ export default function ProductCampaignInsights({ campaignId }) {
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className={`p-3 rounded-lg ${
-                    roi > 0 ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'
+                    roi > 0 ? 'bg-success-muted' : 'bg-destructive/10'
                   }`}>
                     {roi > 0 ? (
-                      <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      <TrendingUp className="w-5 h-5 text-success" />
                     ) : (
-                      <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400" />
+                      <TrendingDown className="w-5 h-5 text-destructive" />
                     )}
                   </div>
                   <div>
                     <p className="text-xs text-gray-600 dark:text-gray-400">ROI</p>
                     <p className={`text-2xl font-bold ${
-                      roi > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      roi > 0 ? 'text-success' : 'text-destructive'
                     }`}>
                       {roi > 0 ? '+' : ''}{roi.toFixed(1)}%
                     </p>
@@ -336,12 +336,12 @@ export default function ProductCampaignInsights({ campaignId }) {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="p-4 border dark:border-gray-700 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
-                    <Award className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <Award className="w-4 h-4 text-success" />
                     <p className="text-sm font-medium dark:text-gray-200">
                       Nuevos Clientes
                     </p>
                   </div>
-                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                  <p className="text-3xl font-bold text-success">
                     {newCustomersAcquired}
                   </p>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
@@ -351,12 +351,12 @@ export default function ProductCampaignInsights({ campaignId }) {
 
                 <div className="p-4 border dark:border-gray-700 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
-                    <RefreshCw className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <RefreshCw className="w-4 h-4 text-info" />
                     <p className="text-sm font-medium dark:text-gray-200">
                       Reactivados
                     </p>
                   </div>
-                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  <p className="text-3xl font-bold text-info">
                     {reactivatedCustomers}
                   </p>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
@@ -589,7 +589,7 @@ export default function ProductCampaignInsights({ campaignId }) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-4xl font-bold text-red-600 dark:text-red-400">
+                <p className="text-4xl font-bold text-destructive">
                   ${cost.toLocaleString()}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
@@ -605,7 +605,7 @@ export default function ProductCampaignInsights({ campaignId }) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-4xl font-bold text-green-600 dark:text-green-400">
+                <p className="text-4xl font-bold text-success">
                   ${totalRevenue.toLocaleString()}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
@@ -627,7 +627,7 @@ export default function ProductCampaignInsights({ campaignId }) {
                   Retorno de Inversión (ROI)
                 </span>
                 <span className={`text-2xl font-bold ${
-                  roi > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                  roi > 0 ? 'text-success' : 'text-destructive'
                 }`}>
                   {roi > 0 ? '+' : ''}{roi.toFixed(1)}%
                 </span>
@@ -638,7 +638,7 @@ export default function ProductCampaignInsights({ campaignId }) {
                   Beneficio Neto
                 </span>
                 <span className={`text-2xl font-bold ${
-                  (totalRevenue - cost) > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                  (totalRevenue - cost) > 0 ? 'text-success' : 'text-destructive'
                 }`}>
                   ${(totalRevenue - cost).toLocaleString()}
                 </span>

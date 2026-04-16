@@ -72,9 +72,9 @@ function DeltaBadge({ delta }) {
   const isDown = delta.direction === 'down';
   const Icon = isUp ? ArrowUpRight : isDown ? ArrowDownRight : Minus;
   const color = isUp
-    ? 'text-green-600 dark:text-green-400'
+    ? 'text-success'
     : isDown
-      ? 'text-red-600 dark:text-red-400'
+      ? 'text-destructive'
       : 'text-muted-foreground';
 
   return (
@@ -94,9 +94,9 @@ function DeltaBadgeInverse({ delta }) {
   const isDown = delta.direction === 'down';
   const Icon = isUp ? ArrowUpRight : isDown ? ArrowDownRight : Minus;
   const color = isDown
-    ? 'text-green-600 dark:text-green-400'
+    ? 'text-success'
     : isUp
-      ? 'text-red-600 dark:text-red-400'
+      ? 'text-destructive'
       : 'text-muted-foreground';
 
   return (
@@ -371,7 +371,7 @@ function BreakdownComparison({ results }) {
             <tr className="border-b border-border/30">
               <td className="py-2 font-medium">Total Gastos</td>
               {validResults.map((r) => (
-                <td key={r.year} className="py-2 text-right font-mono text-red-600 dark:text-red-400">
+                <td key={r.year} className="py-2 text-right font-mono text-destructive">
                   {fmtUsd(r.data?.expenses?.total)}
                 </td>
               ))}
@@ -379,7 +379,7 @@ function BreakdownComparison({ results }) {
             <tr className="border-b border-border/30">
               <td className="py-2 font-medium">Total Ingresos</td>
               {validResults.map((r) => (
-                <td key={r.year} className="py-2 text-right font-mono text-green-600 dark:text-green-400">
+                <td key={r.year} className="py-2 text-right font-mono text-success">
                   {fmtUsd(r.data?.income?.total)}
                 </td>
               ))}
@@ -393,8 +393,8 @@ function BreakdownComparison({ results }) {
                     key={r.year}
                     className={`py-2 text-right font-mono font-semibold ${
                       net >= 0
-                        ? 'text-green-600 dark:text-green-400'
-                        : 'text-red-600 dark:text-red-400'
+                        ? 'text-success'
+                        : 'text-destructive'
                     }`}
                   >
                     {fmtUsd(net)}
@@ -636,12 +636,12 @@ export function ExpenseIncomeBreakdown() {
 
       {/* Summary totals */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="border bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
+        <Card className="border bg-red-50/50 dark:bg-red-950/20 border-destructive/30">
           <CardContent className="p-4">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Total Gastos
             </p>
-            <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
+            <p className="text-2xl font-bold text-destructive mt-1">
               {fmtUsd(expenses?.total)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
@@ -649,12 +649,12 @@ export function ExpenseIncomeBreakdown() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+        <Card className="border bg-green-50/50 dark:bg-green-950/20 border-success/30">
           <CardContent className="p-4">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Total Ingresos
             </p>
-            <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
+            <p className="text-2xl font-bold text-success mt-1">
               {fmtUsd(income?.total)}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
@@ -665,8 +665,8 @@ export function ExpenseIncomeBreakdown() {
         <Card
           className={`border ${
             netResult >= 0
-              ? 'bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
-              : 'bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+              ? 'bg-green-50/50 dark:bg-green-950/20 border-success/30'
+              : 'bg-red-50/50 dark:bg-red-950/20 border-destructive/30'
           }`}
         >
           <CardContent className="p-4">
@@ -676,8 +676,8 @@ export function ExpenseIncomeBreakdown() {
             <p
               className={`text-2xl font-bold mt-1 ${
                 netResult >= 0
-                  ? 'text-green-600 dark:text-green-400'
-                  : 'text-red-600 dark:text-red-400'
+                  ? 'text-success'
+                  : 'text-destructive'
               }`}
             >
               {fmtUsd(netResult)}

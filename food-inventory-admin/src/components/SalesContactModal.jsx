@@ -18,7 +18,7 @@ import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { useVenezuela } from '@/hooks/useVenezuela.js';
 import { Mail, MessageSquare } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 
 const businessVerticals = [
   {
@@ -106,8 +106,6 @@ function SalesContactModal({ isOpen, onOpenChange, contactType = "sales" }) {
     }
   }, [activeTab, handleWhatsAppClick]);
 
-  const { toast } = useToast();
-
   const handleSendEmail = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -122,12 +120,10 @@ function SalesContactModal({ isOpen, onOpenChange, contactType = "sales" }) {
         })
       });
 
-      toast({
-        title: contactType === 'sales' ? "Solicitud Recibida" : "Mensaje Enviado",
+      toast.success(contactType === 'sales' ? "Solicitud Recibida" : "Mensaje Enviado", {
         description: contactType === 'sales'
           ? "Un especialista de ventas te contactará pronto para tu demo."
           : "Gracias por escribirnos. Te responderemos a la brevedad.",
-        className: "bg-emerald-500 text-white border-none",
       });
 
       onOpenChange(false);
@@ -138,10 +134,8 @@ function SalesContactModal({ isOpen, onOpenChange, contactType = "sales" }) {
       });
     } catch (error) {
       console.error('Failed to send contact email:', error);
-      toast({
-        title: "Error al enviar",
+      toast.error("Error al enviar", {
         description: "Hubo un problema al enviar tu mensaje. Por favor intenta por WhatsApp.",
-        variant: "destructive",
       });
     } finally {
       setIsSubmitting(false);

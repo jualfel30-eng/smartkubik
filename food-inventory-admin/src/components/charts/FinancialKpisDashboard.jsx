@@ -63,16 +63,16 @@ const fmtPct = (v) => {
 
 // ─── Status helpers ──────────────────────────────────────────
 const STATUS_COLORS = {
-  good: 'text-green-600 dark:text-green-400',
-  warning: 'text-yellow-600 dark:text-yellow-400',
-  danger: 'text-red-600 dark:text-red-400',
+  good: 'text-success',
+  warning: 'text-warning-foreground',
+  danger: 'text-destructive',
   no_data: 'text-muted-foreground',
 };
 
 const STATUS_BG = {
-  good: 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800',
-  warning: 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-800',
-  danger: 'bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800',
+  good: 'bg-success-muted border-success/30',
+  warning: 'bg-warning-muted border-warning/30',
+  danger: 'bg-destructive/10 border-destructive/30',
   no_data: 'bg-muted/50 border-border',
 };
 
@@ -91,9 +91,9 @@ function DeltaBadge({ delta }) {
   const isDown = delta.direction === 'down';
   const Icon = isUp ? ArrowUpRight : isDown ? ArrowDownRight : Minus;
   const color = isUp
-    ? 'text-green-600 dark:text-green-400'
+    ? 'text-success'
     : isDown
-      ? 'text-red-600 dark:text-red-400'
+      ? 'text-destructive'
       : 'text-muted-foreground';
 
   return (
@@ -111,9 +111,9 @@ function DeltaBadgeInverse({ delta }) {
   const isDown = delta.direction === 'down';
   const Icon = isUp ? ArrowUpRight : isDown ? ArrowDownRight : Minus;
   const color = isDown
-    ? 'text-green-600 dark:text-green-400'
+    ? 'text-success'
     : isUp
-      ? 'text-red-600 dark:text-red-400'
+      ? 'text-destructive'
       : 'text-muted-foreground';
 
   return (
@@ -219,7 +219,7 @@ function BreakEvenGauge({ data }) {
             PE: {fmtUsd(data.breakEvenRevenue)}
           </span>
           {data.isAboveBreakEven && (
-            <span className="text-green-600 dark:text-green-400 font-medium">
+            <span className="text-success font-medium">
               +{fmtUsd(data.surplusOrDeficit)} excedente
             </span>
           )}
@@ -641,7 +641,7 @@ function DetailedAnalysis({ primary, results, deltas, isComparing }) {
               >
                 <div className="space-y-4">
                   <div className="text-center py-4">
-                    <p className={`text-4xl font-bold ${roi.roiPercent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                    <p className={`text-4xl font-bold ${roi.roiPercent >= 0 ? 'text-success' : 'text-destructive'}`}>
                       {fmtPct(roi.roiPercent)}
                     </p>
                     <p className="text-sm text-muted-foreground mt-1">ROI Global</p>

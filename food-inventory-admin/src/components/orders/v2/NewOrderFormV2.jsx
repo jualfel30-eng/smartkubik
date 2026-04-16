@@ -2227,11 +2227,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                         <span className="text-sm line-through text-muted-foreground">
                           ${item.promotionInfo.originalPrice.toFixed(2)}
                         </span>
-                        <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                        <span className="text-sm font-semibold text-success">
                           ${getItemFinalUnitPrice(item).toFixed(2)}
                         </span>
                       </div>
-                      <div className="text-xs text-green-600 dark:text-green-400">
+                      <div className="text-xs text-success">
                         🎉 -{item.promotionInfo.discountPercentage}% descuento
                       </div>
                     </div>
@@ -2249,7 +2249,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 <TableCell>
                   ${(getItemFinalUnitPrice(item) * getItemQuantityValue(item)).toFixed(2)}
                   {!canApplyDiscounts && item.discountPercentage > 0 && (
-                    <div className="text-xs text-green-600 dark:text-green-400 font-semibold mt-1">
+                    <div className="text-xs text-success font-semibold mt-1">
                       Descuento: -{item.discountPercentage}%
                     </div>
                   )}
@@ -2267,7 +2267,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                         <Percent className="h-4 w-4 text-blue-500" />
                       </Button>
                       {item.discountPercentage > 0 && (
-                        <div className="text-xs text-green-600 dark:text-green-400 font-semibold">
+                        <div className="text-xs text-success font-semibold">
                           -{item.discountPercentage}%
                         </div>
                       )}
@@ -2894,7 +2894,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                       onChange={(location) => setNewOrder(prev => ({ ...prev, customerLocation: location }))}
                     />
                     {!newOrder.customerId && newOrder.customerLocation && (
-                      <p className="text-sm text-green-600 dark:text-green-400 mt-2">
+                      <p className="text-sm text-success mt-2">
                         ✓ Esta ubicación se guardará automáticamente en el perfil del cliente
                       </p>
                     )}
@@ -3145,9 +3145,9 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                   </Select>
                 </div>
                 {itemDiscountPercentage > 0 && (
-                  <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                  <div className="p-3 bg-success-muted rounded-lg">
                     <div className="text-sm text-muted-foreground">Nuevo Precio</div>
-                    <div className="text-xl font-bold text-green-600 dark:text-green-400">
+                    <div className="text-xl font-bold text-success">
                       ${((selectedItemForDiscount.unitPrice || 0) * (1 - itemDiscountPercentage / 100)).toFixed(2)}
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -3212,16 +3212,16 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
               </Select>
             </div>
             {generalDiscountPercentage > 0 && (
-              <div className="p-3 bg-green-50 dark:bg-green-950 rounded-lg space-y-2">
+              <div className="p-3 bg-success-muted rounded-lg space-y-2">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Descuento:</span>
-                  <span className="font-semibold text-green-600 dark:text-green-400">
+                  <span className="font-semibold text-success">
                     -${((totals.subtotal * generalDiscountPercentage) / 100).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Nuevo Subtotal:</span>
-                  <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                  <span className="text-xl font-bold text-success">
                     ${(totals.subtotal * (1 - generalDiscountPercentage / 100)).toFixed(2)}
                   </span>
                 </div>

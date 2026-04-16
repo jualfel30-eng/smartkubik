@@ -202,8 +202,8 @@ export function FloorPlan() {
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Mesas</p>
               <p className="text-2xl font-bold dark:text-gray-100">{floorPlan?.totalTables || 0}</p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-              <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            <div className="w-12 h-12 bg-info-muted rounded-full flex items-center justify-center">
+              <Users className="w-6 h-6 text-info" />
             </div>
           </div>
         </Card>
@@ -212,11 +212,11 @@ export function FloorPlan() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Disponibles</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+              <p className="text-2xl font-bold text-success">
                 {floorPlan?.availableTables || 0}
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-success-muted rounded-full flex items-center justify-center">
               <div className="w-6 h-6 bg-green-500 dark:bg-green-400 rounded"></div>
             </div>
           </div>
@@ -226,11 +226,11 @@ export function FloorPlan() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Ocupadas</p>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+              <p className="text-2xl font-bold text-destructive">
                 {floorPlan?.occupiedTables || 0}
               </p>
             </div>
-            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center">
               <div className="w-6 h-6 bg-red-500 dark:bg-red-400 rounded"></div>
             </div>
           </div>
@@ -290,7 +290,7 @@ export function FloorPlan() {
                     </h3>
                     <div className="flex gap-2 text-sm">
                       <span className="text-gray-600 dark:text-gray-400">
-                        Disponibles: <span className="font-semibold text-green-600 dark:text-green-400">
+                        Disponibles: <span className="font-semibold text-success">
                           {section.tables.filter(t => t.status === 'available').length}
                         </span>
                       </span>
@@ -386,9 +386,9 @@ export function FloorPlan() {
                   </div>
 
                   {selectedTable.status === 'occupied' && (
-                    <div className="bg-red-50 dark:bg-red-950/30 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                    <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/30">
                       <div className="flex items-center gap-2 mb-2">
-                        <Users className="w-4 h-4 text-red-600 dark:text-red-400" />
+                        <Users className="w-4 h-4 text-destructive" />
                         <span className="font-semibold text-red-900 dark:text-red-300">Mesa Ocupada</span>
                       </div>
                       <div className="space-y-2">
@@ -419,7 +419,7 @@ export function FloorPlan() {
                   )}
 
                   {selectedTable.assignedServerId && (
-                    <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <div className="bg-info-muted p-3 rounded-lg border border-info/30">
                       <div className="flex justify-between items-center">
                         <span className="text-blue-700 dark:text-blue-300 font-medium">Mesero Asignado:</span>
                         <span className="font-bold text-blue-900 dark:text-blue-200">

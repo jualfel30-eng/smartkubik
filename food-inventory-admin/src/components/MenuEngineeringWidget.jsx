@@ -22,18 +22,18 @@ const CATEGORY_CONFIG = {
   star: {
     label: 'Stars (Estrellas)',
     icon: Star,
-    color: 'text-yellow-600 dark:text-yellow-400',
-    bgColor: 'bg-yellow-50 dark:bg-yellow-950',
-    borderColor: 'border-yellow-300 dark:border-yellow-700',
+    color: 'text-warning-foreground',
+    bgColor: 'bg-warning-muted',
+    borderColor: 'border-warning/40',
     description: 'Alta popularidad + Alta rentabilidad',
     emoji: '⭐',
   },
   plowhorse: {
     label: 'Plowhorses (Caballos de trabajo)',
     icon: TrendingUp,
-    color: 'text-blue-600 dark:text-blue-400',
-    bgColor: 'bg-blue-50 dark:bg-blue-950',
-    borderColor: 'border-blue-300 dark:border-blue-700',
+    color: 'text-info',
+    bgColor: 'bg-info-muted',
+    borderColor: 'border-info/40',
     description: 'Alta popularidad + Baja rentabilidad',
     emoji: '🐴',
   },
@@ -49,9 +49,9 @@ const CATEGORY_CONFIG = {
   dog: {
     label: 'Dogs (Perros)',
     icon: AlertCircle,
-    color: 'text-red-600 dark:text-red-400',
-    bgColor: 'bg-red-50 dark:bg-red-950',
-    borderColor: 'border-red-300 dark:border-red-700',
+    color: 'text-destructive',
+    bgColor: 'bg-destructive/10',
+    borderColor: 'border-destructive/40',
     description: 'Baja popularidad + Baja rentabilidad',
     emoji: '🐕',
   },
@@ -229,7 +229,7 @@ const MenuEngineeringWidget = () => {
           <div className="space-y-6">
             {/* Summary Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 rounded-lg p-4 border border-info/30">
                 <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 mb-2">
                   <ShoppingCart className="h-5 w-5" />
                   <span className="text-sm font-medium">Platillos Totales</span>
@@ -239,7 +239,7 @@ const MenuEngineeringWidget = () => {
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 rounded-lg p-4 border border-green-200 dark:border-green-800">
+              <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 rounded-lg p-4 border border-success/30">
                 <div className="flex items-center gap-2 text-green-700 dark:text-green-300 mb-2">
                   <DollarSign className="h-5 w-5" />
                   <span className="text-sm font-medium">Ingresos Totales</span>
@@ -259,7 +259,7 @@ const MenuEngineeringWidget = () => {
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
+              <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900 rounded-lg p-4 border border-warning/30">
                 <div className="flex items-center gap-2 text-yellow-700 dark:text-yellow-300 mb-2">
                   <Star className="h-5 w-5" />
                   <span className="text-sm font-medium">Stars</span>
@@ -359,7 +359,7 @@ const MenuEngineeringWidget = () => {
                     <TableBody>
                       {data.categories.stars.length > 0 && (
                         <>
-                          <TableRow className="bg-yellow-50 dark:bg-yellow-950">
+                          <TableRow className="bg-warning-muted">
                             <TableCell colSpan={7} className="font-bold text-yellow-900 dark:text-yellow-100">
                               ⭐ Stars (Estrellas)
                             </TableCell>
@@ -369,7 +369,7 @@ const MenuEngineeringWidget = () => {
                       )}
                       {data.categories.plowhorses.length > 0 && (
                         <>
-                          <TableRow className="bg-blue-50 dark:bg-blue-950">
+                          <TableRow className="bg-info-muted">
                             <TableCell colSpan={7} className="font-bold text-blue-900 dark:text-blue-100">
                               🐴 Plowhorses (Caballos de trabajo)
                             </TableCell>
@@ -389,7 +389,7 @@ const MenuEngineeringWidget = () => {
                       )}
                       {data.categories.dogs.length > 0 && (
                         <>
-                          <TableRow className="bg-red-50 dark:bg-red-950">
+                          <TableRow className="bg-destructive/10">
                             <TableCell colSpan={7} className="font-bold text-red-900 dark:text-red-100">
                               🐕 Dogs (Perros)
                             </TableCell>
@@ -404,7 +404,7 @@ const MenuEngineeringWidget = () => {
             </Tabs>
 
             {/* Strategic Recommendations */}
-            <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950">
+            <Alert className="border-info/30 bg-info-muted">
               <TrendingUp className="h-4 w-4 text-blue-900 dark:text-blue-100" />
               <AlertTitle className="text-blue-900 dark:text-blue-100">💡 Recomendaciones Estratégicas</AlertTitle>
               <AlertDescription className="text-blue-800 dark:text-blue-200 text-sm space-y-2">

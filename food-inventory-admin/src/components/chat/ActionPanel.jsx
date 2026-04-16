@@ -204,8 +204,8 @@ export const ActionPanel = ({
             <div className="flex-1 overflow-y-auto p-4 bg-muted/10">
                 {createdOrder && !isEditing && activeAction === 'order' ? (
                     <div className="flex flex-col items-center justify-center p-8 space-y-6 animate-in fade-in duration-300">
-                        <div className="h-16 w-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                            <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+                        <div className="h-16 w-16 bg-success-muted rounded-full flex items-center justify-center">
+                            <CheckCircle2 className="h-8 w-8 text-success" />
                         </div>
                         <div className="text-center space-y-2">
                             <h3 className="text-2xl font-bold">¡Orden Creada!</h3>

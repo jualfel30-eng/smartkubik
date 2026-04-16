@@ -30,18 +30,18 @@ import {
 } from 'lucide-react';
 
 const SOURCE_CONFIG = {
-  google: { label: 'Google', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' },
-  tripadvisor: { label: 'TripAdvisor', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' },
-  yelp: { label: 'Yelp', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200' },
+  google: { label: 'Google', color: 'bg-info-muted text-blue-800 dark:text-blue-200' },
+  tripadvisor: { label: 'TripAdvisor', color: 'bg-success-muted text-green-800 dark:text-green-200' },
+  yelp: { label: 'Yelp', color: 'bg-destructive/10 text-red-800 dark:text-red-200' },
   facebook: { label: 'Facebook', color: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200' },
   internal: { label: 'Interno', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200' },
   manual: { label: 'Manual', color: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' },
 };
 
 const SENTIMENT_CONFIG = {
-  positive: { label: 'Positivo', icon: ThumbsUp, color: 'text-green-600 dark:text-green-400' },
-  neutral: { label: 'Neutral', icon: Minus, color: 'text-yellow-600 dark:text-yellow-400' },
-  negative: { label: 'Negativo', icon: ThumbsDown, color: 'text-red-600 dark:text-red-400' },
+  positive: { label: 'Positivo', icon: ThumbsUp, color: 'text-success' },
+  neutral: { label: 'Neutral', icon: Minus, color: 'text-warning-foreground' },
+  negative: { label: 'Negativo', icon: ThumbsDown, color: 'text-destructive' },
 };
 
 const ReviewsAggregator = () => {
@@ -170,8 +170,8 @@ const ReviewsAggregator = () => {
                       {analytics.overview.averageRating.toFixed(1)}
                     </p>
                   </div>
-                  <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-                    <Star className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                  <div className="p-3 bg-warning-muted rounded-full">
+                    <Star className="h-6 w-6 text-warning-foreground" />
                   </div>
                 </div>
                 <StarRating rating={Math.round(analytics.overview.averageRating)} />
@@ -189,8 +189,8 @@ const ReviewsAggregator = () => {
                       {analytics.overview.totalReviews}
                     </p>
                   </div>
-                  <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                    <MessageSquare className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                  <div className="p-3 bg-info-muted rounded-full">
+                    <MessageSquare className="h-6 w-6 text-info" />
                   </div>
                 </div>
               </CardContent>
@@ -207,8 +207,8 @@ const ReviewsAggregator = () => {
                       {(analytics.overview.responseRate * 100).toFixed(0)}%
                     </p>
                   </div>
-                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
-                    <Send className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  <div className="p-3 bg-success-muted rounded-full">
+                    <Send className="h-6 w-6 text-success" />
                   </div>
                 </div>
               </CardContent>
@@ -479,7 +479,7 @@ const ReviewsAggregator = () => {
                           <p className="text-sm text-blue-800 dark:text-blue-300">
                             {review.response}
                           </p>
-                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                          <p className="text-xs text-info mt-2">
                             {new Date(review.responseDate).toLocaleDateString('es-VE')}
                           </p>
                         </div>
