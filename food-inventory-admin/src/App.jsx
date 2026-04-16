@@ -404,7 +404,7 @@ function TenantLayout() {
 
     if (!duration) return null;
 
-    return <Badge variant="outline" className="bg-blue-100 text-blue-800">{duration}</Badge>;
+    return <Badge variant="outline" className="bg-info/10 text-blue-800">{duration}</Badge>;
   };
 
   const restaurantModuleEnabled = Boolean(

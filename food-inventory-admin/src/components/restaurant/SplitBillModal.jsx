@@ -224,7 +224,7 @@ export default function SplitBillModal({ order, onClose, onSuccess }) {
           </button>
 
           <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Receipt className="w-6 h-6 text-blue-600" />
+            <Receipt className="w-6 h-6 text-info" />
             Dividir Cuenta
           </h2>
           <p className="text-gray-600 mt-1">
@@ -249,7 +249,7 @@ export default function SplitBillModal({ order, onClose, onSuccess }) {
                   }
                 `}
               >
-                <Users className="w-6 h-6 mx-auto mb-2 text-blue-600" />
+                <Users className="w-6 h-6 mx-auto mb-2 text-info" />
                 <p className="font-medium">Dividir Equitativamente</p>
                 <p className="text-xs text-gray-500 mt-1">
                   Igual entre todas las personas
@@ -267,7 +267,7 @@ export default function SplitBillModal({ order, onClose, onSuccess }) {
                   }
                 `}
               >
-                <Receipt className="w-6 h-6 mx-auto mb-2 text-blue-600" />
+                <Receipt className="w-6 h-6 mx-auto mb-2 text-info" />
                 <p className="font-medium">Por Items</p>
                 <p className="text-xs text-gray-500 mt-1">
                   Cada quien paga lo suyo
@@ -374,7 +374,7 @@ export default function SplitBillModal({ order, onClose, onSuccess }) {
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 {isAssigned && (
-                                  <Check className="w-4 h-4 text-blue-600" />
+                                  <Check className="w-4 h-4 text-info" />
                                 )}
                                 <span className="font-medium">
                                   {item.productName}
@@ -453,7 +453,7 @@ export default function SplitBillModal({ order, onClose, onSuccess }) {
                     </div>
                     <div className="flex justify-between font-semibold pt-1 border-t">
                       <span>Total:</span>
-                      <span className="text-blue-600">${part.total.toFixed(2)}</span>
+                      <span className="text-info">${part.total.toFixed(2)}</span>
                     </div>
                   </div>
                 ))}
@@ -467,7 +467,7 @@ export default function SplitBillModal({ order, onClose, onSuccess }) {
 
           {/* Error */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+            <div className="bg-destructive/5 border border-red-200 text-destructive px-4 py-3 rounded">
               {error}
             </div>
           )}

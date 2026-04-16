@@ -126,9 +126,9 @@ export function CashClosingDrawer({ trigger }) {
     const diffVes = (parseFloat(closingData.closingAmountVes) || 0) - expectedVes;
 
     const getDiffBadgeColor = (diff) => {
-        if (Math.abs(diff) < 0.01) return 'text-green-600 bg-green-100';
-        if (diff > 0) return 'text-blue-600 bg-blue-100';
-        return 'text-red-600 bg-red-100';
+        if (Math.abs(diff) < 0.01) return 'text-success bg-success/10';
+        if (diff > 0) return 'text-info bg-info/10';
+        return 'text-destructive bg-destructive/10';
     };
 
     const handleConfirmUsdCount = (total, counts) => {
@@ -325,10 +325,10 @@ export function CashClosingDrawer({ trigger }) {
                         // ===== VISTA DE ÉXITO =====
                         <div className="space-y-6">
                             <div className="text-center space-y-2">
-                                <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                                <div className="mx-auto w-12 h-12 bg-success/10 rounded-full flex items-center justify-center">
                                     <span className="text-2xl">✅</span>
                                 </div>
-                                <h3 className="text-lg font-bold text-green-700">¡Caja Cerrada Exitosamente!</h3>
+                                <h3 className="text-lg font-bold text-success">¡Caja Cerrada Exitosamente!</h3>
                                 <p className="text-sm text-muted-foreground">
                                     El cierre se ha registrado correctamente.
                                     <br />ID: #{lastClosingId?.slice(-6)}

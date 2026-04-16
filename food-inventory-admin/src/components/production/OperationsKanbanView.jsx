@@ -39,10 +39,10 @@ const statusColumns = {
   },
   completed: {
     title: 'Completada',
-    color: 'bg-green-50',
+    color: 'bg-success/5',
     borderColor: 'border-green-300',
     icon: CheckCircle2,
-    iconColor: 'text-green-500'
+    iconColor: 'text-success'
   }
 };
 
@@ -282,12 +282,12 @@ export function OperationsKanbanView({ manufacturingOrder, onOperationUpdate, on
                             {efficiency !== null && operation.status === 'completed' && (
                               <div className="flex items-center gap-1">
                                 {efficiency >= 100 ? (
-                                  <TrendingUp className="h-4 w-4 text-green-500" />
+                                  <TrendingUp className="h-4 w-4 text-success" />
                                 ) : (
                                   <TrendingDown className="h-4 w-4 text-orange-500" />
                                 )}
                                 <span className={`text-xs font-medium ${
-                                  efficiency >= 100 ? 'text-green-600' : 'text-orange-600'
+                                  efficiency >= 100 ? 'text-success' : 'text-warning'
                                 }`}>
                                   {efficiency.toFixed(0)}%
                                 </span>

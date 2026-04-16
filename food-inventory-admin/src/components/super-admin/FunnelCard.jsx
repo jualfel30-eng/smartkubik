@@ -6,9 +6,9 @@ import { Users, UserCheck, Activity, CreditCard, AlertTriangle } from 'lucide-re
 
 const STAGES = [
   { key: 'totalRegistered', label: 'Registrados', icon: Users, color: 'bg-gray-500' },
-  { key: 'totalConfirmed', label: 'Confirmados', icon: UserCheck, color: 'bg-blue-500' },
+  { key: 'totalConfirmed', label: 'Confirmados', icon: UserCheck, color: 'bg-info' },
   { key: 'totalActive', label: 'Activos', icon: Activity, color: 'bg-emerald-500' },
-  { key: 'totalPaying', label: 'Pagando', icon: CreditCard, color: 'bg-green-600' },
+  { key: 'totalPaying', label: 'Pagando', icon: CreditCard, color: 'bg-success' },
 ];
 
 export default function FunnelCard() {

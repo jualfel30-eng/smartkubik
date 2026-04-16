@@ -43,11 +43,11 @@ export function ProductionCostingView({ order }) {
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-2">
           {variance.isPositive ? (
-            <TrendingDown className="h-4 w-4 text-green-600" />
+            <TrendingDown className="h-4 w-4 text-success" />
           ) : (
-            <TrendingUp className="h-4 w-4 text-red-600" />
+            <TrendingUp className="h-4 w-4 text-destructive" />
           )}
-          <span className={variance.isPositive ? 'text-green-600' : 'text-red-600'}>
+          <span className={variance.isPositive ? 'text-success' : 'text-destructive'}>
             {formatCurrency(Math.abs(variance.amount))}
           </span>
           <Badge variant={variance.isPositive ? 'default' : 'destructive'} className="ml-2">
@@ -84,7 +84,7 @@ export function ProductionCostingView({ order }) {
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>Varianza Total</CardDescription>
-            <CardTitle className={`text-2xl ${totalVariance.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+            <CardTitle className={`text-2xl ${totalVariance.isPositive ? 'text-success' : 'text-destructive'}`}>
               {formatCurrency(Math.abs(totalVariance.amount))}
             </CardTitle>
             <div className="flex items-center gap-1 text-sm">
@@ -161,11 +161,11 @@ export function ProductionCostingView({ order }) {
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     {totalVariance.isPositive ? (
-                      <TrendingDown className="h-4 w-4 text-green-600" />
+                      <TrendingDown className="h-4 w-4 text-success" />
                     ) : (
-                      <TrendingUp className="h-4 w-4 text-red-600" />
+                      <TrendingUp className="h-4 w-4 text-destructive" />
                     )}
-                    <span className={totalVariance.isPositive ? 'text-green-600' : 'text-red-600'}>
+                    <span className={totalVariance.isPositive ? 'text-success' : 'text-destructive'}>
                       {formatCurrency(Math.abs(totalVariance.amount))}
                     </span>
                   </div>
@@ -218,13 +218,13 @@ export function ProductionCostingView({ order }) {
 
       {/* Alertas de Varianza */}
       {!totalVariance.isPositive && Math.abs(totalVariance.percentage) > 10 && (
-        <Card className="border-red-300 bg-red-50">
+        <Card className="border-red-300 bg-destructive/5">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-red-700">
+            <CardTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
               Alerta de Sobrecosto
             </CardTitle>
-            <CardDescription className="text-red-600">
+            <CardDescription className="text-destructive">
               El costo real excede el estimado en un {Math.abs(totalVariance.percentage).toFixed(1)}% (
               {formatCurrency(Math.abs(totalVariance.amount))})
             </CardDescription>
@@ -233,7 +233,7 @@ export function ProductionCostingView({ order }) {
             <div className="space-y-2 text-sm">
               {!materialVariance.isPositive && Math.abs(materialVariance.percentage) > 10 && (
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
                   <span>
                     Materiales: +{Math.abs(materialVariance.percentage).toFixed(1)}% sobre presupuesto
                   </span>
@@ -241,7 +241,7 @@ export function ProductionCostingView({ order }) {
               )}
               {!laborVariance.isPositive && Math.abs(laborVariance.percentage) > 10 && (
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
                   <span>
                     Mano de Obra: +{Math.abs(laborVariance.percentage).toFixed(1)}% sobre presupuesto
                   </span>

@@ -585,7 +585,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
                   </TableCell>
                   <TableCell className="text-center">
                     {payable.isCredit
-                      ? <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Sí</Badge>
+                      ? <Badge variant="outline" className="bg-success/5 text-success border-green-200">Sí</Badge>
                       : <span className="text-gray-400">No</span>}
                   </TableCell>
                   <TableCell>
@@ -595,8 +595,8 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={cn(
-                      payable.status === 'paid' ? 'bg-green-100 text-green-800' :
-                        payable.status === 'partial' ? 'bg-yellow-100 text-yellow-800' :
+                      payable.status === 'paid' ? 'bg-success/10 text-green-800' :
+                        payable.status === 'partial' ? 'bg-warning/10 text-yellow-800' :
                           'bg-gray-100 text-gray-800'
                     )}>
                       {payable.status === 'paid' ? 'Pagado' :
@@ -701,11 +701,11 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Monto Pagado:</span>
-                    <span className="font-semibold text-green-600">${(selectedPayable.paidAmount || 0).toFixed(2)}</span>
+                    <span className="font-semibold text-success">${(selectedPayable.paidAmount || 0).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between pt-2 border-t">
                     <span className="font-semibold">Saldo Pendiente:</span>
-                    <span className="font-bold text-lg text-orange-600">
+                    <span className="font-bold text-lg text-warning">
                       ${(getTotalAmount(selectedPayable.lines) - (selectedPayable.paidAmount || 0)).toFixed(2)}
                     </span>
                   </div>
@@ -898,11 +898,11 @@ const ViewPayableDialog = ({ isOpen, onOpenChange, payable }) => {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Monto Pagado:</span>
-                <span className="font-semibold text-green-600">${(payable.paidAmount || 0).toFixed(2)}</span>
+                <span className="font-semibold text-success">${(payable.paidAmount || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between pt-2 border-t">
                 <span className="font-semibold">Saldo Pendiente:</span>
-                <span className="font-bold text-lg text-orange-600">
+                <span className="font-bold text-lg text-warning">
                   ${(getTotalAmount(payable.lines) - (payable.paidAmount || 0)).toFixed(2)}
                 </span>
               </div>
@@ -1324,7 +1324,7 @@ const PaymentHistory = () => {
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Monto Pagado:</span>
-                    <span className="font-semibold text-green-600">${Number(selectedPayment.amount).toFixed(2)}</span>
+                    <span className="font-semibold text-success">${Number(selectedPayment.amount).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Método de Pago:</span>
@@ -1545,7 +1545,7 @@ const PayablesManagement = () => {
             variant="ghost"
             size="sm"
             onClick={clearFilter}
-            className="h-6 px-2 text-blue-700 hover:text-blue-900 hover:bg-blue-100 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/40"
+            className="h-6 px-2 text-blue-700 hover:text-blue-900 hover:bg-info/10 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/40"
           >
             <X className="h-4 w-4 mr-1" />
             Limpiar

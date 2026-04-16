@@ -111,7 +111,7 @@ export function BillOfMaterialsList() {
         </CardHeader>
         <CardContent>
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">Error: {error}</div>
+            <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">Error: {error}</div>
           )}
 
           {loading ? (
@@ -154,7 +154,7 @@ export function BillOfMaterialsList() {
                         </TableCell>
                         <TableCell>
                           {bom.isActive ? (
-                            <Badge className="bg-green-500">
+                            <Badge className="bg-success">
                               <CheckCircle className="h-3 w-3 mr-1" />
                               Activa
                             </Badge>
@@ -180,9 +180,9 @@ export function BillOfMaterialsList() {
                         <TableCell>
                           {availability ? (
                             availability.allAvailable ? (
-                              <Badge className="bg-green-500">Disponible</Badge>
+                              <Badge className="bg-success">Disponible</Badge>
                             ) : (
-                              <Badge className="bg-red-500">
+                              <Badge className="bg-destructive">
                                 {availability.missing?.length || 0} faltantes
                               </Badge>
                             )

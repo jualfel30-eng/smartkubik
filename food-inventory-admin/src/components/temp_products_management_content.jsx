@@ -371,7 +371,7 @@ function ProductsManagement() {
   };
 
   if (loading) return <div>Cargando productos...</div>;
-  if (error) return <div className="text-red-600">Error: {error}</div>;
+  if (error) return <div className="text-destructive">Error: {error}</div>;
 
   return (
     <div className="space-y-6">
@@ -701,7 +701,7 @@ function ProductsManagement() {
                     <TableCell>{product.variants.length}</TableCell>
                     <TableCell>
                       {product.isActive ? 
-                        <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1"/>Activo</Badge> : 
+                        <Badge className="bg-success/10 text-green-800"><CheckCircle className="h-3 w-3 mr-1"/>Activo</Badge> : 
                         <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1"/>Inactivo</Badge>}
                     </TableCell>
                     <TableCell>
@@ -723,7 +723,7 @@ function ProductsManagement() {
                           setEditingProduct(productToEdit);
                           setIsEditDialogOpen(true);
                         }}><Edit className="h-4 w-4" /></Button>
-                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteProduct(product._id)}><Trash2 className="h-4 w-4" /></Button>
+                        <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteProduct(product._id)}><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>

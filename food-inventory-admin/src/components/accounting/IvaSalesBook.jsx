@@ -212,9 +212,9 @@ const IvaSalesBook = ({ customers }) => {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'confirmed':
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Confirmada</Badge>;
+        return <Badge className="bg-success/10 text-green-800 hover:bg-green-200">Confirmada</Badge>;
       case 'exported':
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Exportada</Badge>;
+        return <Badge className="bg-info/10 text-blue-800 hover:bg-blue-200">Exportada</Badge>;
       case 'annulled':
         return <Badge variant="destructive">Anulada</Badge>;
       default:
@@ -236,11 +236,11 @@ const IvaSalesBook = ({ customers }) => {
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleValidate} disabled={loading}>
-            <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+            <CheckCircle className="mr-2 h-4 w-4 text-success" />
             Validar
           </Button>
           <Button variant="outline" onClick={handleShowSummary} disabled={loading}>
-            <FileText className="mr-2 h-4 w-4 text-blue-600" />
+            <FileText className="mr-2 h-4 w-4 text-info" />
             Resumen
           </Button>
           <Button onClick={handleExportTXT} disabled={loading}>

@@ -66,7 +66,7 @@ function Sparkline({ values = [], color = '#22c55e' }) {
 // ─── appointment mini-card ────────────────────────────────────────────────────
 const STATUS_COLOR = {
   pending: 'bg-amber-500',
-  confirmed: 'bg-blue-500',
+  confirmed: 'bg-info',
   in_progress: 'bg-emerald-500',
   completed: 'bg-muted-foreground',
 };
@@ -132,7 +132,7 @@ function AlertCard({ icon: Icon, color, label, action, onAction }) {
         'flex items-center gap-3 rounded-[var(--mobile-radius-lg)] border px-3 py-2.5 w-full text-left no-tap-highlight',
         color === 'amber' && 'border-amber-500/30 bg-amber-500/5',
         color === 'red' && 'border-destructive/30 bg-destructive/5',
-        color === 'blue' && 'border-blue-500/30 bg-blue-500/5',
+        color === 'blue' && 'border-blue-500/30 bg-info/5',
       )}
     >
       <Icon size={16} className={cn(

@@ -50,8 +50,8 @@ const formatDateTime = (dateString) => {
 
 const getTierBadge = (tier) => {
   const tierMap = {
-    diamante: { label: 'Diamante', icon: '💎', className: 'bg-blue-100 text-blue-800 border-blue-300' },
-    oro: { label: 'Oro', icon: '🥇', className: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+    diamante: { label: 'Diamante', icon: '💎', className: 'bg-info/10 text-blue-800 border-blue-300' },
+    oro: { label: 'Oro', icon: '🥇', className: 'bg-warning/10 text-yellow-800 border-yellow-300' },
     plata: { label: 'Plata', icon: '🥈', className: 'bg-gray-100 text-gray-800 border-gray-300' },
     bronce: { label: 'Bronce', icon: '🥉', className: 'bg-amber-100 text-amber-800 border-amber-300' },
   };
@@ -290,12 +290,12 @@ export const CustomerDetailDialog = ({ customer, open, onOpenChange }) => {
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="text-center p-4 bg-muted/50 rounded-lg">
-                        <DollarSign className="h-5 w-5 mx-auto text-green-600 mb-2" />
+                        <DollarSign className="h-5 w-5 mx-auto text-success mb-2" />
                         <p className="text-2xl font-bold">{formatCurrency(customer?.metrics?.totalSpent || 0)}</p>
                         <p className="text-xs text-muted-foreground">Total Gastado</p>
                       </div>
                       <div className="text-center p-4 bg-muted/50 rounded-lg">
-                        <ShoppingCart className="h-5 w-5 mx-auto text-blue-600 mb-2" />
+                        <ShoppingCart className="h-5 w-5 mx-auto text-info mb-2" />
                         <p className="text-2xl font-bold">{customer?.metrics?.totalOrders || 0}</p>
                         <p className="text-xs text-muted-foreground">Órdenes</p>
                       </div>
@@ -307,7 +307,7 @@ export const CustomerDetailDialog = ({ customer, open, onOpenChange }) => {
                         <p className="text-xs text-muted-foreground">Ticket Promedio</p>
                       </div>
                       <div className="text-center p-4 bg-muted/50 rounded-lg">
-                        <Calendar className="h-5 w-5 mx-auto text-orange-600 mb-2" />
+                        <Calendar className="h-5 w-5 mx-auto text-warning mb-2" />
                         <p className="text-sm font-bold">{formatDate(customer?.metrics?.lastOrderDate)}</p>
                         <p className="text-xs text-muted-foreground">Última Compra</p>
                       </div>
@@ -358,7 +358,7 @@ export const CustomerDetailDialog = ({ customer, open, onOpenChange }) => {
                             </CardDescription>
                           </div>
                           <div className="text-right">
-                            <p className="text-2xl font-bold text-green-600">
+                            <p className="text-2xl font-bold text-success">
                               {formatCurrency(transaction.totalAmount)}
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
@@ -433,7 +433,7 @@ export const CustomerDetailDialog = ({ customer, open, onOpenChange }) => {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-3xl font-bold text-green-600">
+                        <p className="text-3xl font-bold text-success">
                           {formatCurrency(stats.totalSpent)}
                         </p>
                       </CardContent>
@@ -446,7 +446,7 @@ export const CustomerDetailDialog = ({ customer, open, onOpenChange }) => {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <p className="text-3xl font-bold text-blue-600">
+                        <p className="text-3xl font-bold text-info">
                           {formatCurrency(stats.averageOrderValue)}
                         </p>
                       </CardContent>
@@ -520,7 +520,7 @@ export const CustomerDetailDialog = ({ customer, open, onOpenChange }) => {
                                   </TableCell>
                                   <TableCell className="text-center">{product.purchaseCount}</TableCell>
                                   <TableCell className="text-center">{product.totalQuantity}</TableCell>
-                                  <TableCell className="text-right font-semibold text-green-600">
+                                  <TableCell className="text-right font-semibold text-success">
                                     {formatCurrency(product.totalSpent)}
                                   </TableCell>
                                 </TableRow>

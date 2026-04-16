@@ -42,11 +42,11 @@ export default function OrderTicket({
 
   const getStatusColor = (status) => {
     const colors = {
-      new: 'bg-blue-500',
-      preparing: 'bg-yellow-500',
-      ready: 'bg-green-500',
+      new: 'bg-info',
+      preparing: 'bg-warning',
+      ready: 'bg-success',
       completed: 'bg-gray-400',
-      cancelled: 'bg-red-500',
+      cancelled: 'bg-destructive',
     };
     return colors[status] || 'bg-gray-300';
   };
@@ -68,9 +68,9 @@ export default function OrderTicket({
   };
 
   const getTimerColor = (elapsed, estimated) => {
-    if (elapsed < estimated * 60) return 'text-green-500';
+    if (elapsed < estimated * 60) return 'text-success';
     if (elapsed < estimated * 60 * 1.2) return 'text-yellow-500';
-    return 'text-red-500';
+    return 'text-destructive';
   };
 
   const getItemStatusBg = (status) => {
@@ -80,7 +80,7 @@ export default function OrderTicket({
       case 'preparing':
         return darkMode ? 'bg-yellow-900/20 border-yellow-700/50' : 'bg-yellow-50 border-yellow-200';
       case 'ready':
-        return darkMode ? 'bg-green-900/20 border-green-700/50' : 'bg-green-50 border-green-200';
+        return darkMode ? 'bg-green-900/20 border-green-700/50' : 'bg-success/5 border-green-200';
       default:
         return darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-100 border-gray-300';
     }
@@ -108,7 +108,7 @@ export default function OrderTicket({
             <CardTitle className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'} flex items-center gap-2`}>
               #{order.orderNumber}
               {order.isUrgent && (
-                <AlertTriangle className="w-5 h-5 text-red-500 animate-pulse" />
+                <AlertTriangle className="w-5 h-5 text-destructive animate-pulse" />
               )}
             </CardTitle>
             <div className={`flex items-center gap-2 mt-1 text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -144,7 +144,7 @@ export default function OrderTicket({
                 onCancel(order._id, 'Cancelado desde KDS');
                 setShowActions(false);
               }}
-              className={`w-full text-left px-4 py-2 ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} text-sm text-red-500`}
+              className={`w-full text-left px-4 py-2 ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'} text-sm text-destructive`}
             >
               Cancelar orden
             </button>
@@ -228,7 +228,7 @@ export default function OrderTicket({
 
                   {/* Special Instructions */}
                   {item.specialInstructions && (
-                    <div className="mt-2 ml-2 text-sm bg-orange-500/10 border border-orange-500/50 rounded p-1 inline-block text-orange-500 font-medium">
+                    <div className="mt-2 ml-2 text-sm bg-warning/10 border border-orange-500/50 rounded p-1 inline-block text-orange-500 font-medium">
                       ⚠ {item.specialInstructions}
                     </div>
                   )}
@@ -258,7 +258,7 @@ export default function OrderTicket({
                     {getStatusText(item.status)}
                   </Badge>
                   {item.status === 'ready' && (
-                    <CheckCircle className="w-6 h-6 text-green-500" />
+                    <CheckCircle className="w-6 h-6 text-success" />
                   )}
                 </div>
               </div>
@@ -279,7 +279,7 @@ export default function OrderTicket({
           onClick={() => onBump(order._id)}
           disabled={!canBump()}
           className={`w-full font-bold ${canBump()
-            ? 'bg-green-600 hover:bg-green-700 text-white'
+            ? 'bg-success hover:bg-green-700 text-white'
             : darkMode
               ? 'bg-gray-700 cursor-not-allowed text-gray-400'
               : 'bg-gray-300 cursor-not-allowed text-gray-500'

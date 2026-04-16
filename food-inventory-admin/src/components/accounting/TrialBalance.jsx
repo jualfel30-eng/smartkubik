@@ -144,7 +144,7 @@ export default function TrialBalance() {
           {/* Balance Status */}
           <div className="flex items-center gap-2">
             {trialBalance.totals.isBalanced ? (
-              <Badge variant="default" className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800">
+              <Badge variant="default" className="bg-success hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800">
                 <CheckCircle2 className="mr-1 h-3 w-3" />
                 Balance Cuadrado
               </Badge>

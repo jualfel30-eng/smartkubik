@@ -17,11 +17,11 @@ import {
 } from 'lucide-react';
 
 const SEGMENT_COLORS = {
-  new: 'bg-green-500',
-  occasional: 'bg-blue-500',
+  new: 'bg-success',
+  occasional: 'bg-info',
   regular: 'bg-purple-500',
-  frequent: 'bg-orange-500',
-  champion: 'bg-yellow-500',
+  frequent: 'bg-warning',
+  champion: 'bg-warning',
 };
 
 const SEGMENT_LABELS = {
@@ -33,11 +33,11 @@ const SEGMENT_LABELS = {
 };
 
 const ENGAGEMENT_COLORS = {
-  very_high: 'bg-green-500',
-  high: 'bg-blue-500',
-  medium: 'bg-yellow-500',
-  low: 'bg-orange-500',
-  at_risk: 'bg-red-500',
+  very_high: 'bg-success',
+  high: 'bg-info',
+  medium: 'bg-warning',
+  low: 'bg-warning',
+  at_risk: 'bg-destructive',
 };
 
 const ENGAGEMENT_LABELS = {
@@ -72,9 +72,9 @@ export default function AudiencePreview({ insights, loading, className = '' }) {
       <Card className={`dark:bg-gray-800 dark:border-gray-700 ${className}`}>
         <CardContent className="p-6">
           <div className="flex items-center justify-center space-x-2">
-            <div className="w-4 h-4 bg-blue-500 rounded-full animate-pulse"></div>
-            <div className="w-4 h-4 bg-blue-500 rounded-full animate-pulse delay-75"></div>
-            <div className="w-4 h-4 bg-blue-500 rounded-full animate-pulse delay-150"></div>
+            <div className="w-4 h-4 bg-info rounded-full animate-pulse"></div>
+            <div className="w-4 h-4 bg-info rounded-full animate-pulse delay-75"></div>
+            <div className="w-4 h-4 bg-info rounded-full animate-pulse delay-150"></div>
           </div>
           <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-3">
             Calculando audiencia...
@@ -391,7 +391,7 @@ export default function AudiencePreview({ insights, loading, className = '' }) {
 
       {/* No audience warning */}
       {totalCustomers === 0 && (
-        <Alert className="border-destructive/30 bg-red-50 dark:bg-red-900/20">
+        <Alert className="border-destructive/30 bg-destructive/5 dark:bg-red-900/20">
           <AlertCircle className="h-4 w-4 text-destructive" />
           <AlertDescription className="text-red-900 dark:text-red-100">
             <p className="font-semibold">No se encontraron clientes</p>

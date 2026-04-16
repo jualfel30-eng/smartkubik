@@ -1,12 +1,12 @@
-import * as React from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { cn } from "@/lib/utils"
 
 /**
  * ContentTransition — Smooth handoff from loading skeleton to real content.
  *
- * Wraps content and applies a fade+slide entrance animation when `loading`
- * transitions from true → false. Uses CSS animations (no framer-motion)
- * to keep the main bundle lean. Respects prefers-reduced-motion.
+ * Uses Framer Motion AnimatePresence mode="wait" so the skeleton fully
+ * fades+slides out before the content fades+slides in. Respects
+ * prefers-reduced-motion automatically via framer-motion.
  *
  * Usage:
  *   <ContentTransition loading={isLoading} skeleton={<PageLoading variant="table" />}>
@@ -14,48 +14,45 @@ import { cn } from "@/lib/utils"
  *   </ContentTransition>
  */
 function ContentTransition({ loading, skeleton, children, className }) {
-  const [showContent, setShowContent] = React.useState(!loading)
-  const [animate, setAnimate] = React.useState(false)
-  const prevLoading = React.useRef(loading)
-
-  React.useEffect(() => {
-    // Transition: loading → not loading
-    if (prevLoading.current && !loading) {
-      setAnimate(true)
-      setShowContent(true)
-    }
-    // If loading starts again, reset
-    if (!prevLoading.current && loading) {
-      setShowContent(false)
-      setAnimate(false)
-    }
-    prevLoading.current = loading
-  }, [loading])
-
-  if (loading) {
-    return (
-      <div
-        className={cn(
-          "animate-[fadeIn_200ms_ease-out]",
-          "motion-reduce:animate-none",
-          className
-        )}
-      >
-        {skeleton}
-      </div>
-    )
+  const variants = {
+    initial: { opacity: 0, y: 10 },
+    animate: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+    },
+    exit: {
+      opacity: 0,
+      y: -6,
+      transition: { duration: 0.14, ease: [0.22, 1, 0.36, 1] },
+    },
   }
 
   return (
-    <div
-      className={cn(
-        animate && "animate-[fadeInUp_300ms_cubic-bezier(0.22,1,0.36,1)]",
-        "motion-reduce:animate-none",
-        className
-      )}
-      onAnimationEnd={() => setAnimate(false)}
-    >
-      {showContent ? children : skeleton}
+    <div className={cn("relative", className)}>
+      <AnimatePresence mode="wait" initial={false}>
+        {loading ? (
+          <motion.div
+            key="skeleton"
+            variants={variants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+          >
+            {skeleton}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="content"
+            variants={variants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -237,7 +237,7 @@ export function CalendarDialog({ open, onOpenChange, calendar, onSave }) {
                       <Badge key={role} variant="secondary" className="flex items-center gap-1">
                         {roleData?.label || role}
                         <X
-                          className="w-3 h-3 cursor-pointer hover:text-red-500"
+                          className="w-3 h-3 cursor-pointer hover:text-destructive"
                           onClick={() => removeRole(role)}
                         />
                       </Badge>

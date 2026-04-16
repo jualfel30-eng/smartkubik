@@ -129,7 +129,7 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
             </div>
             <div className="text-right">
               {isCompleted ? (
-                <Badge className="bg-green-600">
+                <Badge className="bg-success">
                   <Trophy className="w-3 h-3 mr-1" />
                   Test Completado
                 </Badge>
@@ -167,16 +167,16 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
                   <div className="flex items-center gap-3">
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
                       isWinner
-                        ? 'bg-green-100 dark:bg-green-900'
+                        ? 'bg-success/10 dark:bg-green-900'
                         : isLeader
-                        ? 'bg-yellow-100 dark:bg-yellow-900'
+                        ? 'bg-warning/10 dark:bg-yellow-900'
                         : 'bg-gray-100 dark:bg-gray-700'
                     }`}>
                       <span className={`text-xl font-bold ${
                         isWinner
-                          ? 'text-green-600 dark:text-green-300'
+                          ? 'text-success dark:text-success'
                           : isLeader
-                          ? 'text-yellow-600 dark:text-yellow-300'
+                          ? 'text-warning dark:text-yellow-300'
                           : 'text-gray-600 dark:text-gray-300'
                       }`}>
                         {variant.variantName}
@@ -186,7 +186,7 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-lg">{variant.variantName}</CardTitle>
                         {isWinner && (
-                          <Badge className="bg-green-600">
+                          <Badge className="bg-success">
                             <Trophy className="w-3 h-3 mr-1" />
                             Ganador
                           </Badge>
@@ -219,7 +219,7 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                   <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div className="flex items-center gap-2 mb-1">
-                      <Users className="w-4 h-4 text-blue-600" />
+                      <Users className="w-4 h-4 text-info" />
                       <p className="text-xs font-semibold">Enviados</p>
                     </div>
                     <p className="text-xl font-bold">{variant.metrics.sent}</p>
@@ -228,7 +228,7 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
 
                   <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div className="flex items-center gap-2 mb-1">
-                      <Eye className="w-4 h-4 text-green-600" />
+                      <Eye className="w-4 h-4 text-success" />
                       <p className="text-xs font-semibold">Aperturas</p>
                     </div>
                     <p className="text-xl font-bold">{variant.metrics.opened}</p>
@@ -246,7 +246,7 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
 
                   <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div className="flex items-center gap-2 mb-1">
-                      <ShoppingCart className="w-4 h-4 text-orange-600" />
+                      <ShoppingCart className="w-4 h-4 text-warning" />
                       <p className="text-xs font-semibold">Conversiones</p>
                     </div>
                     <p className="text-xl font-bold">{variant.metrics.orders}</p>
@@ -274,7 +274,7 @@ const VariantComparison = ({ campaignId, onWinnerSelected }) => {
                     <Button
                       onClick={() => handleSelectWinner(variant.variantName)}
                       disabled={selecting}
-                      className="w-full bg-green-600 hover:bg-green-700"
+                      className="w-full bg-success hover:bg-green-700"
                     >
                       <Award className="w-4 h-4 mr-2" />
                       Seleccionar como Ganador

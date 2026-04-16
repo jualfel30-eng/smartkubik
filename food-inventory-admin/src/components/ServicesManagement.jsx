@@ -465,7 +465,7 @@ function ServicesManagement() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <DollarSign className="h-4 w-4 text-green-500" />
+                        <DollarSign className="h-4 w-4 text-success" />
                         {formatCurrency(service.price)}
                       </div>
                     </TableCell>
@@ -501,7 +501,7 @@ function ServicesManagement() {
                           size="sm"
                           onClick={() => handleDelete(service._id)}
                         >
-                          <Trash2 className="h-4 w-4 text-red-500" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </TableCell>

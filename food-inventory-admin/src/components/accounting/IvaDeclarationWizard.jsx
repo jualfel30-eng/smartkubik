@@ -476,7 +476,7 @@ const IvaDeclarationWizard = () => {
                   {/* Débito Fiscal */}
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-blue-600">DÉBITO FISCAL (Ventas)</CardTitle>
+                      <CardTitle className="text-sm font-medium text-info">DÉBITO FISCAL (Ventas)</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <Table>
@@ -501,7 +501,7 @@ const IvaDeclarationWizard = () => {
                   {/* Crédito Fiscal */}
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-green-600">CRÉDITO FISCAL (Compras)</CardTitle>
+                      <CardTitle className="text-sm font-medium text-success">CRÉDITO FISCAL (Compras)</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <Table>
@@ -546,7 +546,7 @@ const IvaDeclarationWizard = () => {
                 {/* Cálculo Final */}
                 <Card className={cn("border-2", declaration.ivaToPay > 0
                   ? "border-orange-200 bg-orange-50/50 dark:bg-orange-900/10 dark:border-orange-900/50"
-                  : "border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-900/50"
+                  : "border-green-200 bg-success/5/50 dark:bg-green-900/10 dark:border-green-900/50"
                 )}>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -572,7 +572,7 @@ const IvaDeclarationWizard = () => {
                         <span className="text-2xl font-bold font-mono">Bs. {declaration.ivaToPay.toFixed(2)}</span>
                       </div>
                     ) : (
-                      <div className="flex justify-between items-center text-green-700 dark:text-green-400">
+                      <div className="flex justify-between items-center text-success dark:text-green-400">
                         <span className="text-lg font-bold">EXCEDENTE (CRÉDITO FISCAL):</span>
                         <span className="text-2xl font-bold font-mono">Bs. {declaration.creditBalance.toFixed(2)}</span>
                       </div>
@@ -636,7 +636,7 @@ const IvaDeclarationWizard = () => {
 
             {declaration && (
               <div className="space-y-6">
-                <Alert className="border-green-500 bg-green-50 text-green-900 dark:bg-green-900/20 dark:text-green-100">
+                <Alert className="border-green-500 bg-success/5 text-green-900 dark:bg-green-900/20 dark:text-green-100">
                   <CheckCircle className="h-4 w-4" />
                   <AlertTitle>Declaración presentada exitosamente</AlertTitle>
                   <AlertDescription>
@@ -715,7 +715,7 @@ const IvaDeclarationWizard = () => {
                       <Button
                         onClick={handleRecordPayment}
                         disabled={loading}
-                        className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+                        className="w-full sm:w-auto bg-success hover:bg-green-700"
                       >
                         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Registrar Pago

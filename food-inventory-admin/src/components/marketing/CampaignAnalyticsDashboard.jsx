@@ -141,7 +141,7 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
               )}
             </div>
             {trend && (
-              <div className={`flex items-center gap-1 ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+              <div className={`flex items-center gap-1 ${trend === 'up' ? 'text-success' : 'text-destructive'}`}>
                 {trend === 'up' ? (
                   <TrendingUp className="w-4 h-4" />
                 ) : (
@@ -270,7 +270,7 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
-                <Users className="w-4 h-4 text-blue-600" />
+                <Users className="w-4 h-4 text-info" />
                 <p className="text-sm font-semibold dark:text-gray-200">Clientes Comprometidos</p>
               </div>
               <p className="text-2xl font-bold dark:text-gray-100">{analytics.uniqueCustomersEngaged}</p>
@@ -281,7 +281,7 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
 
             <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
-                <RefreshCw className="w-4 h-4 text-green-600" />
+                <RefreshCw className="w-4 h-4 text-success" />
                 <p className="text-sm font-semibold dark:text-gray-200">Compradores Recurrentes</p>
               </div>
               <p className="text-2xl font-bold dark:text-gray-100">{analytics.repeatPurchasers}</p>
@@ -292,7 +292,7 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
 
             <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
-                <Clock className="w-4 h-4 text-orange-600" />
+                <Clock className="w-4 h-4 text-warning" />
                 <p className="text-sm font-semibold dark:text-gray-200">Tiempo Promedio</p>
               </div>
               <p className="text-2xl font-bold dark:text-gray-100">
@@ -335,7 +335,7 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
                   </p>
                 </div>
                 {analytics.winningVariant && (
-                  <Badge className="bg-green-600">
+                  <Badge className="bg-success">
                     <Award className="w-3 h-3 mr-1" />
                     Ganador: {analytics.winningVariant}
                   </Badge>
@@ -343,7 +343,7 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
               </div>
 
               {analytics.improvementPercentage !== undefined && analytics.improvementPercentage !== null && (
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-success/30">
+                <div className="p-4 bg-success/5 dark:bg-green-900/20 rounded-lg border border-success/30">
                   <div className="flex items-center gap-2 mb-1">
                     <TrendingUp className="w-5 h-5 text-success" />
                     <p className="font-semibold text-green-900 dark:text-green-100">Mejora del Ganador</p>
@@ -351,7 +351,7 @@ const CampaignAnalyticsDashboard = ({ campaignId, campaignName }) => {
                   <p className="text-3xl font-bold text-success">
                     +{analytics.improvementPercentage.toFixed(2)}%
                   </p>
-                  <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                  <p className="text-sm text-success dark:text-success mt-1">
                     Comparado con la variante de control
                   </p>
                 </div>

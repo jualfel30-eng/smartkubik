@@ -636,7 +636,7 @@ export function ExpenseIncomeBreakdown() {
 
       {/* Summary totals */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="border bg-red-50/50 dark:bg-red-950/20 border-destructive/30">
+        <Card className="border bg-destructive/5/50 dark:bg-red-950/20 border-destructive/30">
           <CardContent className="p-4">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Total Gastos
@@ -649,7 +649,7 @@ export function ExpenseIncomeBreakdown() {
             </p>
           </CardContent>
         </Card>
-        <Card className="border bg-green-50/50 dark:bg-green-950/20 border-success/30">
+        <Card className="border bg-success/5/50 dark:bg-green-950/20 border-success/30">
           <CardContent className="p-4">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Total Ingresos
@@ -665,8 +665,8 @@ export function ExpenseIncomeBreakdown() {
         <Card
           className={`border ${
             netResult >= 0
-              ? 'bg-green-50/50 dark:bg-green-950/20 border-success/30'
-              : 'bg-red-50/50 dark:bg-red-950/20 border-destructive/30'
+              ? 'bg-success/5/50 dark:bg-green-950/20 border-success/30'
+              : 'bg-destructive/5/50 dark:bg-red-950/20 border-destructive/30'
           }`}
         >
           <CardContent className="p-4">

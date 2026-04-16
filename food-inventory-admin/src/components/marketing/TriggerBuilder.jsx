@@ -33,14 +33,14 @@ const EVENT_TYPES = [
     value: 'cart_abandoned',
     label: 'Carrito Abandonado',
     icon: ShoppingCart,
-    color: 'text-orange-600',
+    color: 'text-warning',
     description: 'Cuando un cliente deja items en el carrito sin completar la compra',
   },
   {
     value: 'first_purchase',
     label: 'Primera Compra',
     icon: Gift,
-    color: 'text-green-600',
+    color: 'text-success',
     description: 'Cuando un cliente realiza su primera compra (bienvenida)',
   },
   {
@@ -61,21 +61,21 @@ const EVENT_TYPES = [
     value: 'inactivity',
     label: 'Inactividad',
     icon: TrendingUp,
-    color: 'text-red-600',
+    color: 'text-destructive',
     description: 'Cuando un cliente no compra por X días',
   },
   {
     value: 'tier_upgrade',
     label: 'Mejora de Tier',
     icon: Diamond,
-    color: 'text-blue-600',
+    color: 'text-info',
     description: 'Cuando un cliente sube de tier (bronce → plata → oro → diamante)',
   },
   {
     value: 'purchase_milestone',
     label: 'Hito de Compras',
     icon: Target,
-    color: 'text-yellow-600',
+    color: 'text-warning',
     description: 'Cuando alcanza X compras o gasta $X',
   },
 ];
@@ -292,7 +292,7 @@ export default function TriggerBuilder({ trigger, onChange, onSave, onCancel }) 
                     <Badge
                       key={tier}
                       variant={selected ? 'default' : 'outline'}
-                      className={`cursor-pointer ${selected ? 'bg-blue-600 dark:bg-blue-500' : 'dark:border-gray-600'}`}
+                      className={`cursor-pointer ${selected ? 'bg-blue-600 dark:bg-info' : 'dark:border-gray-600'}`}
                       onClick={() => {
                         const current = formData.conditions.targetTiers || [];
                         const updated = selected

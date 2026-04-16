@@ -145,7 +145,7 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
                     />
                   </div>
                   <Input className="w-[150px]" placeholder="Referencia" value={line.reference} onChange={(e) => handleUpdatePayment(line.id, 'reference', e.target.value)} />
-                  <Button variant="ghost" size="icon" onClick={() => handleRemovePayment(line.id)}><X className="h-4 w-4 text-red-500" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleRemovePayment(line.id)}><X className="h-4 w-4 text-destructive" /></Button>
                 </div>
 
                 {/* Cash Tender Input - Only for cash payments */}
@@ -164,8 +164,8 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
                     </div>
                     {/* Show change calculation */}
                     {line.amountTendered && Number(line.amount) > 0 && (
-                      <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-success/30 rounded-md text-xs">
-                        <p className="font-bold text-green-700 dark:text-green-300 flex items-center gap-2">
+                      <div className="p-2 bg-success/5 dark:bg-green-900/20 border border-success/30 rounded-md text-xs">
+                        <p className="font-bold text-success dark:text-success flex items-center gap-2">
                           Vuelto: ${
                             (parseFloat(line.amountTendered) - Number(line.amount)).toFixed(2)
                           }
@@ -182,12 +182,12 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
                     onClick={() => handleUpdatePayment(line.id, 'amount', lineRemaining.toFixed(2))}
                     title="Clic para completar el monto restante"
                   >
-                    <Calculator className="w-3 h-3 group-hover:text-blue-600" />
+                    <Calculator className="w-3 h-3 group-hover:text-info" />
                     <span>
-                      Faltan: <span className="font-medium text-blue-600 group-hover:underline">${lineRemaining.toFixed(2)}</span>
+                      Faltan: <span className="font-medium text-info group-hover:underline">${lineRemaining.toFixed(2)}</span>
                       <>
                         {' '}≈{' '}
-                        <span className="font-medium text-green-600">{primaryCurrency.symbol} {lineRemainingBs.toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="font-medium text-success">{primaryCurrency.symbol} {lineRemainingBs.toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </>
                     </span>
                     <span className="ml-auto text-[10px] text-blue-500 opacity-0 group-hover:opacity-100 font-medium">
@@ -205,13 +205,13 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between text-muted-foreground"><span>Total Orden:</span><span>${totalAmount.toFixed(2)}</span></div>
             {igtf > 0 && (
-              <div className="flex justify-between text-orange-600"><span>+ {igtfMeta.label}:</span><span>${igtf.toFixed(2)}</span></div>
+              <div className="flex justify-between text-warning"><span>+ {igtfMeta.label}:</span><span>${igtf.toFixed(2)}</span></div>
             )}
             <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Total a Pagar:</span><span>${totalRequired.toFixed(2)}</span></div>
 
             <div className="flex justify-between font-medium"><span>Pagado:</span><span>${totalPaid.toFixed(2)}</span></div>
 
-            <div className={`flex justify-between font-bold text-lg ${remaining < -0.01 ? 'text-red-500' : (remaining > 0.01 ? 'text-blue-600' : 'text-green-600')}`}>
+            <div className={`flex justify-between font-bold text-lg ${remaining < -0.01 ? 'text-destructive' : (remaining > 0.01 ? 'text-info' : 'text-success')}`}>
               <span>Restante:</span>
               <div className="text-right">
                 <div>${remaining.toFixed(2)}</div>

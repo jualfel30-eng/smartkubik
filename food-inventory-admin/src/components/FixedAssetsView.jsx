@@ -39,9 +39,9 @@ const STATUS_LABELS = {
 };
 
 const STATUS_COLORS = {
-  active: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  disposed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-  fully_depreciated: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  active: 'bg-success/10 text-green-800 dark:bg-green-900 dark:text-green-200',
+  disposed: 'bg-destructive/10 text-red-800 dark:bg-red-900 dark:text-red-200',
+  fully_depreciated: 'bg-warning/10 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
 };
 
 const fmt = (v) => v != null ? `$${Number(v).toLocaleString('es', { minimumFractionDigits: 2 })}` : '—';
@@ -303,7 +303,7 @@ const FixedAssetsView = () => {
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button size="icon" variant="ghost" onClick={() => handleDelete(a._id)}>
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>
                 </TableRow>

@@ -187,10 +187,10 @@ export default function ImportHistory() {
                     <TableCell className="text-right font-mono text-sm">
                       {job.totalRows || 0}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm text-green-600">
+                    <TableCell className="text-right font-mono text-sm text-success">
                       {job.successfulRows || 0}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm text-red-600">
+                    <TableCell className="text-right font-mono text-sm text-destructive">
                       {job.failedRows || 0}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">

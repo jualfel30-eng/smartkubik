@@ -255,7 +255,7 @@ const ReviewsAggregator = () => {
                       </div>
                       <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                         <div
-                          className="bg-yellow-500 dark:bg-yellow-400 h-full rounded-full transition-all"
+                          className="bg-warning dark:bg-yellow-400 h-full rounded-full transition-all"
                           style={{ width: `${percentage}%` }}
                         />
                       </div>
@@ -462,7 +462,7 @@ const ReviewsAggregator = () => {
                           </div>
                         </div>
                         {review.isFlagged && (
-                          <Flag className="h-5 w-5 text-red-500" />
+                          <Flag className="h-5 w-5 text-destructive" />
                         )}
                       </div>
 
@@ -536,7 +536,7 @@ const ReviewsAggregator = () => {
                   >
                     <CardContent className="pt-6">
                       <div className="flex items-start gap-4">
-                        <AlertTriangle className="h-6 w-6 text-red-500 flex-shrink-0 mt-1" />
+                        <AlertTriangle className="h-6 w-6 text-destructive flex-shrink-0 mt-1" />
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <h4 className="font-semibold text-lg dark:text-gray-100">

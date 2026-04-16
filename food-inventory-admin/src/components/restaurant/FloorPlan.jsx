@@ -63,10 +63,10 @@ export function FloorPlan() {
 
   const getStatusBadgeColor = (status) => {
     const colors = {
-      available: 'bg-green-100 text-green-800 border-green-300',
-      occupied: 'bg-red-100 text-red-800 border-red-300',
-      reserved: 'bg-blue-100 text-blue-800 border-blue-300',
-      cleaning: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+      available: 'bg-success/10 text-green-800 border-green-300',
+      occupied: 'bg-destructive/10 text-red-800 border-red-300',
+      reserved: 'bg-info/10 text-blue-800 border-blue-300',
+      cleaning: 'bg-warning/10 text-yellow-800 border-yellow-300',
       'out-of-service': 'bg-gray-100 text-gray-800 border-gray-300',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
@@ -217,7 +217,7 @@ export function FloorPlan() {
               </p>
             </div>
             <div className="w-12 h-12 bg-success-muted rounded-full flex items-center justify-center">
-              <div className="w-6 h-6 bg-green-500 dark:bg-green-400 rounded"></div>
+              <div className="w-6 h-6 bg-success dark:bg-success rounded"></div>
             </div>
           </div>
         </Card>
@@ -231,7 +231,7 @@ export function FloorPlan() {
               </p>
             </div>
             <div className="w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center">
-              <div className="w-6 h-6 bg-red-500 dark:bg-red-400 rounded"></div>
+              <div className="w-6 h-6 bg-destructive dark:bg-destructive rounded"></div>
             </div>
           </div>
         </Card>
@@ -389,17 +389,17 @@ export function FloorPlan() {
                     <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/30">
                       <div className="flex items-center gap-2 mb-2">
                         <Users className="w-4 h-4 text-destructive" />
-                        <span className="font-semibold text-red-900 dark:text-red-300">Mesa Ocupada</span>
+                        <span className="font-semibold text-red-900 dark:text-destructive">Mesa Ocupada</span>
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-gray-700 dark:text-gray-300">Comensales:</span>
-                          <span className="font-bold text-red-900 dark:text-red-300">{selectedTable.guestCount}</span>
+                          <span className="font-bold text-red-900 dark:text-destructive">{selectedTable.guestCount}</span>
                         </div>
                         {selectedTable.seatedAt && (
                           <div className="flex justify-between">
                             <span className="text-gray-700 dark:text-gray-300">Tiempo:</span>
-                            <span className="font-bold text-red-900 dark:text-red-300 flex items-center gap-1">
+                            <span className="font-bold text-red-900 dark:text-destructive flex items-center gap-1">
                               <Timer className="w-3 h-3" />
                               {Math.floor((Date.now() - new Date(selectedTable.seatedAt)) / 60000)} min
                             </span>
@@ -408,7 +408,7 @@ export function FloorPlan() {
                         {selectedTable.currentOrderId && (
                           <div className="flex justify-between">
                             <span className="text-gray-700 dark:text-gray-300">Orden activa:</span>
-                            <span className="font-bold text-red-900 dark:text-red-300 flex items-center gap-1">
+                            <span className="font-bold text-red-900 dark:text-destructive flex items-center gap-1">
                               <DollarSign className="w-3 h-3" />
                               Sí
                             </span>
@@ -486,7 +486,7 @@ export function FloorPlan() {
                   {selectedTable.status === 'cleaning' && (
                     <Button
                       onClick={handleMarkAvailable}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      className="w-full bg-success hover:bg-green-700 text-white"
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Terminar Limpieza

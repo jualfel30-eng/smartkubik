@@ -59,9 +59,9 @@ export function InspectionsList() {
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      pending: { label: 'Pendiente', className: 'bg-yellow-500' },
-      in_progress: { label: 'En Progreso', className: 'bg-blue-500' },
-      completed: { label: 'Completada', className: 'bg-green-500' },
+      pending: { label: 'Pendiente', className: 'bg-warning' },
+      in_progress: { label: 'En Progreso', className: 'bg-info' },
+      completed: { label: 'Completada', className: 'bg-success' },
       cancelled: { label: 'Cancelada', className: 'bg-gray-500' }
     };
     const config = statusConfig[status] || { label: status, className: 'bg-gray-500' };
@@ -82,9 +82,9 @@ export function InspectionsList() {
       return <Badge variant="outline">Sin Resultado</Badge>;
     }
     return overallResult ? (
-      <Badge className="bg-green-500">Aprobado</Badge>
+      <Badge className="bg-success">Aprobado</Badge>
     ) : (
-      <Badge className="bg-red-500">Rechazado</Badge>
+      <Badge className="bg-destructive">Rechazado</Badge>
     );
   };
 
@@ -108,7 +108,7 @@ export function InspectionsList() {
         </CardHeader>
         <CardContent>
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">Error: {error}</div>
+            <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">Error: {error}</div>
           )}
 
           {loading ? (

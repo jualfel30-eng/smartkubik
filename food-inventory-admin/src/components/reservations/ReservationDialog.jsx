@@ -135,7 +135,7 @@ export function ReservationDialog({ reservation, open, onClose, onSave }) {
                   className={errors.guestName ? 'border-red-500' : ''}
                 />
                 {errors.guestName && (
-                  <p className="text-sm text-red-500">{errors.guestName}</p>
+                  <p className="text-sm text-destructive">{errors.guestName}</p>
                 )}
               </div>
 
@@ -152,7 +152,7 @@ export function ReservationDialog({ reservation, open, onClose, onSave }) {
                   />
                 </div>
                 {errors.guestPhone && (
-                  <p className="text-sm text-red-500">{errors.guestPhone}</p>
+                  <p className="text-sm text-destructive">{errors.guestPhone}</p>
                 )}
               </div>
 
@@ -185,7 +185,7 @@ export function ReservationDialog({ reservation, open, onClose, onSave }) {
                   />
                 </div>
                 {errors.partySize && (
-                  <p className="text-sm text-red-500">{errors.partySize}</p>
+                  <p className="text-sm text-destructive">{errors.partySize}</p>
                 )}
               </div>
             </div>
@@ -210,7 +210,7 @@ export function ReservationDialog({ reservation, open, onClose, onSave }) {
                   className={errors.date ? 'border-red-500' : ''}
                 />
                 {errors.date && (
-                  <p className="text-sm text-red-500">{errors.date}</p>
+                  <p className="text-sm text-destructive">{errors.date}</p>
                 )}
               </div>
 
@@ -227,7 +227,7 @@ export function ReservationDialog({ reservation, open, onClose, onSave }) {
                   />
                 </div>
                 {errors.time && (
-                  <p className="text-sm text-red-500">{errors.time}</p>
+                  <p className="text-sm text-destructive">{errors.time}</p>
                 )}
               </div>
 

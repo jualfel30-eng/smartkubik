@@ -842,7 +842,7 @@ const BillingCreateForm = () => {
               {totals.discounts > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Descuentos:</span>
-                  <span className="text-red-600">-${totals.discounts.toFixed(2)}</span>
+                  <span className="text-destructive">-${totals.discounts.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm">

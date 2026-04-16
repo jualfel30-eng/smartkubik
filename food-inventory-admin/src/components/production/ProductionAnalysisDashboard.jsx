@@ -92,17 +92,17 @@ export function ProductionAnalysisDashboard({ order }) {
   };
 
   const getVarianceColor = (variance, percent) => {
-    if (variance < 0) return 'text-green-600';
-    if (percent > 10) return 'text-red-600';
-    if (percent > 5) return 'text-orange-600';
-    return 'text-yellow-600';
+    if (variance < 0) return 'text-success';
+    if (percent > 10) return 'text-destructive';
+    if (percent > 5) return 'text-warning';
+    return 'text-warning';
   };
 
   const getEfficiencyColor = (efficiency) => {
-    if (efficiency >= 100) return 'text-green-600';
-    if (efficiency >= 90) return 'text-blue-600';
-    if (efficiency >= 80) return 'text-yellow-600';
-    return 'text-red-600';
+    if (efficiency >= 100) return 'text-success';
+    if (efficiency >= 90) return 'text-info';
+    if (efficiency >= 80) return 'text-warning';
+    return 'text-destructive';
   };
 
   return (
@@ -130,7 +130,7 @@ export function ProductionAnalysisDashboard({ order }) {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-green-500" />
+              <DollarSign className="h-4 w-4 text-success" />
               Varianza de Costo
             </CardTitle>
           </CardHeader>
@@ -175,7 +175,7 @@ export function ProductionAnalysisDashboard({ order }) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${productionYield >= 100 ? 'text-green-600' : 'text-orange-600'}`}>
+            <div className={`text-2xl font-bold ${productionYield >= 100 ? 'text-success' : 'text-warning'}`}>
               {productionYield.toFixed(1)}%
             </div>
             <Progress value={Math.min(productionYield, 100)} className="mt-2 h-2" />
@@ -215,7 +215,7 @@ export function ProductionAnalysisDashboard({ order }) {
                     <span className="text-muted-foreground">Real:</span>
                     <span className="ml-1 font-medium">{formatCurrency(order.actualMaterialCost || 0)}</span>
                   </div>
-                  <Badge className={materialVariance < 0 ? 'bg-green-500' : materialVariance > 0 ? 'bg-red-500' : 'bg-gray-500'}>
+                  <Badge className={materialVariance < 0 ? 'bg-success' : materialVariance > 0 ? 'bg-destructive' : 'bg-gray-500'}>
                     {materialVariance < 0 ? '-' : '+'}{formatCurrency(Math.abs(materialVariance))}
                   </Badge>
                 </div>
@@ -242,7 +242,7 @@ export function ProductionAnalysisDashboard({ order }) {
                     <span className="text-muted-foreground">Real:</span>
                     <span className="ml-1 font-medium">{formatCurrency(order.actualLaborCost || 0)}</span>
                   </div>
-                  <Badge className={laborVariance < 0 ? 'bg-green-500' : laborVariance > 0 ? 'bg-red-500' : 'bg-gray-500'}>
+                  <Badge className={laborVariance < 0 ? 'bg-success' : laborVariance > 0 ? 'bg-destructive' : 'bg-gray-500'}>
                     {laborVariance < 0 ? '-' : '+'}{formatCurrency(Math.abs(laborVariance))}
                   </Badge>
                 </div>
@@ -269,7 +269,7 @@ export function ProductionAnalysisDashboard({ order }) {
                     <span className="text-muted-foreground">Real:</span>
                     <span className="ml-1 font-medium">{formatCurrency(order.actualOverheadCost || 0)}</span>
                   </div>
-                  <Badge className={overheadVariance < 0 ? 'bg-green-500' : overheadVariance > 0 ? 'bg-red-500' : 'bg-gray-500'}>
+                  <Badge className={overheadVariance < 0 ? 'bg-success' : overheadVariance > 0 ? 'bg-destructive' : 'bg-gray-500'}>
                     {overheadVariance < 0 ? '-' : '+'}{formatCurrency(Math.abs(overheadVariance))}
                   </Badge>
                 </div>
@@ -294,7 +294,7 @@ export function ProductionAnalysisDashboard({ order }) {
                     <span className="ml-1 text-lg font-bold">{formatCurrency(actualTotal)}</span>
                   </div>
                   <Badge
-                    className={`text-base ${costVariance < 0 ? 'bg-green-500' : costVariance > 0 ? 'bg-red-500' : 'bg-gray-500'}`}
+                    className={`text-base ${costVariance < 0 ? 'bg-success' : costVariance > 0 ? 'bg-destructive' : 'bg-gray-500'}`}
                   >
                     {costVariance < 0 ? '-' : '+'}{formatCurrency(Math.abs(costVariance))}
                   </Badge>
@@ -349,7 +349,7 @@ export function ProductionAnalysisDashboard({ order }) {
                           {op.efficiency.toFixed(1)}%
                         </span>
                         {op.efficiency >= 100 ? (
-                          <TrendingUp className="h-4 w-4 text-green-500" />
+                          <TrendingUp className="h-4 w-4 text-success" />
                         ) : (
                           <TrendingDown className="h-4 w-4 text-orange-500" />
                         )}
@@ -366,8 +366,8 @@ export function ProductionAnalysisDashboard({ order }) {
       {/* Alerts and Recommendations */}
       <div className="space-y-3">
         {costVariance > estimatedTotal * 0.1 && (
-          <Alert className="border-red-200 bg-red-50">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
+          <Alert className="border-red-200 bg-destructive/5">
+            <AlertTriangle className="h-4 w-4 text-destructive" />
             <AlertDescription className="text-red-800">
               <strong>Alerta de Sobrecosto:</strong> El costo real excede el estimado en más del 10%.
               Se recomienda revisar los procesos y ajustar futuros estimados.
@@ -377,7 +377,7 @@ export function ProductionAnalysisDashboard({ order }) {
 
         {overallEfficiency < 80 && completedOps.length > 0 && (
           <Alert className="border-orange-200 bg-orange-50">
-            <AlertTriangle className="h-4 w-4 text-orange-600" />
+            <AlertTriangle className="h-4 w-4 text-warning" />
             <AlertDescription className="text-orange-800">
               <strong>Baja Eficiencia:</strong> La eficiencia general está por debajo del 80%.
               Considere capacitación adicional o revisión de procesos.
@@ -387,7 +387,7 @@ export function ProductionAnalysisDashboard({ order }) {
 
         {onTimeDelivery === false && (
           <Alert className="border-yellow-200 bg-yellow-50">
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
+            <AlertTriangle className="h-4 w-4 text-warning" />
             <AlertDescription className="text-yellow-800">
               <strong>Retraso en Entrega:</strong> La orden se completó después de la fecha programada.
               Analice los cuellos de botella en el proceso.
@@ -396,8 +396,8 @@ export function ProductionAnalysisDashboard({ order }) {
         )}
 
         {costVariance < 0 && Math.abs(costVariancePercent) > 5 && (
-          <Alert className="border-green-200 bg-green-50">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <Alert className="border-green-200 bg-success/5">
+            <CheckCircle2 className="h-4 w-4 text-success" />
             <AlertDescription className="text-green-800">
               <strong>Ahorro Significativo:</strong> Se logró un ahorro de {Math.abs(costVariancePercent).toFixed(1)}%
               respecto al costo estimado. Excelente gestión de recursos.
@@ -406,8 +406,8 @@ export function ProductionAnalysisDashboard({ order }) {
         )}
 
         {overallEfficiency >= 100 && completedOps.length > 0 && (
-          <Alert className="border-green-200 bg-green-50">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <Alert className="border-green-200 bg-success/5">
+            <CheckCircle2 className="h-4 w-4 text-success" />
             <AlertDescription className="text-green-800">
               <strong>Alta Eficiencia:</strong> Las operaciones se completaron en menos tiempo del estimado.
               Considere ajustar los tiempos estándar para futuros estimados más precisos.

@@ -80,7 +80,7 @@ export function RoutingsList() {
         </CardHeader>
         <CardContent>
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">Error: {error}</div>
+            <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">Error: {error}</div>
           )}
 
           {loading ? (
@@ -120,7 +120,7 @@ export function RoutingsList() {
                       <TableCell>{calculateTotalTime(routing.operations).toFixed(1)} min</TableCell>
                       <TableCell>
                         {routing.isActive ? (
-                          <Badge className="bg-green-500">Activa</Badge>
+                          <Badge className="bg-success">Activa</Badge>
                         ) : (
                           <Badge variant="outline">Inactiva</Badge>
                         )}

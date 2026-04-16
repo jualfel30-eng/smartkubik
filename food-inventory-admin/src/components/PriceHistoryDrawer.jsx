@@ -55,8 +55,8 @@ export function PriceHistoryDrawer({ productId, open, onClose }) {
 
   const getFieldColor = (field) => {
     const colors = {
-      basePrice: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-      costPrice: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+      basePrice: 'bg-info/10 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      costPrice: 'bg-warning/10 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
       wholesalePrice: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
     };
     return colors[field] || 'bg-gray-100 text-gray-800';
@@ -102,9 +102,9 @@ export function PriceHistoryDrawer({ productId, open, onClose }) {
                         ${entry.oldValue.toFixed(2)}
                       </span>
                       {entry.changePercentage >= 0 ? (
-                        <TrendingUp className="h-5 w-5 text-green-600" />
+                        <TrendingUp className="h-5 w-5 text-success" />
                       ) : (
-                        <TrendingDown className="h-5 w-5 text-red-600" />
+                        <TrendingDown className="h-5 w-5 text-destructive" />
                       )}
                       <span className="text-xl font-bold">${entry.newValue.toFixed(2)}</span>
                     </div>
@@ -141,8 +141,8 @@ export function PriceHistoryDrawer({ productId, open, onClose }) {
                         <span
                           className={
                             entry.marginMetrics.marginDelta >= 0
-                              ? 'text-green-600'
-                              : 'text-red-600'
+                              ? 'text-success'
+                              : 'text-destructive'
                           }
                         >
                           {entry.marginMetrics.marginDelta >= 0 ? '+' : ''}

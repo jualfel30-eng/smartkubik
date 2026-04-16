@@ -22,11 +22,11 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const PRICE_LIST_TYPES = [
-  { value: 'standard', label: 'Estándar', color: 'bg-blue-100 text-blue-800' },
+  { value: 'standard', label: 'Estándar', color: 'bg-info/10 text-blue-800' },
   { value: 'wholesale', label: 'Mayorista', color: 'bg-purple-100 text-purple-800' },
-  { value: 'retail', label: 'Retail', color: 'bg-green-100 text-green-800' },
-  { value: 'promotional', label: 'Promocional', color: 'bg-red-100 text-red-800' },
-  { value: 'seasonal', label: 'Temporal', color: 'bg-orange-100 text-orange-800' },
+  { value: 'retail', label: 'Retail', color: 'bg-success/10 text-green-800' },
+  { value: 'promotional', label: 'Promocional', color: 'bg-destructive/10 text-red-800' },
+  { value: 'seasonal', label: 'Temporal', color: 'bg-warning/10 text-orange-800' },
   { value: 'custom', label: 'Personalizado', color: 'bg-gray-100 text-gray-800' },
 ];
 

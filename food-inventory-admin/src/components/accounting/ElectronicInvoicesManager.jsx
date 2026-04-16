@@ -660,7 +660,7 @@ const ElectronicInvoicesManager = () => {
                     href={qrData.verificationUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
+                    className="text-sm text-info hover:underline inline-flex items-center gap-1"
                   >
                     Verificar en SENIAT
                     <ExternalLink className="h-3 w-3" />

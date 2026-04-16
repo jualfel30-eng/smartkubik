@@ -322,7 +322,7 @@ export function DeliverySettings() {
                               variant="ghost"
                               size="sm"
                               onClick={() => removeDeliveryZone(index)}
-                              className="text-red-600"
+                              className="text-destructive"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

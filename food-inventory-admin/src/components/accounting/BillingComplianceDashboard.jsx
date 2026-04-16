@@ -153,7 +153,7 @@ const BillingComplianceDashboard = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Libro de Ventas (Mes)</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-500" />
+            <TrendingUp className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.salesBookEntries}</div>
@@ -167,7 +167,7 @@ const BillingComplianceDashboard = () => {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Estado de Compliance</CardTitle>
             {stats.validationIssues.length === 0 ? (
-              <CheckCircle className="h-4 w-4 text-green-500" />
+              <CheckCircle className="h-4 w-4 text-success" />
             ) : (
               <AlertTriangle className="h-4 w-4 text-yellow-500" />
             )}
@@ -175,7 +175,7 @@ const BillingComplianceDashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold">
               {stats.validationIssues.length === 0 ? (
-                <span className="text-green-500">OK</span>
+                <span className="text-success">OK</span>
               ) : (
                 <span className="text-yellow-500">{stats.validationIssues.length}</span>
               )}
@@ -276,7 +276,7 @@ const BillingComplianceDashboard = () => {
                         </TableCell>
                         <TableCell>
                           {isBalanced ? (
-                            <Badge variant="default" className="bg-green-500 hover:bg-green-600">
+                            <Badge variant="default" className="bg-success hover:bg-success">
                               <CheckCircle className="mr-1 h-3 w-3" />
                               Balanceado
                             </Badge>

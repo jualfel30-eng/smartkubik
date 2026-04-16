@@ -254,7 +254,7 @@ export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) =>
               />
             </div>
 
-            {error && <p className="text-red-500 text-sm col-span-4 text-center">{error}</p>}
+            {error && <p className="text-destructive text-sm col-span-4 text-center">{error}</p>}
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>

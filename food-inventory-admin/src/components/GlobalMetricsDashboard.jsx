@@ -45,7 +45,7 @@ export default function GlobalMetricsDashboard() {
   }
 
   if (error) {
-    return <div className="text-red-500">Error: {error}</div>;
+    return <div className="text-destructive">Error: {error}</div>;
   }
 
   if (!metrics) {

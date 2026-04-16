@@ -246,7 +246,7 @@ export default function ProductSelector({ value = {}, onChange }) {
                   {product.name}
                   <button
                     onClick={() => handleRemoveProduct(product._id)}
-                    className="ml-1 hover:text-red-600"
+                    className="ml-1 hover:text-destructive"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -307,7 +307,7 @@ export default function ProductSelector({ value = {}, onChange }) {
                   {product.name}
                   <button
                     onClick={() => handleRemoveProduct(product._id)}
-                    className="ml-1 hover:text-red-600"
+                    className="ml-1 hover:text-destructive"
                   >
                     <X className="w-3 h-3" />
                   </button>

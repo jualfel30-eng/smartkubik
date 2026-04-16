@@ -33,7 +33,7 @@ export function CashRegisterIndicator() {
     }
 
     return (
-        <Badge variant="outline" className="gap-2 px-3 py-1 border-green-500 text-green-600 bg-success-muted">
+        <Badge variant="outline" className="gap-2 px-3 py-1 border-green-500 text-success bg-success-muted">
             <Unlock className="h-3 w-3" />
             <span className="hidden sm:inline">{currentSession.registerName}</span>
             <span className="sm:hidden">Abierta</span>

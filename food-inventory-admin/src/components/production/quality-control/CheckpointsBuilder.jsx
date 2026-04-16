@@ -105,9 +105,9 @@ export function CheckpointsBuilder({ checkpoints = [], onChange, disabled = fals
 
   const getSeverityBadge = (severity) => {
     const config = {
-      minor: { label: 'Menor', className: 'bg-yellow-500' },
-      major: { label: 'Mayor', className: 'bg-orange-500' },
-      critical: { label: 'Crítico', className: 'bg-red-500' }
+      minor: { label: 'Menor', className: 'bg-warning' },
+      major: { label: 'Mayor', className: 'bg-warning' },
+      critical: { label: 'Crítico', className: 'bg-destructive' }
     };
     const { label, className } = config[severity] || config.major;
     return <Badge className={className}>{label}</Badge>;

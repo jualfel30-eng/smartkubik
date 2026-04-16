@@ -36,11 +36,11 @@ import {
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
-  waiting: { label: 'Esperando', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: Clock },
-  notified: { label: 'Notificado', color: 'bg-blue-100 text-blue-800 border-blue-300', icon: Bell },
-  seated: { label: 'Sentado', color: 'bg-green-100 text-green-800 border-green-300', icon: Check },
-  cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-800 border-red-300', icon: X },
-  'no-show': { label: 'No Show', color: 'bg-orange-100 text-orange-800 border-orange-300', icon: AlertCircle },
+  waiting: { label: 'Esperando', color: 'bg-warning/10 text-yellow-800 border-yellow-300', icon: Clock },
+  notified: { label: 'Notificado', color: 'bg-info/10 text-blue-800 border-blue-300', icon: Bell },
+  seated: { label: 'Sentado', color: 'bg-success/10 text-green-800 border-green-300', icon: Check },
+  cancelled: { label: 'Cancelado', color: 'bg-destructive/10 text-red-800 border-red-300', icon: X },
+  'no-show': { label: 'No Show', color: 'bg-warning/10 text-orange-800 border-orange-300', icon: AlertCircle },
 };
 
 const WaitListManager = () => {
@@ -523,7 +523,7 @@ const WaitListManager = () => {
 
             {estimatedWait && (
               <Alert className="bg-blue-50 border-blue-200">
-                <TrendingUp className="h-4 w-4 text-blue-600" />
+                <TrendingUp className="h-4 w-4 text-info" />
                 <AlertDescription>
                   <strong>Tiempo estimado de espera:</strong> {formatTime(estimatedWait.estimatedWaitTime)}
                   <br />
@@ -628,8 +628,8 @@ const WaitListManager = () => {
               </Select>
             </div>
             {showSeatDialog && (
-              <Alert className="bg-green-50 border-green-200">
-                <Check className="h-4 w-4 text-green-600" />
+              <Alert className="bg-success/5 border-green-200">
+                <Check className="h-4 w-4 text-success" />
                 <AlertDescription>
                   Tiempo de espera: {formatTime(
                     Math.floor((new Date() - new Date(showSeatDialog.arrivalTime)) / 60000)

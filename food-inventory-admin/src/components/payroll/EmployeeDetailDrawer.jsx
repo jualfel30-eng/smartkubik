@@ -1322,10 +1322,10 @@ export function EmployeeDetailDrawer({
 
   const statusBadge = (status) => {
     const styles = {
-      active: 'bg-green-100 text-green-700',
-      onboarding: 'bg-blue-100 text-blue-700',
+      active: 'bg-success/10 text-success',
+      onboarding: 'bg-info/10 text-blue-700',
       suspended: 'bg-amber-100 text-amber-700',
-      terminated: 'bg-red-100 text-red-700',
+      terminated: 'bg-destructive/10 text-destructive',
       draft: 'bg-slate-100 text-slate-700',
     };
     return (
@@ -1850,7 +1850,7 @@ export function EmployeeDetailDrawer({
                         <Button
                           variant="ghost"
                           type="button"
-                          className="justify-start text-red-500"
+                          className="justify-start text-destructive"
                           onClick={() => removeCustomField(index)}
                           disabled={customFields.length === 1}
                         >
@@ -2288,7 +2288,7 @@ export function EmployeeDetailDrawer({
                             <Button
                               variant="ghost"
                               type="button"
-                              className="justify-start text-red-500"
+                              className="justify-start text-destructive"
                               onClick={() => removeBenefit(index)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
@@ -2330,7 +2330,7 @@ export function EmployeeDetailDrawer({
                             <Button
                               variant="ghost"
                               type="button"
-                              className="justify-start text-red-500"
+                              className="justify-start text-destructive"
                               onClick={() => removeDeduction(index)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
@@ -2494,7 +2494,7 @@ export function EmployeeDetailDrawer({
                           <Button
                             type="button"
                             variant="ghost"
-                            className="text-red-500"
+                            className="text-destructive"
                             onClick={() => removeDocument(index)}
                           >
                             <Trash2 className="h-4 w-4" />

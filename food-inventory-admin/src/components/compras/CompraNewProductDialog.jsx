@@ -112,9 +112,9 @@ export default function CompraNewProductDialog({
 
         <div className="space-y-6 py-4 px-6 overflow-y-auto flex-grow">
           {scanResult && (
-            <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${scanResult.overallConfidence >= 0.8 ? 'bg-green-50 border border-green-200 text-green-800' :
+            <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${scanResult.overallConfidence >= 0.8 ? 'bg-success/5 border border-green-200 text-green-800' :
               scanResult.overallConfidence >= 0.5 ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' :
-                'bg-red-50 border border-red-200 text-red-800'
+                'bg-destructive/5 border border-red-200 text-red-800'
               }`}>
               <span className="font-medium">
                 {Math.round(scanResult.overallConfidence * 100)}% confianza
@@ -878,7 +878,7 @@ export default function CompraNewProductDialog({
                     ${(Number(newProduct.inventory.costPrice) * (1 - (Number(newProduct.inventory.discount) || 0) / 100)).toFixed(2)}
                   </span>
                   {newProduct.inventory.discount > 0 && (
-                    <span className="text-xs text-green-600 font-semibold">-{newProduct.inventory.discount}%</span>
+                    <span className="text-xs text-success font-semibold">-{newProduct.inventory.discount}%</span>
                   )}
                 </div>
               </div>
@@ -1022,7 +1022,7 @@ export default function CompraNewProductDialog({
               </div>
               <div className="space-y-2">
                 <Label className="dark:text-gray-200">
-                  Tipo de Documento <span className="text-red-500">*</span>
+                  Tipo de Documento <span className="text-destructive">*</span>
                 </Label>
                 <Select
                   value={newProduct.documentType}
@@ -1080,13 +1080,13 @@ export default function CompraNewProductDialog({
                     <span>${newProductTotals.subtotal.toFixed(2)}</span>
                   </div>
                   {newProduct.documentType === 'factura_fiscal' && newProductTotals.iva > 0 && (
-                    <div className="flex justify-between text-blue-600">
+                    <div className="flex justify-between text-info">
                       <span>IVA (16%):</span>
                       <span>${newProductTotals.iva.toFixed(2)}</span>
                     </div>
                   )}
                   {newProduct.documentType === 'factura_fiscal' && newProductTotals.igtf > 0 && (
-                    <div className="flex justify-between text-orange-600">
+                    <div className="flex justify-between text-warning">
                       <span>IGTF (3%):</span>
                       <span>${newProductTotals.igtf.toFixed(2)}</span>
                     </div>

@@ -18,11 +18,11 @@ import { reverseMergeJob } from '@/lib/api.js';
 import { toast } from 'sonner';
 
 const STATUS_STYLES = {
-  completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  completed: 'bg-success/10 text-green-800 dark:bg-green-900/30 dark:text-green-400',
   reversed: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-  failed: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-  in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  failed: 'bg-destructive/10 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+  pending: 'bg-warning/10 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  in_progress: 'bg-info/10 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
 };
 
 const STATUS_LABELS = {

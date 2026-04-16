@@ -89,10 +89,10 @@ export function MRPView({ orderId }) {
               </CardHeader>
             </Card>
 
-            <Card className={mrpData.summary.allAvailable ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'}>
+            <Card className={mrpData.summary.allAvailable ? 'border-green-300 bg-success/5' : 'border-red-300 bg-destructive/5'}>
               <CardHeader className="pb-3">
                 <CardDescription>Estado de Materiales</CardDescription>
-                <CardTitle className={`text-2xl flex items-center gap-2 ${mrpData.summary.allAvailable ? 'text-green-700' : 'text-red-700'}`}>
+                <CardTitle className={`text-2xl flex items-center gap-2 ${mrpData.summary.allAvailable ? 'text-success' : 'text-destructive'}`}>
                   {mrpData.summary.allAvailable ? (
                     <>
                       <CheckCircle2 className="h-6 w-6" />
@@ -106,7 +106,7 @@ export function MRPView({ orderId }) {
                   )}
                 </CardTitle>
                 {!mrpData.summary.allAvailable && (
-                  <p className="text-sm text-red-600 mt-1">
+                  <p className="text-sm text-destructive mt-1">
                     {mrpData.summary.shortageCount} material(es) faltante(s)
                   </p>
                 )}
@@ -148,7 +148,7 @@ export function MRPView({ orderId }) {
                 <TableBody>
                   {mrpData.requirements && mrpData.requirements.length > 0 ? (
                     mrpData.requirements.map((req, index) => (
-                      <TableRow key={index} className={req.status === 'shortage' ? 'bg-red-50' : ''}>
+                      <TableRow key={index} className={req.status === 'shortage' ? 'bg-destructive/5' : ''}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             <Package className="h-4 w-4 text-muted-foreground" />
@@ -158,7 +158,7 @@ export function MRPView({ orderId }) {
                         <TableCell className="font-mono text-sm">{req.sku}</TableCell>
                         <TableCell className="text-right font-semibold">{req.requiredQuantity.toFixed(2)}</TableCell>
                         <TableCell className="text-right">{req.availableQuantity.toFixed(2)}</TableCell>
-                        <TableCell className={`text-right font-bold ${req.shortageQuantity > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        <TableCell className={`text-right font-bold ${req.shortageQuantity > 0 ? 'text-destructive' : 'text-success'}`}>
                           {req.shortageQuantity > 0 ? req.shortageQuantity.toFixed(2) : '-'}
                         </TableCell>
                         <TableCell>{req.unit}</TableCell>
@@ -172,7 +172,7 @@ export function MRPView({ orderId }) {
                               Faltante
                             </Badge>
                           ) : (
-                            <Badge variant="default" className="bg-green-500">
+                            <Badge variant="default" className="bg-success">
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               Disponible
                             </Badge>
@@ -200,7 +200,7 @@ export function MRPView({ orderId }) {
                   <ShoppingCart className="h-5 w-5" />
                   Sugerencias de Compra
                 </CardTitle>
-                <CardDescription className="text-orange-600">
+                <CardDescription className="text-warning">
                   Materiales que necesitas adquirir para completar la producción
                 </CardDescription>
               </CardHeader>

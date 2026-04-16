@@ -213,7 +213,7 @@ const WithholdingIslrForm = ({ onSuccess, onCancel, invoiceId = null }) => {
               </SelectContent>
             </Select>
             {errors.affectedDocumentId && (
-              <p className="text-sm text-red-500 mt-1">
+              <p className="text-sm text-destructive mt-1">
                 {errors.affectedDocumentId.message}
               </p>
             )}
@@ -279,7 +279,7 @@ const WithholdingIslrForm = ({ onSuccess, onCancel, invoiceId = null }) => {
               </SelectContent>
             </Select>
             {errors.conceptCode && (
-              <p className="text-sm text-red-500 mt-1">
+              <p className="text-sm text-destructive mt-1">
                 {errors.conceptCode.message}
               </p>
             )}
@@ -314,7 +314,7 @@ const WithholdingIslrForm = ({ onSuccess, onCancel, invoiceId = null }) => {
                 className={errors.retentionPercentage ? 'border-red-500' : ''}
               />
               {errors.retentionPercentage && (
-                <p className="text-sm text-red-500 mt-1">
+                <p className="text-sm text-destructive mt-1">
                   {errors.retentionPercentage.message}
                 </p>
               )}
@@ -363,7 +363,7 @@ const WithholdingIslrForm = ({ onSuccess, onCancel, invoiceId = null }) => {
               className={errors.operationDate ? 'border-red-500' : ''}
             />
             {errors.operationDate && (
-              <p className="text-sm text-red-500 mt-1">
+              <p className="text-sm text-destructive mt-1">
                 {errors.operationDate.message}
               </p>
             )}
@@ -412,7 +412,7 @@ const WithholdingIslrForm = ({ onSuccess, onCancel, invoiceId = null }) => {
               )}
               <div className="border-t pt-3 flex justify-between items-center">
                 <span className="text-lg font-semibold">Monto a Retener:</span>
-                <span className="text-2xl font-bold text-green-600">
+                <span className="text-2xl font-bold text-success">
                   {formatCurrency(calculation.retentionAmount)}
                 </span>
               </div>

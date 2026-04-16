@@ -48,11 +48,11 @@ const ACTIVITY_ICONS = {
 };
 
 const ACTIVITY_COLORS = {
-  email: 'bg-blue-500',
-  call: 'bg-green-500',
+  email: 'bg-info',
+  call: 'bg-success',
   meeting: 'bg-purple-500',
   whatsapp: 'bg-emerald-500',
-  task: 'bg-orange-500',
+  task: 'bg-warning',
   note: 'bg-gray-500',
   calendar_event: 'bg-indigo-500',
 };
@@ -145,7 +145,7 @@ export function ActivityTimeline({ opportunityId }) {
                   </Badge>
                 )}
                 {isCompleted && (
-                  <Badge className="bg-green-500 text-xs">
+                  <Badge className="bg-success text-xs">
                     <Check className="w-3 h-3 mr-1" />
                     Completada
                   </Badge>

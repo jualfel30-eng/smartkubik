@@ -181,7 +181,7 @@ export default function MixedChangeModal({
 
                     {/* Error Message */}
                     {error && (
-                        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-destructive/30 rounded-md flex items-start gap-2">
+                        <div className="p-3 bg-destructive/5 dark:bg-red-900/20 border border-destructive/30 rounded-md flex items-start gap-2">
                             <AlertCircle className="w-4 h-4 text-destructive mt-0.5" />
                             <p className="text-sm text-destructive">{error}</p>
                         </div>
@@ -189,9 +189,9 @@ export default function MixedChangeModal({
 
                     {/* Summary */}
                     {!error && usdAmount && vesAmount && (
-                        <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-success/30 rounded-md">
+                        <div className="p-3 bg-success/5 dark:bg-green-900/20 border border-success/30 rounded-md">
                             <p className="text-sm font-medium text-green-900 dark:text-green-100">Resumen:</p>
-                            <ul className="text-xs text-green-700 dark:text-green-300 mt-1 space-y-1">
+                            <ul className="text-xs text-success dark:text-success mt-1 space-y-1">
                                 <li>• USD: ${parseFloat(usdAmount).toFixed(2)} (Efectivo)</li>
                                 <li>• VES: Bs {parseFloat(vesAmount).toFixed(2)} ({vesMethod === 'efectivo_ves' ? 'Efectivo' : 'PagoMóvil'})</li>
                             </ul>

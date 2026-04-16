@@ -59,9 +59,9 @@ export function InspectionResultsForm({ qcPlan, results = [], onChange }) {
 
   const getSeverityColor = (severity) => {
     const colors = {
-      minor: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      major: 'bg-orange-100 text-orange-800 border-orange-300',
-      critical: 'bg-red-100 text-red-800 border-red-300'
+      minor: 'bg-warning/10 text-yellow-800 border-yellow-300',
+      major: 'bg-warning/10 text-orange-800 border-orange-300',
+      critical: 'bg-destructive/10 text-red-800 border-red-300'
     };
     return colors[severity] || colors.major;
   };
@@ -71,12 +71,12 @@ export function InspectionResultsForm({ qcPlan, results = [], onChange }) {
       return <AlertCircle className="h-5 w-5 text-gray-400" />;
     }
     if (passed && checkpoint.mandatory) {
-      return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+      return <CheckCircle2 className="h-5 w-5 text-success" />;
     }
     if (passed) {
-      return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+      return <CheckCircle2 className="h-5 w-5 text-success" />;
     }
-    return <XCircle className="h-5 w-5 text-red-600" />;
+    return <XCircle className="h-5 w-5 text-destructive" />;
   };
 
   if (!qcPlan || !qcPlan.checkpoints) {
@@ -100,11 +100,11 @@ export function InspectionResultsForm({ qcPlan, results = [], onChange }) {
         </div>
         <div className="flex gap-4 text-sm">
           <div className="flex items-center gap-1">
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <CheckCircle2 className="h-4 w-4 text-success" />
             <span className="font-medium">{passedCount}</span>
           </div>
           <div className="flex items-center gap-1">
-            <XCircle className="h-4 w-4 text-red-600" />
+            <XCircle className="h-4 w-4 text-destructive" />
             <span className="font-medium">{failedCount}</span>
           </div>
           <div className="flex items-center gap-1">

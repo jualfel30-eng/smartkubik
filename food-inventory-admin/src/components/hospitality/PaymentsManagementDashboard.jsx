@@ -1233,7 +1233,7 @@ export default function PaymentsManagementDashboard() {
                                       <Button
                                         variant="default"
                                         size="sm"
-                                        className="bg-green-600 hover:bg-green-700 text-white"
+                                        className="bg-success hover:bg-green-700 text-white"
                                         onClick={() => handleConfirmDeposit(deposit)}
                                         disabled={isPaymentLoading}
                                       >
@@ -1355,7 +1355,7 @@ export default function PaymentsManagementDashboard() {
                                   <TableCell>{taxId}</TableCell>
                                   <TableCell>${total.toFixed(2)}</TableCell>
                                   <TableCell>${paid.toFixed(2)}</TableCell>
-                                  <TableCell className="text-orange-600">${pending.toFixed(2)}</TableCell>
+                                  <TableCell className="text-warning">${pending.toFixed(2)}</TableCell>
                                   <TableCell className="text-right">
                                     <div className="flex justify-end gap-2">
                                       <TooltipProvider>
@@ -1870,20 +1870,20 @@ export default function PaymentsManagementDashboard() {
                         </Card>
                         <Card>
                           <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-green-600">Total pagado</CardTitle>
+                            <CardTitle className="text-sm font-medium text-success">Total pagado</CardTitle>
                           </CardHeader>
                           <CardContent>
-                            <div className="text-2xl font-semibold text-green-600">
+                            <div className="text-2xl font-semibold text-success">
                               {formatCurrency(customerData.totalPaid, 'USD')}
                             </div>
                           </CardContent>
                         </Card>
                         <Card>
                           <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-orange-600">Saldo pendiente</CardTitle>
+                            <CardTitle className="text-sm font-medium text-warning">Saldo pendiente</CardTitle>
                           </CardHeader>
                           <CardContent>
-                            <div className="text-2xl font-semibold text-orange-600">
+                            <div className="text-2xl font-semibold text-warning">
                               {formatCurrency(customerData.totalPending, 'USD')}
                             </div>
                           </CardContent>
@@ -1915,10 +1915,10 @@ export default function PaymentsManagementDashboard() {
                                   </Badge>
                                 </TableCell>
                                 <TableCell>{formatCurrency(apt.totalAmount, 'USD')}</TableCell>
-                                <TableCell className="text-green-600">
+                                <TableCell className="text-success">
                                   {formatCurrency(apt.paidAmount, 'USD')}
                                 </TableCell>
-                                <TableCell className="text-orange-600">
+                                <TableCell className="text-warning">
                                   {formatCurrency(apt.pendingAmount, 'USD')}
                                 </TableCell>
                                 <TableCell className="text-right">
@@ -2045,10 +2045,10 @@ export default function PaymentsManagementDashboard() {
                         </Card>
                         <Card>
                           <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium text-green-600">Total pagado</CardTitle>
+                            <CardTitle className="text-sm font-medium text-success">Total pagado</CardTitle>
                           </CardHeader>
                           <CardContent>
-                            <div className="text-2xl font-semibold text-green-600">
+                            <div className="text-2xl font-semibold text-success">
                               ${filteredRetailCustomerPayments.reduce((sum, p) => sum + Number(p.amount || 0), 0).toFixed(2)}
                             </div>
                           </CardContent>
@@ -2393,7 +2393,7 @@ export default function PaymentsManagementDashboard() {
                                   <CardTitle className="text-sm font-medium">Total por cobrar</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                  <div className="text-2xl font-semibold text-orange-600">
+                                  <div className="text-2xl font-semibold text-warning">
                                     {formatCurrency(receivables.totalReceivable, 'USD')}
                                   </div>
                                 </CardContent>
@@ -2427,7 +2427,7 @@ export default function PaymentsManagementDashboard() {
                                     <CardTitle className="text-sm font-medium">1-30 días</CardTitle>
                                   </CardHeader>
                                   <CardContent>
-                                    <div className="text-xl font-semibold text-yellow-600">
+                                    <div className="text-xl font-semibold text-warning">
                                       {formatCurrency(receivables.agingReport['1-30'], 'USD')}
                                     </div>
                                   </CardContent>
@@ -2437,7 +2437,7 @@ export default function PaymentsManagementDashboard() {
                                     <CardTitle className="text-sm font-medium">30-60 días</CardTitle>
                                   </CardHeader>
                                   <CardContent>
-                                    <div className="text-xl font-semibold text-orange-600">
+                                    <div className="text-xl font-semibold text-warning">
                                       {formatCurrency(receivables.agingReport['30-60'], 'USD')}
                                     </div>
                                   </CardContent>
@@ -2447,7 +2447,7 @@ export default function PaymentsManagementDashboard() {
                                     <CardTitle className="text-sm font-medium">60-90 días</CardTitle>
                                   </CardHeader>
                                   <CardContent>
-                                    <div className="text-xl font-semibold text-red-600">
+                                    <div className="text-xl font-semibold text-destructive">
                                       {formatCurrency(receivables.agingReport['60-90'], 'USD')}
                                     </div>
                                   </CardContent>
@@ -2494,10 +2494,10 @@ export default function PaymentsManagementDashboard() {
                                       <TableCell>{item.serviceName}</TableCell>
                                       <TableCell>{formatDateTime(item.appointmentDate)}</TableCell>
                                       <TableCell>{formatCurrency(item.totalAmount, 'USD')}</TableCell>
-                                      <TableCell className="text-green-600">
+                                      <TableCell className="text-success">
                                         {formatCurrency(item.paidAmount, 'USD')}
                                       </TableCell>
-                                      <TableCell className="text-orange-600 font-semibold">
+                                      <TableCell className="text-warning font-semibold">
                                         {formatCurrency(item.pendingAmount, 'USD')}
                                       </TableCell>
                                       <TableCell>

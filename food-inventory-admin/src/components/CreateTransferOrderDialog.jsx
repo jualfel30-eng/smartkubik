@@ -416,7 +416,7 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           <div className="grid grid-cols-2 gap-4">
             {/* SOURCE */}
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-green-600">Origen</h4>
+              <h4 className="text-sm font-medium text-success">Origen</h4>
 
               {/* Source location (only for BusinessLocations mode) */}
               {transferMode === 'locations' && (
@@ -476,7 +476,7 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
 
             {/* DESTINATION */}
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-blue-600">Destino</h4>
+              <h4 className="text-sm font-medium text-info">Destino</h4>
 
               {/* Destination location (only for BusinessLocations mode) */}
               {transferMode === 'locations' && (

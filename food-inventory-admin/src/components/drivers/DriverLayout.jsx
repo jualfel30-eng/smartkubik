@@ -43,14 +43,14 @@ export const DriverLayout = () => {
                 <div className="max-w-md mx-auto w-full grid grid-cols-2 h-16">
                     <Link
                         to="/driver/pool"
-                        className={`flex flex-col items-center justify-center gap-1 ${isActive('/driver/pool') ? 'text-blue-600' : 'text-slate-500'}`}
+                        className={`flex flex-col items-center justify-center gap-1 ${isActive('/driver/pool') ? 'text-info' : 'text-slate-500'}`}
                     >
                         <Package className="h-6 w-6" />
                         <span className="text-xs font-medium">Disponibles</span>
                     </Link>
                     <Link
                         to="/driver/active"
-                        className={`flex flex-col items-center justify-center gap-1 ${isActive('/driver/active') ? 'text-blue-600' : 'text-slate-500'}`}
+                        className={`flex flex-col items-center justify-center gap-1 ${isActive('/driver/active') ? 'text-info' : 'text-slate-500'}`}
                     >
                         <Truck className="h-6 w-6" />
                         <span className="text-xs font-medium">Mis Entregas</span>

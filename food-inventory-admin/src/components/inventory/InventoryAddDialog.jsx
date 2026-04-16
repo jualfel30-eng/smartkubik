@@ -200,7 +200,7 @@ export function InventoryAddDialog({
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => removeItemFromList(index)} className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50">
+                          <Button variant="ghost" size="icon" onClick={() => removeItemFromList(index)} className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/5">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>

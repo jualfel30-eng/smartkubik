@@ -34,11 +34,11 @@ import {
 } from 'lucide-react';
 
 const GRADE_CONFIG = {
-  A: { color: 'bg-green-100 text-green-800 border-green-300', label: 'Excelente', icon: Trophy },
-  B: { color: 'bg-blue-100 text-blue-800 border-blue-300', label: 'Bueno', icon: Medal },
-  C: { color: 'bg-yellow-100 text-yellow-800 border-yellow-300', label: 'Regular', icon: Star },
-  D: { color: 'bg-orange-100 text-orange-800 border-orange-300', label: 'Bajo', icon: TrendingDown },
-  F: { color: 'bg-red-100 text-red-800 border-red-300', label: 'Insuficiente', icon: TrendingDown },
+  A: { color: 'bg-success/10 text-green-800 border-green-300', label: 'Excelente', icon: Trophy },
+  B: { color: 'bg-info/10 text-blue-800 border-blue-300', label: 'Bueno', icon: Medal },
+  C: { color: 'bg-warning/10 text-yellow-800 border-yellow-300', label: 'Regular', icon: Star },
+  D: { color: 'bg-warning/10 text-orange-800 border-orange-300', label: 'Bajo', icon: TrendingDown },
+  F: { color: 'bg-destructive/10 text-red-800 border-red-300', label: 'Insuficiente', icon: TrendingDown },
 };
 
 const ServerPerformanceDashboard = () => {
@@ -147,7 +147,7 @@ const ServerPerformanceDashboard = () => {
   const getRankMedal = (rank) => {
     if (rank === 1) return <Crown className="h-5 w-5 text-yellow-500" />;
     if (rank === 2) return <Medal className="h-5 w-5 text-gray-400" />;
-    if (rank === 3) return <Medal className="h-5 w-5 text-orange-600" />;
+    if (rank === 3) return <Medal className="h-5 w-5 text-warning" />;
     return <span className="text-sm font-medium text-gray-600">#{rank}</span>;
   };
 
@@ -175,7 +175,7 @@ const ServerPerformanceDashboard = () => {
                   <p className="text-sm text-gray-500">Ventas Totales</p>
                   <p className="text-2xl font-bold">{formatCurrency(analytics.summary?.totalSales || 0)}</p>
                 </div>
-                <DollarSign className="h-8 w-8 text-green-500" />
+                <DollarSign className="h-8 w-8 text-success" />
               </div>
             </CardContent>
           </Card>
@@ -346,7 +346,7 @@ const ServerPerformanceDashboard = () => {
                                 </div>
                                 <div className="flex justify-between pt-2 border-t">
                                   <span className="text-gray-600">Score:</span>
-                                  <span className="font-bold text-green-600">{performer.performanceScore.toFixed(1)}</span>
+                                  <span className="font-bold text-success">{performer.performanceScore.toFixed(1)}</span>
                                 </div>
                               </div>
                             </CardContent>
@@ -408,12 +408,12 @@ const ServerPerformanceDashboard = () => {
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-sm text-gray-600">Cambio en Ventas</span>
                               {analytics.trends.weekOverWeek.salesChange >= 0 ? (
-                                <TrendingUp className="h-5 w-5 text-green-500" />
+                                <TrendingUp className="h-5 w-5 text-success" />
                               ) : (
-                                <TrendingDown className="h-5 w-5 text-red-500" />
+                                <TrendingDown className="h-5 w-5 text-destructive" />
                               )}
                             </div>
-                            <p className={`text-2xl font-bold ${analytics.trends.weekOverWeek.salesChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <p className={`text-2xl font-bold ${analytics.trends.weekOverWeek.salesChange >= 0 ? 'text-success' : 'text-destructive'}`}>
                               {formatPercentage(analytics.trends.weekOverWeek.salesChange)}
                             </p>
                           </CardContent>
@@ -424,12 +424,12 @@ const ServerPerformanceDashboard = () => {
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-sm text-gray-600">Cambio en Órdenes</span>
                               {analytics.trends.weekOverWeek.ordersChange >= 0 ? (
-                                <TrendingUp className="h-5 w-5 text-green-500" />
+                                <TrendingUp className="h-5 w-5 text-success" />
                               ) : (
-                                <TrendingDown className="h-5 w-5 text-red-500" />
+                                <TrendingDown className="h-5 w-5 text-destructive" />
                               )}
                             </div>
-                            <p className={`text-2xl font-bold ${analytics.trends.weekOverWeek.ordersChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <p className={`text-2xl font-bold ${analytics.trends.weekOverWeek.ordersChange >= 0 ? 'text-success' : 'text-destructive'}`}>
                               {formatPercentage(analytics.trends.weekOverWeek.ordersChange)}
                             </p>
                           </CardContent>
@@ -440,12 +440,12 @@ const ServerPerformanceDashboard = () => {
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-sm text-gray-600">Cambio en Propinas</span>
                               {analytics.trends.weekOverWeek.tipsChange >= 0 ? (
-                                <TrendingUp className="h-5 w-5 text-green-500" />
+                                <TrendingUp className="h-5 w-5 text-success" />
                               ) : (
-                                <TrendingDown className="h-5 w-5 text-red-500" />
+                                <TrendingDown className="h-5 w-5 text-destructive" />
                               )}
                             </div>
-                            <p className={`text-2xl font-bold ${analytics.trends.weekOverWeek.tipsChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <p className={`text-2xl font-bold ${analytics.trends.weekOverWeek.tipsChange >= 0 ? 'text-success' : 'text-destructive'}`}>
                               {formatPercentage(analytics.trends.weekOverWeek.tipsChange)}
                             </p>
                           </CardContent>
@@ -480,7 +480,7 @@ const ServerPerformanceDashboard = () => {
                                 <div className="flex items-center gap-2">
                                   <div className="flex-1 bg-gray-200 rounded-full h-2">
                                     <div
-                                      className={`h-2 rounded-full ${goal.salesProgress >= 100 ? 'bg-green-500' : goal.salesProgress >= 75 ? 'bg-blue-500' : 'bg-yellow-500'}`}
+                                      className={`h-2 rounded-full ${goal.salesProgress >= 100 ? 'bg-success' : goal.salesProgress >= 75 ? 'bg-info' : 'bg-warning'}`}
                                       style={{ width: `${Math.min(goal.salesProgress, 100)}%` }}
                                     ></div>
                                   </div>
@@ -493,7 +493,7 @@ const ServerPerformanceDashboard = () => {
                                 <div className="flex items-center gap-2">
                                   <div className="flex-1 bg-gray-200 rounded-full h-2">
                                     <div
-                                      className={`h-2 rounded-full ${goal.ordersProgress >= 100 ? 'bg-green-500' : goal.ordersProgress >= 75 ? 'bg-blue-500' : 'bg-yellow-500'}`}
+                                      className={`h-2 rounded-full ${goal.ordersProgress >= 100 ? 'bg-success' : goal.ordersProgress >= 75 ? 'bg-info' : 'bg-warning'}`}
                                       style={{ width: `${Math.min(goal.ordersProgress, 100)}%` }}
                                     ></div>
                                   </div>
@@ -566,7 +566,7 @@ const ServerPerformanceDashboard = () => {
                   {/* Top by Sales */}
                   <div>
                     <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                      <DollarSign className="h-5 w-5 text-green-500" />
+                      <DollarSign className="h-5 w-5 text-success" />
                       Top por Ventas
                     </h3>
                     <div className="space-y-2">
@@ -576,7 +576,7 @@ const ServerPerformanceDashboard = () => {
                             {getRankMedal(entry.rank)}
                             <span className="font-medium">{entry.serverName}</span>
                           </div>
-                          <span className="font-bold text-green-600">{formatCurrency(entry.value)}</span>
+                          <span className="font-bold text-success">{formatCurrency(entry.value)}</span>
                         </div>
                       ))}
                     </div>
@@ -595,7 +595,7 @@ const ServerPerformanceDashboard = () => {
                             {getRankMedal(entry.rank)}
                             <span className="font-medium">{entry.serverName}</span>
                           </div>
-                          <span className="font-bold text-yellow-600">{formatCurrency(entry.value)}</span>
+                          <span className="font-bold text-warning">{formatCurrency(entry.value)}</span>
                         </div>
                       ))}
                     </div>
@@ -614,7 +614,7 @@ const ServerPerformanceDashboard = () => {
                             {getRankMedal(entry.rank)}
                             <span className="font-medium">{entry.serverName}</span>
                           </div>
-                          <span className="font-bold text-orange-600">{entry.value.toFixed(1)} ⭐</span>
+                          <span className="font-bold text-warning">{entry.value.toFixed(1)} ⭐</span>
                         </div>
                       ))}
                     </div>
@@ -633,7 +633,7 @@ const ServerPerformanceDashboard = () => {
                             {getRankMedal(entry.rank)}
                             <span className="font-medium">{entry.serverName}</span>
                           </div>
-                          <span className="font-bold text-blue-600">{formatCurrency(entry.value)}/hr</span>
+                          <span className="font-bold text-info">{formatCurrency(entry.value)}/hr</span>
                         </div>
                       ))}
                     </div>

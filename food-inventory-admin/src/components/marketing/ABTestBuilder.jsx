@@ -287,7 +287,7 @@ export default function ABTestBuilder({ campaignId, existingTest, onSave, onCanc
                       variant="ghost"
                       size="icon"
                       onClick={() => removeVariant(index)}
-                      className="ml-2 text-red-600 hover:text-red-700 dark:text-red-400"
+                      className="ml-2 text-destructive hover:text-destructive dark:text-red-400"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -359,7 +359,7 @@ export default function ABTestBuilder({ campaignId, existingTest, onSave, onCanc
                 {variants.reduce((sum, v) => sum + (parseFloat(v.trafficAllocation) || 0), 0).toFixed(1)}%
               </span>
               {!allocationError && (
-                <Badge variant="default" className="bg-green-600">
+                <Badge variant="default" className="bg-success">
                   <Award className="w-3 h-3 mr-1" />
                   Válido
                 </Badge>

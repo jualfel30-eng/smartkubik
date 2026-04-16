@@ -36,8 +36,8 @@ function getFieldStatus(masterVal, dupVal) {
 }
 
 const STATUS_STYLES = {
-  match: 'bg-green-50 dark:bg-green-900/20',
-  'master-only': 'bg-green-50 dark:bg-green-900/20',
+  match: 'bg-success/5 dark:bg-green-900/20',
+  'master-only': 'bg-success/5 dark:bg-green-900/20',
   'duplicate-only': 'bg-amber-50 dark:bg-amber-900/20',
   conflict: 'bg-yellow-50 dark:bg-yellow-900/20',
   'both-empty': '',

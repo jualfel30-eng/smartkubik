@@ -115,9 +115,9 @@ export default function CompraCreateDialog({
 
         <div className="space-y-6 p-1 overflow-y-auto flex-1">
           {scanResult && (
-            <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${scanResult.overallConfidence >= 0.8 ? 'bg-green-50 border border-green-200 text-green-800' :
+            <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${scanResult.overallConfidence >= 0.8 ? 'bg-success/5 border border-green-200 text-green-800' :
               scanResult.overallConfidence >= 0.5 ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' :
-                'bg-red-50 border border-red-200 text-red-800'
+                'bg-destructive/5 border border-red-200 text-red-800'
               }`}>
               <span className="font-medium">
                 {Math.round(scanResult.overallConfidence * 100)}% confianza
@@ -240,7 +240,7 @@ export default function CompraCreateDialog({
             {/* Purchase Date */}
             <div className="mt-4">
               <div className="space-y-2">
-                <Label>Fecha de Compra <span className="text-red-500">*</span></Label>
+                <Label>Fecha de Compra <span className="text-destructive">*</span></Label>
                 <Popover open={purchaseDateOpen} onOpenChange={setPurchaseDateOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal">
@@ -342,7 +342,7 @@ export default function CompraCreateDialog({
                     <TableCell className="font-medium">
                       ${(Number(item.costPrice) * (1 - (Number(item.discount) || 0) / 100)).toFixed(2)}
                       {item.discount > 0 && (
-                        <span className="text-xs text-green-600 block">-{item.discount}%</span>
+                        <span className="text-xs text-success block">-{item.discount}%</span>
                       )}
                     </TableCell>
                     <TableCell>{item.isPerishable && <Input placeholder="Nro. Lote" className="w-32" value={item.lotNumber} onChange={e => updateItemField(index, 'lotNumber', e.target.value)} />}</TableCell>
@@ -398,13 +398,13 @@ export default function CompraCreateDialog({
                       <span>${poTotals.subtotal.toFixed(2)}</span>
                     </div>
                     {po.documentType === 'factura_fiscal' && poTotals.iva > 0 && (
-                      <div className="flex justify-between text-blue-600">
+                      <div className="flex justify-between text-info">
                         <span>IVA (16%):</span>
                         <span>${poTotals.iva.toFixed(2)}</span>
                       </div>
                     )}
                     {po.documentType === 'factura_fiscal' && poTotals.igtf > 0 && (
-                      <div className="flex justify-between text-orange-600">
+                      <div className="flex justify-between text-warning">
                         <span>IGTF (3%):</span>
                         <span>${poTotals.igtf.toFixed(2)}</span>
                       </div>

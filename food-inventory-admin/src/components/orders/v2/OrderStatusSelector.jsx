@@ -12,12 +12,12 @@ import { toast } from "sonner";
 
 const orderStatusMap = {
   draft: { label: 'Borrador', color: 'bg-gray-400' },
-  pending: { label: 'Pendiente', color: 'bg-yellow-500' },
-  confirmed: { label: 'Confirmado', color: 'bg-blue-500' },
+  pending: { label: 'Pendiente', color: 'bg-warning' },
+  confirmed: { label: 'Confirmado', color: 'bg-info' },
   processing: { label: 'Procesando', color: 'bg-purple-500' },
   shipped: { label: 'Enviado', color: 'bg-indigo-500' },
-  delivered: { label: 'Entregado', color: 'bg-green-500' },
-  cancelled: { label: 'Cancelado', color: 'bg-red-500' },
+  delivered: { label: 'Entregado', color: 'bg-success' },
+  cancelled: { label: 'Cancelado', color: 'bg-destructive' },
   refunded: { label: 'Reembolsado', color: 'bg-pink-500' },
 };
 

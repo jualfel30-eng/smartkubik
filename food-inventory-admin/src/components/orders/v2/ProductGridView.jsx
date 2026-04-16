@@ -225,7 +225,7 @@ const ProductGridView = ({
                     <span className="text-base font-bold text-primary">
                       ${price.toFixed(2)}
                     </span>
-                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
+                    <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-success/5 text-success border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
                       Stock: {availableQty}
                     </Badge>
                   </div>

@@ -34,12 +34,12 @@ import {
 import ReservationForm from './ReservationForm';
 
 const STATUS_CONFIG = {
-  pending: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', icon: Clock },
-  confirmed: { label: 'Confirmada', color: 'bg-blue-100 text-blue-800 border-blue-300', icon: Check },
-  seated: { label: 'Sentados', color: 'bg-green-100 text-green-800 border-green-300', icon: Users },
+  pending: { label: 'Pendiente', color: 'bg-warning/10 text-yellow-800 border-yellow-300', icon: Clock },
+  confirmed: { label: 'Confirmada', color: 'bg-info/10 text-blue-800 border-blue-300', icon: Check },
+  seated: { label: 'Sentados', color: 'bg-success/10 text-green-800 border-green-300', icon: Users },
   completed: { label: 'Completada', color: 'bg-gray-100 text-gray-800 border-gray-300', icon: Check },
-  cancelled: { label: 'Cancelada', color: 'bg-red-100 text-red-800 border-red-300', icon: X },
-  'no-show': { label: 'No Show', color: 'bg-orange-100 text-orange-800 border-orange-300', icon: AlertCircle },
+  cancelled: { label: 'Cancelada', color: 'bg-destructive/10 text-red-800 border-red-300', icon: X },
+  'no-show': { label: 'No Show', color: 'bg-warning/10 text-orange-800 border-orange-300', icon: AlertCircle },
 };
 
 const ReservationsList = ({ initialDate = '' }) => {
@@ -231,7 +231,7 @@ const ReservationsList = ({ initialDate = '' }) => {
 
     if (status === 'seated') {
       return (
-        <Badge variant="outline" className="bg-green-50">
+        <Badge variant="outline" className="bg-success/5">
           Actualmente sentados
         </Badge>
       );

@@ -584,7 +584,7 @@ function DetailedAnalysis({ primary, results, deltas, isComparing }) {
                 <CardContent className="p-3">
                   <p className="text-xs text-muted-foreground">Ingreso Neto</p>
                   <div className="flex items-center gap-2">
-                    <p className={`text-lg font-bold ${(primary?.netMargin?.netIncome ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`text-lg font-bold ${(primary?.netMargin?.netIncome ?? 0) >= 0 ? 'text-success' : 'text-destructive'}`}>
                       {fmtUsd(primary?.netMargin?.netIncome)}
                     </p>
                     <DeltaBadge delta={computeDelta(
@@ -601,7 +601,7 @@ function DetailedAnalysis({ primary, results, deltas, isComparing }) {
                 <CardContent className="p-3">
                   <p className="text-xs text-muted-foreground">EBITDA</p>
                   <div className="flex items-center gap-2">
-                    <p className={`text-lg font-bold ${(primary?.ebitda?.ebitda ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`text-lg font-bold ${(primary?.ebitda?.ebitda ?? 0) >= 0 ? 'text-success' : 'text-destructive'}`}>
                       {fmtUsd(primary?.ebitda?.ebitda)}
                     </p>
                     <DeltaBadge delta={deltas?.ebitda} />
@@ -657,7 +657,7 @@ function DetailedAnalysis({ primary, results, deltas, isComparing }) {
                     </div>
                     <div>
                       <p className="text-muted-foreground">Ganancia Neta</p>
-                      <p className={`font-semibold ${roi.netGain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <p className={`font-semibold ${roi.netGain >= 0 ? 'text-success' : 'text-destructive'}`}>
                         {fmtUsd(roi.netGain)}
                       </p>
                     </div>
@@ -668,7 +668,7 @@ function DetailedAnalysis({ primary, results, deltas, isComparing }) {
                       {roi.byCategory.map((cat, i) => (
                         <div key={i} className="flex justify-between text-xs py-1">
                           <span className="capitalize">{cat.category}</span>
-                          <span className={cat.roi >= 0 ? 'text-green-600' : 'text-red-600'}>
+                          <span className={cat.roi >= 0 ? 'text-success' : 'text-destructive'}>
                             {cat.roi != null ? fmtPct(cat.roi) : '--'}
                           </span>
                         </div>

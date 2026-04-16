@@ -111,7 +111,7 @@ export default function PurchaseHistory() {
   };
 
   if (loading) return <div>Cargando historial...</div>;
-  if (error) return <div className="text-red-500">Error: {error}</div>;
+  if (error) return <div className="text-destructive">Error: {error}</div>;
 
   return (
     <>

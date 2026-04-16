@@ -458,11 +458,11 @@ export default function CommissionManagementDashboard() {
   const getStatusBadge = (status) => {
     const badges = {
       pending: <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200"><Clock className="w-3 h-3 mr-1" />Pendiente</Badge>,
-      approved: <Badge className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" />Aprobada</Badge>,
+      approved: <Badge className="bg-success"><CheckCircle className="w-3 h-3 mr-1" />Aprobada</Badge>,
       rejected: <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" />Rechazada</Badge>,
-      paid: <Badge className="bg-blue-500"><DollarSign className="w-3 h-3 mr-1" />Pagada</Badge>,
-      active: <Badge className="bg-green-500">Activa</Badge>,
-      completed: <Badge className="bg-blue-500">Completada</Badge>,
+      paid: <Badge className="bg-info"><DollarSign className="w-3 h-3 mr-1" />Pagada</Badge>,
+      active: <Badge className="bg-success">Activa</Badge>,
+      completed: <Badge className="bg-info">Completada</Badge>,
       cancelled: <Badge variant="outline">Cancelada</Badge>,
     };
     return badges[status] || <Badge variant="outline">{status}</Badge>;
@@ -593,8 +593,8 @@ export default function CommissionManagementDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-            <div className="h-8 w-8 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center">
-              <Clock className="h-4 w-4 text-yellow-600" />
+            <div className="h-8 w-8 rounded-full bg-warning/10 dark:bg-yellow-900 flex items-center justify-center">
+              <Clock className="h-4 w-4 text-warning" />
             </div>
           </CardHeader>
           <CardContent>
@@ -610,8 +610,8 @@ export default function CommissionManagementDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Metas Activas</CardTitle>
-            <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-              <Target className="h-4 w-4 text-blue-600" />
+            <div className="h-8 w-8 rounded-full bg-info/10 dark:bg-blue-900 flex items-center justify-center">
+              <Target className="h-4 w-4 text-info" />
             </div>
           </CardHeader>
           <CardContent>
@@ -674,10 +674,10 @@ export default function CommissionManagementDashboard() {
                         </div>
                         <div className="flex gap-1">
                           <Button size="sm" variant="ghost" onClick={() => handleApproveCommission(record._id)}>
-                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            <CheckCircle className="h-4 w-4 text-success" />
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => handleRejectCommission(record._id)}>
-                            <XCircle className="h-4 w-4 text-red-500" />
+                            <XCircle className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
                       </div>
@@ -690,10 +690,10 @@ export default function CommissionManagementDashboard() {
                         </div>
                         <div className="flex gap-1">
                           <Button size="sm" variant="ghost" onClick={() => handleApproveBonus(bonus._id)}>
-                            <CheckCircle className="h-4 w-4 text-green-500" />
+                            <CheckCircle className="h-4 w-4 text-success" />
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => handleRejectBonus(bonus._id)}>
-                            <XCircle className="h-4 w-4 text-red-500" />
+                            <XCircle className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
                       </div>
@@ -881,7 +881,7 @@ export default function CommissionManagementDashboard() {
                         </TableCell>
                         <TableCell>
                           {plan.isActive ? (
-                            <Badge className="bg-green-500">Activo</Badge>
+                            <Badge className="bg-success">Activo</Badge>
                           ) : (
                             <Badge variant="outline">Inactivo</Badge>
                           )}
@@ -891,7 +891,7 @@ export default function CommissionManagementDashboard() {
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => handleDeletePlan(plan._id)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -954,7 +954,7 @@ export default function CommissionManagementDashboard() {
                         </TableCell>
                         <TableCell>{record.orderNumber || record.orderId?.substring(0, 8)}</TableCell>
                         <TableCell className="text-right">${record.orderAmount?.toFixed(2) || '0.00'}</TableCell>
-                        <TableCell className="text-right font-bold text-green-600">
+                        <TableCell className="text-right font-bold text-success">
                           ${record.commissionAmount?.toFixed(2) || '0.00'}
                         </TableCell>
                         <TableCell>{getStatusBadge(record.status)}</TableCell>
@@ -963,10 +963,10 @@ export default function CommissionManagementDashboard() {
                           {record.status === 'pending' && (
                             <div className="flex gap-1 justify-end">
                               <Button size="sm" variant="ghost" onClick={() => handleApproveCommission(record._id)}>
-                                <CheckCircle className="h-4 w-4 text-green-500" />
+                                <CheckCircle className="h-4 w-4 text-success" />
                               </Button>
                               <Button size="sm" variant="ghost" onClick={() => handleRejectCommission(record._id)}>
-                                <XCircle className="h-4 w-4 text-red-500" />
+                                <XCircle className="h-4 w-4 text-destructive" />
                               </Button>
                             </div>
                           )}
@@ -1176,7 +1176,7 @@ export default function CommissionManagementDashboard() {
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={() => handleDeleteGoal(goal._id)}>
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -1318,10 +1318,10 @@ export default function CommissionManagementDashboard() {
                           {bonus.status === 'pending' && (
                             <div className="flex gap-1 justify-end">
                               <Button size="sm" variant="ghost" onClick={() => handleApproveBonus(bonus._id)}>
-                                <CheckCircle className="h-4 w-4 text-green-500" />
+                                <CheckCircle className="h-4 w-4 text-success" />
                               </Button>
                               <Button size="sm" variant="ghost" onClick={() => handleRejectBonus(bonus._id)}>
-                                <XCircle className="h-4 w-4 text-red-500" />
+                                <XCircle className="h-4 w-4 text-destructive" />
                               </Button>
                             </div>
                           )}

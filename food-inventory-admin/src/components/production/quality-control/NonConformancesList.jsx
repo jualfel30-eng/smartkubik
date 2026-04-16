@@ -57,10 +57,10 @@ export function NonConformancesList() {
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      open: { label: 'Abierta', className: 'bg-red-500' },
-      in_progress: { label: 'En Progreso', className: 'bg-blue-500' },
-      verification: { label: 'Verificación', className: 'bg-yellow-500' },
-      closed: { label: 'Cerrada', className: 'bg-green-500' },
+      open: { label: 'Abierta', className: 'bg-destructive' },
+      in_progress: { label: 'En Progreso', className: 'bg-info' },
+      verification: { label: 'Verificación', className: 'bg-warning' },
+      closed: { label: 'Cerrada', className: 'bg-success' },
       cancelled: { label: 'Cancelada', className: 'bg-gray-500' }
     };
     const config = statusConfig[status] || { label: status, className: 'bg-gray-500' };
@@ -69,9 +69,9 @@ export function NonConformancesList() {
 
   const getSeverityBadge = (severity) => {
     const severityConfig = {
-      minor: { label: 'Menor', className: 'bg-yellow-500' },
-      major: { label: 'Mayor', className: 'bg-orange-500' },
-      critical: { label: 'Crítica', className: 'bg-red-500' }
+      minor: { label: 'Menor', className: 'bg-warning' },
+      major: { label: 'Mayor', className: 'bg-warning' },
+      critical: { label: 'Crítica', className: 'bg-destructive' }
     };
     const config = severityConfig[severity] || { label: severity, className: 'bg-gray-500' };
     return <Badge className={config.className}>{config.label}</Badge>;
@@ -107,7 +107,7 @@ export function NonConformancesList() {
         </CardHeader>
         <CardContent>
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">Error: {error}</div>
+            <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">Error: {error}</div>
           )}
 
           {loading ? (
@@ -166,7 +166,7 @@ export function NonConformancesList() {
                       </TableCell>
                       <TableCell className="text-sm">
                         {nc.dueDate ? (
-                          <div className={new Date(nc.dueDate) < new Date() && nc.status !== 'closed' ? 'text-red-600 font-semibold' : ''}>
+                          <div className={new Date(nc.dueDate) < new Date() && nc.status !== 'closed' ? 'text-destructive font-semibold' : ''}>
                             {formatDate(nc.dueDate)}
                           </div>
                         ) : '-'}

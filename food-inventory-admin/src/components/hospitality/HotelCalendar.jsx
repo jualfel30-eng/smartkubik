@@ -40,7 +40,7 @@ const STATUS_CONFIG = {
   in_progress: { label: 'En progreso', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-700' },
   completed: { label: 'Completada', color: 'bg-success-muted text-green-800 dark:text-green-200 border-success/40' },
   cancelled: { label: 'Cancelada', color: 'bg-destructive/10 text-red-800 dark:text-red-200 border-destructive/40' },
-  no_show: { label: 'No asistió', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700' },
+  no_show: { label: 'No asistió', color: 'bg-warning/10 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700' },
 };
 
 export function HotelCalendar({ resourceId, onCreateAppointment }) {
@@ -774,7 +774,7 @@ const MonthView = ({ currentDate, appointments, handleDayClick }) => {
                             title={isMultiDay ? `Reserva de ${duration} días` : ''}
                           >
                             {isStart && isMultiDay && (
-                              <div className="absolute -top-1 -right-1 bg-orange-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
+                              <div className="absolute -top-1 -right-1 bg-warning text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
                                 {duration}
                               </div>
                             )}

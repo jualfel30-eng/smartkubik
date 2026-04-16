@@ -9,8 +9,8 @@ import { fetchApi } from '@/lib/api';
 import ProductSelector from './ProductSelector';
 
 const TIERS = [
-  { value: 'diamante', label: 'Diamante', icon: Diamond, color: 'bg-blue-500 text-white', description: 'Top 5% - Clientes premium' },
-  { value: 'oro', label: 'Oro', icon: Award, color: 'bg-yellow-500 text-white', description: 'Top 20% - Clientes frecuentes' },
+  { value: 'diamante', label: 'Diamante', icon: Diamond, color: 'bg-info text-white', description: 'Top 5% - Clientes premium' },
+  { value: 'oro', label: 'Oro', icon: Award, color: 'bg-warning text-white', description: 'Top 20% - Clientes frecuentes' },
   { value: 'plata', label: 'Plata', icon: Medal, color: 'bg-gray-400 text-white', description: 'Top 50% - Clientes regulares' },
   { value: 'bronce', label: 'Bronce', icon: Gem, color: 'bg-amber-600 text-white', description: 'Resto - Clientes ocasionales' },
 ];

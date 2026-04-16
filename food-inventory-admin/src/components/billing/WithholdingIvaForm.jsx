@@ -178,7 +178,7 @@ const WithholdingIvaForm = ({ onSuccess, onCancel, invoiceId = null }) => {
               </SelectContent>
             </Select>
             {errors.affectedDocumentId && (
-              <p className="text-sm text-red-500 mt-1">
+              <p className="text-sm text-destructive mt-1">
                 {errors.affectedDocumentId.message}
               </p>
             )}
@@ -263,7 +263,7 @@ const WithholdingIvaForm = ({ onSuccess, onCancel, invoiceId = null }) => {
                 </SelectContent>
               </Select>
               {errors.seriesId && (
-                <p className="text-sm text-red-500 mt-1">
+                <p className="text-sm text-destructive mt-1">
                   {errors.seriesId.message}
                 </p>
               )}
@@ -279,7 +279,7 @@ const WithholdingIvaForm = ({ onSuccess, onCancel, invoiceId = null }) => {
               className={errors.operationDate ? 'border-red-500' : ''}
             />
             {errors.operationDate && (
-              <p className="text-sm text-red-500 mt-1">
+              <p className="text-sm text-destructive mt-1">
                 {errors.operationDate.message}
               </p>
             )}
@@ -326,7 +326,7 @@ const WithholdingIvaForm = ({ onSuccess, onCancel, invoiceId = null }) => {
               </div>
               <div className="border-t pt-3 flex justify-between items-center">
                 <span className="text-lg font-semibold">Monto a Retener:</span>
-                <span className="text-2xl font-bold text-green-600">
+                <span className="text-2xl font-bold text-success">
                   {formatCurrency(calculation.retentionAmount)}
                 </span>
               </div>

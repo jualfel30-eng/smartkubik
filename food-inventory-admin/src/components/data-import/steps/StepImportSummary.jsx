@@ -41,12 +41,12 @@ export default function StepImportSummary({
       <Card className={hasErrors ? 'border-yellow-300' : 'border-green-300'}>
         <CardContent className="p-8 text-center">
           <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
-            hasErrors ? 'bg-yellow-100' : 'bg-green-100'
+            hasErrors ? 'bg-warning/10' : 'bg-success/10'
           }`}>
             {hasErrors ? (
-              <FileWarning className="h-8 w-8 text-yellow-600" />
+              <FileWarning className="h-8 w-8 text-warning" />
             ) : (
-              <CheckCircle2 className="h-8 w-8 text-green-600" />
+              <CheckCircle2 className="h-8 w-8 text-success" />
             )}
           </div>
           <h3 className="text-xl font-semibold mb-2">
@@ -71,8 +71,8 @@ export default function StepImportSummary({
         <Card className="border-green-200">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-1">
-              <PlusCircle className="h-4 w-4 text-green-600" />
-              <p className="text-3xl font-bold text-green-600">
+              <PlusCircle className="h-4 w-4 text-success" />
+              <p className="text-3xl font-bold text-success">
                 {(details?.successfulRows || 0) - (details?.updatedRows || 0)}
               </p>
             </div>
@@ -82,8 +82,8 @@ export default function StepImportSummary({
         <Card className="border-blue-200">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-1">
-              <ArrowUpCircle className="h-4 w-4 text-blue-600" />
-              <p className="text-3xl font-bold text-blue-600">
+              <ArrowUpCircle className="h-4 w-4 text-info" />
+              <p className="text-3xl font-bold text-info">
                 {details?.updatedRows || 0}
               </p>
             </div>
@@ -93,8 +93,8 @@ export default function StepImportSummary({
         <Card className="border-red-200">
           <CardContent className="p-4 text-center">
             <div className="flex items-center justify-center gap-1">
-              <XCircle className="h-4 w-4 text-red-600" />
-              <p className="text-3xl font-bold text-red-600">
+              <XCircle className="h-4 w-4 text-destructive" />
+              <p className="text-3xl font-bold text-destructive">
                 {details?.failedRows || 0}
               </p>
             </div>

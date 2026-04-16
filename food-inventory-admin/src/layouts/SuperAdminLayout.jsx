@@ -69,7 +69,7 @@ function SuperAdminLayout() {
       {/* Mobile Header */}
       <header className="md:hidden bg-card border-b border-border px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <ShieldCheck className="h-7 w-7 text-red-600" />
+          <ShieldCheck className="h-7 w-7 text-destructive" />
           <h1 className="text-xl font-bold text-foreground">Super Admin</h1>
         </div>
         <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(true)}>
@@ -83,7 +83,7 @@ function SuperAdminLayout() {
         <div className="relative z-10 h-full w-72 bg-card p-6 flex flex-col">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-2">
-              <ShieldCheck className="h-8 w-8 text-red-600" />
+              <ShieldCheck className="h-8 w-8 text-destructive" />
               <h1 className="text-2xl font-bold text-foreground">Super Admin</h1>
             </div>
             <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)}>
@@ -111,7 +111,7 @@ function SuperAdminLayout() {
       <div className="flex">
         <aside className="hidden md:flex flex-col w-64 bg-card border-r border-border p-4">
           <div className="flex items-center space-x-2 mb-6 px-2">
-            <ShieldCheck className="h-8 w-8 text-red-600" />
+            <ShieldCheck className="h-8 w-8 text-destructive" />
             <h1 className="text-2xl font-bold text-foreground">Super Admin</h1>
           </div>
           <nav className="flex-1 space-y-2">

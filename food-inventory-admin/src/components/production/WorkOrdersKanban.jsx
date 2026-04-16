@@ -73,7 +73,7 @@ export function WorkOrdersKanban({ operations = [], workCenters = [] }) {
                 {operation.status !== 'pending' && actualTotal > 0 && (
                   <div className="flex justify-between mt-1">
                     <span className="text-muted-foreground">Real:</span>
-                    <span className={`font-medium ${actualTotal > estimatedTotal ? 'text-red-600' : 'text-green-600'}`}>
+                    <span className={`font-medium ${actualTotal > estimatedTotal ? 'text-destructive' : 'text-success'}`}>
                       {formatTime(actualTotal)}
                     </span>
                   </div>
@@ -91,7 +91,7 @@ export function WorkOrdersKanban({ operations = [], workCenters = [] }) {
             {operation.actualLaborCost > 0 && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Costo Real:</span>
-                <span className={`font-medium ${operation.actualLaborCost > operation.estimatedLaborCost ? 'text-red-600' : 'text-green-600'}`}>
+                <span className={`font-medium ${operation.actualLaborCost > operation.estimatedLaborCost ? 'text-destructive' : 'text-success'}`}>
                   ${operation.actualLaborCost.toFixed(2)}
                 </span>
               </div>

@@ -2058,7 +2058,7 @@ function AppointmentsManagement() {
                                 size="sm"
                                 title="Cobrar"
                                 onClick={() => handleOpenPaymentDialog(apt)}
-                                className="text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                                className="text-success hover:text-success hover:bg-success/5 dark:hover:bg-green-950"
                               >
                                 <DollarSign className="h-4 w-4" />
                               </Button>
@@ -2075,7 +2075,7 @@ function AppointmentsManagement() {
                               size="sm"
                               onClick={() => handleDelete(apt._id)}
                             >
-                              <Trash2 className="h-4 w-4 text-red-500" />
+                              <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
                         </TableCell>
@@ -2740,7 +2740,7 @@ function AppointmentsManagement() {
                       type="button"
                       size="sm"
                       onClick={() => handleOpenPaymentDialog(editingAppointment)}
-                      className="bg-green-600 hover:bg-green-700"
+                      className="bg-success hover:bg-green-700"
                     >
                       <Receipt className="h-4 w-4 mr-2" />
                       Procesar cobro

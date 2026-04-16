@@ -79,9 +79,9 @@ export default function ProductCampaignInsights({ campaignId }) {
       <div className="flex items-center justify-center p-12">
         <div className="space-y-3 text-center">
           <div className="flex items-center justify-center space-x-2">
-            <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-            <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse delay-75"></div>
-            <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse delay-150"></div>
+            <div className="w-3 h-3 bg-info rounded-full animate-pulse"></div>
+            <div className="w-3 h-3 bg-info rounded-full animate-pulse delay-75"></div>
+            <div className="w-3 h-3 bg-info rounded-full animate-pulse delay-150"></div>
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Cargando insights de campaña...
@@ -93,7 +93,7 @@ export default function ProductCampaignInsights({ campaignId }) {
 
   if (!campaign) {
     return (
-      <Alert className="border-destructive/30 bg-red-50 dark:bg-red-900/20">
+      <Alert className="border-destructive/30 bg-destructive/5 dark:bg-red-900/20">
         <AlertCircle className="h-4 w-4 text-destructive" />
         <AlertDescription className="text-red-900 dark:text-red-100">
           No se pudo cargar la campaña
@@ -158,9 +158,9 @@ export default function ProductCampaignInsights({ campaignId }) {
         <Badge
           className={
             status === 'running'
-              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
+              ? 'bg-info/10 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
               : status === 'completed'
-              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200'
+              ? 'bg-success/10 text-green-800 dark:bg-green-900/30 dark:text-green-200'
               : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
           }
         >
@@ -245,13 +245,13 @@ export default function ProductCampaignInsights({ campaignId }) {
             <Card className="dark:bg-gray-800 dark:border-gray-700">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                    <MousePointer className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  <div className="p-3 bg-warning/10 dark:bg-orange-900/30 rounded-lg">
+                    <MousePointer className="w-5 h-5 text-warning dark:text-orange-400" />
                   </div>
                   <div>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Clicks</p>
                     <p className="text-2xl font-bold dark:text-gray-100">{totalClicked}</p>
-                    <p className="text-xs text-orange-600 dark:text-orange-400">{clickRate}%</p>
+                    <p className="text-xs text-warning dark:text-orange-400">{clickRate}%</p>
                   </div>
                 </div>
               </CardContent>

@@ -67,7 +67,7 @@ export function QualityControlDashboard() {
         <div className={`text-2xl font-bold ${colorClass}`}>{value}</div>
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
         {trend && (
-          <div className={`flex items-center gap-1 mt-2 text-xs ${trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+          <div className={`flex items-center gap-1 mt-2 text-xs ${trend === 'up' ? 'text-success' : 'text-destructive'}`}>
             {trend === 'up' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
             <span>{trendValue}</span>
           </div>
@@ -94,7 +94,7 @@ export function QualityControlDashboard() {
             value={metrics.activePlans}
             subtitle={`${qcPlans.length} planes totales`}
             icon={FileCheck}
-            colorClass="text-blue-600"
+            colorClass="text-info"
           />
 
           <MetricCard
@@ -110,7 +110,7 @@ export function QualityControlDashboard() {
             value={`${metrics.approvalRate}%`}
             subtitle={`${metrics.passedInspections} aprobadas, ${metrics.failedInspections} rechazadas`}
             icon={metrics.approvalRate >= 90 ? TrendingUp : TrendingDown}
-            colorClass={metrics.approvalRate >= 90 ? 'text-green-600' : 'text-orange-600'}
+            colorClass={metrics.approvalRate >= 90 ? 'text-success' : 'text-warning'}
           />
 
           <MetricCard
@@ -118,19 +118,19 @@ export function QualityControlDashboard() {
             value={metrics.openNCs}
             subtitle={`${metrics.totalNCs} no conformidades totales`}
             icon={AlertTriangle}
-            colorClass={metrics.openNCs > 0 ? 'text-red-600' : 'text-green-600'}
+            colorClass={metrics.openNCs > 0 ? 'text-destructive' : 'text-success'}
           />
         </div>
       </div>
 
       {metrics.criticalNCs > 0 && (
-        <Card className="border-red-300 bg-red-50">
+        <Card className="border-red-300 bg-destructive/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-red-800">
               <AlertTriangle className="h-5 w-5" />
               Atención: No Conformidades Críticas
             </CardTitle>
-            <CardDescription className="text-red-700">
+            <CardDescription className="text-destructive">
               Hay {metrics.criticalNCs} no conformidad(es) crítica(s) que requieren atención inmediata
             </CardDescription>
           </CardHeader>
@@ -157,10 +157,10 @@ export function QualityControlDashboard() {
                     </div>
                     <div className="flex items-center gap-2">
                       {inspection.overallResult === true && (
-                        <Badge className="bg-green-500">Aprobada</Badge>
+                        <Badge className="bg-success">Aprobada</Badge>
                       )}
                       {inspection.overallResult === false && (
-                        <Badge className="bg-red-500">Rechazada</Badge>
+                        <Badge className="bg-destructive">Rechazada</Badge>
                       )}
                       {inspection.overallResult === null && (
                         <Badge variant="outline">Pendiente</Badge>
@@ -180,7 +180,7 @@ export function QualityControlDashboard() {
           <CardContent>
             {nonConformances.filter(nc => nc.status !== 'closed').length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6">
-                <ShieldCheck className="h-12 w-12 text-green-500 mb-2" />
+                <ShieldCheck className="h-12 w-12 text-success mb-2" />
                 <p className="text-sm text-muted-foreground">No hay no conformidades activas</p>
               </div>
             ) : (
@@ -198,13 +198,13 @@ export function QualityControlDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         {nc.severity === 'critical' && (
-                          <Badge className="bg-red-500">Crítica</Badge>
+                          <Badge className="bg-destructive">Crítica</Badge>
                         )}
                         {nc.severity === 'major' && (
-                          <Badge className="bg-orange-500">Mayor</Badge>
+                          <Badge className="bg-warning">Mayor</Badge>
                         )}
                         {nc.severity === 'minor' && (
-                          <Badge className="bg-yellow-500">Menor</Badge>
+                          <Badge className="bg-warning">Menor</Badge>
                         )}
                       </div>
                     </div>
@@ -224,14 +224,14 @@ export function QualityControlDashboard() {
             <div className="flex-1">
               <div className="flex items-center gap-4 mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                  <div className="h-3 w-3 rounded-full bg-success"></div>
                   <span className="text-sm">Aprobadas</span>
                 </div>
                 <span className="text-lg font-bold">{metrics.passedInspections}</span>
               </div>
               <div className="flex items-center gap-4 mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-full bg-red-500"></div>
+                  <div className="h-3 w-3 rounded-full bg-destructive"></div>
                   <span className="text-sm">Rechazadas</span>
                 </div>
                 <span className="text-lg font-bold">{metrics.failedInspections}</span>
@@ -248,7 +248,7 @@ export function QualityControlDashboard() {
             </div>
             <div className="flex-1">
               <div className="text-center">
-                <div className={`text-5xl font-bold ${metrics.approvalRate >= 90 ? 'text-green-600' : metrics.approvalRate >= 70 ? 'text-yellow-600' : 'text-red-600'}`}>
+                <div className={`text-5xl font-bold ${metrics.approvalRate >= 90 ? 'text-success' : metrics.approvalRate >= 70 ? 'text-warning' : 'text-destructive'}`}>
                   {metrics.approvalRate}%
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">Tasa de Aprobación Global</p>

@@ -813,7 +813,7 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated, initialDocument
                                 </span>
                             </div>
                             {totals.igtf > 0 && (
-                                <div className="flex justify-between text-sm text-orange-600">
+                                <div className="flex justify-between text-sm text-warning">
                                     <span className="flex items-center gap-1">
                                         <span>{igtfTax?.type || 'IGTF'} ({igtfTax?.rate || 3}%):</span>
                                         <span className="text-[10px]">De pagos registrados</span>

@@ -132,7 +132,7 @@ const CashFlowStatement = () => {
                                                     </div>
                                                     <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                                                         <div
-                                                            className="h-full bg-green-500 rounded-full"
+                                                            className="h-full bg-success rounded-full"
                                                             style={{ width: `${Math.min(item.percentage, 100)}%` }}
                                                         />
                                                     </div>

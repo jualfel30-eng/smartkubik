@@ -124,9 +124,9 @@ export default function ShiftRosterView() {
     // Status Badge Helper
     const getStatusBadge = (status) => {
         switch (status) {
-            case 'published': return <Badge variant="default" className="bg-green-600 h-1.5 w-1.5 p-0 rounded-full" title="Publicado" />;
+            case 'published': return <Badge variant="default" className="bg-success h-1.5 w-1.5 p-0 rounded-full" title="Publicado" />;
             case 'draft': return <Badge variant="outline" className="bg-gray-400 h-1.5 w-1.5 p-0 rounded-full border-none" title="Borrador" />;
-            case 'in-progress': return <Badge variant="default" className="bg-blue-500 h-1.5 w-1.5 p-0 rounded-full animate-pulse" title="En curso" />;
+            case 'in-progress': return <Badge variant="default" className="bg-info h-1.5 w-1.5 p-0 rounded-full animate-pulse" title="En curso" />;
             default: return null;
         }
     };
@@ -145,7 +145,7 @@ export default function ShiftRosterView() {
                 </div>
 
                 <div className="flex gap-2">
-                    <Button onClick={handlePublishWeek} className="bg-green-600 hover:bg-green-700 text-white">
+                    <Button onClick={handlePublishWeek} className="bg-success hover:bg-green-700 text-white">
                         <Check className="h-4 w-4 mr-2" />
                         Publicar Semana
                     </Button>
@@ -163,7 +163,7 @@ export default function ShiftRosterView() {
                             {weekDates.map((day, i) => (
                                 <th key={i} className={`p-3 border-b border-r bg-gray-50 dark:bg-gray-800 min-w-[120px] text-center ${isSameDay(day, new Date()) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
                                     <div className="text-xs text-gray-500 uppercase">{format(day, 'EEE', { locale: es })}</div>
-                                    <div className={`text-lg font-bold ${isSameDay(day, new Date()) ? 'text-blue-600' : ''}`}>
+                                    <div className={`text-lg font-bold ${isSameDay(day, new Date()) ? 'text-info' : ''}`}>
                                         {format(day, 'd')}
                                     </div>
                                 </th>

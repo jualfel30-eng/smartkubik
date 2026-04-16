@@ -132,7 +132,7 @@ const BalanceSheetView = () => {
               <p>Total Activos: {formatCurrency(reportData.assets.total)}</p>
               <p className={cn(
                 "font-bold", 
-                Math.abs(reportData.verification.difference) > 0.01 ? 'text-destructive' : 'text-green-600'
+                Math.abs(reportData.verification.difference) > 0.01 ? 'text-destructive' : 'text-success'
               )}>
                 Diferencia: {formatCurrency(reportData.verification.difference)}
               </p>

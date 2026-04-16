@@ -138,7 +138,7 @@ const ReservationForm = ({ reservation, initialDate, onClose, isEmbedded = false
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="guestName">
-              Nombre Completo <span className="text-red-500">*</span>
+              Nombre Completo <span className="text-destructive">*</span>
             </Label>
             <Input
               id="guestName"
@@ -152,7 +152,7 @@ const ReservationForm = ({ reservation, initialDate, onClose, isEmbedded = false
 
           <div>
             <Label htmlFor="guestPhone">
-              Teléfono <span className="text-red-500">*</span>
+              Teléfono <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -193,7 +193,7 @@ const ReservationForm = ({ reservation, initialDate, onClose, isEmbedded = false
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="date">
-              Fecha <span className="text-red-500">*</span>
+              Fecha <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -211,7 +211,7 @@ const ReservationForm = ({ reservation, initialDate, onClose, isEmbedded = false
 
           <div>
             <Label htmlFor="time">
-              Hora <span className="text-red-500">*</span>
+              Hora <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
               <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -229,7 +229,7 @@ const ReservationForm = ({ reservation, initialDate, onClose, isEmbedded = false
 
           <div>
             <Label htmlFor="partySize">
-              Personas <span className="text-red-500">*</span>
+              Personas <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
               <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -285,17 +285,17 @@ const ReservationForm = ({ reservation, initialDate, onClose, isEmbedded = false
           </Button>
 
           {availability && (
-            <Alert className={`mt-4 ${availability.available ? 'border-green-300 bg-green-50' : 'border-yellow-300 bg-yellow-50'}`}>
+            <Alert className={`mt-4 ${availability.available ? 'border-green-300 bg-success/5' : 'border-yellow-300 bg-yellow-50'}`}>
               {availability.available ? (
                 <>
-                  <Check className="h-4 w-4 text-green-600" />
+                  <Check className="h-4 w-4 text-success" />
                   <AlertDescription className="text-green-800">
                     <strong>Disponible</strong> - Hay {availability.availableTables} mesa(s) disponible(s) para este horario.
                   </AlertDescription>
                 </>
               ) : (
                 <>
-                  <AlertCircle className="h-4 w-4 text-yellow-600" />
+                  <AlertCircle className="h-4 w-4 text-warning" />
                   <AlertDescription className="text-yellow-800">
                     <div>
                       <strong>No disponible</strong> en este horario.

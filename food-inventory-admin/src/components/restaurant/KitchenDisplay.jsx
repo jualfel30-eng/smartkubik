@@ -265,9 +265,9 @@ export default function KitchenDisplay() {
             <ChefHat className="w-8 h-8 text-orange-400" />
             <h1 className="text-3xl font-bold">Kitchen Display System</h1>
             {orders.filter(o => o.isUrgent).length > 0 && (
-              <div className="flex items-center gap-2 bg-red-500/20 border border-red-500 rounded-lg px-3 py-1 animate-pulse">
-                <AlertTriangle className="w-5 h-5 text-red-500" />
-                <span className="text-red-500 font-bold">
+              <div className="flex items-center gap-2 bg-destructive/20 border border-red-500 rounded-lg px-3 py-1 animate-pulse">
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+                <span className="text-destructive font-bold">
                   {orders.filter(o => o.isUrgent).length} Urgente(s)
                 </span>
               </div>
@@ -371,7 +371,7 @@ export default function KitchenDisplay() {
             <Card className={settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}>
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-green-500">
+                  <p className="text-3xl font-bold text-success">
                     {readyOrders.length}
                   </p>
                   <p className={`text-sm mt-1 ${settings.darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -410,30 +410,30 @@ export default function KitchenDisplay() {
             onClick={() => setFilters({ ...filters, status: 'new' })}
             variant={filters.status === 'new' ? 'default' : 'outline'}
             size="sm"
-            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${filters.status === 'new' ? 'bg-blue-500 hover:bg-blue-600' : ''
+            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${filters.status === 'new' ? 'bg-info hover:bg-blue-600' : ''
               }`}
           >
-            <div className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+            <div className="w-2 h-2 rounded-full bg-info mr-2" />
             Nuevas
           </Button>
           <Button
             onClick={() => setFilters({ ...filters, status: 'preparing' })}
             variant={filters.status === 'preparing' ? 'default' : 'outline'}
             size="sm"
-            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${filters.status === 'preparing' ? 'bg-yellow-500 hover:bg-yellow-600' : ''
+            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${filters.status === 'preparing' ? 'bg-warning hover:bg-yellow-600' : ''
               }`}
           >
-            <div className="w-2 h-2 rounded-full bg-yellow-500 mr-2" />
+            <div className="w-2 h-2 rounded-full bg-warning mr-2" />
             En Preparación
           </Button>
           <Button
             onClick={() => setFilters({ ...filters, status: 'ready' })}
             variant={filters.status === 'ready' ? 'default' : 'outline'}
             size="sm"
-            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${filters.status === 'ready' ? 'bg-green-500 hover:bg-green-600' : ''
+            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${filters.status === 'ready' ? 'bg-success hover:bg-success' : ''
               }`}
           >
-            <div className="w-2 h-2 rounded-full bg-green-500 mr-2" />
+            <div className="w-2 h-2 rounded-full bg-success mr-2" />
             Listas
           </Button>
           <Button
@@ -442,7 +442,7 @@ export default function KitchenDisplay() {
             }
             variant={filters.isUrgent ? 'default' : 'outline'}
             size="sm"
-            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${filters.isUrgent ? 'bg-red-500 hover:bg-red-600 animate-pulse' : ''
+            className={`${settings.darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'} ${filters.isUrgent ? 'bg-destructive hover:bg-destructive animate-pulse' : ''
               }`}
           >
             <AlertTriangle className="w-4 h-4 mr-2" />

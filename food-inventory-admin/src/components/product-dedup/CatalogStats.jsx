@@ -5,7 +5,7 @@ const STAT_CARDS = [
   { key: 'totalProducts', label: 'Productos activos', icon: Package, color: 'text-info' },
   { key: 'withoutPrice', label: 'Sin precio', icon: DollarSign, color: 'text-destructive' },
   { key: 'withoutBarcode', label: 'Sin código de barras', icon: Barcode, color: 'text-amber-600 dark:text-amber-400' },
-  { key: 'withoutCategory', label: 'Sin categoría', icon: Tag, color: 'text-orange-600 dark:text-orange-400' },
+  { key: 'withoutCategory', label: 'Sin categoría', icon: Tag, color: 'text-warning dark:text-orange-400' },
 ];
 
 export default function CatalogStats({ stats, loading }) {

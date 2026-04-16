@@ -15,15 +15,15 @@ const CURRENCY_LABELS = {
 
 // Colores para cada moneda
 const CURRENCY_COLORS = {
-  USD: 'bg-green-50 border-green-200 hover:bg-green-100 dark:bg-green-950/30 dark:border-green-900/50 dark:hover:bg-green-900/40',
-  VES: 'bg-blue-50 border-blue-200 hover:bg-blue-100 dark:bg-blue-950/30 dark:border-blue-900/50 dark:hover:bg-blue-900/40',
+  USD: 'bg-success/5 border-green-200 hover:bg-success/10 dark:bg-green-950/30 dark:border-green-900/50 dark:hover:bg-green-900/40',
+  VES: 'bg-blue-50 border-blue-200 hover:bg-info/10 dark:bg-blue-950/30 dark:border-blue-900/50 dark:hover:bg-blue-900/40',
   EUR: 'bg-purple-50 border-purple-200 hover:bg-purple-100 dark:bg-purple-950/30 dark:border-purple-900/50 dark:hover:bg-purple-900/40',
   USD_BCV: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-900/50 dark:hover:bg-emerald-900/40',
   EUR_BCV: 'bg-violet-50 border-violet-200 hover:bg-violet-100 dark:bg-violet-950/30 dark:border-violet-900/50 dark:hover:bg-violet-900/40',
 };
 
 const CURRENCY_TEXT_COLORS = {
-  USD: 'text-green-700 dark:text-green-400',
+  USD: 'text-success dark:text-green-400',
   VES: 'text-blue-700 dark:text-blue-400',
   EUR: 'text-purple-700 dark:text-purple-400',
   USD_BCV: 'text-emerald-700 dark:text-emerald-400',
@@ -83,8 +83,8 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter }) {
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 dark:bg-red-950/20 dark:border-red-900/50">
-        <p className="text-red-600 text-sm dark:text-red-400">Error al cargar resumen: {error}</p>
+      <div className="bg-destructive/5 border border-red-200 rounded-lg p-4 mb-6 dark:bg-red-950/20 dark:border-red-900/50">
+        <p className="text-destructive text-sm dark:text-red-400">Error al cargar resumen: {error}</p>
       </div>
     );
   }
@@ -160,8 +160,8 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter }) {
           className={cn(
             'cursor-pointer transition-all duration-200 border-2',
             activeFilter?.aging === 'current'
-              ? 'bg-green-100 border-green-400 ring-2 ring-green-400 dark:bg-green-950/30 dark:border-green-900/50 dark:ring-green-800'
-              : 'bg-white border-gray-200 hover:bg-green-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-green-900/20'
+              ? 'bg-success/10 border-green-400 ring-2 ring-green-400 dark:bg-green-950/30 dark:border-green-900/50 dark:ring-green-800'
+              : 'bg-white border-gray-200 hover:bg-success/5 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-green-900/20'
           )}
           onClick={() => onFilterChange({ aging: 'current' })}
         >
@@ -170,7 +170,7 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter }) {
               <Clock className="h-4 w-4 text-success" />
               <span className="text-sm font-medium text-success">Al día</span>
             </div>
-            <p className="text-xl font-bold text-green-700 dark:text-green-300">
+            <p className="text-xl font-bold text-success dark:text-success">
               {formatCurrency(summary.aging.current.amount)}
             </p>
             <p className="text-xs text-gray-500 mt-1 dark:text-slate-500">
@@ -184,7 +184,7 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter }) {
           className={cn(
             'cursor-pointer transition-all duration-200 border-2',
             activeFilter?.aging === 'days30'
-              ? 'bg-yellow-100 border-yellow-400 ring-2 ring-yellow-400 dark:bg-yellow-950/30 dark:border-yellow-900/50 dark:ring-yellow-800'
+              ? 'bg-warning/10 border-yellow-400 ring-2 ring-yellow-400 dark:bg-yellow-950/30 dark:border-yellow-900/50 dark:ring-yellow-800'
               : 'bg-white border-gray-200 hover:bg-yellow-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-yellow-900/20'
           )}
           onClick={() => onFilterChange({ aging: 'days30' })}
@@ -208,15 +208,15 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter }) {
           className={cn(
             'cursor-pointer transition-all duration-200 border-2',
             activeFilter?.aging === 'days60'
-              ? 'bg-orange-100 border-orange-400 ring-2 ring-orange-400 dark:bg-orange-950/30 dark:border-orange-900/50 dark:ring-orange-800'
+              ? 'bg-warning/10 border-orange-400 ring-2 ring-orange-400 dark:bg-orange-950/30 dark:border-orange-900/50 dark:ring-orange-800'
               : 'bg-white border-gray-200 hover:bg-orange-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-orange-900/20'
           )}
           onClick={() => onFilterChange({ aging: 'days60' })}
         >
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-              <span className="text-sm font-medium text-orange-600 dark:text-orange-400">31-60 días</span>
+              <AlertTriangle className="h-4 w-4 text-warning dark:text-orange-400" />
+              <span className="text-sm font-medium text-warning dark:text-orange-400">31-60 días</span>
             </div>
             <p className="text-xl font-bold text-orange-700 dark:text-orange-300">
               {formatCurrency(summary.aging.days60.amount)}
@@ -232,8 +232,8 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter }) {
           className={cn(
             'cursor-pointer transition-all duration-200 border-2',
             activeFilter?.aging === 'days90plus'
-              ? 'bg-red-100 border-red-400 ring-2 ring-red-400 dark:bg-red-950/30 dark:border-red-900/50 dark:ring-red-800'
-              : 'bg-white border-gray-200 hover:bg-red-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-red-900/20'
+              ? 'bg-destructive/10 border-red-400 ring-2 ring-red-400 dark:bg-red-950/30 dark:border-red-900/50 dark:ring-red-800'
+              : 'bg-white border-gray-200 hover:bg-destructive/5 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-red-900/20'
           )}
           onClick={() => onFilterChange({ aging: 'days90plus' })}
         >
@@ -242,7 +242,7 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter }) {
               <AlertTriangle className="h-4 w-4 text-destructive" />
               <span className="text-sm font-medium text-destructive">+90 días</span>
             </div>
-            <p className="text-xl font-bold text-red-700 dark:text-red-300">
+            <p className="text-xl font-bold text-destructive dark:text-destructive">
               {formatCurrency(summary.aging.days90plus.amount)}
             </p>
             <p className="text-xs text-gray-500 mt-1 dark:text-slate-500">
@@ -255,21 +255,21 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter }) {
       {/* Alerta de vencidas si hay */}
       {overdueCount > 0 && (
         <div
-          className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-red-100 transition-colors dark:bg-red-950/20 dark:border-red-900/50 dark:hover:bg-red-900/40"
+          className="bg-destructive/5 border border-red-200 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-destructive/10 transition-colors dark:bg-red-950/20 dark:border-red-900/50 dark:hover:bg-red-900/40"
           onClick={() => onFilterChange({ overdue: true })}
         >
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 text-destructive" />
             <div>
-              <p className="font-medium text-red-700 dark:text-red-400">
+              <p className="font-medium text-destructive dark:text-red-400">
                 {overdueCount} {overdueCount === 1 ? 'factura vencida' : 'facturas vencidas'}
               </p>
-              <p className="text-sm text-red-600 dark:text-red-300">
+              <p className="text-sm text-destructive dark:text-destructive">
                 Total vencido: {formatCurrency(overdueTotal)}
               </p>
             </div>
           </div>
-          <span className="text-red-600 text-sm font-medium dark:text-red-400">Ver todas →</span>
+          <span className="text-destructive text-sm font-medium dark:text-red-400">Ver todas →</span>
         </div>
       )}
     </div>

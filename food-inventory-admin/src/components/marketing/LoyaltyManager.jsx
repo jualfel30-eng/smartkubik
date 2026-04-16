@@ -233,9 +233,9 @@ const LoyaltyManager = () => {
   const getTransactionIcon = (type) => {
     switch (type) {
       case 'earn':
-        return <TrendingUp className="w-4 h-4 text-green-500" />;
+        return <TrendingUp className="w-4 h-4 text-success" />;
       case 'redeem':
-        return <TrendingDown className="w-4 h-4 text-red-500" />;
+        return <TrendingDown className="w-4 h-4 text-destructive" />;
       case 'adjust':
         return <Edit className="w-4 h-4 text-blue-500" />;
       case 'expire':
@@ -291,11 +291,11 @@ const LoyaltyManager = () => {
                   </div>
                   {customerBalance.expiringPoints > 0 && (
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-orange-600 flex items-center gap-1">
+                      <span className="text-warning flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         Puntos por expirar
                       </span>
-                      <span className="font-semibold text-orange-600">{customerBalance.expiringPoints} pts</span>
+                      <span className="font-semibold text-warning">{customerBalance.expiringPoints} pts</span>
                     </div>
                   )}
                   {customerBalance.expirationDate && (
@@ -532,7 +532,7 @@ const LoyaltyManager = () => {
                       {transaction.description || '-'}
                     </TableCell>
                     <TableCell className={`text-right font-semibold ${
-                      transaction.points > 0 ? 'text-green-600' : 'text-red-600'
+                      transaction.points > 0 ? 'text-success' : 'text-destructive'
                     }`}>
                       {transaction.points > 0 ? '+' : ''}{transaction.points}
                     </TableCell>

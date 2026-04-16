@@ -101,14 +101,14 @@ export default function StepExecuteImport({
                   </p>
                   <p className="text-xs text-muted-foreground">Procesados</p>
                 </div>
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600">
+                <div className="text-center p-3 bg-success/5 rounded-lg">
+                  <p className="text-2xl font-bold text-success">
                     {progress?.successfulRows || (syncResult?.created || 0) + (syncResult?.updated || 0)}
                   </p>
                   <p className="text-xs text-muted-foreground">Exitosos</p>
                 </div>
-                <div className="text-center p-3 bg-red-50 rounded-lg">
-                  <p className="text-2xl font-bold text-red-600">
+                <div className="text-center p-3 bg-destructive/5 rounded-lg">
+                  <p className="text-2xl font-bold text-destructive">
                     {progress?.failedRows || syncResult?.failed || 0}
                   </p>
                   <p className="text-xs text-muted-foreground">Fallidos</p>
@@ -133,13 +133,13 @@ export default function StepExecuteImport({
                 </div>
               )}
               {isDone && (
-                <div className="flex items-center justify-center gap-2 text-green-600">
+                <div className="flex items-center justify-center gap-2 text-success">
                   <CheckCircle2 className="h-5 w-5" />
                   <span className="font-medium">Importación completada</span>
                 </div>
               )}
               {wsError && (
-                <div className="flex items-center justify-center gap-2 text-red-600">
+                <div className="flex items-center justify-center gap-2 text-destructive">
                   <XCircle className="h-5 w-5" />
                   <span className="font-medium">{wsError}</span>
                 </div>

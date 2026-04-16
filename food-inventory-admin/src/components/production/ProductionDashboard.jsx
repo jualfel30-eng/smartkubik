@@ -143,10 +143,10 @@ export function ProductionDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Órdenes Completadas</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <CheckCircle2 className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{kpis.completedOrders}</div>
+            <div className="text-2xl font-bold text-success">{kpis.completedOrders}</div>
             <p className="text-xs text-muted-foreground mt-1">
               {kpis.efficiency}% a tiempo
             </p>
@@ -154,13 +154,13 @@ export function ProductionDashboard() {
         </Card>
 
         {/* Overdue Orders */}
-        <Card className={kpis.overdueOrders > 0 ? 'border-red-300 bg-red-50' : ''}>
+        <Card className={kpis.overdueOrders > 0 ? 'border-red-300 bg-destructive/5' : ''}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Órdenes Atrasadas</CardTitle>
-            <AlertTriangle className={`h-4 w-4 ${kpis.overdueOrders > 0 ? 'text-red-600' : 'text-muted-foreground'}`} />
+            <AlertTriangle className={`h-4 w-4 ${kpis.overdueOrders > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${kpis.overdueOrders > 0 ? 'text-red-600' : ''}`}>
+            <div className={`text-2xl font-bold ${kpis.overdueOrders > 0 ? 'text-destructive' : ''}`}>
               {kpis.overdueOrders}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -170,17 +170,17 @@ export function ProductionDashboard() {
         </Card>
 
         {/* Cost Variance */}
-        <Card className={kpis.costVariance > 0 ? 'border-orange-300 bg-orange-50' : 'border-green-300 bg-green-50'}>
+        <Card className={kpis.costVariance > 0 ? 'border-orange-300 bg-orange-50' : 'border-green-300 bg-success/5'}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Varianza de Costos</CardTitle>
             {kpis.costVariance > 0 ? (
-              <TrendingUp className="h-4 w-4 text-orange-600" />
+              <TrendingUp className="h-4 w-4 text-warning" />
             ) : (
-              <TrendingDown className="h-4 w-4 text-green-600" />
+              <TrendingDown className="h-4 w-4 text-success" />
             )}
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${kpis.costVariance > 0 ? 'text-orange-700' : 'text-green-600'}`}>
+            <div className={`text-2xl font-bold ${kpis.costVariance > 0 ? 'text-orange-700' : 'text-success'}`}>
               {kpis.costVariancePercentage}%
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -211,7 +211,7 @@ export function ProductionDashboard() {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-blue-500" />
+                <div className="w-3 h-3 rounded-full bg-info" />
                 <span className="text-sm font-medium">Confirmado</span>
               </div>
               <div className="flex items-center gap-2">
@@ -221,7 +221,7 @@ export function ProductionDashboard() {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                <div className="w-3 h-3 rounded-full bg-warning" />
                 <span className="text-sm font-medium">En Proceso</span>
               </div>
               <div className="flex items-center gap-2">
@@ -231,7 +231,7 @@ export function ProductionDashboard() {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500" />
+                <div className="w-3 h-3 rounded-full bg-success" />
                 <span className="text-sm font-medium">Completado</span>
               </div>
               <div className="flex items-center gap-2">
@@ -241,7 +241,7 @@ export function ProductionDashboard() {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500" />
+                <div className="w-3 h-3 rounded-full bg-destructive" />
                 <span className="text-sm font-medium">Cancelado</span>
               </div>
               <div className="flex items-center gap-2">
@@ -266,7 +266,7 @@ export function ProductionDashboard() {
               </div>
               <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue-500"
+                  className="h-full bg-info"
                   style={{ width: '100%' }}
                 />
               </div>
@@ -278,7 +278,7 @@ export function ProductionDashboard() {
               </div>
               <div className="w-full bg-secondary h-2 rounded-full overflow-hidden">
                 <div
-                  className={`h-full ${kpis.costVariance > 0 ? 'bg-orange-500' : 'bg-green-500'}`}
+                  className={`h-full ${kpis.costVariance > 0 ? 'bg-warning' : 'bg-success'}`}
                   style={{
                     width: `${Math.min(100, (kpis.totalActualCost / kpis.totalPlannedCost) * 100)}%`
                   }}
@@ -288,7 +288,7 @@ export function ProductionDashboard() {
             <div className="pt-2 border-t">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Varianza Total:</span>
-                <span className={`text-lg font-bold ${kpis.costVariance > 0 ? 'text-orange-700' : 'text-green-600'}`}>
+                <span className={`text-lg font-bold ${kpis.costVariance > 0 ? 'text-orange-700' : 'text-success'}`}>
                   {formatCurrency(Math.abs(kpis.costVariance))}
                 </span>
               </div>
@@ -309,12 +309,12 @@ export function ProductionDashboard() {
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-green-600">{kpis.efficiency}%</div>
+                <div className="text-3xl font-bold text-success">{kpis.efficiency}%</div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {kpis.onTimeOrders} de {kpis.completedOrders} a tiempo
                 </p>
               </div>
-              <Clock className="h-8 w-8 text-green-600 opacity-50" />
+              <Clock className="h-8 w-8 text-success opacity-50" />
             </div>
           </CardContent>
         </Card>
@@ -326,14 +326,14 @@ export function ProductionDashboard() {
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-3xl font-bold text-blue-600">
+                <div className="text-3xl font-bold text-info">
                   {kpis.confirmedOrders + kpis.inProgressOrders}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   En proceso de producción
                 </p>
               </div>
-              <Factory className="h-8 w-8 text-blue-600 opacity-50" />
+              <Factory className="h-8 w-8 text-info opacity-50" />
             </div>
           </CardContent>
         </Card>

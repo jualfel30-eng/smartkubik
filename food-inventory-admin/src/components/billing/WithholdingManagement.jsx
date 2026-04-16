@@ -283,7 +283,7 @@ const WithholdingManagement = () => {
         IVA
       </Badge>
     ) : (
-      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+      <Badge variant="outline" className="bg-success/5 text-success border-green-200">
         ISLR
       </Badge>
     );
@@ -365,10 +365,10 @@ const WithholdingManagement = () => {
             <CardTitle className="text-sm font-medium">
               Total IVA Retenido
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-blue-600" />
+            <DollarSign className="h-4 w-4 text-info" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">
+            <div className="text-2xl font-bold text-info">
               {formatCurrency(stats.totalIva)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -382,10 +382,10 @@ const WithholdingManagement = () => {
             <CardTitle className="text-sm font-medium">
               Total ISLR Retenido
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
+            <DollarSign className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-success">
               {formatCurrency(stats.totalIslr)}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -416,7 +416,7 @@ const WithholdingManagement = () => {
             <CardTitle className="text-sm font-medium">
               Emitidas
             </CardTitle>
-            <FileCheck className="h-4 w-4 text-green-600" />
+            <FileCheck className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
@@ -582,7 +582,7 @@ const WithholdingManagement = () => {
                           </TableCell>
                           <TableCell>
                             {retention.controlNumber ? (
-                              <span className="font-mono text-sm font-medium text-green-700">
+                              <span className="font-mono text-sm font-medium text-success">
                                 {retention.controlNumber}
                               </span>
                             ) : (
@@ -816,7 +816,7 @@ const WithholdingManagement = () => {
                     <p><strong>Base Imponible:</strong> {formatCurrency(selectedRetention.ivaRetention.baseAmount)}</p>
                     <p><strong>IVA ({selectedRetention.ivaRetention.taxRate}%):</strong> {formatCurrency(selectedRetention.ivaRetention.taxAmount)}</p>
                     <p><strong>Porcentaje Retención:</strong> {selectedRetention.ivaRetention.retentionPercentage}%</p>
-                    <p className="text-lg font-bold text-green-700">
+                    <p className="text-lg font-bold text-success">
                       <strong>Monto Retenido:</strong> {formatCurrency(selectedRetention.ivaRetention.retentionAmount)}
                     </p>
                   </div>
@@ -828,7 +828,7 @@ const WithholdingManagement = () => {
                     {selectedRetention.islrRetention.sustraendo > 0 && (
                       <p><strong>Sustraendo:</strong> {formatCurrency(selectedRetention.islrRetention.sustraendo)}</p>
                     )}
-                    <p className="text-lg font-bold text-green-700">
+                    <p className="text-lg font-bold text-success">
                       <strong>Monto Retenido:</strong> {formatCurrency(selectedRetention.islrRetention.retentionAmount)}
                     </p>
                   </div>
@@ -843,7 +843,7 @@ const WithholdingManagement = () => {
               )}
 
               {selectedRetention.status === 'cancelled' && selectedRetention.metadata?.cancellationReason && (
-                <div className="border-t pt-4 bg-red-50 p-4 rounded-md">
+                <div className="border-t pt-4 bg-destructive/5 p-4 rounded-md">
                   <h4 className="font-semibold mb-2 text-red-900">Razón de Anulación</h4>
                   <p className="text-sm text-red-800">{selectedRetention.metadata.cancellationReason}</p>
                 </div>

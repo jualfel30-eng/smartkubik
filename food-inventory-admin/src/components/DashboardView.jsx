@@ -58,12 +58,12 @@ import { DataHighlight } from '@/components/ui/data-highlight';
 
 const statusMap = {
   draft: { label: 'Borrador', colorClassName: 'bg-gray-200 text-gray-800' },
-  pending: { label: 'Pendiente', colorClassName: 'bg-yellow-100 text-yellow-800' },
-  confirmed: { label: 'Confirmado', colorClassName: 'bg-blue-100 text-blue-800' },
+  pending: { label: 'Pendiente', colorClassName: 'bg-warning/10 text-yellow-800' },
+  confirmed: { label: 'Confirmado', colorClassName: 'bg-info/10 text-blue-800' },
   processing: { label: 'Procesando', colorClassName: 'bg-purple-100 text-purple-800' },
   shipped: { label: 'Enviado', colorClassName: 'bg-indigo-100 text-indigo-800' },
-  delivered: { label: 'Entregado', colorClassName: 'bg-green-100 text-green-800' },
-  cancelled: { label: 'Cancelado', colorClassName: 'bg-red-100 text-red-800' },
+  delivered: { label: 'Entregado', colorClassName: 'bg-success/10 text-green-800' },
+  cancelled: { label: 'Cancelado', colorClassName: 'bg-destructive/10 text-red-800' },
   refunded: { label: 'Reembolsado', colorClassName: 'bg-pink-100 text-pink-800' },
 };
 

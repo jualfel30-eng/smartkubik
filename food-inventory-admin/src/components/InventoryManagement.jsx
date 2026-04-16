@@ -291,7 +291,7 @@ function InventoryManagement() {
     return <div>Cargando inventario...</div>;
   }
   if (inv.error && inv.inventoryData.length === 0) {
-    return <div className="text-red-600">Error: {inv.error}</div>;
+    return <div className="text-destructive">Error: {inv.error}</div>;
   }
 
   return (

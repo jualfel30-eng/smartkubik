@@ -246,7 +246,7 @@ export function LocationPicker({ value, onChange, label = 'Ubicación' }) {
     onChange(null);
   };
 
-  if (loadError) return <div className="p-4 bg-red-50 text-red-600 rounded">Error loading Google Maps</div>;
+  if (loadError) return <div className="p-4 bg-destructive/5 text-destructive rounded">Error loading Google Maps</div>;
   if (!isLoaded) return <div className="p-4 bg-slate-50 animate-pulse text-slate-400 rounded">Cargando mapa...</div>;
 
   return (
@@ -286,7 +286,7 @@ export function LocationPicker({ value, onChange, label = 'Ubicación' }) {
           </Button>
           {marker && (
             <Button type="button" variant="ghost" onClick={handleClear} title="Limpiar">
-              <X className="h-4 w-4 text-red-500" />
+              <X className="h-4 w-4 text-destructive" />
             </Button>
           )}
         </div>

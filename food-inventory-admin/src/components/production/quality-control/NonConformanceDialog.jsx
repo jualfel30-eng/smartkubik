@@ -74,10 +74,10 @@ export function NonConformanceDialog({ nonConformance, open, onClose, onSave, vi
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      open: { label: 'Abierta', className: 'bg-red-500' },
-      in_progress: { label: 'En Progreso', className: 'bg-blue-500' },
-      verification: { label: 'Verificación', className: 'bg-yellow-500' },
-      closed: { label: 'Cerrada', className: 'bg-green-500' },
+      open: { label: 'Abierta', className: 'bg-destructive' },
+      in_progress: { label: 'En Progreso', className: 'bg-info' },
+      verification: { label: 'Verificación', className: 'bg-warning' },
+      closed: { label: 'Cerrada', className: 'bg-success' },
       cancelled: { label: 'Cancelada', className: 'bg-gray-500' }
     };
     const config = statusConfig[status] || { label: status, className: 'bg-gray-500' };

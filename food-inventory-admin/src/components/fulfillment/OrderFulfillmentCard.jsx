@@ -42,11 +42,11 @@ export const OrderFulfillmentCard = ({ order, onStatusUpdate }) => {
     };
 
     const statusColors = {
-        'pending': 'bg-yellow-100 text-yellow-800',
-        'picking': 'bg-blue-100 text-blue-800',
+        'pending': 'bg-warning/10 text-yellow-800',
+        'picking': 'bg-info/10 text-blue-800',
         'packed': 'bg-purple-100 text-purple-800',
-        'in_transit': 'bg-orange-100 text-orange-800',
-        'delivered': 'bg-green-100 text-green-800'
+        'in_transit': 'bg-warning/10 text-orange-800',
+        'delivered': 'bg-success/10 text-green-800'
     };
 
     const handleAdvance = () => {

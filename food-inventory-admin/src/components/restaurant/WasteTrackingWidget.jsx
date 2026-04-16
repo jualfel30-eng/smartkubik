@@ -42,10 +42,10 @@ import {
 
 const WASTE_REASONS = [
   { value: 'spoilage', label: 'Deterioro/Caducidad', icon: '🦠', color: 'bg-purple-100 text-purple-800' },
-  { value: 'overproduction', label: 'Sobreproducción', icon: '📦', color: 'bg-blue-100 text-blue-800' },
-  { value: 'preparation-error', label: 'Error de Preparación', icon: '👨‍🍳', color: 'bg-orange-100 text-orange-800' },
-  { value: 'customer-return', label: 'Devolución Cliente', icon: '↩️', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'accident', label: 'Accidente/Derrame', icon: '💥', color: 'bg-red-100 text-red-800' },
+  { value: 'overproduction', label: 'Sobreproducción', icon: '📦', color: 'bg-info/10 text-blue-800' },
+  { value: 'preparation-error', label: 'Error de Preparación', icon: '👨‍🍳', color: 'bg-warning/10 text-orange-800' },
+  { value: 'customer-return', label: 'Devolución Cliente', icon: '↩️', color: 'bg-warning/10 text-yellow-800' },
+  { value: 'accident', label: 'Accidente/Derrame', icon: '💥', color: 'bg-destructive/10 text-red-800' },
   { value: 'quality-issue', label: 'Problema de Calidad', icon: '⚠️', color: 'bg-pink-100 text-pink-800' },
   { value: 'expired', label: 'Expirado', icon: '⏰', color: 'bg-gray-100 text-gray-800' },
   { value: 'broken-damaged', label: 'Roto/Dañado', icon: '🔨', color: 'bg-indigo-100 text-indigo-800' },
@@ -325,7 +325,7 @@ const WasteTrackingWidget = () => {
                   <p className="text-sm text-gray-500">Total Desperdiciado</p>
                   <p className="text-2xl font-bold">{formatCurrency(analytics.summary?.totalCost || 0)}</p>
                 </div>
-                <DollarSign className="h-8 w-8 text-red-500" />
+                <DollarSign className="h-8 w-8 text-destructive" />
               </div>
             </CardContent>
           </Card>
@@ -365,7 +365,7 @@ const WasteTrackingWidget = () => {
                     {formatCurrency(analytics.summary?.preventableWaste?.cost || 0)}
                   </p>
                 </div>
-                <TrendingDown className="h-8 w-8 text-green-500" />
+                <TrendingDown className="h-8 w-8 text-success" />
               </div>
             </CardContent>
           </Card>
@@ -546,7 +546,7 @@ const WasteTrackingWidget = () => {
                                   size="sm"
                                   onClick={() => handleDeleteEntry(entry._id)}
                                 >
-                                  <X className="h-4 w-4 text-red-500" />
+                                  <X className="h-4 w-4 text-destructive" />
                                 </Button>
                               </div>
                             </TableCell>
@@ -587,7 +587,7 @@ const WasteTrackingWidget = () => {
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Costo:</span>
-                                  <span className="font-medium text-red-600">{formatCurrency(item.cost)}</span>
+                                  <span className="font-medium text-destructive">{formatCurrency(item.cost)}</span>
                                 </div>
                               </div>
                             </CardContent>
@@ -623,7 +623,7 @@ const WasteTrackingWidget = () => {
                                 {getReasonConfig(product.mainReason).label}
                               </Badge>
                             </TableCell>
-                            <TableCell className="font-medium text-red-600">
+                            <TableCell className="font-medium text-destructive">
                               {formatCurrency(product.cost)}
                             </TableCell>
                           </TableRow>
@@ -678,11 +678,11 @@ const WasteTrackingWidget = () => {
                             <span className="text-sm font-medium">Cambio:</span>
                             <div className="flex items-center gap-2">
                               {trends.weeklyComparison?.change > 0 ? (
-                                <TrendingUp className="h-4 w-4 text-red-500" />
+                                <TrendingUp className="h-4 w-4 text-destructive" />
                               ) : (
-                                <TrendingDown className="h-4 w-4 text-green-500" />
+                                <TrendingDown className="h-4 w-4 text-success" />
                               )}
-                              <span className={`font-bold ${trends.weeklyComparison?.change > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              <span className={`font-bold ${trends.weeklyComparison?.change > 0 ? 'text-destructive' : 'text-success'}`}>
                                 {Math.abs(trends.weeklyComparison?.change || 0).toFixed(1)}%
                               </span>
                             </div>
@@ -709,11 +709,11 @@ const WasteTrackingWidget = () => {
                             <span className="text-sm font-medium">Cambio:</span>
                             <div className="flex items-center gap-2">
                               {trends.monthlyComparison?.change > 0 ? (
-                                <TrendingUp className="h-4 w-4 text-red-500" />
+                                <TrendingUp className="h-4 w-4 text-destructive" />
                               ) : (
-                                <TrendingDown className="h-4 w-4 text-green-500" />
+                                <TrendingDown className="h-4 w-4 text-success" />
                               )}
-                              <span className={`font-bold ${trends.monthlyComparison?.change > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              <span className={`font-bold ${trends.monthlyComparison?.change > 0 ? 'text-destructive' : 'text-success'}`}>
                                 {Math.abs(trends.monthlyComparison?.change || 0).toFixed(1)}%
                               </span>
                             </div>

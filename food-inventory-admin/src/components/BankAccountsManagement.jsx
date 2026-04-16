@@ -701,7 +701,7 @@ export default function BankAccountsManagement() {
                       onClick={() => handleDelete(account._id)}
                       title="Eliminar cuenta"
                     >
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -836,7 +836,7 @@ export default function BankAccountsManagement() {
                         <Badge variant="outline">{movement.channel}</Badge>
                       </TableCell>
                       <TableCell>{movement.reference || '-'}</TableCell>
-                      <TableCell className={`text-right font-semibold ${movement.type === 'debit' ? 'text-red-600' : 'text-green-600'}`}>
+                      <TableCell className={`text-right font-semibold ${movement.type === 'debit' ? 'text-destructive' : 'text-success'}`}>
                         {new Intl.NumberFormat('es-VE', {
                           style: 'currency',
                           currency: selectedAccountForMovements?.currency || 'VES',
@@ -919,13 +919,13 @@ export default function BankAccountsManagement() {
                 <SelectContent>
                   <SelectItem value="increase">
                     <div className="flex items-center">
-                      <TrendingUp className="mr-2 h-4 w-4 text-green-500" />
+                      <TrendingUp className="mr-2 h-4 w-4 text-success" />
                       Aumentar
                     </div>
                   </SelectItem>
                   <SelectItem value="decrease">
                     <div className="flex items-center">
-                      <TrendingDown className="mr-2 h-4 w-4 text-red-500" />
+                      <TrendingDown className="mr-2 h-4 w-4 text-destructive" />
                       Disminuir
                     </div>
                   </SelectItem>
@@ -971,7 +971,7 @@ export default function BankAccountsManagement() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>Ajuste:</span>
-                  <span className={adjustmentData.type === 'increase' ? 'text-green-600' : 'text-red-600'}>
+                  <span className={adjustmentData.type === 'increase' ? 'text-success' : 'text-destructive'}>
                     {adjustmentData.type === 'increase' ? '+' : '-'}
                     {new Intl.NumberFormat('es-VE', {
                       style: 'currency',

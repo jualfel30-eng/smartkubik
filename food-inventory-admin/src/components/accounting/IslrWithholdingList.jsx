@@ -459,7 +459,7 @@ const IslrWithholdingList = ({ suppliers }) => {
                             size="icon"
                             onClick={() => handlePost(w._id)}
                             title="Contabilizar"
-                            className="text-green-600 hover:text-green-700"
+                            className="text-success hover:text-success"
                           >
                             <CheckCircle className="h-4 w-4" />
                           </Button>

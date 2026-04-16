@@ -390,7 +390,7 @@ export function OrdersHistoryV2() {
                     const balance = (row.original.paymentStatus === 'paid' && rawBalance < 0) ? 0 : rawBalance;
 
                     const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(balance);
-                    return <div className={`text-right font-medium ${balance > 0 ? 'text-red-500' : 'text-green-500'}`}>{formatted}</div>;
+                    return <div className={`text-right font-medium ${balance > 0 ? 'text-destructive' : 'text-success'}`}>{formatted}</div>;
                 }
             },
             {
@@ -577,7 +577,7 @@ export function OrdersHistoryV2() {
                         </div>
                     )}
                     {loading && <p>Cargando órdenes...</p>}
-                    {error && <p className="text-red-500">Error al cargar las órdenes: {error}</p>}
+                    {error && <p className="text-destructive">Error al cargar las órdenes: {error}</p>}
                     {!loading && !error && (
                         <OrdersDataTableV2
                             columns={columns}

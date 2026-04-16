@@ -68,7 +68,7 @@ export function InventoryLotsDialog({
                     } else if (daysUntilExpiry <= 7) {
                       statusBadge = <Badge variant="destructive">Vence en {daysUntilExpiry}d</Badge>;
                     } else if (daysUntilExpiry <= 30) {
-                      statusBadge = <Badge className="bg-yellow-500 hover:bg-yellow-600">Vence en {daysUntilExpiry}d</Badge>;
+                      statusBadge = <Badge className="bg-warning hover:bg-yellow-600">Vence en {daysUntilExpiry}d</Badge>;
                     } else {
                       statusBadge = <Badge variant="outline">OK</Badge>;
                     }

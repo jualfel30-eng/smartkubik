@@ -48,10 +48,10 @@ function computeHealthScore(tenant) {
 }
 
 function HealthBadge({ score }) {
-  let color = 'bg-red-100 text-red-700';
-  if (score >= 60) color = 'bg-green-100 text-green-700';
-  else if (score >= 35) color = 'bg-yellow-100 text-yellow-700';
-  else if (score >= 15) color = 'bg-orange-100 text-orange-700';
+  let color = 'bg-destructive/10 text-destructive';
+  if (score >= 60) color = 'bg-success/10 text-success';
+  else if (score >= 35) color = 'bg-warning/10 text-yellow-700';
+  else if (score >= 15) color = 'bg-warning/10 text-orange-700';
 
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${color}`}>
@@ -269,7 +269,7 @@ export default function SuperAdminDashboard() {
   const totalPages = Math.ceil(pagination.total / pagination.limit);
 
   if (error) {
-    return <div className="text-red-500">Error: {error}</div>;
+    return <div className="text-destructive">Error: {error}</div>;
   }
 
   return (

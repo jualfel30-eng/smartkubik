@@ -331,7 +331,7 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
       <div className="grid grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-green-600 flex items-center gap-2">
+            <CardTitle className="text-sm text-success flex items-center gap-2">
               <MapPin className="h-4 w-4" /> Origen
             </CardTitle>
           </CardHeader>
@@ -345,7 +345,7 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm text-blue-600 flex items-center gap-2">
+            <CardTitle className="text-sm text-info flex items-center gap-2">
               <MapPin className="h-4 w-4" /> Destino
             </CardTitle>
           </CardHeader>
@@ -395,7 +395,7 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
                   <TableCell className="text-right">{item.approvedQuantity ?? '-'}</TableCell>
                   <TableCell className="text-right">
                     {item.receivedQuantity != null ? (
-                      <span className={item.receivedQuantity < item.quantity ? 'text-orange-500' : 'text-green-600'}>
+                      <span className={item.receivedQuantity < item.quantity ? 'text-orange-500' : 'text-success'}>
                         {item.receivedQuantity}
                       </span>
                     ) : '-'}

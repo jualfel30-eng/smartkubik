@@ -24,8 +24,8 @@ import {
  */
 function StatusBadge({ status }) {
   if (status === 'lowStock') return <Badge variant="destructive">Stock Crítico</Badge>;
-  if (status === 'nearExpiration') return <Badge variant="secondary" className="bg-orange-100 text-orange-800">Próximo a Vencer</Badge>;
-  return <Badge className="bg-green-100 text-green-800">Disponible</Badge>;
+  if (status === 'nearExpiration') return <Badge variant="secondary" className="bg-warning/10 text-orange-800">Próximo a Vencer</Badge>;
+  return <Badge className="bg-success/10 text-green-800">Disponible</Badge>;
 }
 
 /**
@@ -242,7 +242,7 @@ export function InventoryTable({
                         <ArrowRightLeft className="h-4 w-4" />
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => onDelete(item._id)} className="text-red-600 hover:text-red-700"><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" onClick={() => onDelete(item._id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </TableCell>
               )}

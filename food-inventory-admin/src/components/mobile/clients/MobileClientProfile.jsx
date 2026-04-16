@@ -10,7 +10,7 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 const STATUS_COLOR = {
-  pending: 'bg-amber-500', confirmed: 'bg-blue-500',
+  pending: 'bg-amber-500', confirmed: 'bg-info',
   in_progress: 'bg-emerald-500', completed: 'bg-muted-foreground',
   cancelled: 'bg-destructive',
 };

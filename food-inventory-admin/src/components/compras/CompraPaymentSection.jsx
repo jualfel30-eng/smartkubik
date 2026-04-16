@@ -88,7 +88,7 @@ export default function CompraPaymentSection({
         )}
 
         <div className="space-y-2">
-          <Label className="dark:text-gray-200">Moneda de Pago Esperada <span className="text-red-500">*</span></Label>
+          <Label className="dark:text-gray-200">Moneda de Pago Esperada <span className="text-destructive">*</span></Label>
           <Select
             value={paymentTerms.expectedCurrency}
             onValueChange={(value) => updateField('expectedCurrency', value)}
@@ -108,13 +108,13 @@ export default function CompraPaymentSection({
 
         <div className="col-span-2 space-y-2">
           <Label className="flex items-center gap-2 dark:text-gray-200">
-            Métodos de Pago Aceptados <span className="text-red-500">*</span>
+            Métodos de Pago Aceptados <span className="text-destructive">*</span>
             {paymentTerms.paymentMethods.length === 0 && !paymentTerms.customPaymentMethod && (
-              <span className="text-xs text-red-500 font-normal">(Selecciona al menos uno)</span>
+              <span className="text-xs text-destructive font-normal">(Selecciona al menos uno)</span>
             )}
           </Label>
           <div className={`grid grid-cols-2 md:grid-cols-3 gap-3 p-3 border rounded-lg ${paymentTerms.paymentMethods.length === 0 && !paymentTerms.customPaymentMethod
-            ? 'border-red-300 bg-red-50 dark:bg-red-900/10 dark:border-red-800'
+            ? 'border-red-300 bg-destructive/5 dark:bg-red-900/10 dark:border-red-800'
             : 'dark:border-slate-700 dark:bg-slate-900/50'
             }`}>
             {PAYMENT_METHOD_OPTIONS.map(method => (

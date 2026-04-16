@@ -31,7 +31,7 @@ export default function TrialBanner() {
   let colorClasses, Icon, message, ctaText;
 
   if (daysRemaining >= 8) {
-    colorClasses = 'border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300';
+    colorClasses = 'border-green-500/40 bg-success/10 text-success dark:text-success';
     Icon = Clock;
     message = (
       <>
@@ -41,7 +41,7 @@ export default function TrialBanner() {
     );
     ctaText = 'Ver programa';
   } else if (daysRemaining >= 3) {
-    colorClasses = 'border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300';
+    colorClasses = 'border-yellow-500/40 bg-warning/10 text-yellow-700 dark:text-yellow-300';
     Icon = AlertTriangle;
     message = (
       <>
@@ -51,7 +51,7 @@ export default function TrialBanner() {
     );
     ctaText = 'Elegir plan de Fundador';
   } else {
-    colorClasses = 'border-red-500/40 bg-red-500/10 text-red-700 dark:text-red-300';
+    colorClasses = 'border-red-500/40 bg-destructive/10 text-destructive dark:text-destructive';
     Icon = Flame;
     message = (
       <>

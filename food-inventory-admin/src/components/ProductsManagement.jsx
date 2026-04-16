@@ -2210,7 +2210,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   };
 
   if (loading && products.length === 0 && !searchTerm && filterCategory === 'all') return <div>Cargando productos...</div>;
-  if (error && products.length === 0) return <div className="text-red-600">Error: {error}</div>;
+  if (error && products.length === 0) return <div className="text-destructive">Error: {error}</div>;
 
   return (
     <div className="space-y-6">
@@ -2336,7 +2336,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-                  <div className="mt-1 text-blue-600 dark:text-blue-300 space-y-0.5">
+                  <div className="mt-1 text-info dark:text-blue-300 space-y-0.5">
                     {labelScanResult.categoryMatched ? (
                       <p>✓ Categoría encontrada en tu catálogo</p>
                     ) : labelScanResult.suggestedCategory ? (
@@ -2606,7 +2606,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         <div key={attr.key} className="space-y-2">
                           <Label>
                             {attr.label}
-                            {attr.required ? <span className="text-red-500"> *</span> : null}
+                            {attr.required ? <span className="text-destructive"> *</span> : null}
                           </Label>
                           {renderAttributeControl(
                             attr,
@@ -3140,7 +3140,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
                       {newProduct.promotion?.discountPercentage > 0 && (
                         <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
-                          <div className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+                          <div className="text-sm font-semibold text-warning dark:text-orange-400">
                             Vista Previa de la Promoción
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
@@ -3645,7 +3645,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         <div key={attr.key} className="space-y-2">
                           <Label>
                             {attr.label}
-                            {attr.required ? <span className="text-red-500"> *</span> : null}
+                            {attr.required ? <span className="text-destructive"> *</span> : null}
                           </Label>
                           {renderAttributeControl(
                             attr,
@@ -3830,7 +3830,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                                 <div key={attr.key} className="space-y-2">
                                   <Label>
                                     {attr.label}
-                                    {attr.required ? <span className="text-red-500"> *</span> : null}
+                                    {attr.required ? <span className="text-destructive"> *</span> : null}
                                   </Label>
                                   {renderAttributeControl(
                                     attr,
@@ -4467,7 +4467,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     {showSalesFields && visibleColumns.promotion && (
                       <TableCell>
                         {product.hasActivePromotion && product.promotion?.isActive ? (
-                          <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                          <Badge className="bg-warning/10 text-orange-800 dark:bg-orange-900 dark:text-orange-200">
                             -{product.promotion.discountPercentage}% OFF
                           </Badge>
                         ) : (
@@ -4483,7 +4483,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                             onCheckedChange={() => handleToggleProductStatus(product)}
                           />
                           {product.isActive
-                            ? <Badge className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Activo</Badge>
+                            ? <Badge className="bg-success/10 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Activo</Badge>
                             : <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Inactivo</Badge>}
                         </div>
                       </TableCell>
@@ -4583,7 +4583,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                             setEditingProduct(productToEdit);
                             setIsEditDialogOpen(true);
                           }}><Edit className="h-4 w-4" /></Button>
-                          <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteProduct(product._id)}><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteProduct(product._id)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
                     )}
@@ -4731,7 +4731,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         <div key={attr.key} className="space-y-2">
                           <Label>
                             {attr.label}
-                            {attr.required ? <span className="text-red-500"> *</span> : null}
+                            {attr.required ? <span className="text-destructive"> *</span> : null}
                           </Label>
                           {renderAttributeControl(
                             attr,
@@ -5268,7 +5268,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
                       {editingProduct.promotion?.discountPercentage > 0 && (
                         <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
-                          <div className="text-sm font-semibold text-orange-600 dark:text-orange-400">
+                          <div className="text-sm font-semibold text-warning dark:text-orange-400">
                             Vista Previa de la Promoción
                           </div>
                           <div className="text-xs text-muted-foreground mt-1">
@@ -5835,7 +5835,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                               <div key={`${index}-${attr.key}`} className="space-y-2">
                                 <Label>
                                   {attr.label}
-                                  {attr.required ? <span className="text-red-500"> *</span> : null}
+                                  {attr.required ? <span className="text-destructive"> *</span> : null}
                                 </Label>
                                 {renderAttributeControl(
                                   attr,

@@ -185,7 +185,7 @@ export function PlaybooksManagement() {
                     </TableCell>
                     <TableCell>
                       {playbook.active ? (
-                        <Badge className="bg-green-500">
+                        <Badge className="bg-success">
                           <CheckCircle2 className="w-3 h-3 mr-1" />
                           Activo
                         </Badge>

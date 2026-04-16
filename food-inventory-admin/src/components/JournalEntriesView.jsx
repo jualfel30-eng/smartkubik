@@ -126,7 +126,7 @@ const JournalEntriesView = () => {
             <div className="flex items-center gap-2">
               {new Date(entry.date).toLocaleDateString()}
               {entry.isAutomatic && (
-                <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 hover:bg-blue-100">
+                <Badge variant="secondary" className="text-xs bg-info/10 text-blue-700 hover:bg-info/10">
                   Automático
                 </Badge>
               )}

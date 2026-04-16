@@ -251,7 +251,7 @@ const BillingDashboard = () => {
               <CardTitle className="text-sm font-medium">
                 Facturas Emitidas
               </CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <CheckCircle className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -268,7 +268,7 @@ const BillingDashboard = () => {
               <CardTitle className="text-sm font-medium">
                 Cumplimiento SENIAT
               </CardTitle>
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <CheckCircle className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -536,7 +536,7 @@ const QRModal = ({ document, onClose }) => {
                 href={document.taxInfo.verificationUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:underline flex items-center justify-center gap-1 mt-2"
+                className="text-sm text-info hover:underline flex items-center justify-center gap-1 mt-2"
               >
                 Verificar en SENIAT
                 <ExternalLink className="h-3 w-3" />

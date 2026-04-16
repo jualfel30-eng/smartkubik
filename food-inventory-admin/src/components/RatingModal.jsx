@@ -80,7 +80,7 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
         <div className="space-y-4 py-4">
           {/* NUEVO CAMPO: Fecha de Factura - PRIMERO */}
           <div className="space-y-2">
-            <Label>Fecha de Factura <span className="text-red-500">*</span></Label>
+            <Label>Fecha de Factura <span className="text-destructive">*</span></Label>
             <Popover open={invoiceDateOpen} onOpenChange={setInvoiceDateOpen}>
               <PopoverTrigger asChild>
                 <Button

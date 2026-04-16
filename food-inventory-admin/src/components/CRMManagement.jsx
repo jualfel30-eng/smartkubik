@@ -910,8 +910,8 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
 
   const getTierBadge = (tier) => {
     const tierMap = {
-      diamante: { label: 'Diamante', icon: '💎', className: 'bg-blue-100 text-blue-800 border-blue-300' },
-      oro: { label: 'Oro', icon: '🥇', className: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+      diamante: { label: 'Diamante', icon: '💎', className: 'bg-info/10 text-blue-800 border-blue-300' },
+      oro: { label: 'Oro', icon: '🥇', className: 'bg-warning/10 text-yellow-800 border-yellow-300' },
       plata: { label: 'Plata', icon: '🥈', className: 'bg-gray-100 text-gray-800 border-gray-300' },
       bronce: { label: 'Bronce', icon: '🥉', className: 'bg-amber-100 text-amber-800 border-amber-300' },
     };
@@ -927,10 +927,10 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   const getContactTypeBadge = (type) => {
     const typeMap = {
       admin: { label: 'Admin', className: 'bg-purple-100 text-purple-800' },
-      business: { label: 'Cliente', className: 'bg-blue-100 text-blue-800' },
-      individual: { label: 'Cliente', className: 'bg-blue-100 text-blue-800' },
-      supplier: { label: 'Proveedor', className: 'bg-green-100 text-green-800' },
-      employee: { label: 'Empleado', className: 'bg-orange-100 text-orange-800' },
+      business: { label: 'Cliente', className: 'bg-info/10 text-blue-800' },
+      individual: { label: 'Cliente', className: 'bg-info/10 text-blue-800' },
+      supplier: { label: 'Proveedor', className: 'bg-success/10 text-green-800' },
+      employee: { label: 'Empleado', className: 'bg-warning/10 text-orange-800' },
       manager: { label: 'Gestor', className: 'bg-gray-100 text-gray-800' },
     };
     const typeInfo = typeMap[type] || { label: type, className: 'bg-gray-200' };
@@ -939,9 +939,9 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
 
   const employeeStatusStyles = {
     active: 'bg-emerald-100 text-emerald-800',
-    onboarding: 'bg-blue-100 text-blue-800',
-    suspended: 'bg-yellow-100 text-yellow-800',
-    terminated: 'bg-red-100 text-red-800',
+    onboarding: 'bg-info/10 text-blue-800',
+    suspended: 'bg-warning/10 text-yellow-800',
+    terminated: 'bg-destructive/10 text-red-800',
     draft: 'bg-gray-100 text-gray-800',
   };
 
@@ -1656,10 +1656,10 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     return <div>Cargando empleados...</div>;
   }
   if (!isEmployeeTab && error) {
-    return <div className="text-red-500">Error al cargar datos del CRM: {error}</div>;
+    return <div className="text-destructive">Error al cargar datos del CRM: {error}</div>;
   }
   if (isEmployeeTab && employeesError && employeesData.length === 0) {
-    return <div className="text-red-500">Error al cargar empleados: {employeesError}</div>;
+    return <div className="text-destructive">Error al cargar empleados: {employeesError}</div>;
   }
 
   /* DEBUG: Checking user role structure
@@ -2535,7 +2535,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                                         <Eye className="h-4 w-4" />
                                       </Button>
                                       <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(customer)}><Edit className="h-4 w-4" /></Button>
-                                      <Button variant="outline" size="sm" onClick={() => handleDeleteContact(customer._id)} className="text-red-600"><Trash2 className="h-4 w-4" /></Button>
+                                      <Button variant="outline" size="sm" onClick={() => handleDeleteContact(customer._id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
                                     </div>
                                   </TableCell>
                                 </TableRow>
@@ -2944,7 +2944,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                   <div className="rounded-md border p-3 bg-destructive/10">
                     <div className="text-sm font-semibold text-red-900 dark:text-red-400">Vencidos</div>
                     <div className="text-2xl font-bold text-red-900 dark:text-red-400">{slaAging.overdue}</div>
-                    <div className="text-xs text-red-800 dark:text-red-500">Next step vencido (SLA roto).</div>
+                    <div className="text-xs text-red-800 dark:text-destructive">Next step vencido (SLA roto).</div>
                   </div>
                 </div>
               )}

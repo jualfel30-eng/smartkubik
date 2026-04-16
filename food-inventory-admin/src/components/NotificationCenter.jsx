@@ -38,8 +38,8 @@ const CATEGORY_CONFIG = {
     sales: {
         label: 'Ventas',
         icon: ShoppingCart,
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-100',
+        color: 'text-info',
+        bgColor: 'bg-info/10',
     },
     inventory: {
         label: 'Inventario',
@@ -56,8 +56,8 @@ const CATEGORY_CONFIG = {
     finance: {
         label: 'Finanzas',
         icon: DollarSign,
-        color: 'text-green-600',
-        bgColor: 'bg-green-100',
+        color: 'text-success',
+        bgColor: 'bg-success/10',
     },
     marketing: {
         label: 'Marketing',
@@ -68,8 +68,8 @@ const CATEGORY_CONFIG = {
     system: {
         label: 'Sistema',
         icon: AlertTriangle,
-        color: 'text-red-600',
-        bgColor: 'bg-red-100',
+        color: 'text-destructive',
+        bgColor: 'bg-destructive/10',
     },
 };
 
@@ -270,7 +270,7 @@ export const NotificationCenter = () => {
                                 {notification.title}
                             </p>
                             {!notification.isRead && (
-                                <span className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                                <span className="w-2 h-2 rounded-full bg-info flex-shrink-0" />
                             )}
                         </div>
                         {notification.message && (

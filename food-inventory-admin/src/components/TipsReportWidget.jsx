@@ -140,7 +140,7 @@ const TipsReportWidget = () => {
               </div>
 
               <div className="bg-orange-50 dark:bg-orange-950 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
-                <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-2">
+                <div className="flex items-center gap-2 text-warning dark:text-orange-400 mb-2">
                   <Calendar className="h-5 w-5" />
                   <span className="text-sm font-medium">Órdenes con Propina</span>
                 </div>
@@ -195,14 +195,14 @@ const TipsReportWidget = () => {
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
                               {index === 0 && (
-                                <Badge className="bg-yellow-500 dark:bg-yellow-600 text-white">
+                                <Badge className="bg-warning dark:bg-yellow-600 text-white">
                                   Top 1
                                 </Badge>
                               )}
                               <span>{employee.employeeName}</span>
                             </div>
                           </TableCell>
-                          <TableCell className="text-right font-semibold text-green-700 dark:text-green-400">
+                          <TableCell className="text-right font-semibold text-success dark:text-green-400">
                             {formatCurrency(employee.totalTips)}
                           </TableCell>
                           <TableCell className="text-right">
@@ -246,7 +246,7 @@ const TipsReportWidget = () => {
                         </div>
                         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                           <div
-                            className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-500"
+                            className="bg-blue-600 dark:bg-info h-2 rounded-full transition-all duration-500"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>

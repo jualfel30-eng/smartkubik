@@ -599,7 +599,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                             <span>Monto orden:</span>
                             <span>${remainingAmount.toFixed(2)}</span>
                           </div>
-                          <div className="flex justify-between text-sm text-orange-600">
+                          <div className="flex justify-between text-sm text-warning">
                             <span>{transactionTax?.type || 'IGTF'} ({(igtfRate * 100).toFixed(0)}%):</span>
                             <span>${calculateIgtf(remainingAmount, singlePayment.method).toFixed(2)}</span>
                           </div>
@@ -656,8 +656,8 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                       />
                       {/* Show change calculation */}
                       {singlePayment.amountTendered && (
-                        <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-success/30 rounded-md">
-                          <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2">
+                        <div className="p-3 bg-success/5 dark:bg-green-900/20 border border-success/30 rounded-md">
+                          <p className="text-sm font-medium text-success dark:text-success flex items-center gap-2">
                             <HandCoins className="w-4 h-4" />
                             Vuelto: {isVesMethod(singlePayment.method) ? 'Bs' : '$'} {
                               (() => {
@@ -782,7 +782,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                         <span className="text-sm font-semibold">Línea {index + 1}</span>
                         {mixedPayments.length > 2 && (
                           <Button variant="ghost" size="icon" onClick={() => handleRemovePaymentLine(line.id)}>
-                            <X className="h-4 w-4 text-red-500" />
+                            <X className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
                       </div>
@@ -847,7 +847,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                                 type="button"
                                 size="icon"
                                 variant="secondary"
-                                className="shrink-0 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 border-blue-200 border"
+                                className="shrink-0 bg-blue-50 text-info hover:bg-info/10 hover:text-blue-700 border-blue-200 border"
                                 onClick={() => {
                                   const currentVal = Number(line.amount) || 0;
                                   const newVal = currentVal + (lineIsVes ? missingVES : missingUSD);
@@ -870,13 +870,13 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                                 handleUpdatePaymentLine(line.id, 'amount', newVal.toFixed(2));
                               }}
                             >
-                              <Calculator className="w-3 h-3 group-hover:text-blue-600" />
+                              <Calculator className="w-3 h-3 group-hover:text-info" />
                               <span>
-                                Falta: <span className="font-medium text-blue-600 group-hover:underline">${missingUSD.toFixed(2)}</span>
+                                Falta: <span className="font-medium text-info group-hover:underline">${missingUSD.toFixed(2)}</span>
                                 {rate > 0 && (
                                   <>
                                     {' '}≈{' '}
-                                    <span className="font-medium text-green-600">Bs {missingVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <span className="font-medium text-success">Bs {missingVES.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                   </>
                                 )}
                               </span>
@@ -894,7 +894,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                             </p>
                           )}
                           {!lineIsVes && lineAmount > 0 && lineIgtf > 0 && (
-                            <p className="text-xs text-orange-600">
+                            <p className="text-xs text-warning">
                               {transactionTax?.type || 'IGTF'} ({(igtfRate * 100).toFixed(0)}%): +${lineIgtf.toFixed(2)}
                             </p>
                           )}
@@ -914,8 +914,8 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                             />
                             {/* Show change calculation */}
                             {line.amountTendered && lineAmount > 0 && (
-                              <div className="p-2 bg-green-50 dark:bg-green-900/20 border border-success/30 rounded-md">
-                                <p className="text-sm font-medium text-green-700 dark:text-green-300 flex items-center gap-2">
+                              <div className="p-2 bg-success/5 dark:bg-green-900/20 border border-success/30 rounded-md">
+                                <p className="text-sm font-medium text-success dark:text-success flex items-center gap-2">
                                   <HandCoins className="w-4 h-4" />
                                   Vuelto: {lineIsVes ? 'Bs' : '$'} {
                                     (() => {
@@ -928,7 +928,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                                 {(() => {
                                   const totalToPay = lineAmount + (lineIgtf || 0);
                                   return parseFloat(line.amountTendered) < totalToPay && (
-                                    <p className="text-xs text-red-600 mt-1">
+                                    <p className="text-xs text-destructive mt-1">
                                       ⚠️ El monto recibido es menor que el total {lineIgtf > 0 && '(incluye IGTF)'}
                                     </p>
                                   );
@@ -1134,7 +1134,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                   <span>${remainingAmount.toFixed(2)}</span>
                 </div>
                 {mixedPaymentTotals.igtf > 0 && (
-                  <div className="flex justify-between text-sm text-orange-600">
+                  <div className="flex justify-between text-sm text-warning">
                     <span>+ {transactionTax?.type || 'IGTF'} ({(igtfRate * 100).toFixed(0)}%):</span>
                     <span>${mixedPaymentTotals.igtf.toFixed(2)}</span>
                   </div>
@@ -1151,7 +1151,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                 </div>
 
                 {Math.abs(mixedPaymentTotals.totalUSD - (remainingAmount + mixedPaymentTotals.igtf)) > 0.01 && (
-                  <div className={`flex justify-between text-sm p-2 rounded ${mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'}`}>
+                  <div className={`flex justify-between text-sm p-2 rounded ${mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400' : 'bg-destructive/5 dark:bg-red-900/20 text-destructive dark:text-red-400'}`}>
                     <span className="font-semibold">
                       {mixedPaymentTotals.totalUSD < (remainingAmount + mixedPaymentTotals.igtf) ? '⚠️ Falta por cubrir:' : '⚠️ Exceso de pago:'}
                     </span>
@@ -1161,7 +1161,7 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                   </div>
                 )}
 
-                <div className="flex justify-between font-semibold text-sm text-green-600">
+                <div className="flex justify-between font-semibold text-sm text-success">
                   <span>Equivalente total en Bolívares:</span>
                   <span>Bs {mixedPaymentTotals.totalVES.toFixed(2)}</span>
                 </div>

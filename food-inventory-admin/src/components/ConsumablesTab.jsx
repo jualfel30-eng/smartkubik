@@ -678,14 +678,14 @@ function ConsumablesTab() {
                     </TableCell>
                     <TableCell>
                       {config.isReusable ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-success" />
                       ) : (
                         <XCircle className="h-4 w-4 text-gray-400" />
                       )}
                     </TableCell>
                     <TableCell>
                       {config.isAutoDeducted ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-success" />
                       ) : (
                         <XCircle className="h-4 w-4 text-gray-400" />
                       )}
@@ -759,14 +759,14 @@ function ConsumablesTab() {
                     </TableCell>
                     <TableCell>
                       {relation.isRequired ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-success" />
                       ) : (
                         <XCircle className="h-4 w-4 text-gray-400" />
                       )}
                     </TableCell>
                     <TableCell>
                       {relation.isAutoDeducted ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-success" />
                       ) : (
                         <XCircle className="h-4 w-4 text-gray-400" />
                       )}

@@ -18,7 +18,7 @@ export default function ComprasAlertCards({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
+            <AlertTriangle className="h-5 w-5 text-destructive" />
             <span>Productos con Bajo Stock</span>
           </CardTitle>
         </CardHeader>

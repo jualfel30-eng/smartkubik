@@ -226,7 +226,7 @@ export function OrderSidebar({
                 <Button
                   onClick={onCreateOrder}
                   disabled={isCreateDisabled}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  className="w-full bg-success hover:bg-green-700 text-white"
                   size="lg"
                 >
                   {isEditMode ? 'Pagar / Cerrar' : 'Pagar Inmediato'}

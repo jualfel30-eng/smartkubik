@@ -58,7 +58,7 @@ export function TenantPickerDialog({
         </DialogHeader>
 
         {memberships.length === 0 ? (
-          <div className="rounded-md border border-dashed border-red-300 bg-red-50 px-4 py-6 text-center text-sm text-red-700">
+          <div className="rounded-md border border-dashed border-red-300 bg-destructive/5 px-4 py-6 text-center text-sm text-destructive">
             Tu cuenta no tiene organizaciones activas asignadas. Contacta a un
             administrador para solicitar acceso.
           </div>

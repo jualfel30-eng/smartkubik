@@ -27,7 +27,7 @@ const CATEGORIES = [
         label: 'Ventas',
         description: 'Nuevas órdenes, confirmaciones, entregas',
         icon: ShoppingCart,
-        color: 'text-blue-600',
+        color: 'text-info',
     },
     {
         key: 'inventory',
@@ -48,7 +48,7 @@ const CATEGORIES = [
         label: 'Finanzas',
         description: 'Cuentas por pagar, saldo bajo, facturación',
         icon: DollarSign,
-        color: 'text-green-600',
+        color: 'text-success',
     },
     {
         key: 'marketing',
@@ -62,7 +62,7 @@ const CATEGORIES = [
         label: 'Sistema',
         description: 'Alertas del sistema y mantenimiento',
         icon: AlertTriangle,
-        color: 'text-red-600',
+        color: 'text-destructive',
     },
 ];
 

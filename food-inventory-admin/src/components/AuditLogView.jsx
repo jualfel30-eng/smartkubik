@@ -36,7 +36,7 @@ export default function AuditLogView() {
   }
 
   if (error) {
-    return <div className="text-red-500">Error: {error}</div>;
+    return <div className="text-destructive">Error: {error}</div>;
   }
 
   return (

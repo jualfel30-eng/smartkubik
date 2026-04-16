@@ -35,9 +35,9 @@ const STATUS_LABELS = {
 };
 
 const STATUS_COLORS = {
-  active: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  completed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  active: 'bg-info/10 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  completed: 'bg-success/10 text-green-800 dark:bg-green-900 dark:text-green-200',
+  cancelled: 'bg-destructive/10 text-red-800 dark:bg-red-900 dark:text-red-200',
 };
 
 const fmt = (v) => v != null ? `$${Number(v).toLocaleString('es', { minimumFractionDigits: 2 })}` : '—';
@@ -293,7 +293,7 @@ const InvestmentsView = () => {
                     <TableCell className="text-right">{fmt(inv.expectedReturn)}</TableCell>
                     <TableCell className="text-right">
                       {fmt(inv.actualReturn)}
-                      <span className={`ml-1 text-xs ${Number(invRoi) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className={`ml-1 text-xs ${Number(invRoi) >= 0 ? 'text-success' : 'text-destructive'}`}>
                         ({invRoi}%)
                       </span>
                     </TableCell>
@@ -308,7 +308,7 @@ const InvestmentsView = () => {
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => handleDelete(inv._id)}>
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>

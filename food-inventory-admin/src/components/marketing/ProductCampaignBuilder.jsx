@@ -33,19 +33,19 @@ import { toast } from 'sonner';
 import { debounce } from 'lodash';
 
 const CUSTOMER_SEGMENTS = [
-  { value: 'new', label: 'Nuevo', description: 'Clientes con pocas compras', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
-  { value: 'occasional', label: 'Ocasional', description: 'Compran de vez en cuando', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' },
+  { value: 'new', label: 'Nuevo', description: 'Clientes con pocas compras', color: 'bg-success/10 text-green-800 dark:bg-green-900/30 dark:text-green-200' },
+  { value: 'occasional', label: 'Ocasional', description: 'Compran de vez en cuando', color: 'bg-info/10 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200' },
   { value: 'regular', label: 'Regular', description: 'Compras frecuentes', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200' },
-  { value: 'frequent', label: 'Frecuente', description: 'Muy activos', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' },
-  { value: 'champion', label: 'Champion', description: 'Top clientes', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
+  { value: 'frequent', label: 'Frecuente', description: 'Muy activos', color: 'bg-warning/10 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200' },
+  { value: 'champion', label: 'Champion', description: 'Top clientes', color: 'bg-warning/10 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200' },
 ];
 
 const ENGAGEMENT_LEVELS = [
-  { value: 'very_high', label: 'Muy Alto', color: 'bg-green-500' },
-  { value: 'high', label: 'Alto', color: 'bg-blue-500' },
-  { value: 'medium', label: 'Medio', color: 'bg-yellow-500' },
-  { value: 'low', label: 'Bajo', color: 'bg-orange-500' },
-  { value: 'at_risk', label: 'En Riesgo', color: 'bg-red-500' },
+  { value: 'very_high', label: 'Muy Alto', color: 'bg-success' },
+  { value: 'high', label: 'Alto', color: 'bg-info' },
+  { value: 'medium', label: 'Medio', color: 'bg-warning' },
+  { value: 'low', label: 'Bajo', color: 'bg-warning' },
+  { value: 'at_risk', label: 'En Riesgo', color: 'bg-destructive' },
 ];
 
 const CAMPAIGN_CATEGORIES = [
@@ -498,7 +498,7 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
                         variant="ghost"
                         size="sm"
                         onClick={() => handleRemoveProductTargeting(index)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/5 dark:hover:bg-red-900/20"
                       >
                         <X className="w-4 h-4" />
                       </Button>
@@ -734,7 +734,7 @@ export default function ProductCampaignBuilder({ onSubmit, onCancel, initialData
                   </div>
 
                   {/* Predictive Filters */}
-                  <div className="space-y-3 p-4 bg-green-50 dark:bg-green-900/10 border border-success/30 rounded-lg">
+                  <div className="space-y-3 p-4 bg-success/5 dark:bg-green-900/10 border border-success/30 rounded-lg">
                     <div className="flex items-center gap-2">
                       <TrendingUp className="w-4 h-4 text-success" />
                       <Label className="text-green-900 dark:text-green-100 font-semibold">

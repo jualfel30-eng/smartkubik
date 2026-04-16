@@ -898,7 +898,7 @@ function ResourcesManagement() {
                             size="sm"
                             onClick={() => handleDelete(resource._id)}
                           >
-                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
                       </TableCell>
@@ -1089,7 +1089,7 @@ function ResourcesManagement() {
                       <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-1">
                         {getBusinessContextText(businessType, 'resource').title}
                       </h3>
-                      <p className="text-sm text-green-700 dark:text-green-300">
+                      <p className="text-sm text-success dark:text-success">
                         {getBusinessContextText(businessType, 'resource').description}
                       </p>
                     </div>
@@ -1277,7 +1277,7 @@ function ResourcesManagement() {
                         <Button
                           type="button"
                           variant="ghost"
-                          className="text-red-500 hover:text-red-600"
+                          className="text-destructive hover:text-destructive"
                           onClick={() => removePricingTier(index)}
                         >
                           Eliminar
@@ -1436,7 +1436,7 @@ function ResourcesManagement() {
                         <Button
                           type="button"
                           variant="ghost"
-                          className="text-red-500 hover:text-red-600"
+                          className="text-destructive hover:text-destructive"
                           onClick={() => removePromotion(index)}
                         >
                           Eliminar

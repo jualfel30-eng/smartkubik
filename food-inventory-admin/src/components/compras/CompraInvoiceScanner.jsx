@@ -134,9 +134,9 @@ export function ScanConfidenceBanner({ scanResult, onClear }) {
   if (!scanResult) return null;
 
   return (
-    <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${scanResult.overallConfidence >= 0.8 ? 'bg-green-50 border border-green-200 text-green-800' :
+    <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${scanResult.overallConfidence >= 0.8 ? 'bg-success/5 border border-green-200 text-green-800' :
       scanResult.overallConfidence >= 0.5 ? 'bg-yellow-50 border border-yellow-200 text-yellow-800' :
-        'bg-red-50 border border-red-200 text-red-800'
+        'bg-destructive/5 border border-red-200 text-red-800'
       }`}>
       <span className="font-medium">
         {Math.round(scanResult.overallConfidence * 100)}% confianza

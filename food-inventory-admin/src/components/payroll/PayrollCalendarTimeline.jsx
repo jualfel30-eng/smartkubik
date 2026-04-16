@@ -62,7 +62,7 @@ const formatDate = (value) => {
 const ComplianceBadge = ({ ok, label, count }) => {
   if (ok) {
     return (
-      <Badge variant="outline" className="gap-1 text-green-600 border-green-600/40">
+      <Badge variant="outline" className="gap-1 text-success border-green-600/40">
         <CheckCircle2 className="size-3.5" />
         {label}
       </Badge>

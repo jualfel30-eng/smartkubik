@@ -757,7 +757,7 @@ function SuppliesTab() {
                     <TableCell>{config.usageDepartment || '-'}</TableCell>
                     <TableCell>
                       {config.requiresTracking ? (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className="h-4 w-4 text-success" />
                       ) : (
                         <XCircle className="h-4 w-4 text-gray-400" />
                       )}

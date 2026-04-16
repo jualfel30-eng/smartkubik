@@ -33,7 +33,7 @@ const METRIC_CONFIG = {
     label: 'Tasa de Apertura',
     icon: TrendingUp,
     format: (value) => `${value.toFixed(2)}%`,
-    color: 'text-blue-600',
+    color: 'text-info',
   },
   click_rate: {
     label: 'Tasa de Clics',
@@ -45,13 +45,13 @@ const METRIC_CONFIG = {
     label: 'Tasa de Conversión',
     icon: Users,
     format: (value) => `${value.toFixed(2)}%`,
-    color: 'text-green-600',
+    color: 'text-success',
   },
   revenue: {
     label: 'Ingresos por Envío',
     icon: DollarSign,
     format: (value) => `$${value.toFixed(2)}`,
-    color: 'text-yellow-600',
+    color: 'text-warning',
   },
 };
 
@@ -205,13 +205,13 @@ export default function ABTestResults({ campaignId, onClose }) {
 
       {/* Winner Announcement */}
       {winner && (
-        <Alert className="border-green-500 bg-green-50 dark:bg-green-900/20">
-          <Trophy className="h-4 w-4 text-green-600" />
+        <Alert className="border-green-500 bg-success/5 dark:bg-green-900/20">
+          <Trophy className="h-4 w-4 text-success" />
           <AlertDescription className="text-green-800 dark:text-green-200">
             <strong>{winner.name}</strong> es el ganador con {metricConfig.format(winner.metricValue)}
             {winner.isStatisticallySignificant && (
               <span className="ml-2">
-                <Badge variant="default" className="bg-green-600">
+                <Badge variant="default" className="bg-success">
                   <CheckCircle2 className="w-3 h-3 mr-1" />
                   Estadísticamente Significativo
                 </Badge>
@@ -263,7 +263,7 @@ export default function ABTestResults({ campaignId, onClose }) {
                           {variant.name}
                         </h3>
                         {isWinner && (
-                          <Badge variant="default" className="bg-green-600">
+                          <Badge variant="default" className="bg-success">
                             <Trophy className="w-3 h-3 mr-1" />
                             Ganador
                           </Badge>

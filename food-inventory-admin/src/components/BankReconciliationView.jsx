@@ -397,7 +397,7 @@ export default function BankReconciliationView() {
               <CardTitle>Depósitos pendientes</CardTitle>
               <CardDescription>Movimientos entrantes del estado de cuenta sin conciliar</CardDescription>
             </CardHeader>
-            <CardContent className="text-2xl font-semibold text-green-600">
+            <CardContent className="text-2xl font-semibold text-success">
             {formatCurrency(totals.deposits, resolvedCurrency)}
             </CardContent>
           </Card>
@@ -407,7 +407,7 @@ export default function BankReconciliationView() {
               <CardTitle>Retiros pendientes</CardTitle>
               <CardDescription>Movimientos salientes del estado de cuenta sin conciliar</CardDescription>
             </CardHeader>
-            <CardContent className="text-2xl font-semibold text-red-600">
+            <CardContent className="text-2xl font-semibold text-destructive">
             {formatCurrency(totals.withdrawals, resolvedCurrency)}
           </CardContent>
         </Card>

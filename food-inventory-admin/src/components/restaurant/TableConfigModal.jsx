@@ -249,7 +249,7 @@ export default function TableConfigModal({ table, sections, onClose, onSuccess }
                     transition-all duration-200
                     ${
                       formData.shape === shape.id
-                        ? 'border-blue-600 bg-blue-50 text-blue-600 dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-200'
+                        ? 'border-blue-600 bg-blue-50 text-info dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-200'
                         : 'border-gray-300 hover:border-gray-400 dark:border-slate-700 dark:hover:border-slate-500'
                     }
                   `}
@@ -326,7 +326,7 @@ export default function TableConfigModal({ table, sections, onClose, onSuccess }
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/30 border border-destructive/30 text-red-700 dark:text-red-200 px-4 py-3 rounded">
+            <div className="bg-destructive/5 dark:bg-red-900/30 border border-destructive/30 text-destructive dark:text-red-200 px-4 py-3 rounded">
               {error}
             </div>
           )}

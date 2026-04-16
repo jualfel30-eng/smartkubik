@@ -2075,7 +2075,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     </Tooltip>
                   </TooltipProvider>
                   {item.hasMultipleSellingUnits && (
-                    <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">Multi-unidad</div>
+                    <div className="text-xs text-info dark:text-blue-300 mt-1">Multi-unidad</div>
                   )}
 
                   {/* BOTÓN PERSONALIZAR (Solo si es restaurante/comida y no es supply) */}
@@ -2083,7 +2083,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-6 px-1 mt-1 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                      className="h-6 px-1 mt-1 text-warning hover:text-orange-700 hover:bg-orange-50"
                       onClick={() => handleOpenCustomizer(item)}
                       title="Personalizar Ingredientes"
                     >
@@ -2093,7 +2093,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                   )}
 
                   {item.removedIngredients && item.removedIngredients.length > 0 && (
-                    <div className="text-xs text-red-500 mt-1 font-medium">
+                    <div className="text-xs text-destructive mt-1 font-medium">
                       ❌ Sin: {item.removedIngredients.length} ingrediente(s)
                     </div>
                   )}
@@ -2116,7 +2116,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     </div>
                   )}
                   {item.specialInstructions && (
-                    <div className="text-xs text-orange-600 dark:text-orange-300 italic mt-2">
+                    <div className="text-xs text-warning dark:text-orange-300 italic mt-2">
                       ⚠ {item.specialInstructions}
                     </div>
                   )}
@@ -2286,13 +2286,13 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                         📨 Enviar
                       </Button>
                     ) : (
-                      <span className="text-xs text-green-600">✓ En cocina</span>
+                      <span className="text-xs text-success">✓ En cocina</span>
                     )}
                   </TableCell>
                 )}
                 <TableCell className="text-center">
                   <Button variant="ghost" size="icon" onClick={() => removeProductFromOrder(item.productId)}>
-                    <Trash2 className="h-4 w-4 text-red-500" />
+                    <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
                 </TableCell>
               </TableRow>
@@ -2662,7 +2662,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                       </Button>
                     </div>
                     {isBarcodeLookup && (
-                      <span className="text-xs text-blue-600 dark:text-blue-300">Buscando producto por código...</span>
+                      <span className="text-xs text-info dark:text-blue-300">Buscando producto por código...</span>
                     )}
                   </div>
                 </div>

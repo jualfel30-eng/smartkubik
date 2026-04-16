@@ -366,7 +366,7 @@ export function CreateRecipeDialog({ open, onClose, onSave, initialData = null }
                                                 <TableCell>{comp.displayUnit || comp.unit}</TableCell>
                                                 <TableCell>
                                                     <Button variant="ghost" size="icon" onClick={() => handleRemoveIngredient(idx)}>
-                                                        <Trash className="h-4 w-4 text-red-500" />
+                                                        <Trash className="h-4 w-4 text-destructive" />
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>

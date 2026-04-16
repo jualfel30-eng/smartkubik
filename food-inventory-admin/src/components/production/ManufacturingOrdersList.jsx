@@ -12,10 +12,10 @@ import { ManufacturingOrderDetails } from './ManufacturingOrderDetails';
 
 const statusConfig = {
   draft: { label: 'Borrador', color: 'bg-gray-500', icon: AlertCircle },
-  confirmed: { label: 'Confirmada', color: 'bg-blue-500', icon: CheckCircle },
-  in_progress: { label: 'En Proceso', color: 'bg-yellow-500', icon: Play },
-  completed: { label: 'Completada', color: 'bg-green-500', icon: CheckCircle },
-  cancelled: { label: 'Cancelada', color: 'bg-red-500', icon: XCircle },
+  confirmed: { label: 'Confirmada', color: 'bg-info', icon: CheckCircle },
+  in_progress: { label: 'En Proceso', color: 'bg-warning', icon: Play },
+  completed: { label: 'Completada', color: 'bg-success', icon: CheckCircle },
+  cancelled: { label: 'Cancelada', color: 'bg-destructive', icon: XCircle },
 };
 
 export function ManufacturingOrdersList() {
@@ -156,7 +156,7 @@ export function ManufacturingOrdersList() {
         </CardHeader>
         <CardContent>
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">
               Error: {error}
             </div>
           )}

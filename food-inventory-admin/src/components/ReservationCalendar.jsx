@@ -54,7 +54,7 @@ const STATUS_CONFIG = {
   seated: { label: 'Sentados', color: 'bg-success-muted text-green-800 dark:text-green-200 border-success/40', icon: Users },
   completed: { label: 'Completada', color: 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600', icon: Check },
   cancelled: { label: 'Cancelada', color: 'bg-destructive/10 text-red-800 dark:text-red-200 border-destructive/40', icon: X },
-  'no-show': { label: 'No Show', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700', icon: AlertCircle },
+  'no-show': { label: 'No Show', color: 'bg-warning/10 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700', icon: AlertCircle },
 };
 
 const ReservationCalendar = () => {

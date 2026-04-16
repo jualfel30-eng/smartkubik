@@ -332,7 +332,7 @@ export default function ModifierGroupsManagement() {
       return (
         <Badge
           variant="secondary"
-          className="bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-200"
+          className="bg-success/10 text-success dark:bg-green-900/40 dark:text-green-200"
         >
           <CheckCircle className="mr-1 h-3 w-3" />
           Requerido
@@ -342,7 +342,7 @@ export default function ModifierGroupsManagement() {
     return (
       <Badge
         variant="secondary"
-        className="bg-yellow-100 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-200"
+        className="bg-warning/10 text-yellow-700 dark:bg-yellow-900/40 dark:text-yellow-200"
       >
         <AlertTriangle className="mr-1 h-3 w-3" />
         Opcional
@@ -628,7 +628,7 @@ export default function ModifierGroupsManagement() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="self-start text-red-500 hover:text-red-600"
+                        className="self-start text-destructive hover:text-destructive"
                         onClick={() => handleRemoveModifier(index)}
                       >
                         <Trash2 className="h-4 w-4" />

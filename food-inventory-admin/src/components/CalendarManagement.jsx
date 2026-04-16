@@ -179,13 +179,13 @@ export function CalendarManagement() {
               <div className="flex items-center gap-2 text-sm">
                 {calendar.visibility?.public ? (
                   <>
-                    <Globe className="w-4 h-4 text-green-600" />
-                    <span className="text-green-600">Público</span>
+                    <Globe className="w-4 h-4 text-success" />
+                    <span className="text-success">Público</span>
                   </>
                 ) : calendar.visibility?.shareWithTenant ? (
                   <>
-                    <Eye className="w-4 h-4 text-blue-600" />
-                    <span className="text-blue-600">Compartido</span>
+                    <Eye className="w-4 h-4 text-info" />
+                    <span className="text-info">Compartido</span>
                   </>
                 ) : (
                   <>
@@ -198,8 +198,8 @@ export function CalendarManagement() {
               {/* Google Sync Status */}
               {calendar.googleSync?.enabled ? (
                 <div className="flex items-center gap-2 text-sm">
-                  <Cloud className="w-4 h-4 text-green-600" />
-                  <span className="text-green-600">
+                  <Cloud className="w-4 h-4 text-success" />
+                  <span className="text-success">
                     {calendar.googleSync.syncStatus === 'active'
                       ? 'Sincronizado con Google'
                       : 'Error de sincronización'}
@@ -333,7 +333,7 @@ export function CalendarManagement() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive hover:bg-red-700">
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>

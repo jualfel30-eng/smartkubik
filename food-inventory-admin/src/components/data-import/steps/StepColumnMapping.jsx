@@ -170,7 +170,7 @@ export default function StepColumnMapping({
                     </TableCell>
                     <TableCell className="text-center">
                       {isMapped ? (
-                        <Check className="h-4 w-4 text-green-600 mx-auto" />
+                        <Check className="h-4 w-4 text-success mx-auto" />
                       ) : (
                         <X className="h-4 w-4 text-muted-foreground mx-auto" />
                       )}

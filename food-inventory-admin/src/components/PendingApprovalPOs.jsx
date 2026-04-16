@@ -276,7 +276,7 @@ const PendingApprovalPOs = ({ onRefresh }) => {
                           variant="outline"
                           className={
                             po.status === 'pending'
-                              ? 'bg-yellow-100 text-yellow-800 border-yellow-300'
+                              ? 'bg-warning/10 text-yellow-800 border-yellow-300'
                               : 'bg-gray-100 text-gray-800 border-gray-300'
                           }
                         >
@@ -392,7 +392,7 @@ const PendingApprovalPOs = ({ onRefresh }) => {
               ) : (
                 <div>
                   <Label htmlFor="rejectionReason">
-                    Razón de Rechazo <span className="text-red-500">*</span>
+                    Razón de Rechazo <span className="text-destructive">*</span>
                   </Label>
                   <Textarea
                     id="rejectionReason"

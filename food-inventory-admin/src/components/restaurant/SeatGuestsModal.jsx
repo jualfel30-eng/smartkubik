@@ -166,7 +166,7 @@ export default function SeatGuestsModal({ table, onClose, onSuccess }) {
 
           {/* Error Message */}
           {error && (
-            <div className="bg-destructive/10 border border-destructive/30 text-red-700 dark:text-red-300 px-4 py-3 rounded">
+            <div className="bg-destructive/10 border border-destructive/30 text-destructive dark:text-destructive px-4 py-3 rounded">
               {error}
             </div>
           )}

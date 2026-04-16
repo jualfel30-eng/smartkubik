@@ -472,15 +472,15 @@ export function ManufacturingOrderWizard({ open, onClose, onSave }) {
               ) : materialAvailability ? (
                 <div className="space-y-4">
                   {materialAvailability.allAvailable ? (
-                    <Alert className="border-green-200 bg-green-50">
-                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <Alert className="border-green-200 bg-success/5">
+                      <CheckCircle2 className="h-4 w-4 text-success" />
                       <AlertDescription className="text-green-800">
                         Todos los materiales están disponibles en inventario
                       </AlertDescription>
                     </Alert>
                   ) : (
                     <Alert className="border-orange-200 bg-orange-50">
-                      <AlertTriangle className="h-4 w-4 text-orange-600" />
+                      <AlertTriangle className="h-4 w-4 text-warning" />
                       <AlertDescription className="text-orange-800">
                         Algunos materiales no tienen suficiente stock disponible
                       </AlertDescription>
@@ -504,13 +504,13 @@ export function ManufacturingOrderWizard({ open, onClose, onSave }) {
                             <div className="flex items-center gap-2">
                               {comp.available ? (
                                 <>
-                                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                  <Badge className="bg-green-500">Disponible</Badge>
+                                  <CheckCircle2 className="h-4 w-4 text-success" />
+                                  <Badge className="bg-success">Disponible</Badge>
                                 </>
                               ) : (
                                 <>
-                                  <AlertTriangle className="h-4 w-4 text-orange-600" />
-                                  <Badge className="bg-orange-500">
+                                  <AlertTriangle className="h-4 w-4 text-warning" />
+                                  <Badge className="bg-warning">
                                     Falta: {comp.missing} {comp.unit}
                                   </Badge>
                                 </>

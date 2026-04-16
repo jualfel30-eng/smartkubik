@@ -82,11 +82,11 @@ export function BOMTreeView({ bomId }) {
     if (node.error) {
       return (
         <div
-          className="flex items-center gap-2 p-2 rounded border border-red-300 bg-red-50"
+          className="flex items-center gap-2 p-2 rounded border border-red-300 bg-destructive/5"
           style={{ marginLeft: `${level * 24}px` }}
         >
-          <AlertCircle className="h-4 w-4 text-red-600" />
-          <span className="text-sm text-red-700">
+          <AlertCircle className="h-4 w-4 text-destructive" />
+          <span className="text-sm text-destructive">
             Error: {node.error}
           </span>
         </div>

@@ -245,7 +245,7 @@ const EmailConfiguration = () => {
 
   const getProviderIcon = (provider) => {
     if (provider === 'none') return <X className="w-5 h-5 text-muted-foreground" />;
-    return <Check className="w-5 h-5 text-green-600" />;
+    return <Check className="w-5 h-5 text-success" />;
   };
 
   return (
@@ -384,7 +384,7 @@ const EmailConfiguration = () => {
           <div className="rounded-lg border p-4 bg-muted/50">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${calendarStatus ? 'bg-green-500' : 'bg-gray-400'}`} />
+                <div className={`w-2 h-2 rounded-full ${calendarStatus ? 'bg-success' : 'bg-gray-400'}`} />
                 <span className="font-medium text-sm">
                   {calendarStatus ? 'Sincronización Activa' : 'Sin Sincronizar'}
                 </span>
@@ -409,8 +409,8 @@ const EmailConfiguration = () => {
                   <span>Expira:</span>
                   <span className={`font-medium ${
                     calendarStatus.expiration && new Date(calendarStatus.expiration) < new Date(Date.now() + 48 * 60 * 60 * 1000)
-                      ? 'text-yellow-600 dark:text-yellow-500'
-                      : 'text-green-600 dark:text-green-500'
+                      ? 'text-warning dark:text-yellow-500'
+                      : 'text-success dark:text-success'
                   }`}>
                     {calendarStatus.expiration
                       ? new Date(calendarStatus.expiration).toLocaleString('es-ES', {
@@ -615,7 +615,7 @@ const EmailConfiguration = () => {
       {/* Info Banner */}
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
         <div className="flex gap-3">
-          <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="text-sm font-medium text-blue-900">
               ¿Por qué configurar email?

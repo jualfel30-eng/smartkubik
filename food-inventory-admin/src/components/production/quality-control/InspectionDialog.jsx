@@ -118,9 +118,9 @@ export function InspectionDialog({ inspection, open, onClose, onSave, viewMode =
       return <Badge variant="outline">Sin Resultado</Badge>;
     }
     return overallResult ? (
-      <Badge className="bg-green-500">Aprobado</Badge>
+      <Badge className="bg-success">Aprobado</Badge>
     ) : (
-      <Badge className="bg-red-500">Rechazado</Badge>
+      <Badge className="bg-destructive">Rechazado</Badge>
     );
   };
 
@@ -282,9 +282,9 @@ export function InspectionDialog({ inspection, open, onClose, onSave, viewMode =
                     <div className="flex items-center justify-between mb-2">
                       <span className="font-medium">{result.checkpointName}</span>
                       {result.passed ? (
-                        <Badge className="bg-green-500">Aprobado</Badge>
+                        <Badge className="bg-success">Aprobado</Badge>
                       ) : (
-                        <Badge className="bg-red-500">Rechazado</Badge>
+                        <Badge className="bg-destructive">Rechazado</Badge>
                       )}
                     </div>
                     <div className="text-sm text-muted-foreground">

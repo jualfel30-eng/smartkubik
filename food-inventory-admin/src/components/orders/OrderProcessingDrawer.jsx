@@ -508,7 +508,7 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
                         w-10 h-10 rounded-full flex items-center justify-center
                         transition-all duration-200
                         ${isActive ? 'bg-primary text-primary-foreground scale-110' : ''}
-                        ${isCompleted ? 'bg-green-600 text-white' : ''}
+                        ${isCompleted ? 'bg-success text-white' : ''}
                         ${!isActive && !isCompleted ? 'bg-muted text-muted-foreground' : ''}
                         ${isAccessible && !isActive ? 'hover:bg-primary/20 cursor-pointer' : ''}
                         ${!isAccessible ? 'opacity-50 cursor-not-allowed' : ''}
@@ -677,7 +677,7 @@ function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChang
             </span>
           </div>
           {(order.igtfTotal > 0 || displayIgtf > 0) && !isDeliveryNote && (
-            <div className="flex justify-between text-orange-600">
+            <div className="flex justify-between text-warning">
               <span>{igtfLabel}</span>
               <span>{formatCurrency(displayIgtf)}</span>
             </div>
@@ -722,14 +722,14 @@ function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChang
           <h3 className="text-lg font-semibold">Pago</h3>
           <div className="text-sm">
             <span className="text-muted-foreground mr-2">Pendiente:</span>
-            <span className={`font-bold ${balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <span className={`font-bold ${balance > 0 ? 'text-destructive' : 'text-success'}`}>
               {formatCurrency(balance)}
             </span>
           </div>
         </div>
 
         {isPaid ? (
-          <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900 flex items-center gap-2 text-green-700 dark:text-green-400">
+          <div className="p-3 rounded-lg bg-success/5 dark:bg-green-900/20 border border-green-200 dark:border-green-900 flex items-center gap-2 text-success dark:text-green-400">
             <CheckCircle2 className="h-5 w-5" />
             <span className="font-semibold">Orden Pagada</span>
           </div>
@@ -769,12 +769,12 @@ function Step3Billing({ order, hasInvoice, onOpenBillingDrawer, onViewInvoice })
     <div className="space-y-6">
       {hasInvoice ? (
         <div className="space-y-4">
-          <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900">
-            <div className="flex items-center gap-2 text-green-700 dark:text-green-400 mb-2">
+          <div className="p-4 rounded-lg bg-success/5 dark:bg-green-900/20 border border-green-200 dark:border-green-900">
+            <div className="flex items-center gap-2 text-success dark:text-green-400 mb-2">
               <CheckCircle2 className="h-5 w-5" />
               <span className="font-semibold">Factura Emitida</span>
             </div>
-            <p className="text-sm text-green-600 dark:text-green-500 mb-2">
+            <p className="text-sm text-success dark:text-success mb-2">
               Documento fiscal generado exitosamente.
             </p>
             <div className="text-sm">
@@ -799,7 +799,7 @@ function Step3Billing({ order, hasInvoice, onOpenBillingDrawer, onViewInvoice })
               <FileText className="h-5 w-5" />
               <span className="font-semibold">Emitir Documento Fiscal</span>
             </div>
-            <p className="text-sm text-blue-600 dark:text-blue-500 mb-3">
+            <p className="text-sm text-info dark:text-blue-500 mb-3">
               La orden está completamente pagada. Procede a emitir la factura o nota de entrega.
             </p>
           </div>
@@ -886,12 +886,12 @@ function Step4Confirmation({ order, effectiveTotals, selectedDocumentType, onCom
 
   return (
     <div className="space-y-6">
-      <div className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900">
-        <div className="flex items-center gap-2 text-green-700 dark:text-green-400 mb-2">
+      <div className="p-4 rounded-lg bg-success/5 dark:bg-green-900/20 border border-green-200 dark:border-green-900">
+        <div className="flex items-center gap-2 text-success dark:text-green-400 mb-2">
           <CheckCheck className="h-5 w-5" />
           <span className="font-semibold">Proceso Completado</span>
         </div>
-        <p className="text-sm text-green-600 dark:text-green-500">
+        <p className="text-sm text-success dark:text-success">
           Factura emitida exitosamente. Puedes compartirla ahora o finalizar la orden.
         </p>
       </div>
@@ -925,15 +925,15 @@ function Step4Confirmation({ order, effectiveTotals, selectedDocumentType, onCom
       <Separator />
 
       <div className="space-y-3">
-        <div className="flex items-center gap-2 text-green-600">
+        <div className="flex items-center gap-2 text-success">
           <CheckCircle2 className="h-5 w-5" />
           <span className="text-sm font-medium">Método de entrega seleccionado</span>
         </div>
-        <div className="flex items-center gap-2 text-green-600">
+        <div className="flex items-center gap-2 text-success">
           <CheckCircle2 className="h-5 w-5" />
           <span className="text-sm font-medium">Pago registrado y validado</span>
         </div>
-        <div className="flex items-center gap-2 text-green-600">
+        <div className="flex items-center gap-2 text-success">
           <CheckCircle2 className="h-5 w-5" />
           <span className="text-sm font-medium">Documento fiscal emitido</span>
         </div>

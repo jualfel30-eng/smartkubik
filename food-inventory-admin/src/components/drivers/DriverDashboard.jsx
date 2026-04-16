@@ -150,7 +150,7 @@ export const DriverDashboard = () => {
                                         <Navigation className="w-4 h-4 mr-2" />
                                         {expandedMapOrderId === order._id ? 'Ocultar Mapa' : 'Ver Mapa'}
                                     </Button>
-                                    <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => handleComplete(order._id)}>
+                                    <Button className="flex-1 bg-success hover:bg-green-700" onClick={() => handleComplete(order._id)}>
                                         <PackageCheck className="w-4 h-4 mr-2" /> Completar
                                     </Button>
                                 </div>

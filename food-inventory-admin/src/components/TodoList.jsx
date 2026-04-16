@@ -17,18 +17,18 @@ import { Label } from './ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 
 const TAG_OPTIONS = [
-  { value: 'pagos', label: 'Pagos', color: 'bg-red-500' },
-  { value: 'compras', label: 'Compras', color: 'bg-blue-500' },
+  { value: 'pagos', label: 'Pagos', color: 'bg-destructive' },
+  { value: 'compras', label: 'Compras', color: 'bg-info' },
   { value: 'fiscal', label: 'Fiscal', color: 'bg-purple-500' },
   { value: 'legal', label: 'Legal', color: 'bg-amber-500' },
-  { value: 'produccion', label: 'Producción', color: 'bg-green-500' },
-  { value: 'mantenimiento', label: 'Mantenimiento', color: 'bg-orange-500' },
+  { value: 'produccion', label: 'Producción', color: 'bg-success' },
+  { value: 'mantenimiento', label: 'Mantenimiento', color: 'bg-warning' },
 ];
 
 const PRIORITY_OPTIONS = [
   { value: 'low', label: 'Baja', color: 'text-gray-500' },
   { value: 'medium', label: 'Media', color: 'text-yellow-500' },
-  { value: 'high', label: 'Alta', color: 'text-red-500' },
+  { value: 'high', label: 'Alta', color: 'text-destructive' },
 ];
 
 export function TodoList({ onTodoComplete }) {
@@ -308,7 +308,7 @@ export function TodoList({ onTodoComplete }) {
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto">
         {loading && <p>Cargando tareas...</p>}
-        {error && <p className="text-red-500">{error}</p>}
+        {error && <p className="text-destructive">{error}</p>}
 
         {/* Tareas Pendientes */}
         <div className="space-y-2">
@@ -344,7 +344,7 @@ export function TodoList({ onTodoComplete }) {
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => deleteTodo(todo._id)}>
-                      <Trash2 className="h-4 w-4 text-red-500" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
                 </div>
@@ -402,7 +402,7 @@ export function TodoList({ onTodoComplete }) {
 
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="sm" onClick={() => deleteTodo(todo._id)}>
-                          <Trash2 className="h-4 w-4 text-red-500" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </div>

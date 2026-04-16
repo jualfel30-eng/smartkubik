@@ -296,7 +296,7 @@ const BillingDocumentDetail = () => {
                 {document.totals?.discounts > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Descuentos:</span>
-                    <span className="text-red-600">
+                    <span className="text-destructive">
                       -${document.totals.discounts.toFixed(2)}
                     </span>
                   </div>
@@ -386,7 +386,7 @@ const BillingDocumentDetail = () => {
                 <span className="text-muted-foreground">XML generado:</span>
                 <p className="font-medium">
                   {document.seniat?.xmlGenerated ? (
-                    <span className="flex items-center gap-1 text-green-600">
+                    <span className="flex items-center gap-1 text-success">
                       <CheckCircle className="h-4 w-4" />
                       Sí
                     </span>
@@ -421,7 +421,7 @@ const BillingDocumentDetail = () => {
                     href={document.taxInfo.verificationUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-blue-600 hover:underline"
+                    className="flex items-center gap-1 text-info hover:underline"
                   >
                     Verificar en SENIAT
                     <ExternalLink className="h-3 w-3" />
@@ -477,7 +477,7 @@ const BillingDocumentDetail = () => {
                       href={evidence.verificationUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 text-blue-600 hover:underline text-xs"
+                      className="flex items-center gap-1 text-info hover:underline text-xs"
                     >
                       URL Verificación
                       <ExternalLink className="h-3 w-3" />
@@ -515,7 +515,7 @@ const BillingDocumentDetail = () => {
                     href={document.taxInfo.verificationUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline flex items-center justify-center gap-1 mt-2"
+                    className="text-sm text-info hover:underline flex items-center justify-center gap-1 mt-2"
                   >
                     Verificar en SENIAT
                     <ExternalLink className="h-3 w-3" />

@@ -87,7 +87,7 @@ export default function DataImportWizard({ onGoToHistory }) {
                     isActive
                       ? 'bg-primary text-primary-foreground'
                       : isCompleted
-                        ? 'bg-green-100 text-green-700'
+                        ? 'bg-success/10 text-success'
                         : 'bg-muted text-muted-foreground'
                   }`}
                 >

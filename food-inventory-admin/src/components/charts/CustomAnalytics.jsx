@@ -150,7 +150,7 @@ function MarginByProductTable({ data }) {
               <td className="py-2 text-right font-mono">{fmtUsd(row.revenue)}</td>
               <td className="py-2 text-right font-mono">{fmtUsd(row.cost)}</td>
               <td className={`py-2 text-right font-mono font-semibold ${
-                row.margin >= 0 ? 'text-green-600' : 'text-red-600'
+                row.margin >= 0 ? 'text-success' : 'text-destructive'
               }`}>
                 {fmtUsd(row.margin)}
               </td>

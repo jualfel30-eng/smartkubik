@@ -251,7 +251,7 @@ export default function ModifierSelector({ product, onClose, onConfirm }) {
                     <h3 className="font-semibold text-gray-900">
                       {group.name}
                       {group.required && (
-                        <span className="text-red-500 ml-1">*</span>
+                        <span className="text-destructive ml-1">*</span>
                       )}
                     </h3>
                     {group.description && (
@@ -268,7 +268,7 @@ export default function ModifierSelector({ product, onClose, onConfirm }) {
                 </div>
 
                 {errors[group._id] && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded text-sm flex items-center gap-2">
+                  <div className="bg-destructive/5 border border-red-200 text-destructive px-3 py-2 rounded text-sm flex items-center gap-2">
                     <AlertCircle className="w-4 h-4" />
                     {errors[group._id]}
                   </div>
@@ -300,7 +300,7 @@ export default function ModifierSelector({ product, onClose, onConfirm }) {
                                 w-5 h-5 rounded-full border-2 flex items-center justify-center
                                 ${
                                   isSelected
-                                    ? 'border-blue-500 bg-blue-500'
+                                    ? 'border-blue-500 bg-info'
                                     : 'border-gray-300'
                                 }
                               `}

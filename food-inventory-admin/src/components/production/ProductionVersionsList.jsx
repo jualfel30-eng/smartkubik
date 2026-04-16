@@ -86,7 +86,7 @@ export function ProductionVersionsList() {
         </CardHeader>
         <CardContent>
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">Error: {error}</div>
+            <div className="bg-destructive/10 border border-red-400 text-destructive px-4 py-3 rounded mb-4">Error: {error}</div>
           )}
 
           {loading ? (
@@ -131,7 +131,7 @@ export function ProductionVersionsList() {
                       </TableCell>
                       <TableCell>
                         {version.isDefault ? (
-                          <Badge className="bg-yellow-500">
+                          <Badge className="bg-warning">
                             <Star className="h-3 w-3 mr-1" />
                             Predeterminada
                           </Badge>
@@ -142,7 +142,7 @@ export function ProductionVersionsList() {
                       <TableCell>{formatDate(version.effectiveDate)}</TableCell>
                       <TableCell>
                         {version.isActive ? (
-                          <Badge className="bg-green-500">Activa</Badge>
+                          <Badge className="bg-success">Activa</Badge>
                         ) : (
                           <Badge variant="outline">Inactiva</Badge>
                         )}

@@ -242,12 +242,12 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings, onU
               <div className="flex justify-between"><p>{igtfLabel}</p> <p className="font-medium">{formatCurrency(order.igtfTotal)}</p></div>
               <div className="flex justify-between text-base font-bold border-t pt-2"><p>Monto Total:</p> <p>{formatCurrency(order.totalAmount)}</p></div>
               {order.totalAmountVes > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
+                <div className="flex justify-between text-sm text-success">
                   <p>Total en Bolívares:</p>
                   <p>Bs {order.totalAmountVes.toFixed(2)}</p>
                 </div>
               )}
-              <div className="flex justify-between text-red-500 dark:text-red-400 border-t pt-2">
+              <div className="flex justify-between text-destructive dark:text-red-400 border-t pt-2">
                 <p>Balance Pendiente:</p>
                 <p>{formatCurrency((order.totalAmount || 0) - (order.paidAmount || 0))}</p>
               </div>
@@ -290,7 +290,7 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings, onU
                         <TableCell className="text-right font-medium">
                           {formatCurrency(payment.amount || 0)}
                         </TableCell>
-                        <TableCell className="text-right font-medium text-green-600">
+                        <TableCell className="text-right font-medium text-success">
                           {payment.amountVes > 0 ? `Bs ${payment.amountVes.toFixed(2)}` : '-'}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
@@ -306,7 +306,7 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings, onU
                     <TableRow className="bg-muted/50 font-semibold">
                       <TableCell colSpan={2} className="text-right">Total Pagado:</TableCell>
                       <TableCell className="text-right">{formatCurrency(order.paidAmount || 0)}</TableCell>
-                      <TableCell className="text-right text-green-600">
+                      <TableCell className="text-right text-success">
                         {order.paidAmountVes > 0 ? `Bs ${order.paidAmountVes.toFixed(2)}` : '-'}
                       </TableCell>
                       <TableCell colSpan={2}></TableCell>

@@ -127,7 +127,7 @@ export default function OpportunityStagesManagement() {
                                         </Button>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700">
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </AlertDialogTrigger>
@@ -140,7 +140,7 @@ export default function OpportunityStagesManagement() {
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
                                                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                    <AlertDialogAction className="bg-red-500" onClick={() => handleDelete(stage._id)}>
+                                                    <AlertDialogAction className="bg-destructive" onClick={() => handleDelete(stage._id)}>
                                                         Eliminar
                                                     </AlertDialogAction>
                                                 </AlertDialogFooter>

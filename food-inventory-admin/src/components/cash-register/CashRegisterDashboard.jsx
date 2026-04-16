@@ -561,9 +561,9 @@ export default function CashRegisterDashboard() {
   const diffVes = (closeForm.closingAmountVes || 0) - expectedVes;
 
   const getDiffBadgeColor = (diff) => {
-    if (Math.abs(diff) < 0.01) return 'text-green-600 bg-success-muted';
-    if (diff > 0) return 'text-blue-600 bg-info-muted'; // Sobrante
-    return 'text-red-600 bg-destructive/10'; // Faltante
+    if (Math.abs(diff) < 0.01) return 'text-success bg-success-muted';
+    if (diff > 0) return 'text-info bg-info-muted'; // Sobrante
+    return 'text-destructive bg-destructive/10'; // Faltante
   };
 
   // ============================================
@@ -607,11 +607,11 @@ export default function CashRegisterDashboard() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-green-500 flex items-center justify-center">
+                <div className="h-12 w-12 rounded-full bg-success flex items-center justify-center">
                   <Banknote className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <CardTitle className="text-green-700 dark:text-green-400">
+                  <CardTitle className="text-success dark:text-green-400">
                     Caja Abierta: {currentSession.registerName}
                   </CardTitle>
                   <CardDescription>
@@ -653,19 +653,19 @@ export default function CashRegisterDashboard() {
               {/* Cash Tender Metrics */}
               <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <p className="text-sm text-muted-foreground">Efectivo Recibido (USD)</p>
-                <p className="text-xl font-semibold text-blue-600">
+                <p className="text-xl font-semibold text-info">
                   {formatCurrency(currentSession.calculatedTotals?.cashReceivedUsd || 0, 'USD')}
                 </p>
               </div>
               <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <p className="text-sm text-muted-foreground">Vuelto Dado (USD)</p>
-                <p className="text-xl font-semibold text-orange-600">
+                <p className="text-xl font-semibold text-warning">
                   {formatCurrency(currentSession.calculatedTotals?.changeGivenUsd || 0, 'USD')}
                 </p>
               </div>
               <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <p className="text-sm text-muted-foreground">Vuelto Dado (VES)</p>
-                <p className="text-xl font-semibold text-orange-600">
+                <p className="text-xl font-semibold text-warning">
                   {formatCurrency(currentSession.calculatedTotals?.changeGivenVes || 0, 'VES')}
                 </p>
               </div>
@@ -692,7 +692,7 @@ export default function CashRegisterDashboard() {
                         )}
                         <span>{mov.reason}</span>
                       </div>
-                      <span className={mov.type === 'in' ? 'text-green-600' : 'text-red-600'}>
+                      <span className={mov.type === 'in' ? 'text-success' : 'text-destructive'}>
                         {mov.type === 'in' ? '+' : '-'}{formatCurrency(mov.amount, mov.currency)}
                       </span>
                     </div>
@@ -910,7 +910,7 @@ export default function CashRegisterDashboard() {
                                 size="icon"
                                 onClick={() => handleApproveClosing(closing._id)}
                               >
-                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <CheckCircle className="h-4 w-4 text-success" />
                               </Button>
                             )}
                             <Button
@@ -1032,10 +1032,10 @@ export default function CashRegisterDashboard() {
             // ===== VISTA DE ÉXITO =====
             <div className="space-y-6 py-4">
               <div className="text-center space-y-2">
-                <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <div className="mx-auto w-12 h-12 bg-success/10 rounded-full flex items-center justify-center">
                   <span className="text-2xl">✅</span>
                 </div>
-                <h3 className="text-lg font-bold text-green-700">¡Caja Cerrada Exitosamente!</h3>
+                <h3 className="text-lg font-bold text-success">¡Caja Cerrada Exitosamente!</h3>
                 <p className="text-sm text-muted-foreground">
                   El cierre se ha registrado correctamente.
                   <br />ID: #{lastClosingId?.slice(-6)}
@@ -1332,13 +1332,13 @@ export default function CashRegisterDashboard() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <p className="text-sm text-muted-foreground">Ventas Brutas USD</p>
-                      <p className="text-2xl font-bold text-green-600">
+                      <p className="text-2xl font-bold text-success">
                         {formatCurrency(selectedClosing.totalGrossSalesUsd, 'USD')}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Ventas Brutas VES</p>
-                      <p className="text-2xl font-bold text-green-600">
+                      <p className="text-2xl font-bold text-success">
                         {formatCurrency(selectedClosing.totalGrossSalesVes, 'VES')}
                       </p>
                     </div>
@@ -1348,7 +1348,7 @@ export default function CashRegisterDashboard() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Descuentos</p>
-                      <p className="text-2xl font-bold text-orange-600">
+                      <p className="text-2xl font-bold text-warning">
                         {formatCurrency(selectedClosing.totalDiscountsUsd, 'USD')}
                       </p>
                     </div>
@@ -1405,7 +1405,7 @@ export default function CashRegisterDashboard() {
                       </TableHeader>
                       <TableBody>
                         <TableRow>
-                          <TableCell className="font-medium text-green-600">Entradas (+)</TableCell>
+                          <TableCell className="font-medium text-success">Entradas (+)</TableCell>
                           <TableCell>
                             {formatCurrency(
                               (selectedClosing.cashInMovementsUsd || 0) + (selectedClosing.cashReceivedUsd || 0),
@@ -1420,7 +1420,7 @@ export default function CashRegisterDashboard() {
                           </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell className="font-medium text-red-600">Salidas (-)</TableCell>
+                          <TableCell className="font-medium text-destructive">Salidas (-)</TableCell>
                           <TableCell>
                             {formatCurrency(
                               (selectedClosing.cashOutMovementsUsd || 0) +
@@ -1475,7 +1475,7 @@ export default function CashRegisterDashboard() {
                         {selectedClosing.changeGiven?.map((change, idx) => (
                           <TableRow key={idx}>
                             <TableCell className="font-medium">{change.currency}</TableCell>
-                            <TableCell className="text-red-500 font-bold">-{formatCurrency(change.totalChangeGiven, change.currency)}</TableCell>
+                            <TableCell className="text-destructive font-bold">-{formatCurrency(change.totalChangeGiven, change.currency)}</TableCell>
                           </TableRow>
                         ))}
                         {(!selectedClosing.changeGiven || selectedClosing.changeGiven.length === 0) && (
@@ -1498,7 +1498,7 @@ export default function CashRegisterDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-info-muted rounded-lg">
                       <p className="text-sm text-muted-foreground">IVA Recaudado</p>
-                      <p className="text-2xl font-bold text-blue-600">
+                      <p className="text-2xl font-bold text-info">
                         {formatCurrency(
                           selectedClosing.totalIvaCollected ||
                           selectedClosing.taxSummary?.find(t => t.taxType === 'IVA')?.taxAmount ||
@@ -1528,9 +1528,9 @@ export default function CashRegisterDashboard() {
                   <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
                       {selectedClosing.hasDifferences ? (
-                        <AlertTriangle className="h-5 w-5 text-red-500" />
+                        <AlertTriangle className="h-5 w-5 text-destructive" />
                       ) : (
-                        <CheckCircle className="h-5 w-5 text-green-500" />
+                        <CheckCircle className="h-5 w-5 text-success" />
                       )}
                       Cuadre de Caja
                     </CardTitle>
@@ -1552,7 +1552,7 @@ export default function CashRegisterDashboard() {
                             <TableCell className="font-medium">{diff.currency}</TableCell>
                             <TableCell>{formatCurrency(diff.expectedAmount, diff.currency)}</TableCell>
                             <TableCell>{formatCurrency(diff.declaredAmount, diff.currency)}</TableCell>
-                            <TableCell className={diff.difference < 0 ? 'text-red-600' : diff.difference > 0 ? 'text-orange-600' : 'text-green-600'}>
+                            <TableCell className={diff.difference < 0 ? 'text-destructive' : diff.difference > 0 ? 'text-warning' : 'text-success'}>
                               {diff.difference > 0 ? '+' : ''}{formatCurrency(diff.difference, diff.currency)}
                             </TableCell>
                             <TableCell>{getDifferenceBadge(diff)}</TableCell>

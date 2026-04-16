@@ -17,7 +17,7 @@ const ENTITY_OPTIONS = [
     label: 'Productos',
     description: 'Productos con variantes, precios y stock inicial',
     icon: Package,
-    color: 'text-blue-600',
+    color: 'text-info',
     bgColor: 'bg-blue-50',
   },
   {
@@ -25,15 +25,15 @@ const ENTITY_OPTIONS = [
     label: 'Clientes',
     description: 'Clientes con datos de contacto e información fiscal',
     icon: Users,
-    color: 'text-green-600',
-    bgColor: 'bg-green-50',
+    color: 'text-success',
+    bgColor: 'bg-success/5',
   },
   {
     type: 'suppliers',
     label: 'Proveedores',
     description: 'Proveedores con contacto y condiciones de pago',
     icon: Truck,
-    color: 'text-orange-600',
+    color: 'text-warning',
     bgColor: 'bg-orange-50',
   },
   {
@@ -157,7 +157,7 @@ export default function StepEntitySelect({
               dragActive
                 ? 'border-primary bg-primary/5'
                 : selectedFile
-                  ? 'border-green-400 bg-green-50'
+                  ? 'border-green-400 bg-success/5'
                   : 'border-muted-foreground/25 hover:border-muted-foreground/50'
             }`}
             onDrop={handleDrop}
@@ -175,7 +175,7 @@ export default function StepEntitySelect({
             />
             {selectedFile ? (
               <div className="flex items-center justify-center gap-3">
-                <FileSpreadsheet className="h-8 w-8 text-green-600" />
+                <FileSpreadsheet className="h-8 w-8 text-success" />
                 <div className="text-left">
                   <p className="font-medium">{selectedFile.name}</p>
                   <p className="text-sm text-muted-foreground">

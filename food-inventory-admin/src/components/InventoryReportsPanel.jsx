@@ -313,7 +313,7 @@ export default function InventoryReportsPanel() {
                             <div className="text-2xl font-bold text-blue-900 dark:text-blue-200">
                                 {netMovement.entries.toLocaleString()} <span className="text-xs font-normal">unds</span>
                             </div>
-                            <p className="text-xs text-blue-600/80 mt-1">${netMovement.entriesCost.toFixed(2)}</p>
+                            <p className="text-xs text-info/80 mt-1">${netMovement.entriesCost.toFixed(2)}</p>
                         </CardContent>
                     </Card>
 
@@ -325,7 +325,7 @@ export default function InventoryReportsPanel() {
                             <div className="text-2xl font-bold text-orange-900 dark:text-orange-200">
                                 {netMovement.exits.toLocaleString()} <span className="text-xs font-normal">unds</span>
                             </div>
-                            <p className="text-xs text-orange-600/80 mt-1">${netMovement.exitsCost.toFixed(2)}</p>
+                            <p className="text-xs text-warning/80 mt-1">${netMovement.exitsCost.toFixed(2)}</p>
                         </CardContent>
                     </Card>
 
@@ -334,7 +334,7 @@ export default function InventoryReportsPanel() {
                             <CardTitle className="text-sm font-medium text-emerald-800 dark:text-emerald-300">Movimiento Neto (Cant)</CardTitle>
                         </CardHeader>
                         <CardContent className="p-4 pt-0">
-                            <div className={`text-2xl font-bold ${netMovement.net >= 0 ? 'text-emerald-900 dark:text-emerald-200' : 'text-red-600'}`}>
+                            <div className={`text-2xl font-bold ${netMovement.net >= 0 ? 'text-emerald-900 dark:text-emerald-200' : 'text-destructive'}`}>
                                 {netMovement.net > 0 ? '+' : ''}{netMovement.net.toLocaleString()}
                             </div>
                         </CardContent>
@@ -345,7 +345,7 @@ export default function InventoryReportsPanel() {
                             <CardTitle className="text-sm font-medium text-violet-800 dark:text-violet-300">Movimiento Neto (Valor)</CardTitle>
                         </CardHeader>
                         <CardContent className="p-4 pt-0">
-                            <div className={`text-2xl font-bold ${netMovement.netCost >= 0 ? 'text-violet-900 dark:text-violet-200' : 'text-red-600'}`}>
+                            <div className={`text-2xl font-bold ${netMovement.netCost >= 0 ? 'text-violet-900 dark:text-violet-200' : 'text-destructive'}`}>
                                 {netMovement.netCost > 0 ? '+' : ''}${netMovement.netCost.toFixed(2)}
                             </div>
                         </CardContent>

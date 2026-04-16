@@ -275,8 +275,8 @@ export default function CashRegisterReports() {
                                             <TableRow key={idx}>
                                                 <TableCell className="font-medium">{item.cashierName}</TableCell>
                                                 <TableCell>{item.transactionCount}</TableCell>
-                                                <TableCell className="text-green-600 font-semibold">{formatCurrency(item.totalChangeGivenUsd, 'USD')}</TableCell>
-                                                <TableCell className="text-blue-600">{formatCurrency(item.totalChangeGivenVes, 'VES')}</TableCell>
+                                                <TableCell className="text-success font-semibold">{formatCurrency(item.totalChangeGivenUsd, 'USD')}</TableCell>
+                                                <TableCell className="text-info">{formatCurrency(item.totalChangeGivenVes, 'VES')}</TableCell>
                                                 <TableCell>{formatCurrency(item.avgChangeUsd, 'USD')}</TableCell>
                                                 <TableCell>{formatCurrency(item.maxChangeUsd, 'USD')}</TableCell>
                                             </TableRow>
@@ -365,8 +365,8 @@ export default function CashRegisterReports() {
                         <CardContent>
                             {changeData.filter(d => d.avgChangeUsd > 20 || d.maxChangeUsd > 50).length === 0 ? (
                                 <div className="text-center py-12 text-muted-foreground bg-success-muted rounded-lg border border-success/30">
-                                    <TrendingUp className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                                    <p className="font-semibold text-green-700 dark:text-green-400">Todo parece estar en orden</p>
+                                    <TrendingUp className="h-12 w-12 mx-auto mb-4 text-success" />
+                                    <p className="font-semibold text-success dark:text-green-400">Todo parece estar en orden</p>
                                     <p className="text-sm">No se detectaron patrones inusuales en los vueltos entregados.</p>
                                 </div>
                             ) : (
