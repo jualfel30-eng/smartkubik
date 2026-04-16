@@ -56,6 +56,7 @@ class BookingServiceDto {
   addonNames?: string[]; // Nombres de los addons seleccionados
 }
 
+
 export class CreateBeautyBookingDto {
   @ApiProperty({ example: '507f1f77bcf86cd799439011' })
   @IsString()
