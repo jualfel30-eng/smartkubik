@@ -35,6 +35,10 @@ import {
   StorefrontConfig,
   StorefrontConfigSchema,
 } from '../../schemas/storefront-config.schema';
+import {
+  ResourceBlock,
+  ResourceBlockSchema,
+} from '../../schemas/resource-block.schema';
 
 // Services
 import { BeautyPackagesService } from './services/service-packages.service';
@@ -46,6 +50,8 @@ import { BeautyReviewsService } from './services/beauty-reviews.service';
 import { BeautyLoyaltyService } from './services/beauty-loyalty.service';
 import { BeautyWhatsAppNotificationsService } from './services/beauty-whatsapp-notifications.service';
 import { BeautyBookingsJobsService } from './services/beauty-bookings-jobs.service';
+import { BeautyReportsService } from './services/beauty-reports.service';
+import { ResourceBlocksService } from './services/resource-blocks.service';
 import { NotificationCenterModule } from '../notification-center/notification-center.module';
 
 // Controllers - Private
@@ -55,6 +61,8 @@ import { ProfessionalsController } from './controllers/professionals.controller'
 import { BeautyBookingsController } from './controllers/beauty-bookings.controller';
 import { BeautyGalleryController } from './controllers/beauty-gallery.controller';
 import { BeautyReviewsController } from './controllers/beauty-reviews.controller';
+import { BeautyReportsController } from './controllers/beauty-reports.controller';
+import { ResourceBlocksController } from './controllers/resource-blocks.controller';
 
 // Controllers - Public
 import { BeautyPackagesPublicController } from './controllers/service-packages-public.controller';
@@ -105,6 +113,7 @@ import { BeautyLoyaltyPublicController } from './controllers/beauty-loyalty-publ
       { name: BeautyReview.name, schema: BeautyReviewSchema },
       { name: BeautyLoyaltyRecord.name, schema: BeautyLoyaltyRecordSchema },
       { name: StorefrontConfig.name, schema: StorefrontConfigSchema },
+      { name: ResourceBlock.name, schema: ResourceBlockSchema },
     ]),
   ],
   controllers: [
@@ -115,6 +124,8 @@ import { BeautyLoyaltyPublicController } from './controllers/beauty-loyalty-publ
     BeautyBookingsController,
     BeautyGalleryController,
     BeautyReviewsController,
+    BeautyReportsController,
+    ResourceBlocksController,
     // Public controllers
     BeautyPackagesPublicController,
     BeautyServicesPublicController,
@@ -134,6 +145,8 @@ import { BeautyLoyaltyPublicController } from './controllers/beauty-loyalty-publ
     BeautyLoyaltyService,
     BeautyWhatsAppNotificationsService,
     BeautyBookingsJobsService,
+    BeautyReportsService,
+    ResourceBlocksService,
   ],
   exports: [
     // Exportar servicios para usar en otros módulos si es necesario

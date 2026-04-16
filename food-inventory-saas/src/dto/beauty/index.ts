@@ -14,3 +14,4 @@ export * from './create-review.dto';
 export * from './approve-review.dto';
 export * from './create-gallery-item.dto';
 export * from './update-gallery-item.dto';
+export * from './create-resource-block.dto';

@@ -23,6 +23,10 @@ import {
   StorefrontConfigDocument,
 } from '../../../schemas/storefront-config.schema';
 import {
+  ResourceBlock,
+  ResourceBlockDocument,
+} from '../../../schemas/resource-block.schema';
+import {
   CreateBeautyBookingDto,
   UpdateBookingStatusDto,
   UpdateBeautyBookingDto,
@@ -49,6 +53,8 @@ export class BeautyBookingsService {
     private professionalModel: Model<ProfessionalDocument>,
     @InjectModel(StorefrontConfig.name)
     private storefrontConfigModel: Model<StorefrontConfigDocument>,
+    @InjectModel(ResourceBlock.name)
+    private resourceBlockModel: Model<ResourceBlockDocument>,
     private readonly whatsappService: BeautyWhatsAppNotificationsService,
     private readonly loyaltyService: BeautyLoyaltyService,
     private readonly webPushService: WebPushService,
@@ -570,6 +576,25 @@ export class BeautyBookingsService {
       })
       .exec();
 
+    // 6b. Fetch resource blocks for each professional on this date
+    // Also check recurring blocks (isRecurring=true, recurringDays includes dayOfWeek)
+    // dayOfWeek here: 0=Sunday,1=Monday,...,6=Saturday (JS getDay())
+    // ResourceBlock uses 0=Monday...6=Sunday convention, so convert:
+    const blockDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const dateObj = new Date(dto.date);
+    const profIdList = professionals.map((p) => p._id);
+    const resourceBlocks = await this.resourceBlockModel
+      .find({
+        tenantId,
+        professionalId: { $in: profIdList },
+        isDeleted: { $ne: true },
+        $or: [
+          { date: dateObj, isRecurring: { $ne: true } },
+          { isRecurring: true, recurringDays: blockDayOfWeek },
+        ],
+      })
+      .lean();
+
     // 7. Filtrar slots disponibles
     const availableSlots: Array<{
       time: string;
@@ -604,8 +629,16 @@ export class BeautyBookingsService {
             booking.professional?.toString() === prof._id.toString() &&
             !(slotEnd <= booking.startTime || slot >= booking.endTime),
         );
+        if (hasConflict) return false;
 
-        return !hasConflict;
+        // Verificar bloqueos de recurso
+        const hasBlock = resourceBlocks.some(
+          (block) =>
+            block.professionalId.toString() === prof._id.toString() &&
+            !(slotEnd <= block.startTime || slot >= block.endTime),
+        );
+
+        return !hasBlock;
       });
 
       if (availableProfessional) {
