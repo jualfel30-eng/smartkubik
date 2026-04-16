@@ -16,7 +16,9 @@ const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 bg-black/80",
+      "data-[state=open]:animate-[dialog-overlay-in_250ms_cubic-bezier(0.22,1,0.36,1)]",
+      "data-[state=closed]:animate-[dialog-overlay-out_200ms_cubic-bezier(0.22,1,0.36,1)]",
       className
     )}
     {...props}
@@ -30,13 +32,20 @@ const DialogContent = React.forwardRef(({ className, children, ...props }, ref) 
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        // Desktop: centered modal with spring animation
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg sm:rounded-lg",
+        "data-[state=open]:animate-[dialog-content-in_300ms_cubic-bezier(0.34,1.56,0.64,1)]",
+        "data-[state=closed]:animate-[dialog-content-out_200ms_cubic-bezier(0.22,1,0.36,1)]",
+        // Mobile fullscreen fallback with slide-up animation
+        "max-sm:left-0 max-sm:top-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-w-[100vw] max-sm:w-full max-sm:h-[100dvh] max-sm:rounded-none max-sm:border-0 max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:pb-[env(safe-area-inset-bottom)]",
+        "max-sm:data-[state=open]:animate-[dialog-mobile-in_350ms_cubic-bezier(0.34,1.56,0.64,1)]",
+        "max-sm:data-[state=closed]:animate-[dialog-mobile-out_200ms_cubic-bezier(0.22,1,0.36,1)]",
         className
       )}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground max-sm:right-3 max-sm:top-3 max-sm:p-2">
         <XIcon className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
