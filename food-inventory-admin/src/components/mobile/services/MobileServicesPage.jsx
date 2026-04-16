@@ -46,11 +46,14 @@ function ServiceCard({ service, onSaved, onToggleActive }) {
   const set = (field) => (val) => setDraft((d) => ({ ...d, [field]: val }));
 
   const startEdit = () => {
+    const priceVal = typeof service.price === 'object' && service.price !== null
+      ? service.price.amount
+      : service.price;
     setDraft({
       name: service.name,
       description: service.description || '',
       duration: service.duration,
-      price: service.price,
+      price: priceVal,
       category: service.category || '',
     });
     setEditing(true);
@@ -154,7 +157,7 @@ function ServiceCard({ service, onSaved, onToggleActive }) {
               <span className="flex items-center gap-1 text-xs font-medium">
                 <DollarSign size={11} className="text-primary" />
                 <Field
-                  value={editing ? draft.price : service.price}
+                  value={editing ? draft.price : (typeof service.price === 'object' && service.price !== null ? service.price.amount : service.price)}
                   editing={editing}
                   type="number"
                   onChange={set('price')}

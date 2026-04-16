@@ -10,7 +10,7 @@ import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 // Para beauty, exponemos solo lo relevante. Otras verticales reciben un set más amplio.
 
 const BEAUTY_ITEMS = [
-  { to: '/services-management', label: 'Servicios', icon: Palette },
+  { to: '/services', label: 'Servicios', icon: Palette },
   { to: '/resources', label: 'Recursos / Empleados', icon: Users },
   { to: '/inventory-management', label: 'Inventario', icon: Boxes },
   { to: '/cash-register', label: 'Caja', icon: DollarSign },
