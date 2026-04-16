@@ -2815,4 +2815,58 @@ export const getLoyaltyBalance = (tenantId, clientPhone) => {
   return fetchApi(`/public/beauty-loyalty/${tenantId}/balance?clientPhone=${encodeURIComponent(clientPhone)}`);
 };
 
+// ==================== Beauty Reports API ====================
+
+export const getBeautyRevenueByProfessional = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/beauty-reports/revenue-by-professional${qs ? `?${qs}` : ''}`);
+};
+
+export const getBeautyPopularServices = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/beauty-reports/popular-services${qs ? `?${qs}` : ''}`);
+};
+
+export const getBeautyNoShowRate = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/beauty-reports/no-show-rate${qs ? `?${qs}` : ''}`);
+};
+
+export const getBeautyClientRetention = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/beauty-reports/client-retention${qs ? `?${qs}` : ''}`);
+};
+
+export const getBeautyPeakHours = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/beauty-reports/peak-hours${qs ? `?${qs}` : ''}`);
+};
+
+export const getBeautyUtilization = (params = {}) => {
+  const qs = new URLSearchParams(params).toString();
+  return fetchApi(`/beauty-reports/utilization${qs ? `?${qs}` : ''}`);
+};
+
+// ==================== Resource Blocks API ====================
+
+export const createResourceBlock = (data) => {
+  return fetchApi('/resource-blocks', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const getResourceBlocks = (params = {}) => {
+  const queryParams = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') queryParams.append(k, v);
+  });
+  const qs = queryParams.toString();
+  return fetchApi(`/resource-blocks${qs ? `?${qs}` : ''}`);
+};
+
+export const deleteResourceBlock = (id) => {
+  return fetchApi(`/resource-blocks/${id}`, { method: 'DELETE' });
+};
+
 // ==================== IVA Declaration API ====================

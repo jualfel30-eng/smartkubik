@@ -7,6 +7,7 @@ import FoodCostWidget from '../components/FoodCostWidget';
 import TipsReportWidget from '../components/TipsReportWidget';
 import TipsManagementDashboard from '../components/TipsManagementDashboard';
 import MenuEngineeringWidget from '../components/MenuEngineeringWidget';
+import BeautyReportsWidget from '../components/BeautyReportsWidget';
 
 import { useVerticalConfig, useVerticalKey } from '../hooks/useVerticalConfig';
 
@@ -80,6 +81,13 @@ const ReportsPage = () => {
         {isAllowed('ap') && (
           <div className="mt-6">
             <AccountsPayableReport />
+          </div>
+        )}
+
+        {/* Beauty Reports — only for barbershop-salon and clinic-spa */}
+        {BEAUTY_PROFILES.includes(verticalKey) && (
+          <div className="mt-6">
+            <BeautyReportsWidget />
           </div>
         )}
 

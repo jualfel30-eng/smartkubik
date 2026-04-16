@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -9,7 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
-import { fetchApi } from '../lib/api';
+import {
+  fetchApi,
+  createResourceBlock,
+  getResourceBlocks,
+  deleteResourceBlock,
+} from '../lib/api';
 import { useModuleAccess } from '../hooks/useModuleAccess';
 import { useBusinessModel, getBusinessContextText } from '../hooks/useBusinessModel';
 import { useVerticalLabels } from '../hooks/use-vertical-labels';
@@ -30,7 +35,9 @@ import {
   XCircle,
   AlertCircle,
   DollarSign,
-  ImageIcon
+  ImageIcon,
+  Lock,
+  X as XIcon,
 } from 'lucide-react';
 
 const compressAndConvertImage = (file) => {
@@ -166,6 +173,22 @@ function ResourcesManagement() {
   const [formData, setFormData] = useState(buildEmptyResourceForm());
   const [loading, setLoading] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
+  // Resource blocks (beauty vertical only)
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockingResource, setBlockingResource] = useState(null); // the professional being blocked
+  const [blockForm, setBlockForm] = useState({
+    date: '',
+    startTime: '',
+    endTime: '',
+    reason: 'Almuerzo',
+    notes: '',
+    isRecurring: false,
+    recurringDays: [],
+  });
+  const [blockLoading, setBlockLoading] = useState(false);
+  const [blocksMap, setBlocksMap] = useState({}); // { [professionalId]: blocks[] }
+  const [expandedBlocks, setExpandedBlocks] = useState({}); // { [professionalId]: bool }
 
   const handleImageAdd = async (e) => {
     const files = Array.from(e.target.files);
@@ -524,6 +547,89 @@ function ResourcesManagement() {
     }
   };
 
+  // ── Resource Block handlers ──────────────────────────────────────
+  const openBlockDialog = (resource) => {
+    setBlockingResource(resource);
+    const today = new Date().toISOString().slice(0, 10);
+    setBlockForm({
+      date: today,
+      startTime: '',
+      endTime: '',
+      reason: 'Almuerzo',
+      notes: '',
+      isRecurring: false,
+      recurringDays: [],
+    });
+    setBlockDialogOpen(true);
+  };
+
+  const handleCreateBlock = async (e) => {
+    e.preventDefault();
+    if (!blockingResource) return;
+    try {
+      setBlockLoading(true);
+      await createResourceBlock({
+        professionalId: blockingResource._id,
+        ...blockForm,
+      });
+      setBlockDialogOpen(false);
+      // Refresh blocks for this professional
+      loadBlocksForProfessional(blockingResource._id);
+    } catch (err) {
+      console.error('Error creating block:', err);
+      alert('Error al crear el bloqueo');
+    } finally {
+      setBlockLoading(false);
+    }
+  };
+
+  const loadBlocksForProfessional = async (professionalId) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    try {
+      const blocks = await getResourceBlocks({
+        professionalId,
+        startDate: today,
+        endDate: nextWeek,
+      });
+      setBlocksMap((prev) => ({ ...prev, [professionalId]: blocks || [] }));
+    } catch (err) {
+      console.error('Error loading blocks:', err);
+    }
+  };
+
+  const handleDeleteBlock = async (blockId, professionalId) => {
+    try {
+      await deleteResourceBlock(blockId);
+      loadBlocksForProfessional(professionalId);
+    } catch (err) {
+      console.error('Error deleting block:', err);
+      alert('Error al eliminar el bloqueo');
+    }
+  };
+
+  const toggleExpandBlocks = (professionalId) => {
+    setExpandedBlocks((prev) => {
+      const isCurrentlyOpen = !!prev[professionalId];
+      if (!isCurrentlyOpen) {
+        loadBlocksForProfessional(professionalId);
+      }
+      return { ...prev, [professionalId]: !isCurrentlyOpen };
+    });
+  };
+
+  const BLOCK_REASON_DAYS = [
+    { value: 0, label: 'Lun' },
+    { value: 1, label: 'Mar' },
+    { value: 2, label: 'Mié' },
+    { value: 3, label: 'Jue' },
+    { value: 4, label: 'Vie' },
+    { value: 5, label: 'Sáb' },
+    { value: 6, label: 'Dom' },
+  ];
+
   const getStatusBadge = (status) => {
     const statusConfig = {
       active: { variant: 'success', icon: CheckCircle, label: 'Activo' },
@@ -795,7 +901,8 @@ function ResourcesManagement() {
                 filteredResources.map((resource) => {
                   const Icon = getTypeIcon(resource.type);
                   return (
-                    <TableRow key={resource._id}>
+                    <React.Fragment key={resource._id}>
+                    <TableRow>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div
@@ -886,6 +993,16 @@ function ResourcesManagement() {
                       <TableCell>{getStatusBadge(resource.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2 md:opacity-0 md:group-hover/row:opacity-100 transition-opacity duration-150">
+                          {isBeautyVertical && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Bloquear horario"
+                              onClick={() => openBlockDialog(resource)}
+                            >
+                              <Lock className="h-4 w-4 text-amber-500" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -901,8 +1018,61 @@ function ResourcesManagement() {
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
+                        {/* Block list toggle for beauty vertical */}
+                        {isBeautyVertical && (
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground hover:text-foreground mt-1 underline-offset-2 hover:underline"
+                            onClick={() => toggleExpandBlocks(resource._id)}
+                          >
+                            {expandedBlocks[resource._id] ? 'Ocultar bloqueos' : 'Ver bloqueos'}
+                          </button>
+                        )}
                       </TableCell>
                     </TableRow>
+                    {/* Expanded block list row */}
+                    {isBeautyVertical && expandedBlocks[resource._id] && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="bg-amber-50 dark:bg-amber-950/20 py-2 px-6">
+                          <div className="text-sm font-medium text-amber-800 dark:text-amber-200 mb-2">
+                            Bloqueos próximos 7 días — {resource.name}
+                          </div>
+                          {!blocksMap[resource._id] || blocksMap[resource._id].length === 0 ? (
+                            <p className="text-xs text-muted-foreground">Sin bloqueos programados</p>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                              {blocksMap[resource._id].map((block) => (
+                                <div
+                                  key={block._id}
+                                  className="flex items-center gap-2 bg-white dark:bg-gray-900 border border-amber-200 dark:border-amber-700 rounded-md px-3 py-1.5 text-xs"
+                                >
+                                  <Lock className="h-3 w-3 text-amber-500 flex-shrink-0" />
+                                  <span className="font-medium">
+                                    {new Date(block.date).toLocaleDateString('es-VE', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    {block.startTime}–{block.endTime}
+                                  </span>
+                                  <span className="text-amber-700 dark:text-amber-300">{block.reason}</span>
+                                  {block.isRecurring && (
+                                    <span className="text-blue-500 text-[10px]">Recurrente</span>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteBlock(block._id, resource._id)}
+                                    className="text-destructive hover:opacity-70 ml-1"
+                                    title="Eliminar bloqueo"
+                                  >
+                                    <XIcon className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    </React.Fragment>
                   );
                 })
               )}
@@ -910,6 +1080,132 @@ function ResourcesManagement() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Resource Block Dialog — beauty vertical only */}
+      {isBeautyVertical && (
+        <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+          <DialogContent className="max-w-lg bg-white dark:bg-gray-950">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-amber-500" />
+                Bloquear horario — {blockingResource?.name}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCreateBlock} className="space-y-4">
+              <div>
+                <Label htmlFor="block-date">Fecha *</Label>
+                <Input
+                  id="block-date"
+                  type="date"
+                  value={blockForm.date}
+                  onChange={(e) => setBlockForm((p) => ({ ...p, date: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="block-start">Hora inicio *</Label>
+                  <Input
+                    id="block-start"
+                    type="time"
+                    value={blockForm.startTime}
+                    onChange={(e) => setBlockForm((p) => ({ ...p, startTime: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="block-end">Hora fin *</Label>
+                  <Input
+                    id="block-end"
+                    type="time"
+                    value={blockForm.endTime}
+                    onChange={(e) => setBlockForm((p) => ({ ...p, endTime: e.target.value }))}
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="block-reason">Razón *</Label>
+                <Select
+                  value={blockForm.reason}
+                  onValueChange={(v) => setBlockForm((p) => ({ ...p, reason: v }))}
+                >
+                  <SelectTrigger id="block-reason">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {['Almuerzo', 'Mantenimiento', 'Limpieza', 'Personal', 'Otro'].map((r) => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="block-notes">Notas (opcional)</Label>
+                <Textarea
+                  id="block-notes"
+                  rows={2}
+                  value={blockForm.notes}
+                  onChange={(e) => setBlockForm((p) => ({ ...p, notes: e.target.value }))}
+                  placeholder="Detalle adicional..."
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="block-recurring"
+                  checked={blockForm.isRecurring}
+                  onCheckedChange={(checked) =>
+                    setBlockForm((p) => ({ ...p, isRecurring: checked === true }))
+                  }
+                />
+                <Label htmlFor="block-recurring" className="cursor-pointer font-normal">
+                  Bloqueo recurrente (semanal)
+                </Label>
+              </div>
+              {blockForm.isRecurring && (
+                <div>
+                  <Label className="mb-2 block">Días de la semana</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {BLOCK_REASON_DAYS.map((d) => (
+                      <button
+                        key={d.value}
+                        type="button"
+                        className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                          blockForm.recurringDays.includes(d.value)
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-muted-foreground'
+                        }`}
+                        onClick={() =>
+                          setBlockForm((p) => ({
+                            ...p,
+                            recurringDays: p.recurringDays.includes(d.value)
+                              ? p.recurringDays.filter((x) => x !== d.value)
+                              : [...p.recurringDays, d.value],
+                          }))
+                        }
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setBlockDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={blockLoading}>
+                  {blockLoading ? 'Guardando...' : 'Crear bloqueo'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
