@@ -2891,4 +2891,17 @@ export const deleteResourceBlock = (id) => {
 export const cancelBeautyBookingSeries = (seriesId) =>
   fetchApi(`/beauty-bookings/series/${seriesId}`, { method: 'DELETE' });
 
+// ── Waitlist ──────────────────────────────────────────────────────────
+export const addToWaitlist = (data) =>
+  fetchApi('/beauty-bookings/waitlist', { method: 'POST', body: JSON.stringify(data) });
+
+export const getWaitlist = (params = {}) => {
+  const q = new URLSearchParams(params).toString();
+  return fetchApi(`/beauty-bookings/waitlist${q ? '?' + q : ''}`);
+};
+
+// ── No-Show client status (public) ───────────────────────────────────
+export const getClientNoShowStatus = (tenantId, phone) =>
+  fetchApi(`/public/beauty-bookings/client-status?tenantId=${tenantId}&phone=${encodeURIComponent(phone)}`, { isPublic: true });
+
 // ==================== IVA Declaration API ====================

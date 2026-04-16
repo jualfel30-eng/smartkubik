@@ -42,6 +42,8 @@ export default function BookingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
+  const [canProceed, setCanProceed] = useState(true);
+  const [depositWarning, setDepositWarning] = useState(false);
 
   const [selectedServices, setSelectedServices] = useState<Array<{
     serviceId: string;
@@ -240,16 +242,45 @@ export default function BookingPage() {
     }
   };
 
+  // Check if client can book (no-show policy) — called when leaving step 4 (client data)
+  const checkClientStatus = async (phone: string) => {
+    if (!config || !phone) return;
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/public/beauty-bookings/client-status?tenantId=${config.tenantId}&phone=${encodeURIComponent(phone)}`
+      );
+      if (!res.ok) return; // Fail open
+      const data = await res.json();
+      if (!data.canBook) {
+        setError(data.message || 'No es posible realizar la reserva. Por favor contacta al negocio directamente.');
+        setCanProceed(false);
+      } else if (data.requiresDeposit) {
+        setDepositWarning(true);
+        setCanProceed(true);
+      } else {
+        setCanProceed(true);
+        setDepositWarning(false);
+      }
+    } catch {
+      // Fail open — don't block booking if check fails
+      setCanProceed(true);
+    }
+  };
+
   const canGoToStep = (targetStep: number): boolean => {
     if (targetStep === 1) return true;
     if (targetStep === 2) return selectedServices.length > 0;
     if (targetStep === 3) return selectedServices.length > 0;
     if (targetStep === 4) return !!(selectedDate && selectedTime);
-    if (targetStep === 5) return !!(clientName && clientPhone);
+    if (targetStep === 5) return !!(clientName && clientPhone) && canProceed;
     return false;
   };
 
-  const nextStep = () => {
+  const nextStep = async () => {
+    if (step === 4 && clientPhone) {
+      // Check no-show policy before proceeding to confirmation
+      await checkClientStatus(clientPhone);
+    }
     if (canGoToStep(step + 1)) {
       setStep(step + 1);
       setError(null);
@@ -799,6 +830,15 @@ export default function BookingPage() {
                     className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors resize-none ${colors.card} ${colors.text} ${colors.border}`}
                   />
                 </div>
+
+                {depositWarning && (
+                  <div className={`p-4 rounded-xl border ${
+                    darkMode ? 'bg-orange-900/20 border-orange-700 text-orange-300' : 'bg-orange-50 border-orange-200 text-orange-800'
+                  }`}>
+                    <p className="font-semibold text-sm">⚠ Se requiere depósito</p>
+                    <p className="text-sm mt-1">Este negocio requiere un depósito previo para confirmar tu reserva. Te contactarán con los detalles de pago.</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
