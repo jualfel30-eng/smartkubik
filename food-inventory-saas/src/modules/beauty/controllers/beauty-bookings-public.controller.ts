@@ -51,6 +51,18 @@ export class BeautyBookingsPublicController {
    * Marca la cita de hoy (primer match activo) con checkedInAt = ahora.
    * Dispara push notification al equipo del salón.
    */
+  @Get('client-status')
+  @ApiOperation({ summary: 'Verificar si cliente puede reservar (política no-shows)' })
+  async getClientStatus(
+    @Query('tenantId') tenantId: string,
+    @Query('phone') phone: string,
+  ) {
+    if (!tenantId || !phone) {
+      return { canBook: true, requiresDeposit: false, depositAmount: 0 };
+    }
+    return this.beautyBookingsService.getClientNoShowStatus(tenantId, phone);
+  }
+
   @Get('checkin')
   @ApiOperation({ summary: 'Check-in cliente vía QR (público)' })
   async checkin(

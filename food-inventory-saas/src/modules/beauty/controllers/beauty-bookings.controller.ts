@@ -12,6 +12,7 @@ import {
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
+
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../guards/jwt-auth.guard';
 import { TenantGuard } from '../../../guards/tenant.guard';
@@ -74,6 +75,21 @@ export class BeautyBookingsController {
       clientPhone,
       locationId,
     });
+  }
+
+  @Post('waitlist')
+  @ApiOperation({ summary: 'Agregar cliente a lista de espera' })
+  async addToWaitlist(@Body() dto: any, @Request() req) {
+    return this.beautyBookingsService.addToWaitlist({
+      ...dto,
+      tenantId: req.user.tenantId,
+    });
+  }
+
+  @Get('waitlist')
+  @ApiOperation({ summary: 'Obtener lista de espera del día' })
+  async getWaitlist(@Query('date') date: string, @Request() req) {
+    return this.beautyBookingsService.getWaitlist(req.user.tenantId, date);
   }
 
   @Delete('series/:seriesId')

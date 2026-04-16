@@ -472,6 +472,38 @@ ${booking.cancellationReason ? `Motivo: ${booking.cancellationReason}\n\n` : ''}
   }
 
   /**
+   * Envía notificación de slot disponible a cliente en lista de espera
+   */
+  async sendWaitlistNotification(
+    booking: any,
+    date: string,
+    timeSlot?: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!booking?.client?.phone) return { success: false, error: 'No phone' };
+
+      const formattedDate = new Date(date).toLocaleDateString('es-ES', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+      });
+
+      const message =
+        `¡Hola ${booking.client.name}! 🎉 Se liberó un espacio para el ${formattedDate}` +
+        `${timeSlot ? ` a las ${timeSlot}` : ''}. ¿Te gustaría confirmar tu cita? ` +
+        `Tienes 2 horas para responder. Responde SÍ para confirmar o NO para cancelar tu lugar en la lista de espera.`;
+
+      return await this.sendWhatsAppMessage(
+        booking.client.phone,
+        message,
+        booking.tenantId?.toString() || '',
+      );
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  /**
    * Obtiene link de WhatsApp pre-armado (fallback si API falla)
    */
   getWhatsAppLink(phone: string, message: string): string {

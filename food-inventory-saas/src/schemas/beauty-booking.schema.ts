@@ -87,7 +87,7 @@ export class BeautyBooking {
   // Estado de la reserva
   @Prop({
     type: String,
-    enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show'],
+    enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show', 'waitlisted'],
     default: 'pending',
     index: true
   })
@@ -201,6 +201,40 @@ export class BeautyBooking {
 
   @Prop({ type: Number })
   occurrenceIndex?: number;
+
+  // ── Waitlist fields ──────────────────────────────────────────────────
+  @Prop({ type: Number })
+  waitlistPosition?: number;
+
+  @Prop({ type: Date })
+  waitlistPreferredDate?: Date;
+
+  @Prop({ type: Object })
+  waitlistPreferredTimeRange?: {
+    from: string;
+    to: string;
+  };
+
+  @Prop({ type: Types.ObjectId, ref: 'Professional' })
+  waitlistPreferredProfessionalId?: Types.ObjectId;
+
+  @Prop({ type: Date })
+  waitlistNotifiedAt?: Date;
+
+  @Prop({ type: Date })
+  waitlistExpiresAt?: Date;
+
+  // ── No-show / Deposit fields ─────────────────────────────────────────
+  @Prop({ type: Boolean, default: false })
+  depositRequired?: boolean;
+
+  @Prop({ type: Object })
+  depositInfo?: {
+    amount: number;
+    paid: boolean;
+    paidAt?: Date;
+    method?: string;
+  };
 }
 
 export type BeautyBookingDocument = BeautyBooking & Document;

@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -32,6 +33,10 @@ import {
   InventoryMovement,
   InventoryMovementDocument,
 } from '../../../schemas/inventory.schema';
+import {
+  Customer,
+  CustomerDocument,
+} from '../../../schemas/customer.schema';
 import {
   CreateBeautyBookingDto,
   UpdateBookingStatusDto,
@@ -65,6 +70,8 @@ export class BeautyBookingsService {
     private inventoryModel: Model<InventoryDocument>,
     @InjectModel(InventoryMovement.name)
     private inventoryMovementModel: Model<InventoryMovementDocument>,
+    @InjectModel(Customer.name)
+    private customerModel: Model<CustomerDocument>,
     private readonly whatsappService: BeautyWhatsAppNotificationsService,
     private readonly loyaltyService: BeautyLoyaltyService,
     private readonly webPushService: WebPushService,
@@ -514,6 +521,19 @@ export class BeautyBookingsService {
             `Error sending cancellation notification: ${error.message}`,
           );
         }
+
+        // Check waitlist for freed slot (fire-and-forget)
+        this.checkWaitlistAvailability(
+          booking.tenantId.toString(),
+          booking.date instanceof Date ? booking.date.toISOString().split('T')[0] : booking.date as string,
+          booking.professional?.toString(),
+          booking.startTime,
+        ).catch(err => this.logger.error(`Waitlist check error: ${err}`));
+      } else if (dto.status === 'no_show' && previousStatus !== 'no_show') {
+        // Process no-show penalty (fire-and-forget)
+        this.processNoShow(booking).catch(err =>
+          this.logger.error(`No-show processing error: ${err}`)
+        );
       }
     }
 
@@ -998,5 +1018,214 @@ export class BeautyBookingsService {
       .exec();
 
     return `BBK-${String(count + 1).padStart(5, '0')}`;
+  }
+
+  // ── WAITLIST METHODS ─────────────────────────────────────────────────
+
+  /**
+   * Agrega un cliente a la lista de espera
+   */
+  async addToWaitlist(dto: {
+    tenantId: string;
+    client: { name: string; phone: string; email?: string };
+    services: any[];
+    preferredDate: string;
+    preferredTimeRange?: { from: string; to: string };
+    preferredProfessionalId?: string;
+  }) {
+    const position = await this.beautyBookingModel.countDocuments({
+      tenantId: new Types.ObjectId(dto.tenantId),
+      status: 'waitlisted',
+      waitlistPreferredDate: new Date(dto.preferredDate),
+      isDeleted: { $ne: true },
+    }) + 1;
+
+    const bookingNumber = await this.generateBookingNumber(dto.tenantId);
+
+    const booking = await this.beautyBookingModel.create({
+      tenantId: new Types.ObjectId(dto.tenantId),
+      client: dto.client,
+      services: dto.services,
+      status: 'waitlisted',
+      waitlistPosition: position,
+      waitlistPreferredDate: new Date(dto.preferredDate),
+      waitlistPreferredTimeRange: dto.preferredTimeRange,
+      waitlistPreferredProfessionalId: dto.preferredProfessionalId
+        ? new Types.ObjectId(dto.preferredProfessionalId)
+        : undefined,
+      bookingNumber,
+      date: new Date(dto.preferredDate),
+      startTime: dto.preferredTimeRange?.from || '09:00',
+      endTime: dto.preferredTimeRange?.to || '18:00',
+      totalDuration: 0,
+      totalPrice: 0,
+      isDeleted: false,
+    });
+
+    return booking;
+  }
+
+  /**
+   * Obtiene lista de espera (opcionalmente filtrada por fecha)
+   */
+  async getWaitlist(tenantId: string, date?: string) {
+    const filter: any = {
+      tenantId: new Types.ObjectId(tenantId),
+      status: 'waitlisted',
+      isDeleted: { $ne: true },
+    };
+    if (date) {
+      filter.waitlistPreferredDate = {
+        $gte: new Date(date),
+        $lt: new Date(new Date(date).getTime() + 24 * 60 * 60 * 1000),
+      };
+    }
+    return this.beautyBookingModel.find(filter).sort({ waitlistPosition: 1 }).lean();
+  }
+
+  /**
+   * Verifica si hay clientes en espera cuando se libera un slot
+   * y notifica al primero elegible
+   */
+  async checkWaitlistAvailability(
+    tenantId: string,
+    date: string,
+    professionalId?: string,
+    timeSlot?: string,
+  ) {
+    const dateObj = new Date(date);
+    const filter: any = {
+      tenantId: new Types.ObjectId(tenantId),
+      status: 'waitlisted',
+      waitlistPreferredDate: { $gte: dateObj, $lt: new Date(dateObj.getTime() + 24 * 60 * 60 * 1000) },
+      waitlistNotifiedAt: { $exists: false },
+      isDeleted: { $ne: true },
+    };
+
+    if (professionalId) {
+      filter.$or = [
+        { waitlistPreferredProfessionalId: { $exists: false } },
+        { waitlistPreferredProfessionalId: new Types.ObjectId(professionalId) },
+      ];
+    }
+
+    const waitlisted = await this.beautyBookingModel.find(filter).sort({ waitlistPosition: 1 }).limit(1);
+    if (!waitlisted.length) return;
+
+    const first = waitlisted[0];
+    const notifyAt = new Date();
+    const expiresAt = new Date(notifyAt.getTime() + 2 * 60 * 60 * 1000); // +2h
+
+    await this.beautyBookingModel.updateOne(
+      { _id: first._id },
+      { $set: { waitlistNotifiedAt: notifyAt, waitlistExpiresAt: expiresAt } },
+    );
+
+    try {
+      await this.whatsappService.sendWaitlistNotification(first, date, timeSlot);
+    } catch (err) {
+      this.logger.error(`Waitlist WhatsApp notification failed: ${err}`);
+    }
+  }
+
+  // ── NO-SHOW METHODS ──────────────────────────────────────────────────
+
+  /**
+   * Verifica si un cliente puede reservar (política de no-shows)
+   * Endpoint público — solo expone canBook y requiresDeposit
+   */
+  async getClientNoShowStatus(tenantId: string, phone: string): Promise<{
+    canBook: boolean;
+    requiresDeposit: boolean;
+    depositAmount: number;
+    message?: string;
+  }> {
+    try {
+      const config = await this.storefrontConfigModel.findOne({
+        tenantId: new Types.ObjectId(tenantId),
+      }).lean();
+
+      const policy = (config as any)?.beautyConfig?.noShowPolicy;
+      if (!policy?.enabled) {
+        return { canBook: true, requiresDeposit: false, depositAmount: 0 };
+      }
+
+      const customer = await this.customerModel.findOne({
+        tenantId: new Types.ObjectId(tenantId),
+        $or: [
+          { whatsappNumber: phone },
+          { 'contacts.value': phone },
+        ],
+        isDeleted: { $ne: true },
+      }).lean();
+
+      if (!customer) return { canBook: true, requiresDeposit: false, depositAmount: 0 };
+
+      return {
+        canBook: !(customer as any).isBlacklisted,
+        requiresDeposit: (customer as any).requiresDeposit || false,
+        depositAmount: 0,
+        message: (customer as any).isBlacklisted
+          ? 'No es posible realizar la reserva. Por favor contacta al negocio directamente.'
+          : undefined,
+      };
+    } catch (err) {
+      this.logger.error(`getClientNoShowStatus error: ${err.message}`);
+      return { canBook: true, requiresDeposit: false, depositAmount: 0 };
+    }
+  }
+
+  /**
+   * Procesa las penalidades por no-show según la política del negocio
+   */
+  private async processNoShow(booking: any) {
+    const config = await this.storefrontConfigModel.findOne({
+      tenantId: booking.tenantId,
+      isDeleted: { $ne: true },
+    }).lean();
+
+    const policy = (config as any)?.beautyConfig?.noShowPolicy;
+    if (!policy?.enabled) return; // Policy disabled — do nothing
+
+    const defaultThresholds = {
+      warning: policy.warningThreshold ?? 2,
+      deposit: policy.depositThreshold ?? 3,
+      blacklist: policy.blacklistThreshold ?? 5,
+      resetDays: policy.resetAfterDays ?? 180,
+    };
+
+    // Find customer by phone (use whatsappNumber or contacts array value)
+    const customer = await this.customerModel.findOne({
+      tenantId: booking.tenantId,
+      $or: [
+        { whatsappNumber: booking.client.phone },
+        { 'contacts.value': booking.client.phone },
+      ],
+      isDeleted: { $ne: true },
+    });
+
+    if (!customer) return;
+
+    // Check if reset applies
+    const resetDate = new Date();
+    resetDate.setDate(resetDate.getDate() - defaultThresholds.resetDays);
+    if (customer.lastNoShowDate && customer.lastNoShowDate < resetDate) {
+      customer.noShowCount = 0;
+      customer.requiresDeposit = false;
+      customer.isBlacklisted = false;
+    }
+
+    customer.noShowCount = (customer.noShowCount || 0) + 1;
+    customer.lastNoShowDate = new Date();
+
+    if (customer.noShowCount >= defaultThresholds.blacklist) {
+      customer.isBlacklisted = true;
+      customer.requiresDeposit = true;
+    } else if (customer.noShowCount >= defaultThresholds.deposit) {
+      customer.requiresDeposit = true;
+    }
+
+    await customer.save();
+    this.logger.log(`No-show processed for customer phone=${booking.client.phone}, count=${customer.noShowCount}`);
   }
 }

@@ -196,6 +196,14 @@ export class StorefrontConfig {
       autoConfirmation?: boolean;   // Auto-send confirmation on booking create (default: true)
       autoChangeNotify?: boolean;   // Notify client on reschedule/cancel (default: true)
     };
+    noShowPolicy?: {
+      enabled?: boolean;           // default false
+      warningThreshold?: number;   // default 2
+      depositThreshold?: number;   // default 3
+      blacklistThreshold?: number; // default 5
+      resetAfterDays?: number;     // default 180
+      depositPercentage?: number;  // default 50
+    };
   };
 
   // ==================== RESTAURANT-SPECIFIC CONFIG ====================

@@ -393,6 +393,19 @@ export class Customer {
   @Prop({ type: Boolean, default: false })
   hasStorefrontAccount: boolean; // Whether customer has a storefront account
 
+  // ── No-Show penalty tracking (Beauty) ──────────────────────────────
+  @Prop({ type: Number, default: 0 })
+  noShowCount?: number;
+
+  @Prop({ type: Date })
+  lastNoShowDate?: Date;
+
+  @Prop({ type: Boolean, default: false })
+  requiresDeposit?: boolean;
+
+  @Prop({ type: Boolean, default: false })
+  isBlacklisted?: boolean;
+
   // ── Data Import tracking ──
   @Prop({ type: Types.ObjectId, ref: "ImportJob" })
   importJobId?: Types.ObjectId;

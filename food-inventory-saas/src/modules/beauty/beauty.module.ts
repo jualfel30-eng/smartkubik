@@ -45,6 +45,10 @@ import {
   InventoryMovement,
   InventoryMovementSchema,
 } from '../../schemas/inventory.schema';
+import {
+  Customer,
+  CustomerSchema,
+} from '../../schemas/customer.schema';
 
 // Services
 import { BeautyPackagesService } from './services/service-packages.service';
@@ -122,6 +126,7 @@ import { BeautyLoyaltyPublicController } from './controllers/beauty-loyalty-publ
       { name: ResourceBlock.name, schema: ResourceBlockSchema },
       { name: Inventory.name, schema: InventorySchema },
       { name: InventoryMovement.name, schema: InventoryMovementSchema },
+      { name: Customer.name, schema: CustomerSchema },
     ]),
   ],
   controllers: [
