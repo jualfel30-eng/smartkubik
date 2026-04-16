@@ -12,7 +12,7 @@ import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 const BEAUTY_ITEMS = [
   { to: '/floor-view', label: 'Tablero', icon: LayoutGrid },
   { to: '/services', label: 'Servicios', icon: Palette },
-  { to: '/resources', label: 'Recursos / Empleados', icon: Users },
+  { to: '/resources', label: 'Profesionales', icon: Users },
   { to: '/inventory-management', label: 'Inventario', icon: Boxes },
   { to: '/cash-register', label: 'Caja', icon: DollarSign },
   { to: '/reports', label: 'Reportes', icon: BarChart3 },

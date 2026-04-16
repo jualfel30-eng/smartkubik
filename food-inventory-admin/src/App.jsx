@@ -208,6 +208,7 @@ const AppointmentsRouteGate = lazy(() => import('@/components/mobile/appointment
 const CrmRouteGate = lazy(() => import('@/components/mobile/clients/CrmRouteGate.jsx'));
 const ServicesRouteGate = lazy(() => import('@/components/mobile/services/ServicesRouteGate.jsx'));
 const FloorViewRouteGate = lazy(() => import('@/components/mobile/floor/FloorViewRouteGate.jsx'));
+const ProfessionalsRouteGate = lazy(() => import('@/components/mobile/professionals/ProfessionalsRouteGate.jsx'));
 const PublicCheckinPage = lazy(() => import('./pages/PublicCheckinPage.jsx'));
 const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'));
 const OrganizationsManagement = lazy(() => import('@/components/OrganizationsManagement.jsx'));
@@ -707,8 +708,8 @@ function TenantLayout() {
       }
       if (item.dynamicLabel && item.name === 'Recursos') {
         const recursosLabels = {
-          'barbershop-salon': 'Estaciones',
-          'clinic-spa': 'Consultorios',
+          'barbershop-salon': 'Profesionales',
+          'clinic-spa': 'Profesionales',
           'mechanic-shop': 'Bahías / Equipos',
           'hospitality': 'Habitaciones',
         };
@@ -1373,7 +1374,7 @@ function TenantLayout() {
                   </CrmProvider>
                 } />
                 <Route path="services" element={<ServicesRouteGate />} />
-                <Route path="resources" element={<ResourcesManagement />} />
+                <Route path="resources" element={<ProfessionalsRouteGate />} />
                 <Route path="floor-view" element={<FloorViewRouteGate />} />
                 <Route path="reviews" element={<ReviewsManagement />} />
                 <Route path="fichar" element={<TimeClock />} />
