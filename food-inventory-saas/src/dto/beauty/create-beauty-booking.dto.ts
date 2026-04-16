@@ -98,4 +98,9 @@ export class CreateBeautyBookingDto {
   @IsOptional()
   @IsString()
   locationId?: string;
+
+  @ApiPropertyOptional({ example: '507f1f77bcf86cd799439011', description: 'ID del paquete beauty seleccionado' })
+  @IsOptional()
+  @IsString()
+  packageId?: string;
 }

@@ -5,6 +5,7 @@ import {
   IsNumber,
   Min,
   MaxLength,
+  Max,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -42,4 +43,16 @@ export class UpdateBookingStatusDto {
   @IsString()
   @MaxLength(500)
   cancellationReason?: string;
+
+  @ApiPropertyOptional({ example: 150, description: 'Puntos de lealtad a redimir (descuento)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  loyaltyPointsRedeemed?: number;
+
+  @ApiPropertyOptional({ example: 1.50, description: 'Monto de descuento por puntos de lealtad' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  loyaltyDiscount?: number;
 }

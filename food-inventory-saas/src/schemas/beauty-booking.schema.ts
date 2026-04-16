@@ -112,10 +112,18 @@ export class BeautyBooking {
   @Prop({ type: String, trim: true })
   notes?: string;
 
+  // Recordatorio enviado (para idempotencia del cron job)
+  @Prop({ type: Date })
+  reminderSentAt?: Date;
+
+  // Puntos de lealtad redimidos en este pago
+  @Prop({ type: Number, default: 0, min: 0 })
+  loyaltyPointsRedeemed: number;
+
   // Notificaciones WhatsApp
   @Prop({
     type: [{
-      type: { type: String, enum: ['confirmation', 'reminder', 'cancellation'], required: true },
+      type: { type: String, enum: ['confirmation', 'reminder', 'cancellation', 'rescheduled'], required: true },
       sentAt: { type: Date, required: true },
       status: { type: String, enum: ['sent', 'delivered', 'read', 'failed'], required: true },
       messageId: String,
@@ -124,7 +132,7 @@ export class BeautyBooking {
     default: []
   })
   whatsappNotifications: Array<{
-    type: 'confirmation' | 'reminder' | 'cancellation';
+    type: 'confirmation' | 'reminder' | 'cancellation' | 'rescheduled';
     sentAt: Date;
     status: 'sent' | 'delivered' | 'read' | 'failed';
     messageId?: string;
@@ -138,6 +146,10 @@ export class BeautyBooking {
   // Ubicación (si el tenant tiene múltiples sedes)
   @Prop({ type: Types.ObjectId, ref: 'BusinessLocation' })
   locationId?: Types.ObjectId;
+
+  // Paquete seleccionado (opcional)
+  @Prop({ type: Types.ObjectId, ref: 'BeautyPackage' })
+  packageId?: Types.ObjectId;
 
   // Auditoría y tracking
   @Prop({ type: Types.ObjectId, ref: 'User' })

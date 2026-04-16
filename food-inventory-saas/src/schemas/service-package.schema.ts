@@ -1,101 +1,83 @@
-import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { Document, Schema as MongooseSchema } from "mongoose";
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Types } from 'mongoose';
 
-export type ServicePackageDocument = ServicePackage & Document;
-
-@Schema({ _id: false })
-export class ServicePackageItem {
-  @Prop({
-    type: MongooseSchema.Types.ObjectId,
-    ref: "Service",
-    required: true,
-  })
-  serviceId: MongooseSchema.Types.ObjectId;
-
-  @Prop({ type: Number, default: 1 })
-  quantity: number;
-
-  @Prop({ type: Number, default: 0 })
-  offsetMinutes: number;
-
-  @Prop({ type: [MongooseSchema.Types.ObjectId], ref: "Resource", default: [] })
-  defaultAdditionalResourceIds: MongooseSchema.Types.ObjectId[];
-
-  @Prop({ type: Boolean, default: false })
-  optional: boolean;
-}
-
-const ServicePackageItemSchema =
-  SchemaFactory.createForClass(ServicePackageItem);
-
-@Schema({ _id: false })
-export class DynamicPricingRule {
-  @Prop({ type: String, enum: ["percentage", "fixed"], required: true })
-  adjustmentType: "percentage" | "fixed";
-
-  @Prop({ type: Number, required: true })
-  value: number;
-
-  @Prop({ type: [Number], default: [] })
-  daysOfWeek?: number[];
-
-  @Prop({
-    type: Object,
-    default: {},
-  })
-  season?: {
-    start: string;
-    end: string;
-  };
-
-  @Prop({ type: Number })
-  occupancyThreshold?: number;
-
-  @Prop({ type: [String], default: [] })
-  channels?: string[];
-
-  @Prop({ type: [String], default: [] })
-  loyaltyTiers?: string[];
-}
-
-const DynamicPricingRuleSchema =
-  SchemaFactory.createForClass(DynamicPricingRule);
-
+/**
+ * Schema para paquetes de servicios del módulo appointments
+ * Usado por service-packages y loyalty modules
+ */
 @Schema({ timestamps: true })
 export class ServicePackage {
-  @Prop({ type: String, required: true, index: true })
+  @Prop({ required: true })
   tenantId: string;
 
-  @Prop({ type: String, required: true })
+  @Prop({ required: true, trim: true })
   name: string;
 
-  @Prop({ type: String })
+  @Prop({ trim: true })
   description?: string;
 
-  @Prop({ type: [ServicePackageItemSchema], default: [] })
-  items: ServicePackageItem[];
+  @Prop({
+    type: [{
+      serviceId: { type: String, required: true },
+      quantity: { type: Number, default: 1 },
+      offsetMinutes: { type: Number, default: 0 },
+      additionalResourceIds: { type: [String], default: [] },
+      optional: { type: Boolean, default: false },
+    }],
+    default: [],
+  })
+  items: Array<{
+    serviceId: string;
+    quantity?: number;
+    offsetMinutes?: number;
+    additionalResourceIds?: string[];
+    optional?: boolean;
+  }>;
 
-  @Prop({ type: Number })
+  @Prop({ type: Number, min: 0 })
   basePrice?: number;
 
-  @Prop({ type: Number, default: 0 })
-  baseDiscountPercentage: number;
+  @Prop({ type: Number, min: 0, max: 100 })
+  baseDiscountPercentage?: number;
 
   @Prop({ type: Boolean, default: true })
   isActive: boolean;
 
-  @Prop({ type: [DynamicPricingRuleSchema], default: [] })
-  dynamicPricingRules: DynamicPricingRule[];
+  @Prop({
+    type: [{
+      adjustmentType: { type: String, enum: ['percentage', 'fixed'] },
+      value: { type: Number },
+      daysOfWeek: { type: [Number], default: [] },
+      season: {
+        start: String,
+        end: String,
+      },
+      occupancyThreshold: { type: Number },
+      channels: { type: [String], default: [] },
+      loyaltyTiers: { type: [String], default: [] },
+    }],
+    default: [],
+  })
+  dynamicPricingRules: Array<{
+    adjustmentType: 'percentage' | 'fixed';
+    value: number;
+    daysOfWeek?: number[];
+    season?: { start: string; end: string };
+    occupancyThreshold?: number;
+    channels?: string[];
+    loyaltyTiers?: string[];
+  }>;
 
-  @Prop({ type: Object, default: {} })
-  metadata: Record<string, any>;
+  @Prop({ type: Number, min: 0 })
+  leadTimeMinutes?: number;
 
-  @Prop({ type: Number, default: 0 })
-  leadTimeMinutes: number;
+  // Used by loyalty module for tier-based discounts
+  @Prop({ type: Object })
+  metadata?: Record<string, any>;
 }
 
-export const ServicePackageSchema =
-  SchemaFactory.createForClass(ServicePackage);
+export type ServicePackageDocument = ServicePackage & Document;
+export const ServicePackageSchema = SchemaFactory.createForClass(ServicePackage);
 
-ServicePackageSchema.index({ tenantId: 1, isActive: 1 });
-ServicePackageSchema.index({ tenantId: 1, name: 1 }, { unique: true });
+ServicePackageSchema.index({ tenantId: 1, isActive: -1 });
+ServicePackageSchema.index({ tenantId: 1, name: 1 });

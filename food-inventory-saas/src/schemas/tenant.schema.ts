@@ -217,6 +217,7 @@ export class TenantSettings {
     taxWithholdingRate?: number;
     minimumDistributionAmount?: number;
     notificationEnabled?: boolean;
+    defaultTipPercentage?: number; // 0, 10, 15, or 20
   };
 
   @Prop({ type: Object })

@@ -180,12 +180,21 @@ export class StorefrontConfig {
       minAdvanceBookingHours: number;
       whatsappNotification: {
         enabled: boolean;
-        mode: string;
+        mode: string; // 'auto' | 'manual' | 'disabled'
+        messageTemplate?: string;
       };
     };
     paymentMethods: string[];
     loyalty: {
       enabled: boolean;
+      pointsPerUnit?: number;          // Points earned per $1 paid (default: 1)
+      pointValue?: number;             // $ value of 1 point for redemption (default: 0.01)
+      maxRedemptionPercent?: number;   // Max % of bill redeemable with points (default: 50)
+    };
+    notifications?: {
+      reminderEnabled?: boolean;    // Cron 24h reminders (default: true)
+      autoConfirmation?: boolean;   // Auto-send confirmation on booking create (default: true)
+      autoChangeNotify?: boolean;   // Notify client on reschedule/cancel (default: true)
     };
   };
 
