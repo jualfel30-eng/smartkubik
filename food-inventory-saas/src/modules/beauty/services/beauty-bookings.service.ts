@@ -234,7 +234,143 @@ export class BeautyBookingsService {
       this.logger.error(`Push notification error on create: ${error.message}`);
     }
 
-    return booking;
+    // Generate recurring occurrences if requested
+    let occurrencesCreated = 0;
+    if (dto.recurrenceRule) {
+      const seriesId = new Types.ObjectId();
+
+      // Update main booking with series info
+      await this.beautyBookingModel.updateOne(
+        { _id: booking._id },
+        {
+          $set: {
+            seriesId,
+            isRecurring: true,
+            occurrenceIndex: 0,
+            recurrenceRule: dto.recurrenceRule,
+          },
+        },
+      );
+
+      const mainDate = new Date(dto.date);
+      const futureDates = this.calculateRecurringDates(mainDate, dto.recurrenceRule);
+
+      for (let i = 0; i < futureDates.length; i++) {
+        try {
+          const futureDate = futureDates[i];
+          const futureDateStr = futureDate.toISOString().split('T')[0];
+
+          // Check for conflicts with existing bookings (same professional, same time)
+          if (dto.professionalId) {
+            const conflict = await this.beautyBookingModel.findOne({
+              tenantId: booking.tenantId,
+              professional: new Types.ObjectId(dto.professionalId),
+              date: {
+                $gte: new Date(futureDateStr),
+                $lt: new Date(new Date(futureDateStr).getTime() + 24 * 60 * 60 * 1000),
+              },
+              startTime: dto.startTime,
+              status: { $nin: ['cancelled', 'no_show'] },
+              isDeleted: { $ne: true },
+            });
+            if (conflict) {
+              this.logger.warn(
+                `Skipping recurring occurrence ${i + 1}: conflict on ${futureDateStr} at ${dto.startTime}`,
+              );
+              continue;
+            }
+          }
+
+          const bookingObj = booking.toObject();
+          await this.beautyBookingModel.create({
+            ...bookingObj,
+            _id: new Types.ObjectId(),
+            date: futureDate,
+            seriesId,
+            isRecurring: true,
+            occurrenceIndex: i + 1,
+            recurrenceRule: undefined,
+            status: 'pending',
+            whatsappNotifications: [],
+            reminderSentAt: undefined,
+            loyaltyPointsAwarded: 0,
+            loyaltyPointsRedeemed: 0,
+            loyaltyDiscount: 0,
+            paymentStatus: 'unpaid',
+            bookingNumber: await this.generateBookingNumber(booking.tenantId.toString()),
+            createdAt: undefined,
+            updatedAt: undefined,
+          });
+          occurrencesCreated++;
+        } catch (err) {
+          this.logger.error(`Failed to create recurring occurrence ${i + 1}:`, err);
+          // Continue — don't fail the whole series
+        }
+      }
+    }
+
+    // Return with occurrences count
+    return { ...booking.toObject(), occurrencesCreated } as any;
+  }
+
+  /**
+   * Calcula fechas futuras para una serie de citas recurrentes
+   */
+  private calculateRecurringDates(startDate: Date, rule: any): Date[] {
+    const dates: Date[] = [];
+    const maxOccurrences = Math.min(rule.endAfterOccurrences || 12, 12);
+    const endDate = rule.endDate ? new Date(rule.endDate) : null;
+
+    // Interval in days
+    let intervalDays: number;
+    if (rule.frequency === 'weekly') intervalDays = 7 * (rule.interval || 1);
+    else if (rule.frequency === 'biweekly') intervalDays = 14;
+    else if (rule.frequency === 'monthly') intervalDays = 30; // approximate
+    else intervalDays = 7;
+
+    let current = new Date(startDate);
+    let count = 0;
+
+    while (count < maxOccurrences) {
+      current = new Date(current.getTime() + intervalDays * 24 * 60 * 60 * 1000);
+      if (endDate && current > endDate) break;
+      dates.push(new Date(current));
+      count++;
+    }
+
+    return dates;
+  }
+
+  /**
+   * Cancela todas las citas futuras de una serie
+   */
+  async cancelSeries(
+    seriesId: string,
+    tenantId: string,
+    cancelledBy?: string,
+  ): Promise<{ cancelledCount: number }> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const result = await this.beautyBookingModel.updateMany(
+      {
+        tenantId: new Types.ObjectId(tenantId),
+        seriesId: new Types.ObjectId(seriesId),
+        date: { $gte: today },
+        status: { $nin: ['completed', 'cancelled'] },
+        isDeleted: { $ne: true },
+      },
+      {
+        $set: {
+          status: 'cancelled',
+          cancellationReason: 'Serie cancelada',
+          cancelledBy: cancelledBy ? new Types.ObjectId(cancelledBy) : undefined,
+          cancelledAt: new Date(),
+        },
+      },
+    );
+
+    return { cancelledCount: result.modifiedCount };
   }
 
   /**

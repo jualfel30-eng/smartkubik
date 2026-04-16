@@ -10,6 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { RecurrenceRuleDto } from './create-beauty-booking.dto';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 class AdminClientDataDto {
@@ -90,4 +91,10 @@ export class AdminCreateBeautyBookingDto {
   @IsOptional()
   @IsString()
   locationId?: string;
+
+  @ApiPropertyOptional({ description: 'Regla de recurrencia para generar citas futuras' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RecurrenceRuleDto)
+  recurrenceRule?: RecurrenceRuleDto;
 }

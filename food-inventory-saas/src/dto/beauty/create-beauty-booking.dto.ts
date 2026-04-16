@@ -8,6 +8,10 @@ import {
   Matches,
   MaxLength,
   ValidateNested,
+  IsIn,
+  IsNumber,
+  Min,
+  Max,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -103,4 +107,31 @@ export class CreateBeautyBookingDto {
   @IsOptional()
   @IsString()
   packageId?: string;
+
+  @ApiPropertyOptional({ description: 'Regla de recurrencia para generar citas futuras' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RecurrenceRuleDto)
+  recurrenceRule?: RecurrenceRuleDto;
+}
+
+export class RecurrenceRuleDto {
+  @IsIn(['weekly', 'biweekly', 'monthly'])
+  frequency: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(4)
+  interval?: number;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(12)
+  endAfterOccurrences?: number;
 }

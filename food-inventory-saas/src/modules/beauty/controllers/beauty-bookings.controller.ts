@@ -4,6 +4,7 @@ import {
   Patch,
   Post,
   Put,
+  Delete,
   Param,
   Query,
   Body,
@@ -46,6 +47,7 @@ export class BeautyBookingsController {
       startTime: dto.startTime,
       notes: dto.notes,
       locationId: dto.locationId,
+      recurrenceRule: dto.recurrenceRule,
     };
     return this.beautyBookingsService.create(fullDto as any);
   }
@@ -72,6 +74,19 @@ export class BeautyBookingsController {
       clientPhone,
       locationId,
     });
+  }
+
+  @Delete('series/:seriesId')
+  @ApiOperation({ summary: 'Cancelar todas las citas futuras de una serie' })
+  async cancelSeries(
+    @Param('seriesId') seriesId: string,
+    @Request() req,
+  ) {
+    return this.beautyBookingsService.cancelSeries(
+      seriesId,
+      req.user.tenantId,
+      req.user.userId,
+    );
   }
 
   @Get(':id')

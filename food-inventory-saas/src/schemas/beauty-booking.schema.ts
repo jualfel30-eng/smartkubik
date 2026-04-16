@@ -183,6 +183,24 @@ export class BeautyBooking {
 
   @Prop({ type: String, trim: true })
   cancellationReason?: string;
+
+  // ── Recurrence fields ─────────────────────────────────────────────
+  @Prop({ type: Types.ObjectId, index: true })
+  seriesId?: Types.ObjectId;
+
+  @Prop({ type: Object })
+  recurrenceRule?: {
+    frequency: string;               // 'weekly' | 'biweekly' | 'monthly'
+    interval: number;
+    endDate?: Date;
+    endAfterOccurrences?: number;
+  };
+
+  @Prop({ default: false })
+  isRecurring?: boolean;
+
+  @Prop({ type: Number })
+  occurrenceIndex?: number;
 }
 
 export type BeautyBookingDocument = BeautyBooking & Document;
