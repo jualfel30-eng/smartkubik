@@ -13,9 +13,9 @@ export function useReducedMotionSafe() {
   const v = (variants) => {
     if (!shouldReduce || !variants) return variants;
     return {
-      initial: false,
-      animate: { opacity: 1 },
-      exit: { opacity: 0 },
+      initial: { opacity: 1 },
+      animate: { opacity: 1, transition: { duration: 0, staggerChildren: 0 } },
+      exit: { opacity: 0, transition: { duration: 0 } },
     };
   };
 

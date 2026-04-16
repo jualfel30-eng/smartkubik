@@ -37,6 +37,7 @@ export default function MobileQuickCreateAppointment({
   );
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
 
   const servicesEndpoint = isBeauty ? '/beauty-services' : '/services/active';
   const resourcesEndpoint = isBeauty ? '/professionals' : '/resources';
@@ -75,7 +76,7 @@ export default function MobileQuickCreateAppointment({
         }
         setRecentClients(recent.slice(0, 5));
       }
-    });
+    }).finally(() => setLoadingData(false));
   }, [servicesEndpoint, resourcesEndpoint, endpoint]);
 
   // Customer async search
@@ -314,7 +315,12 @@ export default function MobileQuickCreateAppointment({
                 </button>
               );
             })}
-            {services.length === 0 && (
+            {loadingData && services.length === 0 && (
+              <div className="flex gap-2 animate-pulse">
+                {[1, 2, 3].map(i => <div key={i} className="h-9 w-24 bg-muted rounded-full" />)}
+              </div>
+            )}
+            {!loadingData && services.length === 0 && (
               <span className="text-sm text-muted-foreground">Sin servicios configurados</span>
             )}
           </div>

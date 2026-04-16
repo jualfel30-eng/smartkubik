@@ -14,8 +14,10 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { listItem, STAGGER, DUR, EASE } from '@/lib/motion';
 import haptics from '@/lib/haptics';
+import { useReducedMotionSafe } from '@/hooks/use-reduced-motion-safe';
 import MobilePushPrompt from '../MobilePushPrompt.jsx';
 import AnimatedNumber from '../primitives/AnimatedNumber.jsx';
+import MobileListSkeleton from '../primitives/MobileListSkeleton.jsx';
 
 // ─── mini sparkline svg ───────────────────────────────────────────────────────
 function Sparkline({ values = [], color = '#22c55e' }) {
@@ -145,16 +147,23 @@ function AlertCard({ icon: Icon, color, label, action, onAction }) {
 }
 
 // ─── main component ───────────────────────────────────────────────────────────
+function safeDateOnly(v) {
+  if (!v) return null;
+  const d = v instanceof Date ? v : new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
 function transformBeautyBooking(b) {
+  const dateOnly = safeDateOnly(b.date);
   return {
     ...b,
     _id: b._id || b.id,
     customerName: b.client?.name || '',
     serviceName: b.services?.map(s => s.name).join(' + ') || '',
     resourceName: b.professionalName || '',
-    startTime: b.date && b.startTime
-      ? `${new Date(b.date).toISOString().slice(0, 10)}T${b.startTime}:00`
-      : b.startTime,
+    startTime: dateOnly && b.startTime
+      ? `${dateOnly}T${b.startTime}:00`
+      : b.startTime || null,
     status: b.status || 'pending',
   };
 }
@@ -218,17 +227,19 @@ export default function TodayDashboard() {
   if (!cashSession)
     alerts.push({ id: 'cash', icon: DollarSign, color: 'red', label: 'Caja no abierta', to: '/cash-register' });
 
+  const { v: rv, t: rt } = useReducedMotionSafe();
   const ownerName = tenant?.ownerFirstName || 'Bienvenido';
   const hourNow = new Date().getHours();
   const greeting = hourNow < 12 ? 'Buenos días' : hourNow < 19 ? 'Buenas tardes' : 'Buenas noches';
 
   if (loading) {
     return (
-      <div className="mobile-content-pad px-1 space-y-3 animate-pulse">
-        <div className="h-6 w-48 bg-muted rounded-full" />
-        <div className="h-32 bg-muted rounded-[var(--mobile-radius-lg)]" />
-        <div className="h-20 bg-muted rounded-[var(--mobile-radius-lg)]" />
-        <div className="h-20 bg-muted rounded-[var(--mobile-radius-lg)]" />
+      <div className="mobile-content-pad px-1 space-y-3">
+        <div className="animate-pulse space-y-3">
+          <div className="h-6 w-48 bg-muted rounded-full" />
+          <div className="h-32 bg-muted rounded-[var(--mobile-radius-lg)]" />
+        </div>
+        <MobileListSkeleton count={3} height="h-16" />
       </div>
     );
   }
@@ -238,7 +249,7 @@ export default function TodayDashboard() {
       className="md:hidden mobile-content-pad space-y-4 pb-2"
       initial="initial"
       animate="animate"
-      variants={STAGGER(0.05, 0.05)}
+      variants={rv(STAGGER(0.05, 0.05))}
     >
       {/* Greeting */}
       <motion.div variants={listItem} className="flex items-center justify-between">

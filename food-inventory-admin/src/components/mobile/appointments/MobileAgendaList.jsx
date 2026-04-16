@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { listItem, STAGGER } from '@/lib/motion';
 import haptics from '@/lib/haptics';
+import { useReducedMotionSafe } from '@/hooks/use-reduced-motion-safe';
 import MobileListSkeleton from '../primitives/MobileListSkeleton.jsx';
 
 const STATUS_COLOR = {
@@ -35,6 +36,7 @@ function dayLabel(d) {
  * Muestra días con citas, ordena por hora.
  */
 export default function MobileAgendaList({ items = [], onSelect, loading = false }) {
+  const { v: rv } = useReducedMotionSafe();
   if (loading && items.length === 0) {
     return (
       <div className="py-4">
@@ -73,7 +75,7 @@ export default function MobileAgendaList({ items = [], onSelect, loading = false
       className="py-2 space-y-5"
       initial="initial"
       animate="animate"
-      variants={STAGGER(0.04)}
+      variants={rv(STAGGER(0.04))}
     >
       {groups.map(({ date: d, items: dayItems }) => (
         <section key={format(d, 'yyyy-MM-dd')}>
@@ -82,7 +84,7 @@ export default function MobileAgendaList({ items = [], onSelect, loading = false
             <div className="flex-1 h-px bg-border" />
             <span className="text-xs text-muted-foreground">{dayItems.length} cita{dayItems.length !== 1 ? 's' : ''}</span>
           </div>
-          <motion.div className="space-y-2" variants={STAGGER(0.035)}>
+          <motion.div className="space-y-2" variants={rv(STAGGER(0.035))}>
             {dayItems.map((apt) => {
               const dot = STATUS_COLOR[apt.status] || 'bg-muted';
               return (

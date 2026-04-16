@@ -5,6 +5,7 @@ import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { cn } from '@/lib/utils';
 import { SPRING } from '@/lib/motion';
 import haptics from '@/lib/haptics';
+import { useReducedMotionSafe } from '@/hooks/use-reduced-motion-safe';
 import MobileFAB from './MobileFAB.jsx';
 
 const TAB_CONFIGS = {
@@ -25,6 +26,7 @@ const TAB_CONFIGS = {
 };
 
 function TabItem({ to, label, Icon, active }) {
+  const { shouldReduce, t } = useReducedMotionSafe();
   return (
     <NavLink
       to={to}
@@ -37,15 +39,15 @@ function TabItem({ to, label, Icon, active }) {
     >
       {active && (
         <motion.span
-          layoutId="mobile-nav-pill"
+          layoutId={shouldReduce ? undefined : 'mobile-nav-pill'}
           className="absolute top-1.5 h-1 w-8 rounded-full bg-primary"
-          transition={SPRING.soft}
+          transition={t(SPRING.soft)}
           aria-hidden
         />
       )}
       <motion.span
         animate={{ scale: active ? 1.08 : 1, y: active ? -1 : 0 }}
-        transition={SPRING.soft}
+        transition={t(SPRING.soft)}
         className="flex flex-col items-center gap-0.5"
       >
         <Icon size={22} strokeWidth={active ? 2.2 : 1.8} />
