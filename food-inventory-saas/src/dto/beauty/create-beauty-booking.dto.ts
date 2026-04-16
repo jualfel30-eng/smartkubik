@@ -56,6 +56,26 @@ class BookingServiceDto {
   addonNames?: string[]; // Nombres de los addons seleccionados
 }
 
+export class RecurrenceRuleDto {
+  @IsIn(['weekly', 'biweekly', 'monthly'])
+  frequency: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(4)
+  interval?: number;
+
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(12)
+  endAfterOccurrences?: number;
+}
 
 export class CreateBeautyBookingDto {
   @ApiProperty({ example: '507f1f77bcf86cd799439011' })
@@ -114,25 +134,4 @@ export class CreateBeautyBookingDto {
   @ValidateNested()
   @Type(() => RecurrenceRuleDto)
   recurrenceRule?: RecurrenceRuleDto;
-}
-
-export class RecurrenceRuleDto {
-  @IsIn(['weekly', 'biweekly', 'monthly'])
-  frequency: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(4)
-  interval?: number;
-
-  @IsOptional()
-  @IsDateString()
-  endDate?: string;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(12)
-  endAfterOccurrences?: number;
 }
