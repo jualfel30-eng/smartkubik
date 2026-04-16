@@ -125,6 +125,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   // Maintain 'isAdmin' alias for existing code compatibility if needed, 
   // or refactor usage. Using canManageStages is cleaner.
   const isAdmin = canManageStages;
+  const isBeautyProfile = ['barbershop-salon', 'clinic-spa'].includes(tenant?.verticalProfile?.key);
   const {
     crmData,
     loading,
@@ -1673,9 +1674,9 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       {forceEmployeeTab && <HRNavigation />}
       <Tabs value={activeTopTab} onValueChange={handleTopTabChange} className="w-full">
         {!forceEmployeeTab && (
-          <TabsList className="grid w-full grid-cols-5 max-w-[1000px]">
+          <TabsList className={`grid w-full ${isBeautyProfile ? 'grid-cols-4' : 'grid-cols-5'} max-w-[1000px]`}>
             <TabsTrigger value="contacts">Contactos</TabsTrigger>
-            <TabsTrigger value="pipeline">Embudo de Ventas</TabsTrigger>
+            {!isBeautyProfile && <TabsTrigger value="pipeline">Embudo de Ventas</TabsTrigger>}
             <TabsTrigger value="playbooks">Playbooks</TabsTrigger>
             <TabsTrigger value="reminders">Recordatorios</TabsTrigger>
             {isAdmin && <TabsTrigger value="settings">Configuración</TabsTrigger>}
@@ -2845,7 +2846,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
           )}
 
         </TabsContent>
-        <TabsContent value="pipeline" className="space-y-6">
+        {!isBeautyProfile && <TabsContent value="pipeline" className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <h2 className="text-3xl font-bold text-foreground">Embudo de Ventas</h2>
           </div>
@@ -3140,7 +3141,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent>}
         <TabsContent value="playbooks" className="space-y-6">
           <PlaybooksManagement />
         </TabsContent>

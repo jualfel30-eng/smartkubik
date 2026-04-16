@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/hooks/use-auth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs.jsx";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
@@ -18,7 +19,10 @@ import {
   Package,
   Loader2,
   AlertCircle,
-  Award
+  Award,
+  Scissors,
+  Edit2,
+  Save
 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { toast } from 'sonner';
@@ -69,8 +73,90 @@ const getTierBadge = (tier) => {
   );
 };
 
+function BeautyPreferencesSection({ customer, onUpdate }) {
+  const [editing, setEditing] = useState(false);
+  const [prefs, setPrefs] = useState(customer?.beautyPreferences || {
+    formula: '', preferredStyle: '', allergies: '', notes: '',
+  });
+
+  const save = async () => {
+    try {
+      await fetchApi(`/customers/${customer._id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ beautyPreferences: prefs }),
+      });
+      toast.success('Preferencias guardadas');
+      setEditing(false);
+      onUpdate?.({ ...customer, beautyPreferences: prefs });
+    } catch {
+      toast.error('No se pudo guardar');
+    }
+  };
+
+  const fields = [
+    { label: 'Fórmula / tinte', field: 'formula', placeholder: 'Ej: 7.1 rubio ceniza, 20vol' },
+    { label: 'Estilo preferido', field: 'preferredStyle', placeholder: 'Ej: corte bob, degradé' },
+    { label: 'Alergias / contraindicaciones', field: 'allergies', placeholder: 'Ej: alérgica a la keratina', multiline: true },
+    { label: 'Notas adicionales', field: 'notes', placeholder: 'Preferencias generales…', multiline: true },
+  ];
+
+  return (
+    <Card className="md:col-span-2">
+      <CardHeader>
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Scissors className="h-5 w-5 text-muted-foreground" />
+          Preferencias Beauty
+          <button
+            type="button"
+            onClick={() => editing ? save() : setEditing(true)}
+            className="ml-auto text-sm font-normal text-primary flex items-center gap-1"
+          >
+            {editing ? <><Save className="h-4 w-4" /> Guardar</> : <><Edit2 className="h-4 w-4" /> Editar</>}
+          </button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {fields.map(({ label, field, placeholder, multiline }) => (
+          <div key={field} className={multiline ? 'md:col-span-2' : ''}>
+            <p className="text-sm font-medium mb-1">{label}</p>
+            {editing ? (
+              multiline ? (
+                <textarea
+                  value={prefs[field] || ''}
+                  onChange={(e) => setPrefs({ ...prefs, [field]: e.target.value })}
+                  rows={2}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  placeholder={placeholder}
+                />
+              ) : (
+                <input
+                  value={prefs[field] || ''}
+                  onChange={(e) => setPrefs({ ...prefs, [field]: e.target.value })}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  placeholder={placeholder}
+                />
+              )
+            ) : (
+              <p className={`text-sm ${!prefs[field] ? 'text-muted-foreground italic' : 'text-foreground'}`}>
+                {prefs[field] || 'Sin datos'}
+              </p>
+            )}
+          </div>
+        ))}
+        {editing && (
+          <button type="button" onClick={() => setEditing(false)} className="text-xs text-muted-foreground">
+            Cancelar
+          </button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export const CustomerDetailDialog = ({ customer, open, onOpenChange }) => {
   const [activeTab, setActiveTab] = useState('info');
+  const { tenant } = useAuth();
+  const isBeautyProfile = ['barbershop-salon', 'clinic-spa'].includes(tenant?.verticalProfile?.key);
   const [transactions, setTransactions] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -314,6 +400,9 @@ export const CustomerDetailDialog = ({ customer, open, onOpenChange }) => {
                     </div>
                   </CardContent>
                 </Card>
+                {isBeautyProfile && (
+                  <BeautyPreferencesSection customer={customer} />
+                )}
               </div>
             </TabsContent>
 

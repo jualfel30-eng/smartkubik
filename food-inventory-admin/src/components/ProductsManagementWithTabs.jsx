@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
+import { useVerticalKey } from '@/hooks/useVerticalConfig.js';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs.jsx';
 import ProductsManagement from '@/components/ProductsManagement.jsx';
 import ConsumablesTab from '@/components/ConsumablesTab.jsx';
@@ -19,6 +20,8 @@ import { Package, Layers, Wrench, Calculator, Factory, GitMerge } from 'lucide-r
  */
 function ProductsManagementWithTabs({ activeSubTab = 'products' }) {
   const [, setSearchParams] = useSearchParams();
+  const verticalKey = useVerticalKey();
+  const isBeautyProfile = ['barbershop-salon', 'clinic-spa'].includes(verticalKey);
 
   const handleTabChange = (newTab) => {
     setSearchParams({ tab: newTab }, { replace: true });
@@ -43,10 +46,12 @@ function ProductsManagementWithTabs({ activeSubTab = 'products' }) {
           <Wrench className="h-4 w-4" />
           Suministros
         </TabsTrigger>
-        <TabsTrigger value="pricing-engine" className="gap-2">
-          <Calculator className="h-4 w-4" />
-          Motor de Precios
-        </TabsTrigger>
+        {!isBeautyProfile && (
+          <TabsTrigger value="pricing-engine" className="gap-2">
+            <Calculator className="h-4 w-4" />
+            Motor de Precios
+          </TabsTrigger>
+        )}
         <TabsTrigger value="dedup" className="gap-2">
           <GitMerge className="h-4 w-4" />
           Depuración

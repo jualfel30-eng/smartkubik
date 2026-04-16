@@ -8,11 +8,17 @@ import TipsReportWidget from '../components/TipsReportWidget';
 import TipsManagementDashboard from '../components/TipsManagementDashboard';
 import MenuEngineeringWidget from '../components/MenuEngineeringWidget';
 
-import { useVerticalConfig } from '../hooks/useVerticalConfig';
+import { useVerticalConfig, useVerticalKey } from '../hooks/useVerticalConfig';
+
+const BEAUTY_PROFILES = ['barbershop-salon', 'clinic-spa'];
+const BEAUTY_EXCLUDED_REPORTS = ['food-cost', 'menu-engineering'];
 
 const ReportsPage = () => {
   const verticalConfig = useVerticalConfig();
-  const allowedReports = verticalConfig?.availableReports || [];
+  const verticalKey = useVerticalKey();
+  const allowedReports = (verticalConfig?.availableReports || []).filter(
+    (r) => !BEAUTY_PROFILES.includes(verticalKey) || !BEAUTY_EXCLUDED_REPORTS.includes(r)
+  );
 
   // Helper to check if a report is allowed
   const isAllowed = (reportKey) => allowedReports.includes(reportKey);

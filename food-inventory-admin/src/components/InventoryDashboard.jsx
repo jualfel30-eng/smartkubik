@@ -11,6 +11,7 @@ import SuppliersManagement from '@/components/SuppliersManagement.jsx';
 import InventoryReportsPanel from '@/components/InventoryReportsPanel.jsx';
 import TransferOrdersPanel from '@/components/TransferOrdersPanel.jsx';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
+import { useVerticalKey } from '@/hooks/useVerticalConfig.js';
 
 export default function InventoryDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -18,6 +19,9 @@ export default function InventoryDashboard() {
   const { flags } = useFeatureFlags();
   const multiWarehouseEnabled = flags.MULTI_WAREHOUSE;
   const multiLocationEnabled = flags.MULTI_LOCATION;
+  const verticalKey = useVerticalKey();
+  const isBeautyProfile = ['barbershop-salon', 'clinic-spa'].includes(verticalKey);
+  const showWarehouses = multiWarehouseEnabled && !isBeautyProfile;
 
   // Sincronizar activeTab con searchParams cuando cambia la URL
   useEffect(() => {
@@ -61,12 +65,12 @@ export default function InventoryDashboard() {
     'inventory-movements',
     'inventory-alerts',
     'inventory-reports',
-    ...(multiWarehouseEnabled ? ['inventory-warehouses'] : []),
+    ...(showWarehouses ? ['inventory-warehouses'] : []),
   ];
 
   const getInventoryTab = () => {
     if (activeTab === 'warehouses') {
-      return multiWarehouseEnabled ? 'inventory-warehouses' : 'inventory';
+      return showWarehouses ? 'inventory-warehouses' : 'inventory';
     }
     if (inventorySubTabs.includes(activeTab)) {
       return activeTab;
@@ -96,10 +100,10 @@ export default function InventoryDashboard() {
         <TabsContent value="inventory" className="mt-6">
           <Tabs value={activeInventoryTab} onValueChange={handleTabChange} className="w-full">
             <TabsList
-              className={`grid w-full ${multiWarehouseEnabled ? 'grid-cols-5' : 'grid-cols-4'} max-w-5xl`}
+              className={`grid w-full ${showWarehouses ? 'grid-cols-5' : 'grid-cols-4'} max-w-5xl`}
             >
               <TabsTrigger value="inventory">Inventario</TabsTrigger>
-              {multiWarehouseEnabled && <TabsTrigger value="inventory-warehouses">Almacenes</TabsTrigger>}
+              {showWarehouses && <TabsTrigger value="inventory-warehouses">Almacenes</TabsTrigger>}
               <TabsTrigger value="inventory-movements">Movimientos de Inventario</TabsTrigger>
               <TabsTrigger value="inventory-alerts">Alertas de Stock</TabsTrigger>
               <TabsTrigger value="inventory-reports">Reportes</TabsTrigger>
@@ -117,7 +121,7 @@ export default function InventoryDashboard() {
             <TabsContent value="inventory-reports" className="mt-6">
               <InventoryReportsPanel />
             </TabsContent>
-            {multiWarehouseEnabled && (
+            {showWarehouses && (
               <TabsContent value="inventory-warehouses" className="mt-6">
                 <WarehousesAndBinsManager />
               </TabsContent>

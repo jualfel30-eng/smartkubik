@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, Check, Banknote, Smartphone, CreditCard, Zap, ArrowRight, Plus, Trash2 } from 'lucide-react';
-import { fetchApi } from '@/lib/api';
+import { fetchApi, getLoyaltyBalance } from '@/lib/api';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
+import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { cn } from '@/lib/utils';
@@ -9,6 +10,10 @@ import haptics from '@/lib/haptics';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import AnimatedNumber from '../primitives/AnimatedNumber.jsx';
 import { useRipple } from '../primitives/RippleOverlay.jsx';
+
+// ─── loyalty constants ────────────────────────────────────────────────────────
+const LOYALTY_POINT_VALUE = 0.01;   // $0.01 per point (default, same as backend)
+const LOYALTY_MAX_PCT     = 0.50;   // Max 50% of bill can be covered by points
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const METHOD_LABELS = {
@@ -135,15 +140,24 @@ function PaymentLine({ line, methods, onChange, onRemove, canRemove }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function MobilePOS({ appointment, onClose, onPaid }) {
   const { isBeauty } = useMobileVertical();
+  const { tenant } = useAuth();
 
   const total = Number(appointment?.totalPrice ?? 0);
+  const hasPrefilledAmount = total > 0;
+  const defaultTipPct = Number(tenant?.settings?.tips?.defaultTipPercentage ?? 0);
+
   const [amount, setAmount] = useState(total > 0 ? total.toFixed(2) : '0');
-  const [tipPct, setTipPct] = useState(0);
+  const [showNumPad, setShowNumPad] = useState(!hasPrefilledAmount);
+  const [tipPct, setTipPct] = useState(defaultTipPct);
   const [method, setMethod] = useState('efectivo_usd');
   const [reference, setReference] = useState('');
   const [exchangeRate, setExchangeRate] = useState(null);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Loyalty state
+  const [loyaltyBalance, setLoyaltyBalance] = useState(null); // null = not loaded / not applicable
+  const [loyaltyApplied, setLoyaltyApplied] = useState(false);
 
   // Mixed payment state
   const [mixedMode, setMixedMode] = useState(false);
@@ -167,15 +181,38 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
     });
   }, []);
 
+  // Fetch loyalty balance (beauty vertical only, when client has phone)
+  useEffect(() => {
+    if (!isBeauty) return;
+    const tenantId = tenant?._id || tenant?.id;
+    const clientPhone = appointment?.client?.phone || appointment?.customerPhone;
+    if (!tenantId || !clientPhone) return;
+
+    getLoyaltyBalance(tenantId, clientPhone)
+      .then((res) => {
+        const pts = res?.points ?? 0;
+        if (pts > 0) setLoyaltyBalance(pts);
+      })
+      .catch(() => { /* no mostrar error, es opcional */ });
+  }, [isBeauty, tenant, appointment]);
+
   const tipAmount = tipPct > 0 ? (Number(amount) * tipPct / 100) : 0;
   const grandTotal = Number(amount) + tipAmount;
   const isVes = VES_METHODS.has(method);
   const grandTotalVes = exchangeRate ? grandTotal * exchangeRate : null;
 
+  // Loyalty derived values
+  const maxLoyaltyDiscount = loyaltyBalance !== null
+    ? Math.min(loyaltyBalance * LOYALTY_POINT_VALUE, grandTotal * LOYALTY_MAX_PCT)
+    : 0;
+  const appliedLoyaltyDiscount = loyaltyApplied ? maxLoyaltyDiscount : 0;
+  const loyaltyPointsToRedeem = loyaltyApplied ? Math.round(appliedLoyaltyDiscount / LOYALTY_POINT_VALUE) : 0;
+  const effectiveTotal = Math.max(0, grandTotal - appliedLoyaltyDiscount);
+
   // Mixed: sum of lines
   const linesTotal = lines.reduce((s, l) => s + (Number(l.amount) || 0), 0);
   const linesTotalVes = exchangeRate ? linesTotal * exchangeRate : null;
-  const mixedBalanced = Math.abs(linesTotal - grandTotal) < 0.005;
+  const mixedBalanced = Math.abs(linesTotal - effectiveTotal) < 0.005;
 
   const methods = paymentMethods.length
     ? paymentMethods.filter(m => m.id !== 'pago_mixto')
@@ -210,6 +247,52 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
     });
   }, [appointment]);
 
+  // Task 2.3: 1-tap quick-pay with pre-filled amount
+  const quickPay = useCallback(async (methodId) => {
+    const aptId = appointment?._id || appointment?.id;
+    if (!aptId) { toast.error('Cita no identificada'); return; }
+    setSubmitting(true);
+    try {
+      const methodLabel = METHOD_LABELS[methodId] || methodId;
+      if (isBeauty) {
+        await fetchApi(`/beauty-bookings/${aptId}/status`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            paymentStatus: 'paid',
+            paymentMethod: methodLabel,
+            amountPaid: effectiveTotal,
+            ...(loyaltyPointsToRedeem > 0 && {
+              loyaltyPointsRedeemed: loyaltyPointsToRedeem,
+              loyaltyDiscount: appliedLoyaltyDiscount,
+            }),
+          }),
+        });
+      } else {
+        await fetchApi(`/appointments/${aptId}/manual-deposits`, {
+          method: 'POST',
+          body: JSON.stringify({
+            amount: effectiveTotal,
+            currency: VES_METHODS.has(methodId) ? 'VES' : 'USD',
+            method: methodId,
+            exchangeRate: exchangeRate || undefined,
+            status: 'confirmed',
+            confirmedAmount: effectiveTotal,
+            transactionDate: new Date().toISOString(),
+          }),
+        });
+      }
+      haptics.success();
+      showWhatsAppToast(effectiveTotal);
+      trackEvent('payment_completed', { mode: 'quickpay', method: methodId, total: effectiveTotal });
+      onPaid?.();
+    } catch (err) {
+      haptics.error();
+      toast.error(err.message || 'Error al registrar el pago');
+    } finally {
+      setSubmitting(false);
+    }
+  }, [appointment, isBeauty, effectiveTotal, loyaltyPointsToRedeem, appliedLoyaltyDiscount, exchangeRate, showWhatsAppToast, onPaid]);
+
   const submit = async () => {
     const aptId = appointment?._id || appointment?.id;
     if (!aptId) { toast.error('Cita no identificada'); return; }
@@ -219,16 +302,20 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
 
       if (mixedMode) {
         if (!mixedBalanced) {
-          toast.error(`La suma de pagos ($${linesTotal.toFixed(2)}) no coincide con el total ($${grandTotal.toFixed(2)})`);
+          toast.error(`La suma de pagos ($${linesTotal.toFixed(2)}) no coincide con el total ($${effectiveTotal.toFixed(2)})`);
           return;
         }
         // Submit each line sequentially
-        for (const line of lines) {
+        for (const [idx, line] of lines.entries()) {
           const methodLabel = METHOD_LABELS[line.method] || line.method;
+          // Include loyalty fields only on the first line (avoid double-redeeming)
+          const loyaltyFields = idx === 0 && isBeauty && loyaltyPointsToRedeem > 0
+            ? { loyaltyPointsRedeemed: loyaltyPointsToRedeem, loyaltyDiscount: appliedLoyaltyDiscount }
+            : {};
           if (isBeauty) {
             await fetchApi(`/beauty-bookings/${aptId}/status`, {
               method: 'PATCH',
-              body: JSON.stringify({ paymentStatus: 'paid', paymentMethod: methodLabel, amountPaid: Number(line.amount) }),
+              body: JSON.stringify({ paymentStatus: 'paid', paymentMethod: methodLabel, amountPaid: Number(line.amount), ...loyaltyFields }),
             });
           } else {
             await fetchApi(`/appointments/${aptId}/manual-deposits`, {
@@ -252,20 +339,28 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
         if (isBeauty) {
           await fetchApi(`/beauty-bookings/${aptId}/status`, {
             method: 'PATCH',
-            body: JSON.stringify({ paymentStatus: 'paid', paymentMethod: methodLabel, amountPaid: grandTotal }),
+            body: JSON.stringify({
+              paymentStatus: 'paid',
+              paymentMethod: methodLabel,
+              amountPaid: effectiveTotal,
+              ...(loyaltyPointsToRedeem > 0 && {
+                loyaltyPointsRedeemed: loyaltyPointsToRedeem,
+                loyaltyDiscount: appliedLoyaltyDiscount,
+              }),
+            }),
           });
         } else {
           await fetchApi(`/appointments/${aptId}/manual-deposits`, {
             method: 'POST',
             body: JSON.stringify({
-              amount: grandTotal, currency: isVes ? 'VES' : 'USD', method,
+              amount: effectiveTotal, currency: isVes ? 'VES' : 'USD', method,
               reference: reference || undefined, exchangeRate: exchangeRate || undefined,
-              status: 'confirmed', confirmedAmount: grandTotal, transactionDate: new Date().toISOString(),
+              status: 'confirmed', confirmedAmount: effectiveTotal, transactionDate: new Date().toISOString(),
             }),
           });
         }
-        showWhatsAppToast(grandTotal);
-        trackEvent('payment_completed', { mode: 'single', method, total: grandTotal });
+        showWhatsAppToast(effectiveTotal);
+        trackEvent('payment_completed', { mode: 'single', method, total: effectiveTotal });
       }
 
       haptics.success();
@@ -289,6 +384,52 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
           <p className="text-sm text-muted-foreground">{appointment?.serviceName || 'Servicio'}</p>
         </div>
 
+        {/* Loyalty points — only shown for beauty vertical when client has points */}
+        {isBeauty && loyaltyBalance > 0 && (
+          <div className="rounded-[var(--mobile-radius-md)] border border-border bg-amber-50 dark:bg-amber-950/20 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                  🎁 {loyaltyBalance} puntos disponibles
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+                  {loyaltyApplied
+                    ? `Descuento aplicado: -$${appliedLoyaltyDiscount.toFixed(2)}`
+                    : `Vale hasta $${(loyaltyBalance * LOYALTY_POINT_VALUE).toFixed(2)} de descuento`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLoyaltyApplied((v) => !v)}
+                className={cn(
+                  'flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors no-tap-highlight',
+                  loyaltyApplied
+                    ? 'bg-amber-600 text-white'
+                    : 'border border-amber-400 text-amber-700 dark:text-amber-300 bg-transparent',
+                )}
+              >
+                {loyaltyApplied ? 'Quitar' : 'Aplicar'}
+              </button>
+            </div>
+            {loyaltyApplied && (
+              <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-800 text-xs space-y-0.5">
+                <div className="flex justify-between text-amber-700 dark:text-amber-400">
+                  <span>Subtotal</span>
+                  <span>${grandTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-amber-800 dark:text-amber-300 font-semibold">
+                  <span>Puntos ({loyaltyPointsToRedeem} pts)</span>
+                  <span>-${appliedLoyaltyDiscount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-amber-900 dark:text-amber-200">
+                  <span>Total a cobrar</span>
+                  <span>${effectiveTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Mode toggle */}
         <div className="flex gap-2">
           <button type="button" onClick={() => setMixedMode(false)}
@@ -305,16 +446,23 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
 
         {!mixedMode ? (
           <>
-            {/* Amount display */}
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">Monto</p>
+            {/* Amount display — tappable to edit when pre-filled */}
+            <div
+              className="text-center"
+              onClick={hasPrefilledAmount && !showNumPad ? () => setShowNumPad(true) : undefined}
+              style={hasPrefilledAmount && !showNumPad ? { cursor: 'pointer' } : {}}
+            >
+              <p className="text-xs text-muted-foreground">
+                Monto{hasPrefilledAmount && !showNumPad && <span className="text-primary"> · toca para editar</span>}
+              </p>
               <div className="text-5xl font-bold tabular-nums mt-1">${amount}</div>
               {isVes && grandTotalVes && (
                 <p className="text-sm text-muted-foreground mt-1">≈ Bs. {grandTotalVes.toFixed(2)}</p>
               )}
             </div>
 
-            <NumPad value={amount} onChange={setAmount} />
+            {/* NumPad — hidden by default when amount is pre-filled */}
+            {showNumPad && <NumPad value={amount} onChange={setAmount} />}
 
             {/* Tip */}
             <div>
@@ -327,31 +475,58 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
               )}
             </div>
 
-            {/* Payment method */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1.5">Método de pago</p>
-              <div className="grid grid-cols-2 gap-2">
-                {methods.slice(0, 8).map(m => {
-                  const Icon = METHOD_ICONS[m.id] || Banknote;
-                  return (
-                    <button key={m.id} type="button" onClick={() => { haptics.select(); setMethod(m.id); }}
-                      className={cn('flex items-center gap-2 rounded-[var(--mobile-radius-md)] border px-3 py-2.5 text-sm font-medium no-tap-highlight transition-colors',
-                        method === m.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
-                      <Icon size={14} />
-                      <span className="truncate">{m.name || METHOD_LABELS[m.id] || m.id}</span>
-                    </button>
-                  );
-                })}
+            {/* Quick-pay buttons — pre-filled amount, not editing */}
+            {hasPrefilledAmount && !showNumPad && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1.5">Pago rápido</p>
+                <div className="space-y-2">
+                  {methods.slice(0, 4).map(m => {
+                    const Icon = METHOD_ICONS[m.id] || Banknote;
+                    return (
+                      <button key={m.id} type="button" disabled={submitting} onClick={() => quickPay(m.id)}
+                        className="w-full flex items-center justify-between rounded-[var(--mobile-radius-md)] border px-4 py-3.5 text-sm font-semibold no-tap-highlight bg-card border-border active:scale-95 transition-transform disabled:opacity-50">
+                        <div className="flex items-center gap-2">
+                          <Icon size={18} />
+                          <span>{m.name || METHOD_LABELS[m.id] || m.id}</span>
+                        </div>
+                        <span className="font-bold tabular-nums text-base">${effectiveTotal.toFixed(2)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Reference */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">Referencia (opcional)</p>
-              <input type="text" value={reference} onChange={e => setReference(e.target.value)}
-                placeholder="Nro. de confirmación…"
-                className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2.5 text-sm" />
-            </div>
+            {/* Regular method + reference — when editing amount or no pre-fill */}
+            {(!hasPrefilledAmount || showNumPad) && (
+              <>
+                {/* Payment method */}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">Método de pago</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {methods.slice(0, 8).map(m => {
+                      const Icon = METHOD_ICONS[m.id] || Banknote;
+                      return (
+                        <button key={m.id} type="button" onClick={() => { haptics.select(); setMethod(m.id); }}
+                          className={cn('flex items-center gap-2 rounded-[var(--mobile-radius-md)] border px-3 py-2.5 text-sm font-medium no-tap-highlight transition-colors',
+                            method === m.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
+                          <Icon size={14} />
+                          <span className="truncate">{m.name || METHOD_LABELS[m.id] || m.id}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Reference */}
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Referencia (opcional)</p>
+                  <input type="text" value={reference} onChange={e => setReference(e.target.value)}
+                    placeholder="Nro. de confirmación…"
+                    className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2.5 text-sm" />
+                </div>
+              </>
+            )}
           </>
         ) : (
           <>
@@ -378,7 +553,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
             <div className={cn('rounded-[var(--mobile-radius-md)] px-3 py-2 text-sm flex items-center justify-between',
               mixedBalanced ? 'bg-emerald-500/10 text-emerald-700' : 'bg-amber-500/10 text-amber-700')}>
               <span>Suma de pagos</span>
-              <span className="font-bold tabular-nums">${linesTotal.toFixed(2)} / ${grandTotal.toFixed(2)}</span>
+              <span className="font-bold tabular-nums">${linesTotal.toFixed(2)} / ${effectiveTotal.toFixed(2)}</span>
             </div>
           </>
         )}
@@ -389,7 +564,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
         <div className="flex items-center justify-between mb-2 text-sm" aria-live="polite" aria-atomic="true">
           <span className="text-muted-foreground">Total a cobrar</span>
           <AnimatedNumber
-            value={grandTotal}
+            value={effectiveTotal}
             format={(n) => `$${n.toFixed(2)}`}
             className="font-bold text-lg tabular-nums"
           />

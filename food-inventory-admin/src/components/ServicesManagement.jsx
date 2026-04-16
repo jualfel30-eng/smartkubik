@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
-import { fetchApi } from '../lib/api';
+import { fetchApi, getServicePackages, createServicePackage, updateServicePackage, deleteServicePackage } from '../lib/api';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs.jsx';
 import { useModuleAccess } from '../hooks/useModuleAccess';
 import { useBusinessModel, getBusinessContextText } from '../hooks/useBusinessModel';
 import { useAuth } from '@/hooks/use-auth';
@@ -127,6 +128,22 @@ function ServicesManagement() {
   const [loading, setLoading] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
+  // Packages state (beauty vertical only)
+  const [packages, setPackages] = useState([]);
+  const [packagesLoading, setPackagesLoading] = useState(false);
+  const [isPackageDialogOpen, setIsPackageDialogOpen] = useState(false);
+  const [editingPackage, setEditingPackage] = useState(null);
+  const [packageForm, setPackageForm] = useState({
+    name: '',
+    description: '',
+    services: [],
+    totalDuration: 0,
+    price: { amount: 0, currency: 'USD' },
+    savings: 0,
+    isActive: true,
+    sortOrder: 0,
+  });
+
   const handleImageAdd = async (e) => {
     const files = Array.from(e.target.files);
     const remaining = 3 - (formData.images?.length || 0);
@@ -184,6 +201,7 @@ function ServicesManagement() {
     if (!hasAccess) return;
     loadServices();
     loadCategories();
+    if (isBeautyVertical) loadPackages();
   }, [hasAccess]);
 
   useEffect(() => {
@@ -228,6 +246,133 @@ function ServicesManagement() {
       setCategories(data);
     } catch (error) {
       console.error('Error loading categories:', error);
+    }
+  };
+
+  const loadPackages = async () => {
+    try {
+      setPackagesLoading(true);
+      const data = await getServicePackages();
+      setPackages(Array.isArray(data) ? data : (data?.data || []));
+    } catch (error) {
+      console.error('Error loading packages:', error);
+    } finally {
+      setPackagesLoading(false);
+    }
+  };
+
+  const getPackageSelectedServiceObjects = (selectedIds) =>
+    services.filter((s) => selectedIds.includes(s._id));
+
+  const recalcPackageFromServices = (selectedIds, currentPrice) => {
+    const selected = getPackageSelectedServiceObjects(selectedIds);
+    const totalDuration = selected.reduce((sum, s) => sum + (s.duration || 0), 0);
+    const suggestedPrice = selected.reduce((sum, s) => sum + (parseFloat(s.price) || 0), 0);
+    const priceAmount = currentPrice !== undefined ? currentPrice : suggestedPrice;
+    const savings = Math.max(0, suggestedPrice - priceAmount);
+    return { totalDuration, suggestedPrice, savings };
+  };
+
+  const openCreatePackageDialog = () => {
+    setEditingPackage(null);
+    setPackageForm({
+      name: '',
+      description: '',
+      services: [],
+      totalDuration: 0,
+      price: { amount: 0, currency: 'USD' },
+      savings: 0,
+      isActive: true,
+      sortOrder: 0,
+    });
+    setIsPackageDialogOpen(true);
+  };
+
+  const openEditPackageDialog = (pkg) => {
+    const selectedIds = (pkg.services || []).map((s) => (typeof s === 'string' ? s : s._id));
+    const { totalDuration, suggestedPrice, savings } = recalcPackageFromServices(
+      selectedIds,
+      typeof pkg.price === 'object' ? pkg.price.amount : pkg.price
+    );
+    setEditingPackage(pkg);
+    setPackageForm({
+      name: pkg.name || '',
+      description: pkg.description || '',
+      services: selectedIds,
+      totalDuration: pkg.totalDuration ?? totalDuration,
+      price: { amount: typeof pkg.price === 'object' ? pkg.price.amount : (pkg.price || 0), currency: 'USD' },
+      savings: pkg.savings ?? savings,
+      isActive: pkg.isActive !== false,
+      sortOrder: pkg.sortOrder || 0,
+    });
+    setIsPackageDialogOpen(true);
+  };
+
+  const handlePackageServiceToggle = (serviceId, checked) => {
+    setPackageForm((prev) => {
+      const newServices = checked
+        ? [...prev.services, serviceId]
+        : prev.services.filter((id) => id !== serviceId);
+      const { totalDuration, suggestedPrice, savings } = recalcPackageFromServices(newServices, prev.price.amount);
+      return {
+        ...prev,
+        services: newServices,
+        totalDuration,
+        savings,
+        _suggestedPrice: suggestedPrice,
+      };
+    });
+  };
+
+  const handlePackagePriceChange = (amount) => {
+    setPackageForm((prev) => {
+      const suggestedPrice = prev._suggestedPrice ?? recalcPackageFromServices(prev.services, amount).suggestedPrice;
+      const savings = Math.max(0, suggestedPrice - amount);
+      return { ...prev, price: { ...prev.price, amount }, savings, _suggestedPrice: suggestedPrice };
+    });
+  };
+
+  const handlePackageSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setPackagesLoading(true);
+      const payload = {
+        name: packageForm.name,
+        description: packageForm.description,
+        services: packageForm.services,
+        totalDuration: packageForm.totalDuration,
+        price: { amount: parseFloat(packageForm.price.amount) || 0, currency: 'USD' },
+        savings: parseFloat(packageForm.savings) || 0,
+        isActive: packageForm.isActive,
+        sortOrder: packageForm.sortOrder || 0,
+      };
+      if (editingPackage) {
+        await updateServicePackage(editingPackage._id, payload);
+      } else {
+        await createServicePackage(payload);
+      }
+      setIsPackageDialogOpen(false);
+      loadPackages();
+    } catch (error) {
+      console.error('Error saving package:', error);
+      alert('Error al guardar el paquete');
+    } finally {
+      setPackagesLoading(false);
+    }
+  };
+
+  const handleDeletePackage = async (id) => {
+    const ok = await confirmAction({ title: '¿Eliminar este paquete?', description: 'Esta acción no se puede deshacer.', destructive: true, confirmLabel: 'Eliminar' });
+    if (!ok) return;
+    try {
+      setPackagesLoading(true);
+      await deleteServicePackage(id);
+      loadPackages();
+    } catch (error) {
+      console.error('Error deleting package:', error);
+      alert('Error al eliminar el paquete');
+    } finally {
+      setPackagesLoading(false);
     }
   };
 
@@ -345,21 +490,9 @@ function ServicesManagement() {
     return <ModuleAccessDenied moduleName="appointments" />;
   }
 
-  return (
-    <div className="p-6 space-y-6">
-      <ConfirmDialog />
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Servicios</h1>
-          <p className="text-gray-500">Gestiona los servicios que ofreces</p>
-        </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Servicio
-        </Button>
-      </div>
-
+  // Reusable services table JSX
+  const servicesTableContent = (
+    <>
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -431,7 +564,7 @@ function ServicesManagement() {
                       title="No se encontraron servicios"
                       description={searchTerm ? "Intenta con otro término de búsqueda" : "Crea tu primer servicio para comenzar"}
                       actionLabel={!searchTerm ? "Crear servicio" : undefined}
-                      onAction={!searchTerm ? () => setShowCreateDialog(true) : undefined}
+                      onAction={!searchTerm ? () => setIsDialogOpen(true) : undefined}
                     />
                   </TableCell>
                 </TableRow>
@@ -512,8 +645,283 @@ function ServicesManagement() {
           </Table>
         </CardContent>
       </Card>
+    </>
+  );
 
-      {/* Create/Edit Dialog */}
+  // Packages table JSX (beauty vertical only)
+  const packagesTableContent = (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>
+            {packages.length} paquete{packages.length !== 1 ? 's' : ''}
+          </CardTitle>
+          <Button onClick={openCreatePackageDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Paquete
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Servicios</TableHead>
+                <TableHead>Duración</TableHead>
+                <TableHead>Precio</TableHead>
+                <TableHead>Ahorro</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {packagesLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                    Cargando paquetes...
+                  </TableCell>
+                </TableRow>
+              ) : packages.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7}>
+                    <EmptyState
+                      icon={Wrench}
+                      title="No hay paquetes"
+                      description="Crea tu primer paquete para ofrecer combos de servicios"
+                      actionLabel="Crear paquete"
+                      onAction={openCreatePackageDialog}
+                    />
+                  </TableCell>
+                </TableRow>
+              ) : (
+                packages.map((pkg) => {
+                  const pkgServiceIds = (pkg.services || []).map((s) => (typeof s === 'string' ? s : s._id));
+                  const pkgServiceNames = pkgServiceIds
+                    .map((id) => services.find((s) => s._id === id)?.name)
+                    .filter(Boolean);
+                  const priceAmount = typeof pkg.price === 'object' ? pkg.price?.amount : pkg.price;
+                  const savingsAmount = pkg.savings || 0;
+                  return (
+                    <TableRow key={pkg._id}>
+                      <TableCell>
+                        <div className="font-medium">{pkg.name}</div>
+                        {pkg.description && (
+                          <div className="text-sm text-gray-500 truncate max-w-xs">{pkg.description}</div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {pkgServiceNames.length > 0 ? (
+                            pkgServiceNames.map((name, i) => (
+                              <Badge key={i} variant="outline" className="text-xs">{name}</Badge>
+                            ))
+                          ) : (
+                            <span className="text-gray-400 text-sm">—</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-4 w-4 text-gray-400" />
+                          {formatDuration(pkg.totalDuration || 0)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <DollarSign className="h-4 w-4 text-success" />
+                          {formatCurrency(priceAmount || 0)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {savingsAmount > 0 ? (
+                          <span className="text-green-600 font-medium">${savingsAmount.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={pkg.isActive !== false ? 'success' : 'secondary'}>
+                          {pkg.isActive !== false ? (
+                            <>
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Activo
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Inactivo
+                            </>
+                          )}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => openEditPackageDialog(pkg)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleDeletePackage(pkg._id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </>
+  );
+
+  return (
+    <div className="p-6 space-y-6">
+      <ConfirmDialog />
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Servicios</h1>
+          <p className="text-gray-500">Gestiona los servicios que ofreces</p>
+        </div>
+        <Button onClick={openCreateDialog}>
+          <Plus className="h-4 w-4 mr-2" />
+          Nuevo Servicio
+        </Button>
+      </div>
+
+      {isBeautyVertical ? (
+        <Tabs defaultValue="services">
+          <TabsList>
+            <TabsTrigger value="services">Servicios</TabsTrigger>
+            <TabsTrigger value="packages">Paquetes</TabsTrigger>
+          </TabsList>
+          <TabsContent value="services" className="space-y-6 mt-4">
+            {servicesTableContent}
+          </TabsContent>
+          <TabsContent value="packages" className="space-y-6 mt-4">
+            {packagesTableContent}
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <div className="space-y-6">
+          {servicesTableContent}
+        </div>
+      )}
+
+      {/* Create/Edit Package Dialog */}
+      <Dialog open={isPackageDialogOpen} onOpenChange={setIsPackageDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingPackage ? 'Editar Paquete' : 'Nuevo Paquete'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handlePackageSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="pkg-name">Nombre *</Label>
+              <Input
+                id="pkg-name"
+                value={packageForm.name}
+                onChange={(e) => setPackageForm((prev) => ({ ...prev, name: e.target.value }))}
+                required
+                placeholder="Ej: Pack Relajación Completa"
+              />
+            </div>
+            <div>
+              <Label htmlFor="pkg-description">Descripción</Label>
+              <Textarea
+                id="pkg-description"
+                value={packageForm.description}
+                onChange={(e) => setPackageForm((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder="Descripción del paquete..."
+                rows={2}
+              />
+            </div>
+
+            {/* Services multi-select */}
+            <div className="space-y-2">
+              <Label>Servicios incluidos</Label>
+              {services.length === 0 ? (
+                <p className="text-sm text-gray-400">No hay servicios disponibles.</p>
+              ) : (
+                <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto bg-gray-50 dark:bg-slate-900/40">
+                  {services.map((svc) => (
+                    <div key={svc._id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`pkg-svc-${svc._id}`}
+                        checked={packageForm.services.includes(svc._id)}
+                        onCheckedChange={(checked) => handlePackageServiceToggle(svc._id, checked === true)}
+                      />
+                      <Label htmlFor={`pkg-svc-${svc._id}`} className="flex-1 cursor-pointer font-normal flex items-center justify-between">
+                        <span>{svc.name}</span>
+                        <span className="text-xs text-gray-500 ml-2">
+                          {formatDuration(svc.duration)} · {formatCurrency(svc.price)}
+                        </span>
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="pkg-duration">Duración total (min)</Label>
+                <Input
+                  id="pkg-duration"
+                  type="number"
+                  min="0"
+                  value={packageForm.totalDuration}
+                  onChange={(e) => setPackageForm((prev) => ({ ...prev, totalDuration: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="pkg-price">Precio del paquete ($)</Label>
+                <Input
+                  id="pkg-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={packageForm.price.amount}
+                  onChange={(e) => handlePackagePriceChange(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 items-end">
+              <div>
+                <Label>Ahorro (calculado)</Label>
+                <div className="h-10 flex items-center px-3 border rounded-md bg-muted text-sm text-green-600 font-medium">
+                  {packageForm.savings > 0 ? `$${Number(packageForm.savings).toFixed(2)}` : '—'}
+                </div>
+              </div>
+              <div>
+                <Label>Estado</Label>
+                <div className="flex items-center gap-3 h-10">
+                  <Checkbox
+                    id="pkg-active"
+                    checked={packageForm.isActive}
+                    onCheckedChange={(checked) => setPackageForm((prev) => ({ ...prev, isActive: checked === true }))}
+                  />
+                  <Label htmlFor="pkg-active" className="cursor-pointer font-normal">
+                    {packageForm.isActive ? 'Activo' : 'Inactivo'}
+                  </Label>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsPackageDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={packagesLoading}>
+                {packagesLoading ? 'Guardando...' : editingPackage ? 'Actualizar' : 'Crear'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create/Edit Service Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
