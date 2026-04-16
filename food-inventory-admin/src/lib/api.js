@@ -2888,4 +2888,7 @@ export const deleteResourceBlock = (id) => {
   return fetchApi(`/resource-blocks/${id}`, { method: 'DELETE' });
 };
 
+export const cancelBeautyBookingSeries = (seriesId) =>
+  fetchApi(`/beauty-bookings/series/${seriesId}`, { method: 'DELETE' });
+
 // ==================== IVA Declaration API ====================

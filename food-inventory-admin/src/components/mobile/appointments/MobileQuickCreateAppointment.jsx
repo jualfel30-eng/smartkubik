@@ -43,6 +43,9 @@ export default function MobileQuickCreateAppointment({
   const [submitting, setSubmitting] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [conflictWarning, setConflictWarning] = useState(null);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState('weekly');
+  const [recurrenceCount, setRecurrenceCount] = useState(4);
 
   const servicesEndpoint = isBeauty ? '/beauty-services' : '/services/active';
   const resourcesEndpoint = isBeauty ? '/professionals' : '/resources';
@@ -234,6 +237,12 @@ export default function MobileQuickCreateAppointment({
             startTime: format(startAt, 'HH:mm'),
             notes: notes || undefined,
             ...(selectedPackageId ? { packageId: selectedPackageId } : {}),
+            ...(isRecurring && {
+              recurrenceRule: {
+                frequency: recurrenceFrequency,
+                endAfterOccurrences: recurrenceCount,
+              },
+            }),
           }
         : {
             customerName,
@@ -245,7 +254,7 @@ export default function MobileQuickCreateAppointment({
             status: 'pending',
           };
 
-      await fetchApi(endpoint, { method: 'POST', body: JSON.stringify(payload) });
+      const response = await fetchApi(endpoint, { method: 'POST', body: JSON.stringify(payload) });
       haptics.success();
       trackEvent('appointment_created', { serviceIds: selectedServiceIds, resourceId: resourceId || null, isBeauty });
 
@@ -258,12 +267,16 @@ export default function MobileQuickCreateAppointment({
           : 'el servicio';
       const timeStr = format(startAt, 'HH:mm');
       const dateStr = format(startAt, "d 'de' MMM", { locale: es });
+      const occurrencesCreated = response?.data?.occurrencesCreated ?? response?.occurrencesCreated ?? 0;
+      const toastTitle = occurrencesCreated > 0
+        ? `Cita creada + ${occurrencesCreated} citas recurrentes agendadas`
+        : 'Cita creada exitosamente';
 
       if (phone) {
         const waText = encodeURIComponent(
           `Hola ${customerName}, te confirmamos tu cita para ${svcName} el ${dateStr} a las ${timeStr}. ¡Te esperamos!`,
         );
-        toast.success('Cita creada', {
+        toast.success(toastTitle, {
           description: `${customerName} · ${timeStr}`,
           action: {
             label: 'Enviar WhatsApp',
@@ -272,7 +285,7 @@ export default function MobileQuickCreateAppointment({
           duration: 8000,
         });
       } else {
-        toast.success('Cita creada', {
+        toast.success(toastTitle, {
           description: `${customerName} · ${timeStr}`,
         });
       }
@@ -541,6 +554,74 @@ export default function MobileQuickCreateAppointment({
             placeholder="Preferencias, observaciones…"
           />
         </section>
+
+        {/* Recurring toggle — solo beauty */}
+        {isBeauty && (
+          <div className="border-t pt-4 mt-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Repetir esta cita</p>
+                <p className="text-xs text-muted-foreground">Misma hora y profesional</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRecurring(r => !r)}
+                className={`relative w-11 h-6 rounded-full transition-colors ${isRecurring ? 'bg-primary' : 'bg-gray-200'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isRecurring ? 'translate-x-5' : ''}`} />
+              </button>
+            </div>
+
+            {isRecurring && (
+              <div className="mt-3 space-y-3 animate-in fade-in slide-in-from-top-2">
+                {/* Frequency */}
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5">Frecuencia</p>
+                  <div className="flex gap-2">
+                    {[
+                      { value: 'weekly', label: 'Semanal' },
+                      { value: 'biweekly', label: 'Cada 2 sem.' },
+                      { value: 'monthly', label: 'Mensual' },
+                    ].map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setRecurrenceFrequency(opt.value)}
+                        className={`flex-1 py-1.5 text-xs rounded-lg border transition-colors ${
+                          recurrenceFrequency === opt.value
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'border-input hover:bg-accent'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* End after N occurrences */}
+                <div className="flex items-center gap-3">
+                  <p className="text-xs text-muted-foreground">Número de citas:</p>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setRecurrenceCount(c => Math.max(2, c - 1))}
+                      className="w-7 h-7 rounded border flex items-center justify-center text-sm">−</button>
+                    <span className="w-6 text-center text-sm font-medium">{recurrenceCount}</span>
+                    <button type="button" onClick={() => setRecurrenceCount(c => Math.min(12, c + 1))}
+                      className="w-7 h-7 rounded border flex items-center justify-center text-sm">+</button>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                <p className="text-xs text-muted-foreground bg-muted rounded-lg p-2">
+                  Se crearán <strong>{recurrenceCount} citas</strong> {
+                    recurrenceFrequency === 'weekly' ? 'cada semana' :
+                    recurrenceFrequency === 'biweekly' ? 'cada 2 semanas' : 'cada mes'
+                  }. Mismo profesional y horario.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Sticky save */}

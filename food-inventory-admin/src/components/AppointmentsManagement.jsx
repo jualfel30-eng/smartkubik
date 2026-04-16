@@ -249,6 +249,10 @@ function AppointmentsManagement() {
       totalDuration: booking.totalDuration,
       paymentStatus: booking.paymentStatus,
       paymentMethod: booking.paymentMethod,
+      // Recurrence fields
+      isRecurring: booking.isRecurring,
+      seriesId: booking.seriesId,
+      occurrenceIndex: booking.occurrenceIndex,
     };
   }, [isBeautyVertical]);
 
@@ -2074,7 +2078,14 @@ function AppointmentsManagement() {
                           <div className="flex items-center gap-2">
                             <User className="h-4 w-4 text-gray-400" />
                             <div>
-                              <div className="font-medium">{apt.customerName}</div>
+                              <div className="font-medium">
+                                {apt.customerName}
+                                {apt.isRecurring && (
+                                  <span title="Cita recurrente" className="ml-1 text-xs opacity-60">
+                                    🔄
+                                  </span>
+                                )}
+                              </div>
                               {apt.customerPhone && (
                                 <div className="text-sm text-gray-500">{apt.customerPhone}</div>
                               )}

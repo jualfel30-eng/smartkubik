@@ -6,7 +6,7 @@ import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { Phone, MessageCircle, PlayCircle, CheckCircle2, XCircle, Receipt, CalendarClock, ChevronLeft } from 'lucide-react';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import MobilePOS from '../pos/MobilePOS.jsx';
-import { fetchApi } from '@/lib/api';
+import { fetchApi, cancelBeautyBookingSeries } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import haptics from '@/lib/haptics';
 
@@ -88,6 +88,19 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
       toast.error(err.message || 'No se pudo reagendar');
     } finally {
       setRescheduling(false);
+    }
+  };
+
+  const handleCancelSeries = async () => {
+    if (!window.confirm('¿Cancelar esta cita y todas las futuras de la serie?')) return;
+    try {
+      await cancelBeautyBookingSeries(appointment.seriesId);
+      toast.success('Serie cancelada');
+      onClose?.();
+      onChanged?.();
+    } catch (err) {
+      console.error('Cancel series error:', err);
+      toast.error('No se pudo cancelar la serie');
     }
   };
 
@@ -258,6 +271,21 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
                 </button>
               )}
             </div>
+
+            {/* Series cancellation — only if booking is recurring */}
+            {appointment?.seriesId && appointment?.status !== 'cancelled' && (
+              <div className="border-t pt-3 mt-3">
+                <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                  🔄 Cita recurrente {appointment.occurrenceIndex !== undefined ? `(#${appointment.occurrenceIndex + 1})` : ''}
+                </p>
+                <button
+                  onClick={handleCancelSeries}
+                  className="w-full border border-red-300 text-red-600 text-sm py-2 rounded-lg hover:bg-red-50"
+                >
+                  Cancelar esta y futuras citas de la serie
+                </button>
+              </div>
+            )}
           </div>
         )}
       </MobileActionSheet>
