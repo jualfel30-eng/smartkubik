@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { format, addMinutes, startOfDay, setHours, setMinutes, roundToNearestMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Search, ChevronRight, Clock, User, Scissors, X } from 'lucide-react';
-import { fetchApi } from '@/lib/api';
+import { fetchApi, addToWaitlist, getClientNoShowStatus } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import { cn } from '@/lib/utils';
 import haptics from '@/lib/haptics';
+import { emitBadgeUpdate } from '@/lib/badge-events';
 
 const toTimeInputValue = (d) => format(d, "yyyy-MM-dd'T'HH:mm");
 
@@ -46,6 +47,14 @@ export default function MobileQuickCreateAppointment({
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceFrequency, setRecurrenceFrequency] = useState('weekly');
   const [recurrenceCount, setRecurrenceCount] = useState(4);
+
+  // Waitlist state
+  const [showWaitlistOption, setShowWaitlistOption] = useState(false);
+  const [waitlistFrom, setWaitlistFrom] = useState('09:00');
+  const [waitlistTo, setWaitlistTo] = useState('18:00');
+
+  // No-show warning state
+  const [noShowWarning, setNoShowWarning] = useState(null);
 
   const servicesEndpoint = isBeauty ? '/beauty-services' : '/services/active';
   const resourcesEndpoint = isBeauty ? '/professionals' : '/resources';
@@ -210,6 +219,29 @@ export default function MobileQuickCreateAppointment({
     }
   }, [resourceId, startAt, endAt, isBeauty, endpoint]);
 
+  const handleAddToWaitlist = async () => {
+    try {
+      await addToWaitlist({
+        client: {
+          name: customerName,
+          phone: customerPhone || '+10000000000',
+        },
+        services: selectedServiceIds.map((id) => ({ service: id })),
+        preferredDate: format(startAt, 'yyyy-MM-dd'),
+        preferredTimeRange: { from: waitlistFrom, to: waitlistTo },
+        preferredProfessionalId: resourceId || undefined,
+      });
+      setShowWaitlistOption(false);
+      toast.success('Agregado a la lista de espera', {
+        description: `${customerName} será notificado cuando haya disponibilidad`,
+      });
+      onClose?.(true);
+    } catch (err) {
+      console.error('Waitlist error:', err);
+      toast.error(err.message || 'No se pudo agregar a la lista de espera');
+    }
+  };
+
   const submit = async () => {
     if (!customerName) { toast.error('Selecciona un cliente'); return; }
     if (selectedServiceIds.length === 0) { toast.error('Selecciona al menos un servicio'); return; }
@@ -256,6 +288,7 @@ export default function MobileQuickCreateAppointment({
 
       const response = await fetchApi(endpoint, { method: 'POST', body: JSON.stringify(payload) });
       haptics.success();
+      emitBadgeUpdate({ type: 'create' });
       trackEvent('appointment_created', { serviceIds: selectedServiceIds, resourceId: resourceId || null, isBeauty });
 
       // Toast with WhatsApp action if client has phone
@@ -295,6 +328,10 @@ export default function MobileQuickCreateAppointment({
       console.error(err);
       haptics.error();
       toast.error(err.message || 'No se pudo crear la cita');
+      // Show waitlist option for beauty bookings when there's a conflict
+      if (isBeauty) {
+        setShowWaitlistOption(true);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -390,6 +427,19 @@ export default function MobileQuickCreateAppointment({
             </>
           )}
         </section>
+
+        {/* No-show warning */}
+        {noShowWarning && (
+          <div className={`p-3 rounded-lg border text-sm ${
+            noShowWarning.level === 'blacklisted' ? 'bg-red-50 border-red-200 text-red-800' :
+            noShowWarning.level === 'deposit' ? 'bg-orange-50 border-orange-200 text-orange-800' :
+            'bg-yellow-50 border-yellow-200 text-yellow-800'
+          }`}>
+            {noShowWarning.level === 'blacklisted' && '🚫 Este cliente está bloqueado. No se puede crear la cita.'}
+            {noShowWarning.level === 'deposit' && '⚠ Este cliente requiere depósito para confirmar.'}
+            {noShowWarning.level === 'warning' && `⚠ Este cliente tiene ${noShowWarning.count} inasistencia(s).`}
+          </div>
+        )}
 
         {/* Paquetes (solo beauty, si hay paquetes) */}
         {isBeauty && packages.length > 0 && (
@@ -634,9 +684,27 @@ export default function MobileQuickCreateAppointment({
             ⚠ {conflictWarning.name} ya tiene una cita de {conflictWarning.startStr} a {conflictWarning.endStr}. Toca "Guardar" para continuar.
           </div>
         )}
+        {showWaitlistOption && (
+          <div className="mb-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+            <p className="text-sm text-amber-800 mb-2">
+              No hay disponibilidad en ese horario. ¿Agregar a lista de espera?
+            </p>
+            <div className="space-y-2 mb-2">
+              <p className="text-xs text-amber-700">Rango horario flexible:</p>
+              <div className="flex gap-2">
+                <input type="time" value={waitlistFrom} onChange={e => setWaitlistFrom(e.target.value)} className="flex-1 border rounded px-2 py-1 text-sm bg-white" />
+                <span className="self-center text-sm text-amber-800">a</span>
+                <input type="time" value={waitlistTo} onChange={e => setWaitlistTo(e.target.value)} className="flex-1 border rounded px-2 py-1 text-sm bg-white" />
+              </div>
+            </div>
+            <button onClick={handleAddToWaitlist} className="w-full bg-amber-600 text-white py-2 rounded-lg text-sm font-medium">
+              Agregar a lista de espera
+            </button>
+          </div>
+        )}
         <button
           type="button"
-          disabled={submitting}
+          disabled={submitting || noShowWarning?.level === 'blacklisted'}
           onClick={submit}
           className="w-full rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground py-4 text-base font-semibold no-tap-highlight disabled:opacity-60"
         >

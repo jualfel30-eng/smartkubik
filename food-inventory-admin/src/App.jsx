@@ -110,6 +110,7 @@ import { NotificationProvider, useNotification } from './context/NotificationCon
 import { useFeatureFlags } from './hooks/use-feature-flags.jsx';
 import { getSidebarWhitelist } from './config/sidebarProfiles.js';
 import { CashRegisterProvider } from './contexts/CashRegisterContext.jsx';
+import { FabProvider } from './contexts/FabContext.jsx';
 import { BusinessLocationProvider } from './context/BusinessLocationContext.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
 import TrialBanner from './components/TrialBanner.jsx';
@@ -1522,7 +1523,9 @@ function AppContent() {
                   <BusinessLocationProvider>
                     <AccountingProvider>
                       <CashRegisterProvider>
-                        <TenantLayout />
+                        <FabProvider>
+                          <TenantLayout />
+                        </FabProvider>
                       </CashRegisterProvider>
                     </AccountingProvider>
                   </BusinessLocationProvider>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { addMinutes, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useConfirm } from '@/hooks/use-confirm';
@@ -9,6 +9,8 @@ import MobilePOS from '../pos/MobilePOS.jsx';
 import { fetchApi, cancelBeautyBookingSeries } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import haptics from '@/lib/haptics';
+import { useFabContext } from '@/contexts/FabContext';
+import { emitBadgeUpdate } from '@/lib/badge-events';
 
 const STATUS_LABELS = {
   pending: 'Pendiente',
@@ -28,10 +30,36 @@ const toTimeInputValue = (d) => {
 export default function MobileAppointmentDetailSheet({ appointment, endpoint, onClose, onChanged }) {
   const [ConfirmDialog, confirmDialog] = useConfirm();
   const { isBeauty } = useMobileVertical();
+  const { setContextAction, clearContextAction } = useFabContext();
   const [posOpen, setPosOpen] = useState(false);
   const [rescheduleOpen, setRescheduleOpen] = useState(false);
   const [newStartStr, setNewStartStr] = useState('');
   const [rescheduling, setRescheduling] = useState(false);
+  const [depositDialogOpen, setDepositDialogOpen] = useState(false);
+
+  // Register FAB context action based on appointment status
+  useEffect(() => {
+    if (!appointment) return;
+    if (appointment.status === 'in_progress') {
+      setContextAction({
+        label: 'Cobrar',
+        icon: Receipt,
+        color: 'primary',
+        action: () => setPosOpen(true),
+      });
+    } else if (appointment.status === 'pending' || appointment.status === 'confirmed') {
+      setContextAction({
+        label: 'Iniciar servicio',
+        icon: PlayCircle,
+        color: 'primary',
+        action: () => updateStatus('in_progress'),
+      });
+    } else {
+      clearContextAction();
+    }
+    return () => clearContextAction();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointment?.status, appointment?._id]);
 
   if (!appointment) return null;
 
@@ -54,6 +82,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
         body: JSON.stringify({ status: next }),
       });
       toast.success(`Marcada como ${STATUS_LABELS[next] || next}`);
+      emitBadgeUpdate({ type: 'statusChange' });
       // Task 2.1: auto-abrir POS al completar para beauty
       if (next === 'completed' && isBeauty) {
         setPosOpen(true);
@@ -96,6 +125,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
     try {
       await cancelBeautyBookingSeries(appointment.seriesId);
       toast.success('Serie cancelada');
+      emitBadgeUpdate({ type: 'statusChange' });
       onClose?.();
       onChanged?.();
     } catch (err) {
@@ -271,6 +301,45 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
                 </button>
               )}
             </div>
+
+            {/* Waitlist status */}
+            {appointment?.status === 'waitlisted' && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
+                <p className="text-sm font-medium text-amber-800">
+                  Lista de espera — Posición #{appointment.waitlistPosition}
+                </p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Fecha deseada: {appointment.waitlistPreferredDate ? new Date(appointment.waitlistPreferredDate).toLocaleDateString('es-ES') : '—'}
+                </p>
+                {appointment.waitlistPreferredTimeRange && (
+                  <p className="text-xs text-amber-600">
+                    Rango: {appointment.waitlistPreferredTimeRange.from} – {appointment.waitlistPreferredTimeRange.to}
+                  </p>
+                )}
+                {appointment.waitlistNotifiedAt && (
+                  <p className="text-xs text-green-700 mt-1">
+                    ✓ Notificado — slot disponible por 2h
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Deposit required */}
+            {appointment?.depositRequired && (
+              <div className="border rounded-lg p-3 mt-2">
+                <p className="text-sm font-medium mb-2">Depósito requerido</p>
+                {appointment?.depositInfo?.paid ? (
+                  <span className="text-xs text-green-700 font-medium">✓ Depósito pagado</span>
+                ) : (
+                  <button
+                    onClick={() => setDepositDialogOpen(true)}
+                    className="w-full border border-orange-300 text-orange-700 py-2 rounded-lg text-sm"
+                  >
+                    Registrar depósito
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Series cancellation — only if booking is recurring */}
             {appointment?.seriesId && appointment?.status !== 'cancelled' && (

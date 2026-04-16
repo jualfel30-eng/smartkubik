@@ -7,6 +7,7 @@ import { toast } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import { cn } from '@/lib/utils';
 import haptics from '@/lib/haptics';
+import { emitBadgeUpdate } from '@/lib/badge-events';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import AnimatedNumber from '../primitives/AnimatedNumber.jsx';
 import { useRipple } from '../primitives/RippleOverlay.jsx';
@@ -334,6 +335,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
         });
       }
       haptics.success();
+      emitBadgeUpdate({ type: 'pay' });
       showWhatsAppToast(effectiveTotal);
       trackEvent('payment_completed', { mode: 'quickpay', method: methodId, total: effectiveTotal });
       setAddedProducts([]);
@@ -428,6 +430,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
       }
 
       haptics.success();
+      emitBadgeUpdate({ type: 'pay' });
       setAddedProducts([]);
       onPaid?.();
     } catch (err) {

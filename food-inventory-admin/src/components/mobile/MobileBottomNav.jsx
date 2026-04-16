@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { CalendarDays, Home, Users, Menu } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { cn } from '@/lib/utils';
 import { SPRING } from '@/lib/motion';
@@ -9,6 +9,7 @@ import haptics from '@/lib/haptics';
 import { useReducedMotionSafe } from '@/hooks/use-reduced-motion-safe';
 import { fetchApi } from '@/lib/api';
 import MobileFAB from './MobileFAB.jsx';
+import { onBadgeUpdate } from '@/lib/badge-events';
 
 const TAB_CONFIGS = {
   beauty: [
@@ -26,6 +27,33 @@ const TAB_CONFIGS = {
     { to: '/mas', label: 'Más', icon: Menu },
   ],
 };
+
+function BadgeDot({ count }) {
+  const prevCountRef = useRef(count);
+  const [animating, setAnimating] = useState(false);
+
+  useEffect(() => {
+    if (count !== prevCountRef.current) {
+      prevCountRef.current = count;
+      setAnimating(true);
+      const t = setTimeout(() => setAnimating(false), 400);
+      return () => clearTimeout(t);
+    }
+  }, [count]);
+
+  if (count <= 0) return null;
+
+  return (
+    <span
+      className={cn(
+        'absolute -top-1 -right-2 min-w-[16px] h-4 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-0.5 leading-none',
+        animating && 'animate-badge-bounce',
+      )}
+    >
+      {count > 9 ? '9+' : count}
+    </span>
+  );
+}
 
 function TabItem({ to, label, Icon, active, badge = 0 }) {
   const { shouldReduce, t } = useReducedMotionSafe();
@@ -54,11 +82,7 @@ function TabItem({ to, label, Icon, active, badge = 0 }) {
       >
         <span className="relative">
           <Icon size={22} strokeWidth={active ? 2.2 : 1.8} />
-          {badge > 0 && (
-            <span className="absolute -top-1 -right-2 min-w-[16px] h-4 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-0.5 leading-none">
-              {badge > 9 ? '9+' : badge}
-            </span>
-          )}
+          <BadgeDot count={badge} />
         </span>
         <span className="leading-none transition-colors">{label}</span>
       </motion.span>
@@ -72,21 +96,32 @@ export default function MobileBottomNav() {
   const [pendingCount, setPendingCount] = useState(0);
   const [unpaidCount, setUnpaidCount] = useState(0);
 
+  const loadCounts = useCallback(async () => {
+    if (!isBeauty) return;
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const res = await fetchApi(`/beauty-bookings?startDate=${today}&endDate=${today}`);
+      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      setPendingCount(raw.filter(b => b.status === 'pending' || b.status === 'confirmed').length);
+      setUnpaidCount(raw.filter(b => b.status === 'completed' && b.paymentStatus !== 'paid').length);
+    } catch { /* silent */ }
+  }, [isBeauty]);
+
+  // Initial load + 60s polling
   useEffect(() => {
     if (!isBeauty) return;
-    const loadCounts = async () => {
-      try {
-        const today = new Date().toISOString().slice(0, 10);
-        const res = await fetchApi(`/beauty-bookings?startDate=${today}&endDate=${today}`);
-        const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-        setPendingCount(raw.filter(b => b.status === 'pending' || b.status === 'confirmed').length);
-        setUnpaidCount(raw.filter(b => b.status === 'completed' && b.paymentStatus !== 'paid').length);
-      } catch { /* silent */ }
-    };
     loadCounts();
     const interval = setInterval(loadCounts, 60000);
     return () => clearInterval(interval);
-  }, [isBeauty]);
+  }, [isBeauty, loadCounts]);
+
+  // Real-time badge updates: re-fetch immediately when events are emitted
+  useEffect(() => {
+    const unsub = onBadgeUpdate(() => {
+      loadCounts();
+    });
+    return unsub;
+  }, [loadCounts]);
 
   const rawTabs = isBeauty ? TAB_CONFIGS.beauty : TAB_CONFIGS.default;
   const tabs = rawTabs.map(tab => {

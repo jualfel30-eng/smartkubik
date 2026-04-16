@@ -170,6 +170,26 @@
   }
 }
 
+/* --------------------------------------------------------------------------
+   Badge bounce animation — used by MobileBottomNav BadgeDot on count change
+   -------------------------------------------------------------------------- */
+@keyframes badge-bounce {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.35); }
+  70%  { transform: scale(0.88); }
+  100% { transform: scale(1); }
+}
+
+.animate-badge-bounce {
+  animation: badge-bounce 0.35s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-badge-bounce {
+    animation: none;
+  }
+}
+
 /* Hide on desktop helper (Tailwind's md:hidden is fine, but this is a
    semantic alternative for mobile-only primitives) */
 @media (min-width: 768px) {

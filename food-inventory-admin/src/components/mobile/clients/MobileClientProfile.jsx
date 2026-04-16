@@ -8,6 +8,7 @@ import {
 import { fetchApi } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { useFabContext } from '@/contexts/FabContext';
 
 const STATUS_COLOR = {
   pending: 'bg-amber-500', confirmed: 'bg-info',
@@ -184,6 +185,7 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
   const [bookings, setBookings] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [localClient, setLocalClient] = useState(client);
+  const { setContextAction, clearContextAction } = useFabContext();
 
   const phone = localClient.phone || localClient.mobile || '';
   const wa = phone ? `https://wa.me/${phone.replace(/\D/g, '')}` : null;
@@ -207,6 +209,22 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
       .catch(() => {})
       .finally(() => setLoadingHistory(false));
   }, [isBeauty, phone]);
+
+  // Register FAB context action: "Nueva cita — {client.name}" while viewing client profile
+  const clientId = localClient._id || localClient.id;
+  useEffect(() => {
+    const clientName = localClient.name || localClient.companyName || '';
+    if (clientName) {
+      setContextAction({
+        label: `Nueva cita — ${clientName}`,
+        icon: CalendarPlus,
+        color: 'primary',
+        action: () => onNewAppointment?.(localClient),
+      });
+    }
+    return () => clearContextAction();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId]);
 
   return (
     <div className="md:hidden mobile-content-pad space-y-4 pb-6">
