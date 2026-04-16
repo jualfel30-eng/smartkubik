@@ -53,6 +53,8 @@ import { FinancialKpisDashboard } from '@/components/charts/FinancialKpisDashboa
 import { CustomAnalytics } from '@/components/charts/CustomAnalytics.jsx';
 import { useAuth } from '@/hooks/use-auth';
 import OnboardingChecklist from './OnboardingChecklist';
+import { ScrollReveal, ScrollRevealGroup } from '@/components/ui/scroll-reveal';
+import { DataHighlight } from '@/components/ui/data-highlight';
 
 const statusMap = {
   draft: { label: 'Borrador', colorClassName: 'bg-gray-200 text-gray-800' },
@@ -142,69 +144,77 @@ function DashboardView() {
       )}
 
       {/* Stat Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+      <ScrollRevealGroup className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="glass-card-subtle">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Ventas de Hoy</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <AnimatedNumber
-              value={summaryData.salesToday || 0}
-              format={(n) => `$${n.toFixed(2)}`}
-              duration={0.6}
-              className="text-2xl font-bold"
-            />
+            <DataHighlight as="div" value={summaryData.salesToday}>
+              <AnimatedNumber
+                value={summaryData.salesToday || 0}
+                format={(n) => `$${n.toFixed(2)}`}
+                duration={0.6}
+                className="text-2xl font-bold"
+              />
+            </DataHighlight>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glass-card-subtle">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Órdenes de Hoy</CardTitle>
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <AnimatedNumber
-              value={summaryData.ordersToday || 0}
-              format={(n) => `+${Math.round(n)}`}
-              duration={0.6}
-              className="text-2xl font-bold"
-            />
+            <DataHighlight as="div" value={summaryData.ordersToday}>
+              <AnimatedNumber
+                value={summaryData.ordersToday || 0}
+                format={(n) => `+${Math.round(n)}`}
+                duration={0.6}
+                className="text-2xl font-bold"
+              />
+            </DataHighlight>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glass-card-subtle">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Clientes Activos</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <AnimatedNumber
-              value={summaryData.activeCustomers || 0}
-              format={(n) => Math.round(n).toLocaleString()}
-              duration={0.6}
-              className="text-2xl font-bold"
-            />
+            <DataHighlight as="div" value={summaryData.activeCustomers}>
+              <AnimatedNumber
+                value={summaryData.activeCustomers || 0}
+                format={(n) => Math.round(n).toLocaleString()}
+                duration={0.6}
+                className="text-2xl font-bold"
+              />
+            </DataHighlight>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glass-card-subtle">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Productos en Stock</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <AnimatedNumber
-              value={summaryData.productsInStock || 0}
-              format={(n) => Math.round(n).toLocaleString()}
-              duration={0.6}
-              className="text-2xl font-bold"
-            />
+            <DataHighlight as="div" value={summaryData.productsInStock}>
+              <AnimatedNumber
+                value={summaryData.productsInStock || 0}
+                format={(n) => Math.round(n).toLocaleString()}
+                duration={0.6}
+                className="text-2xl font-bold"
+              />
+            </DataHighlight>
           </CardContent>
         </Card>
-      </div>
+      </ScrollRevealGroup>
 
       {/* Inventory Value Cards */}
       {summaryData.inventoryValue && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
+        <ScrollRevealGroup className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="glass-card-subtle">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Valor de Inventario (Costo)</CardTitle>
               <Boxes className="h-4 w-4 text-muted-foreground" />
@@ -221,7 +231,7 @@ function DashboardView() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="glass-card-subtle">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Valor de Inventario (Retail)</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -238,7 +248,7 @@ function DashboardView() {
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="glass-card-subtle">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Ganancia Potencial</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -248,14 +258,14 @@ function DashboardView() {
                 value={summaryData.inventoryValue.potentialProfit || 0}
                 format={(n) => `$${n.toFixed(2)}`}
                 duration={0.6}
-                className="text-2xl font-bold text-green-600"
+                className="text-2xl font-bold text-success"
               />
               <p className="text-xs text-muted-foreground mt-1">
                 Margen si se vende todo
               </p>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="glass-card-subtle">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Items</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
@@ -272,16 +282,18 @@ function DashboardView() {
               </p>
             </CardContent>
           </Card>
-        </div>
+        </ScrollRevealGroup>
       )}
 
       {/* KPIs Financieros - Vista ejecutiva para dueños de negocio */}
-      <FinancialKpisDashboard />
+      <ScrollReveal>
+        <FinancialKpisDashboard />
+      </ScrollReveal>
 
       {/* Análisis Personalizado - Power BI style (Phase 2) */}
-      <div className="mt-8">
+      <ScrollReveal delay={0.05} className="mt-8">
         <CustomAnalytics />
-      </div>
+      </ScrollReveal>
 
       {flags.DASHBOARD_CHARTS ? (
         <div className="space-y-6">
