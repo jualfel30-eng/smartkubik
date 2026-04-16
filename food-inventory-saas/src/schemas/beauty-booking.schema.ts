@@ -139,6 +139,23 @@ export class BeautyBooking {
     error?: string;
   }>;
 
+  // Productos adicionales vendidos en la cita (upsell)
+  @Prop({
+    type: [{
+      name: { type: String },
+      price: { type: Number, default: 0 },
+      quantity: { type: Number, default: 1 },
+      productId: { type: Types.ObjectId, ref: 'Product', required: false },
+    }],
+    default: [],
+  })
+  addons: Array<{
+    name: string;
+    price: number;
+    quantity: number;
+    productId?: Types.ObjectId;
+  }>;
+
   // Programa de lealtad
   @Prop({ type: Number, default: 0, min: 0 })
   loyaltyPointsAwarded: number;

@@ -6,8 +6,31 @@ import {
   Min,
   MaxLength,
   Max,
+  IsArray,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class BookingAddonDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  price?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  quantity?: number;
+
+  @IsOptional()
+  @IsString()
+  productId?: string;
+}
 
 export class UpdateBookingStatusDto {
   @ApiPropertyOptional({
@@ -55,4 +78,11 @@ export class UpdateBookingStatusDto {
   @IsNumber()
   @Min(0)
   loyaltyDiscount?: number;
+
+  @ApiPropertyOptional({ description: 'Productos adicionales vendidos en la cita (upsell)' })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BookingAddonDto)
+  addons?: BookingAddonDto[];
 }

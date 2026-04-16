@@ -39,6 +39,12 @@ import {
   ResourceBlock,
   ResourceBlockSchema,
 } from '../../schemas/resource-block.schema';
+import {
+  Inventory,
+  InventorySchema,
+  InventoryMovement,
+  InventoryMovementSchema,
+} from '../../schemas/inventory.schema';
 
 // Services
 import { BeautyPackagesService } from './services/service-packages.service';
@@ -114,6 +120,8 @@ import { BeautyLoyaltyPublicController } from './controllers/beauty-loyalty-publ
       { name: BeautyLoyaltyRecord.name, schema: BeautyLoyaltyRecordSchema },
       { name: StorefrontConfig.name, schema: StorefrontConfigSchema },
       { name: ResourceBlock.name, schema: ResourceBlockSchema },
+      { name: Inventory.name, schema: InventorySchema },
+      { name: InventoryMovement.name, schema: InventoryMovementSchema },
     ]),
   ],
   controllers: [

@@ -27,6 +27,12 @@ import {
   ResourceBlockDocument,
 } from '../../../schemas/resource-block.schema';
 import {
+  Inventory,
+  InventoryDocument,
+  InventoryMovement,
+  InventoryMovementDocument,
+} from '../../../schemas/inventory.schema';
+import {
   CreateBeautyBookingDto,
   UpdateBookingStatusDto,
   UpdateBeautyBookingDto,
@@ -55,6 +61,10 @@ export class BeautyBookingsService {
     private storefrontConfigModel: Model<StorefrontConfigDocument>,
     @InjectModel(ResourceBlock.name)
     private resourceBlockModel: Model<ResourceBlockDocument>,
+    @InjectModel(Inventory.name)
+    private inventoryModel: Model<InventoryDocument>,
+    @InjectModel(InventoryMovement.name)
+    private inventoryMovementModel: Model<InventoryMovementDocument>,
     private readonly whatsappService: BeautyWhatsAppNotificationsService,
     private readonly loyaltyService: BeautyLoyaltyService,
     private readonly webPushService: WebPushService,
@@ -426,6 +436,91 @@ export class BeautyBookingsService {
       } catch (error) {
         // No revertir el pago si falla lealtad
         this.logger.error(`Error handling loyalty on payment: ${error.message}`);
+      }
+    }
+
+    // ── Addons: guardar productos adicionales vendidos ───────────────────────
+    if (dto.addons && dto.addons.length > 0) {
+      booking.addons = dto.addons.map((a) => ({
+        name: a.name || '',
+        price: a.price ?? 0,
+        quantity: a.quantity ?? 1,
+        productId: a.productId ? new Types.ObjectId(a.productId) : undefined,
+      })) as any;
+    }
+
+    // ── Inventario: descontar stock de productos adicionales al confirmar pago ──
+    if (dto.paymentStatus === 'paid' && previousPaymentStatus !== 'paid') {
+      const addonsToDeduct = dto.addons?.length ? dto.addons : (booking.addons || []);
+      for (const addon of addonsToDeduct) {
+        if (!addon.productId) continue;
+        try {
+          const productIdStr = addon.productId.toString();
+          const inventory = await this.inventoryModel.findOne({
+            tenantId: booking.tenantId,
+            productId: {
+              $in: [
+                productIdStr,
+                new Types.ObjectId(productIdStr),
+              ],
+            },
+            isDeleted: { $ne: true },
+          });
+
+          if (!inventory) {
+            this.logger.warn(`No se encontró inventario para productId=${productIdStr} al pagar cita ${booking.bookingNumber}`);
+            continue;
+          }
+
+          const deductQty = addon.quantity ?? 1;
+          const currentAvail = inventory.availableQuantity ?? 0;
+
+          if (currentAvail >= deductQty) {
+            await this.inventoryModel.updateOne(
+              { _id: inventory._id },
+              {
+                $inc: {
+                  totalQuantity: -deductQty,
+                  availableQuantity: -deductQty,
+                },
+              },
+            );
+
+            // Registro de movimiento de inventario
+            try {
+              await this.inventoryMovementModel.create({
+                tenantId: booking.tenantId,
+                inventoryId: inventory._id,
+                productId: inventory.productId,
+                productSku: inventory.productSku,
+                warehouseId: inventory.warehouseId,
+                movementType: 'out',
+                quantity: deductQty,
+                unitCost: inventory.averageCostPrice ?? 0,
+                totalCost: (inventory.averageCostPrice ?? 0) * deductQty,
+                referenceType: 'beauty_booking',
+                referenceId: booking._id,
+                notes: `Venta en cita ${booking.bookingNumber}`,
+                balanceAfter: {
+                  totalQuantity: (inventory.totalQuantity ?? 0) - deductQty,
+                  availableQuantity: currentAvail - deductQty,
+                  reservedQuantity: inventory.reservedQuantity ?? 0,
+                  averageCostPrice: inventory.averageCostPrice ?? 0,
+                },
+              });
+            } catch (movErr) {
+              // Movimiento fallido no revierte el descuento ya aplicado
+              this.logger.error(`Error registrando movimiento de inventario para productId=${productIdStr}: ${movErr.message}`);
+            }
+
+            this.logger.log(`Inventario descontado: ${deductQty} unidades de productId=${productIdStr} para cita ${booking.bookingNumber}`);
+          } else {
+            this.logger.warn(`Stock insuficiente para productId=${productIdStr}: disponible=${currentAvail}, solicitado=${deductQty}`);
+          }
+        } catch (invErr) {
+          // No revertir el pago si falla el descuento de inventario
+          this.logger.error(`Error descontando inventario para addon productId=${addon.productId?.toString()}: ${invErr.message}`);
+        }
       }
     }
 
