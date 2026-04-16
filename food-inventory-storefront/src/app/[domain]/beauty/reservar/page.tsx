@@ -6,10 +6,12 @@ import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import {
   getBeautyServices,
+  getBeautyPackages,
   getProfessionals,
   getAvailability,
   createBeautyBooking,
   type BeautyService,
+  type BeautyPackage,
   type Professional,
   type AvailabilitySlot,
 } from '@/lib/beautyApi';
@@ -31,6 +33,7 @@ export default function BookingPage() {
 
   const [config, setConfig] = useState<StorefrontConfig | null>(null);
   const [services, setServices] = useState<BeautyService[]>([]);
+  const [packages, setPackages] = useState<BeautyPackage[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [availableSlots, setAvailableSlots] = useState<AvailabilitySlot[]>([]);
 
@@ -44,6 +47,7 @@ export default function BookingPage() {
     serviceId: string;
     addons: string[];
   }>>([]);
+  const [selectedPackageId, setSelectedPackageId] = useState<string>('');
   const [selectedProfessional, setSelectedProfessional] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
@@ -98,12 +102,14 @@ export default function BookingPage() {
           secondaryColor: configData.theme?.secondaryColor,
         });
 
-        const [servicesData, professionalsData] = await Promise.all([
+        const [servicesData, packagesData, professionalsData] = await Promise.all([
           getBeautyServices(tenantId),
+          getBeautyPackages(tenantId),
           getProfessionals(tenantId),
         ]);
 
         setServices(servicesData);
+        setPackages(packagesData);
         setProfessionals(professionalsData);
       } catch (err) {
         setError('No se pudieron cargar los datos de reserva');
@@ -143,11 +149,24 @@ export default function BookingPage() {
   }, [config, selectedDate, selectedServices, selectedProfessional]);
 
   const toggleService = (serviceId: string) => {
+    setSelectedPackageId(''); // clear package selection on manual toggle
     setSelectedServices((prev) => {
       const exists = prev.find((s) => s.serviceId === serviceId);
       if (exists) return prev.filter((s) => s.serviceId !== serviceId);
       return [...prev, { serviceId, addons: [] }];
     });
+  };
+
+  const selectPackage = (pkg: BeautyPackage) => {
+    const pkgId = pkg._id;
+    if (selectedPackageId === pkgId) {
+      // deselect
+      setSelectedPackageId('');
+      setSelectedServices([]);
+    } else {
+      setSelectedPackageId(pkgId);
+      setSelectedServices(pkg.services.map((s) => ({ serviceId: s._id, addons: [] })));
+    }
   };
 
   const toggleAddon = (serviceId: string, addonName: string) => {
@@ -166,6 +185,14 @@ export default function BookingPage() {
   };
 
   const calculateTotals = () => {
+    // If a package is selected, use the package price/duration directly
+    if (selectedPackageId) {
+      const pkg = packages.find((p) => p._id === selectedPackageId);
+      if (pkg) {
+        return { totalPrice: pkg.price.amount, totalDuration: pkg.totalDuration };
+      }
+    }
+
     let totalPrice = 0;
     let totalDuration = 0;
 
@@ -203,6 +230,7 @@ export default function BookingPage() {
         startTime: selectedTime,
         professionalId: selectedProfessional || undefined,
         notes: notes || undefined,
+        packageId: selectedPackageId || undefined,
       });
 
       router.push(`/${domain}/beauty/reserva/${booking.bookingNumber}`);
@@ -358,6 +386,116 @@ export default function BookingPage() {
           {step === 1 && (
             <div>
               <h2 className={`text-2xl font-bold tracking-tight mb-6 ${colors.text}`}>Selecciona tus Servicios</h2>
+
+              {/* Packages section */}
+              {packages.length > 0 && (
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span
+                      className="text-xs font-bold tracking-widest uppercase px-2.5 py-1 rounded-full"
+                      style={{ backgroundColor: `${primaryColor}18`, color: primaryColor }}
+                    >
+                      Combos
+                    </span>
+                    <div className={`flex-1 h-px ${darkMode ? 'bg-neutral-700' : 'bg-stone-200'}`} />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {packages.map((pkg) => {
+                      const isSelected = selectedPackageId === pkg._id;
+                      const savingsPct = pkg.price.amount > 0
+                        ? Math.round((pkg.savings / (pkg.price.amount + pkg.savings)) * 100)
+                        : 0;
+                      return (
+                        <div
+                          key={pkg._id}
+                          onClick={() => selectPackage(pkg)}
+                          className={`relative border-2 rounded-2xl p-5 cursor-pointer transition-all duration-200 overflow-hidden ${
+                            isSelected ? 'shadow-xl' : `${colors.border} hover:shadow-md`
+                          }`}
+                          style={{
+                            borderColor: isSelected ? primaryColor : undefined,
+                            backgroundColor: isSelected ? `${primaryColor}08` : undefined,
+                          }}
+                        >
+                          {/* Savings badge */}
+                          {pkg.savings > 0 && (
+                            <div
+                              className="absolute top-3 right-3 text-xs font-bold px-2 py-0.5 rounded-full text-white"
+                              style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+                            >
+                              {savingsPct > 0 ? `Ahorras ${savingsPct}%` : `Ahorras $${pkg.savings}`}
+                            </div>
+                          )}
+
+                          {/* Package image */}
+                          {pkg.image && (
+                            <img
+                              src={pkg.image}
+                              alt={pkg.name}
+                              className="w-full h-28 object-cover rounded-xl mb-4"
+                            />
+                          )}
+
+                          <h3 className={`font-bold text-lg pr-16 ${colors.text}`}>{pkg.name}</h3>
+                          {pkg.description && (
+                            <p className={`text-sm mt-1 ${colors.textMuted}`}>{pkg.description}</p>
+                          )}
+
+                          {/* Included services */}
+                          <ul className="mt-3 space-y-1">
+                            {pkg.services.map((svc) => (
+                              <li key={svc._id} className={`flex items-center gap-1.5 text-sm ${colors.textMuted}`}>
+                                <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: primaryColor }}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>{svc.name}</span>
+                                <span className={`ml-auto text-xs ${colors.textLight}`}>{svc.duration} min</span>
+                              </li>
+                            ))}
+                          </ul>
+
+                          {/* Price row */}
+                          <div className="flex items-center justify-between mt-4 pt-3 border-t" style={{ borderColor: `${primaryColor}20` }}>
+                            <div className={`flex items-center gap-1 text-sm ${colors.textLight}`}>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {pkg.totalDuration} min
+                            </div>
+                            <div className="text-right">
+                              {pkg.savings > 0 && (
+                                <div className={`text-xs line-through ${colors.textLight}`}>
+                                  ${(pkg.price.amount + pkg.savings).toFixed(2)}
+                                </div>
+                              )}
+                              <div className="text-xl font-bold" style={{ color: primaryColor }}>
+                                ${pkg.price.amount.toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Selected indicator */}
+                          {isSelected && (
+                            <div
+                              className="absolute inset-0 rounded-2xl pointer-events-none"
+                              style={{ boxShadow: `inset 0 0 0 2px ${primaryColor}` }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Divider between packages and individual services */}
+                  <div className="flex items-center gap-2 mt-8 mb-4">
+                    <span className={`text-xs font-bold tracking-widest uppercase ${colors.textLight}`}>
+                      O elige servicios individuales
+                    </span>
+                    <div className={`flex-1 h-px ${darkMode ? 'bg-neutral-700' : 'bg-stone-200'}`} />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4">
                 {services.map((service) => {
                   const isSelected = selectedServices.some((s) => s.serviceId === service._id);
@@ -673,33 +811,62 @@ export default function BookingPage() {
               <div className="space-y-6">
                 <div>
                   <h3 className={`text-sm font-semibold tracking-wide uppercase mb-3 ${colors.textLight}`}>Servicios</h3>
-                  <div className="space-y-2">
-                    {selectedServices.map((selected) => {
-                      const service = services.find((s) => s._id === selected.serviceId);
-                      if (!service) return null;
-                      return (
-                        <div key={selected.serviceId} className={`${colors.bgAlt} p-4 rounded-xl`}>
-                          <div className="flex justify-between">
-                            <span className={`font-semibold ${colors.text}`}>{service.name}</span>
-                            <span className="font-bold" style={{ color: primaryColor }}>${service.price.amount}</span>
-                          </div>
-                          <span className={`text-sm ${colors.textLight}`}>{service.duration} min</span>
-                          {selected.addons.length > 0 && (
-                            <div className="mt-2 pl-3 border-l-2" style={{ borderColor: `${primaryColor}40` }}>
-                              {selected.addons.map((addonName) => {
-                                const addon = service.addons?.find((a) => a.name === addonName);
-                                return addon ? (
-                                  <div key={addonName} className={`text-sm ${colors.textMuted}`}>
-                                    + {addon.name} (+${addon.price})
-                                  </div>
-                                ) : null;
-                              })}
-                            </div>
-                          )}
+                  {selectedPackageId && (() => {
+                    const pkg = packages.find((p) => p._id === selectedPackageId);
+                    return pkg ? (
+                      <div className={`${colors.bgAlt} p-4 rounded-xl`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span
+                            className="text-xs font-bold tracking-widest uppercase px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: `${primaryColor}18`, color: primaryColor }}
+                          >
+                            Combo
+                          </span>
+                          <span className={`font-semibold ${colors.text}`}>{pkg.name}</span>
+                          <span className="ml-auto font-bold" style={{ color: primaryColor }}>${pkg.price.amount.toFixed(2)}</span>
                         </div>
-                      );
-                    })}
-                  </div>
+                        <ul className="space-y-1">
+                          {pkg.services.map((svc) => (
+                            <li key={svc._id} className={`text-sm flex items-center gap-1.5 ${colors.textMuted}`}>
+                              <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: primaryColor }}>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                              {svc.name}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null;
+                  })()}
+                  {!selectedPackageId && (
+                    <div className="space-y-2">
+                      {selectedServices.map((selected) => {
+                        const service = services.find((s) => s._id === selected.serviceId);
+                        if (!service) return null;
+                        return (
+                          <div key={selected.serviceId} className={`${colors.bgAlt} p-4 rounded-xl`}>
+                            <div className="flex justify-between">
+                              <span className={`font-semibold ${colors.text}`}>{service.name}</span>
+                              <span className="font-bold" style={{ color: primaryColor }}>${service.price.amount}</span>
+                            </div>
+                            <span className={`text-sm ${colors.textLight}`}>{service.duration} min</span>
+                            {selected.addons.length > 0 && (
+                              <div className="mt-2 pl-3 border-l-2" style={{ borderColor: `${primaryColor}40` }}>
+                                {selected.addons.map((addonName) => {
+                                  const addon = service.addons?.find((a) => a.name === addonName);
+                                  return addon ? (
+                                    <div key={addonName} className={`text-sm ${colors.textMuted}`}>
+                                      + {addon.name} (+${addon.price})
+                                    </div>
+                                  ) : null;
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div>

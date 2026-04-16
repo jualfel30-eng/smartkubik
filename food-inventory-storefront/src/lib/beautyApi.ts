@@ -92,6 +92,25 @@ export interface AvailabilitySlot {
   availableProfessional?: string;
 }
 
+export interface BeautyPackage {
+  _id: string;
+  name: string;
+  description?: string;
+  services: Array<{
+    _id: string;
+    name: string;
+    duration: number;
+    price: { amount: number; currency: string };
+    category?: string;
+  }>;
+  totalDuration: number;
+  price: { amount: number; currency: string };
+  savings: number;
+  image?: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
 export interface BookingData {
   tenantId: string;
   client: {
@@ -107,6 +126,7 @@ export interface BookingData {
   professionalId?: string;
   locationId?: string;
   notes?: string;
+  packageId?: string;
 }
 
 export interface Booking {
@@ -142,6 +162,31 @@ export interface Booking {
     sentAt: string;
     status: string;
   }>;
+}
+
+/**
+ * Get all active beauty packages for a tenant
+ */
+export async function getBeautyPackages(tenantId: string): Promise<BeautyPackage[]> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/public/beauty-packages/${tenantId}`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch packages: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching beauty packages:', error);
+    return [];
+  }
 }
 
 /**
