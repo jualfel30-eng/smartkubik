@@ -5,11 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { GitBranch, Plus, Edit, Trash2 } from 'lucide-react';
 import { useRoutings } from '@/hooks/useRoutings';
+import { useConfirm } from '@/hooks/use-confirm';
 import { RoutingDialog } from './RoutingDialog';
 
 export function RoutingsList() {
   const { routings, loading, error, loadRoutings, createRouting, updateRouting, deleteRouting } = useRoutings();
 
+  const [ConfirmDialog, confirm] = useConfirm();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRouting, setSelectedRouting] = useState(null);
 
@@ -43,12 +45,16 @@ export function RoutingsList() {
   };
 
   const handleDelete = async (routingId) => {
-    if (window.confirm('¿Estás seguro de eliminar esta ruta de producción?')) {
-      try {
-        await deleteRouting(routingId);
-      } catch (err) {
-        console.error('Error deleting routing:', err);
-      }
+    const ok = await confirm({
+      title: '¿Eliminar esta ruta de producción?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteRouting(routingId);
+    } catch (err) {
+      console.error('Error deleting routing:', err);
     }
   };
 
@@ -147,6 +153,8 @@ export function RoutingsList() {
         }}
         onSave={handleSave}
       />
+
+      <ConfirmDialog />
     </>
   );
 }

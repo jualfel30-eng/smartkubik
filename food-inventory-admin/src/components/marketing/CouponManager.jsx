@@ -10,11 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Tag, Plus, Edit, Trash2, BarChart3, Copy } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const CouponManager = () => {
-  const { toast } = useToast();
   const [coupons, setCoupons] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -22,6 +22,7 @@ const CouponManager = () => {
   const [isStatsDialogOpen, setIsStatsDialogOpen] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null);
   const [couponStats, setCouponStats] = useState(null);
+  const [ConfirmDialog, confirm] = useConfirm();
 
   const [formData, setFormData] = useState({
     code: '',
@@ -44,15 +45,13 @@ const CouponManager = () => {
       setCoupons(response.data || []);
     } catch (error) {
       console.error('Error fetching coupons:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudieron cargar los cupones',
-        variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchCoupons();
@@ -65,10 +64,8 @@ const CouponManager = () => {
       setIsStatsDialogOpen(true);
     } catch (error) {
       console.error('Error fetching stats:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudieron cargar las estadísticas',
-        variant: 'destructive',
       });
     }
   };
@@ -103,8 +100,7 @@ const CouponManager = () => {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
-        toast({
-          title: 'Cupón actualizado',
+        toast.success('Cupón actualizado', {
           description: `El cupón "${payload.code}" ha sido actualizado`,
         });
         setIsEditDialogOpen(false);
@@ -113,8 +109,7 @@ const CouponManager = () => {
           method: 'POST',
           body: JSON.stringify(payload),
         });
-        toast({
-          title: 'Cupón creado',
+        toast.success('Cupón creado', {
           description: `El cupón "${payload.code}" ha sido creado exitosamente`,
         });
         setIsCreateDialogOpen(false);
@@ -123,10 +118,8 @@ const CouponManager = () => {
       resetForm();
       fetchCoupons();
     } catch (error) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error.response?.data?.message || 'No se pudo guardar el cupón',
-        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -134,23 +127,25 @@ const CouponManager = () => {
   };
 
   const handleDelete = async (couponId) => {
-    if (!confirm('¿Estás seguro de eliminar este cupón?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar este cupón?',
+      description: 'Esta acción es permanente.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await fetchApi(`/coupons/${couponId}`, {
         method: 'DELETE',
       });
-      toast({
-        title: 'Cupón eliminado',
+      toast.success('Cupón eliminado', {
         description: 'El cupón ha sido eliminado exitosamente',
       });
       fetchCoupons();
     } catch (error) {
       console.error('Error deleting coupon:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudo eliminar el cupón',
-        variant: 'destructive',
       });
     }
   };
@@ -192,8 +187,7 @@ const CouponManager = () => {
 
   const copyCode = (code) => {
     navigator.clipboard.writeText(code);
-    toast({
-      title: 'Copiado',
+    toast.success('Copiado', {
       description: `Código "${code}" copiado al portapapeles`,
     });
   };
@@ -550,6 +544,8 @@ const CouponManager = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog />
     </div>
   );
 };

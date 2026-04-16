@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Edit, Trash2, ArrowUp, ArrowDown, FlaskConical } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const checkpointTemplate = {
   name: '',
@@ -25,6 +26,7 @@ const checkpointTemplate = {
 };
 
 export function CheckpointsBuilder({ checkpoints = [], onChange, disabled = false }) {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [editingIndex, setEditingIndex] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState(checkpointTemplate);
@@ -60,13 +62,17 @@ export function CheckpointsBuilder({ checkpoints = [], onChange, disabled = fals
     setEditingIndex(null);
   };
 
-  const handleDelete = (index) => {
-    if (window.confirm('¿Eliminar este checkpoint?')) {
-      const newCheckpoints = checkpoints.filter((_, i) => i !== index);
-      // Reorder sequences
-      const reordered = newCheckpoints.map((cp, i) => ({ ...cp, sequence: i + 1 }));
-      onChange(reordered);
-    }
+  const handleDelete = async (index) => {
+    const ok = await confirm({
+      title: '¿Eliminar este checkpoint?',
+      description: 'El checkpoint será removido de la lista.',
+      destructive: true,
+    });
+    if (!ok) return;
+    const newCheckpoints = checkpoints.filter((_, i) => i !== index);
+    // Reorder sequences
+    const reordered = newCheckpoints.map((cp, i) => ({ ...cp, sequence: i + 1 }));
+    onChange(reordered);
   };
 
   const handleMoveUp = (index) => {
@@ -363,6 +369,8 @@ export function CheckpointsBuilder({ checkpoints = [], onChange, disabled = fals
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog />
     </>
   );
 }

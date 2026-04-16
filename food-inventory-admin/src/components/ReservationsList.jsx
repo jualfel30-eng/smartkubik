@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +43,7 @@ const STATUS_CONFIG = {
 };
 
 const ReservationsList = ({ initialDate = '' }) => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState({
@@ -124,7 +126,12 @@ const ReservationsList = ({ initialDate = '' }) => {
   };
 
   const handleCancel = async (id) => {
-    if (!confirm('¿Cancelar esta reserva?')) return;
+    const ok = await confirm({
+      title: '¿Cancelar esta reserva?',
+      description: 'La reserva será marcada como cancelada.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await cancelReservation(id, { reason: 'Cancelada por administrador' });
@@ -136,7 +143,12 @@ const ReservationsList = ({ initialDate = '' }) => {
   };
 
   const handleNoShow = async (id) => {
-    if (!confirm('¿Marcar como No Show?')) return;
+    const ok = await confirm({
+      title: '¿Marcar como No Show?',
+      description: 'La reserva será marcada como no presentada.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await markReservationNoShow(id);
@@ -485,6 +497,7 @@ const ReservationsList = ({ initialDate = '' }) => {
           onClose={handleFormClose}
         />
       )}
+      <ConfirmDialog />
     </div>
   );
 };

@@ -11,8 +11,10 @@ import { fetchApi } from '@/lib/api';
 import { Switch } from '@/components/ui/switch.jsx';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 import { Loader2, RefreshCw } from 'lucide-react';
+import { useConfirm } from '@/hooks/use-confirm';
 
 export default function InventoryAlertsPanel() {
+  const [ConfirmDialog, confirm] = useConfirm();
   const { flags } = useFeatureFlags();
   const multiWarehouseEnabled = flags.MULTI_WAREHOUSE;
   const [rules, setRules] = useState([]);
@@ -123,7 +125,12 @@ export default function InventoryAlertsPanel() {
   };
 
   const handleDelete = async (rule) => {
-    if (!confirm('¿Eliminar esta regla de alerta?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta regla de alerta?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await fetchApi(`/inventory-alerts/${rule._id || rule.id}`, { method: 'DELETE' });
       await loadData(pagination.page);
@@ -292,6 +299,7 @@ export default function InventoryAlertsPanel() {
           </div>
         ) : null}
       </CardContent>
+      <ConfirmDialog />
     </Card>
   );
 }

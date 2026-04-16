@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,10 +33,10 @@ import {
 
 const STATUS_CONFIG = {
   draft: { label: 'Borrador', color: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' },
-  scheduled: { label: 'Programada', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' },
-  running: { label: 'En Curso', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' },
-  completed: { label: 'Completada', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' },
-  cancelled: { label: 'Cancelada', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200' },
+  scheduled: { label: 'Programada', color: 'bg-warning-muted text-yellow-800 dark:text-yellow-200' },
+  running: { label: 'En Curso', color: 'bg-info-muted text-blue-800 dark:text-blue-200' },
+  completed: { label: 'Completada', color: 'bg-success-muted text-green-800 dark:text-green-200' },
+  cancelled: { label: 'Cancelada', color: 'bg-destructive/10 text-red-800 dark:text-red-200' },
 };
 
 const CHANNEL_ICONS = {
@@ -45,6 +46,7 @@ const CHANNEL_ICONS = {
 };
 
 export default function ProductCampaignsPage() {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showBuilder, setShowBuilder] = useState(false);
@@ -109,9 +111,12 @@ export default function ProductCampaignsPage() {
   };
 
   const handleDeleteCampaign = async (campaignId) => {
-    if (!confirm('¿Estás seguro de que deseas eliminar esta campaña?')) {
-      return;
-    }
+    const ok = await confirm({
+      title: '¿Eliminar esta campaña?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deleteProductCampaign(campaignId);
@@ -153,8 +158,8 @@ export default function ProductCampaignsPage() {
       </div>
 
       {/* Info Alert */}
-      <Alert className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
-        <Target className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+      <Alert className="border-info/30 bg-blue-50 dark:bg-blue-900/20">
+        <Target className="h-4 w-4 text-info" />
         <AlertDescription className="text-blue-900 dark:text-blue-100">
           <p className="font-semibold">Phase 3: Targeting Avanzado con CustomerProductAffinity</p>
           <p className="text-sm mt-1">
@@ -249,8 +254,8 @@ export default function ProductCampaignsPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
-                        <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        <p className="text-xs text-blue-600 dark:text-blue-400">Alcance</p>
+                        <Users className="w-4 h-4 text-info" />
+                        <p className="text-xs text-info">Alcance</p>
                       </div>
                       <p className="text-lg font-bold dark:text-gray-100">
                         {campaign.estimatedReach || 0}
@@ -259,8 +264,8 @@ export default function ProductCampaignsPage() {
 
                     <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
-                        <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        <p className="text-xs text-green-600 dark:text-green-400">Conversiones</p>
+                        <TrendingUp className="w-4 h-4 text-success" />
+                        <p className="text-xs text-success">Conversiones</p>
                       </div>
                       <p className="text-lg font-bold dark:text-gray-100">
                         {campaign.totalOrders || 0}
@@ -402,6 +407,7 @@ export default function ProductCampaignsPage() {
           )}
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </div>
   );
 }

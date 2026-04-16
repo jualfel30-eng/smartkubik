@@ -34,9 +34,11 @@ import {
   deleteTaxSettings,
   seedDefaultTaxes,
 } from '../../lib/api';
+import { useConfirm } from '@/hooks/use-confirm';
 import { useCountryPlugin } from '../../country-plugins/CountryPluginContext';
 
 const TaxSettingsManager = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const plugin = useCountryPlugin();
   const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
   const defaultTaxType = defaultTax?.type ?? 'IVA';
@@ -141,7 +143,12 @@ const TaxSettingsManager = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Está seguro de eliminar esta configuración?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta configuración de impuesto?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deleteTaxSettings(id);
@@ -153,7 +160,11 @@ const TaxSettingsManager = () => {
   };
 
   const handleSeedDefaults = async () => {
-    if (!window.confirm('¿Crear impuestos por defecto de Venezuela?')) return;
+    const ok = await confirm({
+      title: '¿Crear impuestos por defecto de Venezuela?',
+      description: 'Se crearán las configuraciones estándar de impuestos.',
+    });
+    if (!ok) return;
 
     try {
       await seedDefaultTaxes();
@@ -440,6 +451,7 @@ const TaxSettingsManager = () => {
           </DialogActions>
         </Dialog>
       </CardContent>
+      <ConfirmDialog />
     </Card>
   );
 };

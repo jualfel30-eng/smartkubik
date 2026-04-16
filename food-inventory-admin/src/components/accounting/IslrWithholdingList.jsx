@@ -65,9 +65,11 @@ import {
   getIslrSummary,
 } from '../../lib/api';
 import IslrWithholdingForm from './IslrWithholdingForm';
+import { useConfirm } from '@/hooks/use-confirm';
 import { format } from 'date-fns';
 
 const IslrWithholdingList = ({ suppliers }) => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [withholdings, setWithholdings] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -124,7 +126,11 @@ const IslrWithholdingList = ({ suppliers }) => {
   };
 
   const handlePost = async (id) => {
-    if (!window.confirm('¿Contabilizar esta retención ISLR?')) return;
+    const ok = await confirm({
+      title: '¿Contabilizar esta retención ISLR?',
+      description: 'Se generará el asiento contable correspondiente.',
+    });
+    if (!ok) return;
 
     try {
       await postIslrWithholding(id);
@@ -158,7 +164,12 @@ const IslrWithholdingList = ({ suppliers }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar esta retención ISLR?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta retención ISLR?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deleteIslrWithholding(id);
@@ -699,6 +710,7 @@ const IslrWithholdingList = ({ suppliers }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </div>
   );
 };

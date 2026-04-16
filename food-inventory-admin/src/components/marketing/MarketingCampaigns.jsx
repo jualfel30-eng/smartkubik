@@ -27,6 +27,7 @@ import {
   pauseMarketingTrigger,
 } from '@/lib/api';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/use-confirm';
 import {
   Mail,
   MessageSquare,
@@ -50,18 +51,18 @@ import {
 } from 'lucide-react';
 
 const CHANNEL_CONFIG = {
-  email: { label: 'Email', icon: Mail, color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' },
-  sms: { label: 'SMS', icon: MessageSquare, color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' },
+  email: { label: 'Email', icon: Mail, color: 'bg-info-muted text-blue-800 dark:text-blue-200' },
+  sms: { label: 'SMS', icon: MessageSquare, color: 'bg-success-muted text-green-800 dark:text-green-200' },
   whatsapp: { label: 'WhatsApp', icon: Send, color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200' },
   push: { label: 'Push', icon: Bell, color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200' },
 };
 
 const STATUS_CONFIG = {
   draft: { label: 'Borrador', color: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200' },
-  scheduled: { label: 'Programada', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200' },
-  running: { label: 'En Curso', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200' },
-  completed: { label: 'Completada', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200' },
-  cancelled: { label: 'Cancelada', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200' },
+  scheduled: { label: 'Programada', color: 'bg-warning-muted text-yellow-800 dark:text-yellow-200' },
+  running: { label: 'En Curso', color: 'bg-info-muted text-blue-800 dark:text-blue-200' },
+  completed: { label: 'Completada', color: 'bg-success-muted text-green-800 dark:text-green-200' },
+  cancelled: { label: 'Cancelada', color: 'bg-destructive/10 text-red-800 dark:text-red-200' },
   paused: { label: 'Pausada', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200' },
 };
 
@@ -88,6 +89,7 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
   const [showTriggerForm, setShowTriggerForm] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState(null);
   const [editingTrigger, setEditingTrigger] = useState(null);
+  const [ConfirmDialog, confirm] = useConfirm();
   const [filters, setFilters] = useState({
     channel: '',
     status: '',
@@ -134,7 +136,11 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
   }, [fetchAnalytics, fetchCampaigns, fetchTriggers]);
 
   const handleLaunch = async (id) => {
-    if (!confirm('¿Estás seguro de lanzar esta campaña?')) return;
+    const ok = await confirm({
+      title: '¿Lanzar esta campaña?',
+      description: 'La campaña se enviará a la audiencia seleccionada.',
+    });
+    if (!ok) return;
     try {
       await launchMarketingCampaign(id);
       toast.success('Campaña lanzada exitosamente');
@@ -146,7 +152,11 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
   };
 
   const handlePause = async (id) => {
-    if (!confirm('¿Pausar esta campaña?')) return;
+    const ok = await confirm({
+      title: '¿Pausar esta campaña?',
+      description: 'La campaña dejará de enviarse temporalmente.',
+    });
+    if (!ok) return;
     try {
       await pauseMarketingCampaign(id);
       toast.success('Campaña pausada');
@@ -158,7 +168,12 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar esta campaña permanentemente?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta campaña?',
+      description: 'Esta acción es permanente.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteMarketingCampaign(id);
       toast.success('Campaña eliminada');
@@ -213,7 +228,12 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
   };
 
   const handleDeleteTrigger = async (id) => {
-    if (!confirm('¿Eliminar este trigger permanentemente?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar este trigger?',
+      description: 'Esta acción es permanente.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteMarketingTrigger(id);
       toast.success('Trigger eliminado');
@@ -275,8 +295,8 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
                       {analytics.overview.activeCampaigns}
                     </p>
                   </div>
-                  <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                    <Target className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                  <div className="p-3 bg-info-muted rounded-full">
+                    <Target className="h-6 w-6 text-info" />
                   </div>
                 </div>
               </CardContent>
@@ -293,8 +313,8 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
                       {analytics.overview.totalSent.toLocaleString()}
                     </p>
                   </div>
-                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
-                    <Send className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  <div className="p-3 bg-success-muted rounded-full">
+                    <Send className="h-6 w-6 text-success" />
                   </div>
                 </div>
               </CardContent>
@@ -329,8 +349,8 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
                       {analytics.overview.averageROI.toFixed(0)}%
                     </p>
                   </div>
-                  <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-                    <TrendingUp className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                  <div className="p-3 bg-warning-muted rounded-full">
+                    <TrendingUp className="h-6 w-6 text-warning-foreground" />
                   </div>
                 </div>
               </CardContent>
@@ -427,7 +447,7 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-green-600 dark:text-green-400">
+                        <p className="font-semibold text-success">
                           {campaign.totalConverted || 0} conversiones
                         </p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -601,7 +621,7 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
                           </div>
                           <div>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Apertura</p>
-                            <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                            <p className="text-xl font-bold text-info">
                               {openRate.toFixed(1)}%
                             </p>
                           </div>
@@ -613,13 +633,13 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
                           </div>
                           <div>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Conversión</p>
-                            <p className="text-xl font-bold text-green-600 dark:text-green-400">
+                            <p className="text-xl font-bold text-success">
                               {conversionRate.toFixed(1)}%
                             </p>
                           </div>
                           <div>
                             <p className="text-sm text-gray-600 dark:text-gray-400">Ingresos</p>
-                            <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400">
+                            <p className="text-xl font-bold text-warning-foreground">
                               ${(campaign.revenue || 0).toLocaleString()}
                             </p>
                           </div>
@@ -647,8 +667,8 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="text-center p-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <Eye className="h-8 w-8 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
-                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  <Eye className="h-8 w-8 text-info mx-auto mb-2" />
+                  <p className="text-3xl font-bold text-info">
                     {analytics.overview.averageOpenRate.toFixed(1)}%
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -667,8 +687,8 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
                 </div>
 
                 <div className="text-center p-6 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <Users className="h-8 w-8 text-green-600 dark:text-green-400 mx-auto mb-2" />
-                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                  <Users className="h-8 w-8 text-success mx-auto mb-2" />
+                  <p className="text-3xl font-bold text-success">
                     {analytics.overview.averageConversionRate.toFixed(1)}%
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -680,12 +700,12 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
               <div className="mt-6 p-6 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <DollarSign className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
+                    <DollarSign className="h-8 w-8 text-warning-foreground" />
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         Retorno de Inversión (ROI)
                       </p>
-                      <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                      <p className="text-3xl font-bold text-warning-foreground">
                         {analytics.overview.averageROI.toFixed(0)}%
                       </p>
                     </div>
@@ -748,8 +768,8 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
                     <CardContent className="pt-6">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-start gap-3">
-                          <div className={`p-2 rounded-lg ${isActive ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                            <Zap className={`h-5 w-5 ${isActive ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`} />
+                          <div className={`p-2 rounded-lg ${isActive ? 'bg-success-muted' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                            <Zap className={`h-5 w-5 ${isActive ? 'text-success' : 'text-gray-400'}`} />
                           </div>
                           <div>
                             <h4 className="font-semibold dark:text-gray-100">{trigger.name}</h4>
@@ -815,13 +835,13 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
                         </div>
                         <div>
                           <p className="text-sm text-gray-600 dark:text-gray-400">Enviados</p>
-                          <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                          <p className="text-xl font-bold text-info">
                             {trigger.totalSent || 0}
                           </p>
                         </div>
                         <div>
                           <p className="text-sm text-gray-600 dark:text-gray-400">Conversiones</p>
-                          <p className="text-xl font-bold text-green-600 dark:text-green-400">
+                          <p className="text-xl font-bold text-success">
                             {trigger.totalConverted || 0}
                           </p>
                         </div>
@@ -879,6 +899,8 @@ const MarketingCampaigns = ({ initialSubTab = 'overview', onSubTabChange }) => {
           </DialogContent>
         </Dialog>
       )}
+
+      <ConfirmDialog />
     </div>
   );
 };

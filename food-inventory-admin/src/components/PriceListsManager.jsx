@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
@@ -42,6 +43,7 @@ const PRIORITY_LEVELS = [
  * Componente principal para gestionar listas de precios
  */
 export function PriceListsManager({ trigger }) {
+  const [ConfirmDialog, confirm] = useConfirm();
   const {
     priceLists,
     loading,
@@ -121,9 +123,12 @@ export function PriceListsManager({ trigger }) {
   };
 
   const handleDelete = async (id, name) => {
-    if (!confirm(`¿Estás seguro de eliminar la lista "${name}"? Esto eliminará todos los precios personalizados asociados.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `¿Eliminar la lista "${name}"?`,
+      description: 'Esto eliminará todos los precios personalizados asociados.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deletePriceList(id);
     } catch (error) {
@@ -327,7 +332,7 @@ export function PriceListsManager({ trigger }) {
                 <p className="text-muted-foreground">
                   {PRIORITY_LEVELS.find(l => l.value === formData.priority)?.description}
                 </p>
-                <p className="text-muted-foreground bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
+                <p className="text-muted-foreground bg-info-muted p-2 rounded">
                   💡 <strong>¿Qué significa?</strong> Cuando un producto está en varias listas, se usa el precio de la lista con mayor prioridad.
                   <br />
                   <strong>Ejemplo:</strong> "Black Friday" (Crítica) sobrescribe "Precio Mayorista" (Normal).
@@ -365,6 +370,7 @@ export function PriceListsManager({ trigger }) {
           Gestionar Listas de Precios
         </Button>
       )}
+      <ConfirmDialog />
     </>
   );
 }

@@ -16,6 +16,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { getABTestResults, autoSelectWinner, declareWinner } from '@/lib/api';
+import { useConfirm } from '@/hooks/use-confirm';
 
 /**
  * ABTestResults - Component for displaying A/B test results with statistical analysis
@@ -59,6 +60,7 @@ export default function ABTestResults({ campaignId, onClose }) {
   const [loading, setLoading] = useState(true);
   const [selecting, setSelecting] = useState(false);
   const [error, setError] = useState('');
+  const [ConfirmDialog, confirmDialog] = useConfirm();
 
   const fetchResults = useCallback(async () => {
     setLoading(true);
@@ -97,9 +99,11 @@ export default function ABTestResults({ campaignId, onClose }) {
   };
 
   const handleManualSelect = async (variantId) => {
-    if (!confirm('¿Estás seguro de declarar esta variante como ganadora?')) {
-      return;
-    }
+    const ok = await confirmDialog({
+      title: '¿Declarar esta variante como ganadora?',
+      description: 'Se asignará todo el tráfico a esta variante.',
+    });
+    if (!ok) return;
 
     setSelecting(true);
     setError('');
@@ -386,6 +390,8 @@ export default function ABTestResults({ campaignId, onClose }) {
           Cerrar
         </Button>
       </div>
+
+      <ConfirmDialog />
     </div>
   );
 }

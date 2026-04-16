@@ -16,6 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const CATEGORIES = [
   { value: 'marketing', label: 'Marketing' },
@@ -156,6 +157,7 @@ function InvestmentForm({ onSubmit, onCancel, initialData }) {
 }
 
 const InvestmentsView = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [investments, setInvestments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -199,7 +201,12 @@ const InvestmentsView = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar esta inversión?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta inversión?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteInvestment(id);
       await loadInvestments();
@@ -315,6 +322,7 @@ const InvestmentsView = () => {
           </Table>
         </CardContent>
       </Card>
+      <ConfirmDialog />
     </>
   );
 };

@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { X, Square, Circle, Minus } from 'lucide-react';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const SHAPES = [
   { id: 'square', name: 'Cuadrada', icon: Square },
@@ -13,6 +14,7 @@ const SHAPES = [
 ];
 
 export default function TableConfigModal({ table, sections, onClose, onSuccess }) {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [formData, setFormData] = useState({
     tableNumber: '',
     section: '',
@@ -118,9 +120,11 @@ export default function TableConfigModal({ table, sections, onClose, onSuccess }
   const handleDelete = async () => {
     if (!table) return;
 
-    const confirmed = window.confirm(
-      `¿Estás seguro de eliminar la Mesa ${table.tableNumber}?`
-    );
+    const confirmed = await confirm({
+      title: `¿Eliminar la Mesa ${table.tableNumber}?`,
+      description: 'Esta acción es permanente.',
+      destructive: true,
+    });
     if (!confirmed) return;
 
     setLoading(true);
@@ -322,7 +326,7 @@ export default function TableConfigModal({ table, sections, onClose, onSuccess }
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 px-4 py-3 rounded">
+            <div className="bg-red-50 dark:bg-red-900/30 border border-destructive/30 text-red-700 dark:text-red-200 px-4 py-3 rounded">
               {error}
             </div>
           )}
@@ -354,6 +358,7 @@ export default function TableConfigModal({ table, sections, onClose, onSuccess }
           </div>
         </form>
       </div>
+      <ConfirmDialog />
     </div>
   );
 }

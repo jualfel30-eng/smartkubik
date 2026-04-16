@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -62,6 +63,7 @@ const initialNewProductState = {
 };
 
 function ProductsManagement() {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -209,13 +211,18 @@ function ProductsManagement() {
   };
 
   const handleDeleteProduct = async (productId) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-      try {
-        await fetchApi(`/products/${productId}`, { method: 'DELETE' });
-        loadProducts();
-      } catch (err) {
-        alert(`Error: ${err.message}`);
-      }
+    const ok = await confirm({
+      title: '¿Eliminar este producto?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
+
+    try {
+      await fetchApi(`/products/${productId}`, { method: 'DELETE' });
+      loadProducts();
+    } catch (err) {
+      alert(`Error: ${err.message}`);
     }
   };
 
@@ -852,6 +859,7 @@ function ProductsManagement() {
           </DialogContent>
         </Dialog>
       )}
+      <ConfirmDialog />
     </div>
   );
 }

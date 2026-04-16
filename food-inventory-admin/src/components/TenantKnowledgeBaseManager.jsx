@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,7 @@ const formatBytes = (bytes) => {
 };
 
 const TenantKnowledgeBaseManager = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const fileInputRef = useRef(null);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -99,10 +101,12 @@ const TenantKnowledgeBaseManager = () => {
   };
 
   const handleDelete = async (source) => {
-    const confirmed = window.confirm(`¿Eliminar el documento "${source}" de la base de conocimiento?`);
-    if (!confirmed) {
-      return;
-    }
+    const ok = await confirm({
+      title: `¿Eliminar el documento "${source}"?`,
+      description: 'El documento será eliminado de la base de conocimiento.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deleteKnowledgeBaseDocument(source);
@@ -200,6 +204,7 @@ const TenantKnowledgeBaseManager = () => {
           )}
         </div>
       </CardContent>
+      <ConfirmDialog />
     </Card>
   );
 };

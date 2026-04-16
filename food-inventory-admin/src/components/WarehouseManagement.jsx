@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
@@ -14,6 +15,7 @@ import { Plus, Loader2, Pencil, Trash2 } from 'lucide-react';
 const emptyForm = { code: '', name: '', isDefault: false, isActive: true };
 
 export default function WarehouseManagement({ onWarehousesChange }) {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [warehouses, setWarehouses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -104,7 +106,12 @@ export default function WarehouseManagement({ onWarehousesChange }) {
       toast.error('No se puede eliminar el almacén por defecto');
       return;
     }
-    if (!confirm(`¿Eliminar almacén "${warehouse.name}"?`)) return;
+    const ok = await confirm({
+      title: `¿Eliminar almacén "${warehouse.name}"?`,
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
     setDeleting(true);
     try {
       await fetchApi(`/warehouses/${warehouse._id || warehouse.id}`, {
@@ -253,6 +260,7 @@ export default function WarehouseManagement({ onWarehousesChange }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </Card>
   );
 }

@@ -8,8 +8,10 @@ import { toast } from 'sonner';
 import { Mail, Check, X, Send, AlertCircle, CalendarClock } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { api } from '@/lib/api';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const EmailConfiguration = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [testEmail, setTestEmail] = useState('');
@@ -206,9 +208,12 @@ const EmailConfiguration = () => {
   };
 
   const handleDisconnect = async () => {
-    if (!window.confirm('¿Estás seguro de desconectar el proveedor de email actual?')) {
-      return;
-    }
+    const ok = await confirm({
+      title: '¿Desconectar proveedor de email?',
+      description: 'Se eliminará la configuración del proveedor actual.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       const response = await api.post('/email-config/disconnect');
@@ -417,7 +422,7 @@ const EmailConfiguration = () => {
                   </span>
                 </div>
                 {calendarStatus.expiration && new Date(calendarStatus.expiration) < new Date(Date.now() + 48 * 60 * 60 * 1000) && (
-                  <div className="flex items-center gap-2 mt-2 p-2 rounded bg-yellow-50 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-200">
+                  <div className="flex items-center gap-2 mt-2 p-2 rounded bg-warning-muted text-yellow-800 dark:text-yellow-200">
                     <AlertCircle className="w-4 h-4" />
                     <span className="text-xs">
                       La sincronización expira pronto. Se renovará automáticamente o puedes renovarla manualmente.
@@ -435,7 +440,7 @@ const EmailConfiguration = () => {
             )}
 
             {config?.provider !== 'gmail' && (
-              <div className="flex items-center gap-2 p-2 rounded bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200 text-sm">
+              <div className="flex items-center gap-2 p-2 rounded bg-info-muted text-blue-800 dark:text-blue-200 text-sm">
                 <AlertCircle className="w-4 h-4" />
                 <span>Debes conectar Gmail primero para usar la sincronización de calendario.</span>
               </div>
@@ -623,6 +628,7 @@ const EmailConfiguration = () => {
           </div>
         </div>
       </div>
+      <ConfirmDialog />
     </div>
   );
 };

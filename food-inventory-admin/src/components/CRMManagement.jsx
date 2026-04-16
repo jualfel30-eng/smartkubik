@@ -49,6 +49,7 @@ import { PlaybooksManagement } from './PlaybooksManagement.jsx';
 import { ActivityTimeline } from './ActivityTimeline.jsx';
 import { RemindersWidget } from './RemindersWidget.jsx';
 import { HRNavigation } from '@/components/payroll/HRNavigation.jsx';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const DEFAULT_PAGE_LIMIT = 25;
 const SEARCH_PAGE_LIMIT = 100;
@@ -112,6 +113,7 @@ const initialNewContactState = {
 };
 
 function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const { tenant, user, hasPermission } = useAuth();
 
@@ -1623,12 +1625,16 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   };
 
   const handleDeleteContact = async (id) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este contacto?')) {
-      try {
-        await deleteCustomer(id);
-      } catch (err) {
-        alert(`Error al eliminar contacto: ${err.message}`);
-      }
+    const ok = await confirm({
+      title: '¿Eliminar este contacto?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteCustomer(id);
+    } catch (err) {
+      alert(`Error al eliminar contacto: ${err.message}`);
     }
   };
 
@@ -2935,7 +2941,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                     <div className="text-2xl font-bold text-amber-900 dark:text-amber-400">{slaAging.dueSoon}</div>
                     <div className="text-xs text-amber-800 dark:text-amber-500">Next step cercano requiere acción.</div>
                   </div>
-                  <div className="rounded-md border p-3 bg-red-50 dark:bg-red-950/30">
+                  <div className="rounded-md border p-3 bg-destructive/10">
                     <div className="text-sm font-semibold text-red-900 dark:text-red-400">Vencidos</div>
                     <div className="text-2xl font-bold text-red-900 dark:text-red-400">{slaAging.overdue}</div>
                     <div className="text-xs text-red-800 dark:text-red-500">Next step vencido (SLA roto).</div>
@@ -3661,6 +3667,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
           }
         }}
       />
+      <ConfirmDialog />
     </div>
   );
 }

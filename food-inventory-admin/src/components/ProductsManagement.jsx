@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -400,6 +401,7 @@ const initialNewProductState = {
 };
 
 function ProductsManagement({ defaultProductType = 'simple', showSalesFields = true }) {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1632,23 +1634,28 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   };
 
   const handleDeleteProduct = async (productId) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este producto?')) {
-      // OPTIMISTIC UPDATE: Remove from UI immediately
-      const previousProducts = products;
+    const ok = await confirm({
+      title: '¿Eliminar este producto?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
 
-      try {
-        // 1. Remove from UI immediately
-        setProducts(prev => prev.filter(p => p._id !== productId));
+    // OPTIMISTIC UPDATE: Remove from UI immediately
+    const previousProducts = products;
 
-        // 2. Delete from backend
-        await fetchApi(`/products/${productId}`, { method: 'DELETE' });
+    try {
+      // 1. Remove from UI immediately
+      setProducts(prev => prev.filter(p => p._id !== productId));
 
-        // Success - already removed from UI!
-      } catch (err) {
-        // 3. Rollback on error
-        setProducts(previousProducts);
-        alert(`Error: ${err.message}`);
-      }
+      // 2. Delete from backend
+      await fetchApi(`/products/${productId}`, { method: 'DELETE' });
+
+      // Success - already removed from UI!
+    } catch (err) {
+      // 3. Rollback on error
+      setProducts(previousProducts);
+      alert(`Error: ${err.message}`);
     }
   };
 
@@ -2316,7 +2323,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 </div>
               </div>
               {labelScanResult && (
-                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md text-sm">
+                <div className="mt-3 p-3 bg-info-muted border border-info/30 rounded-md text-sm">
                   <div className="flex items-center gap-2 font-medium text-blue-800 dark:text-blue-200">
                     <CheckCircle className="h-4 w-4" />
                     <span className="flex-1">Etiqueta escaneada — {Math.round(labelScanResult.confidence * 100)}% confianza</span>
@@ -3170,7 +3177,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   </div>
 
                   {newProduct.hasMultipleSellingUnits && (
-                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                    <div className="mb-4 p-3 bg-info-muted border border-info/30 rounded-md">
                       <p className="text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">⚠️ IMPORTANTE - Configuración de Contenido:</p>
                       <p className="text-xs text-blue-800 dark:text-blue-300 mb-2">
                         El inventario SIEMPRE se guarda en <span className="font-bold">"{newProduct.unitOfMeasure}"</span> (la unidad más grande/principal).
@@ -3292,7 +3299,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                                   setNewProduct({ ...newProduct, sellingUnits: units });
                                 }}
                               />
-                              <p className="text-xs text-muted-foreground font-medium text-blue-600 dark:text-blue-400 mt-1">
+                              <p className="text-xs text-muted-foreground font-medium text-info mt-1">
                                 {unit.conversionFactorInput ? (
                                   `1 ${newProduct.unitOfMeasure} contiene ${unit.conversionFactorInput} ${unit.abbreviation || 'unidad'}`
                                 ) : (
@@ -4430,7 +4437,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                             variants={product.variants}
                             onUpdateVariant={(idx, field, val) => handleInlineUpdate(product._id, field, val, idx)}
                           >
-                            <div className="text-blue-600 dark:text-blue-400 cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
+                            <div className="text-info cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
                               {product.variants[0]?.wholesalePrice ? `$${(product.variants[0].wholesalePrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}
                               <span className="text-[10px] text-blue-500 font-bold group-hover:underline decoration-blue-500">(+)</span>
                             </div>
@@ -4441,7 +4448,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                             unitOfMeasure={product.unitOfMeasure}
                             onUpdateSellingUnit={(idx, field, val) => handleSellingUnitInlineUpdate(product._id, idx, field, val)}
                           >
-                            <div className="text-blue-600 dark:text-blue-400 cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
+                            <div className="text-info cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
                               {product.variants?.[0]?.wholesalePrice ? `$${(product.variants[0].wholesalePrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}
                               <span className="text-[10px] text-emerald-500 font-bold group-hover:underline decoration-emerald-500">(+)</span>
                             </div>
@@ -4451,7 +4458,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                             value={product.variants?.[0]?.wholesalePrice || 0}
                             type="currency"
                             onSave={(val) => handleInlineUpdate(product._id, 'wholesalePrice', val)}
-                            className="justify-end text-blue-600 dark:text-blue-400"
+                            className="justify-end text-info"
                           />
                         )}
                       </TableCell>
@@ -4692,7 +4699,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
                     />
                   </div>
-                  <p className="text-xs text-yellow-600 dark:text-yellow-400 font-medium">
+                  <p className="text-xs text-warning-foreground font-medium">
                     ⚠️ Cambiar el SKU actualizará todo el historial de inventario. Asegúrese de que el nuevo SKU sea único.
                   </p>
                 </div>
@@ -4746,7 +4753,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     <p className="text-xs text-muted-foreground">Los productos inactivos no aparecen en ventas ni en búsquedas de compras</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm ${editingProduct.isActive ?? true ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                    <span className={`text-sm ${editingProduct.isActive ?? true ? 'text-success' : 'text-muted-foreground'}`}>
                       {editingProduct.isActive ?? true ? 'Activo' : 'Inactivo'}
                     </span>
                     <Switch
@@ -5300,7 +5307,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     </div>
 
                     {editingProduct.hasMultipleSellingUnits && (
-                      <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-md">
+                      <div className="mb-4 p-3 bg-info-muted border border-info/30 rounded-md">
                         <p className="text-xs font-semibold text-blue-900 dark:text-blue-200 mb-1">⚠️ IMPORTANTE - Unidad Base del Inventario:</p>
                         <p className="text-xs text-blue-800 dark:text-blue-300 mb-2">
                           El inventario SIEMPRE se guarda en <span className="font-bold">"{editingProduct.unitOfMeasure}"</span>.
@@ -5423,7 +5430,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                                     setEditingProduct({ ...editingProduct, sellingUnits: units });
                                   }}
                                 />
-                                <p className="text-xs text-muted-foreground font-medium text-blue-600 dark:text-blue-400 mt-1">
+                                <p className="text-xs text-muted-foreground font-medium text-info mt-1">
                                   {unit.conversionFactorInput ? (
                                     `1 ${editingProduct.unitOfMeasure} contiene ${unit.conversionFactorInput} ${unit.abbreviation || 'unidad'}`
                                   ) : (
@@ -5968,6 +5975,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         isOpen={isLabelWizardOpen}
         onClose={() => setIsLabelWizardOpen(false)}
       />
+      <ConfirmDialog />
     </div >
   );
 }

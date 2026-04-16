@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Building2, Users, Plus, Edit, Trash2, UserPlus, UserMinus, Crown, Shield, User as UserIcon } from 'lucide-react';
 
 export default function OrganizationsManagement() {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -88,9 +90,12 @@ export default function OrganizationsManagement() {
   };
 
   const handleDelete = async (orgId) => {
-    if (!confirm('¿Estás seguro de eliminar esta organización? Esta acción no se puede deshacer.')) {
-      return;
-    }
+    const ok = await confirm({
+      title: '¿Eliminar esta organización?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await fetchApi(`/organizations/${orgId}`, { method: 'DELETE' });
       toast.success('Organización eliminada exitosamente');
@@ -129,9 +134,12 @@ export default function OrganizationsManagement() {
   };
 
   const handleRemoveMember = async (orgId, userId) => {
-    if (!confirm('¿Estás seguro de remover este miembro de la organización?')) {
-      return;
-    }
+    const ok = await confirm({
+      title: '¿Remover este miembro de la organización?',
+      description: 'El miembro perderá acceso a la organización.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await fetchApi(`/organizations/${orgId}/members/${userId}`, {
         method: 'DELETE',
@@ -475,6 +483,7 @@ export default function OrganizationsManagement() {
           </form>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </div>
   );
 }

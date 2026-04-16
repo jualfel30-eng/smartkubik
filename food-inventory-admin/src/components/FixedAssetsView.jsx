@@ -16,6 +16,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const ASSET_TYPES = [
   { value: 'equipment', label: 'Equipo' },
@@ -159,6 +160,7 @@ function FixedAssetForm({ onSubmit, onCancel, initialData }) {
 }
 
 const FixedAssetsView = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -202,7 +204,12 @@ const FixedAssetsView = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Eliminar este activo fijo?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar este activo fijo?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteFixedAsset(id);
       await loadAssets();
@@ -309,6 +316,7 @@ const FixedAssetsView = () => {
           </Table>
         </CardContent>
       </Card>
+      <ConfirmDialog />
     </>
   );
 };

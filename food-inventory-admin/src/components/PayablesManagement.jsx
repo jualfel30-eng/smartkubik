@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { useSearchParams } from 'react-router-dom';
 import {
   fetchApi,
@@ -570,7 +571,7 @@ const MonthlyPayables = ({ suppliers, accounts, fetchPayables, payables, fetchSu
                       <div className="flex flex-col">
                         <span>${totalAmount.toFixed(2)}</span>
                         {shouldShowBs && (
-                          <span className="text-xs text-green-600 dark:text-green-400">
+                          <span className="text-xs text-success">
                             Bs. {bsAmount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         )}
@@ -925,6 +926,7 @@ const ViewPayableDialog = ({ isOpen, onOpenChange, payable }) => {
 };
 
 const PayablesHistory = ({ payables, fetchPayables }) => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPayable, setSelectedPayable] = useState(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -937,7 +939,12 @@ const PayablesHistory = ({ payables, fetchPayables }) => {
   };
 
   const handleDeletePayable = async (payableId) => {
-    if (!window.confirm('¿Estás seguro de eliminar este payable?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar este registro de pago?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deletePayable(payableId);
@@ -1062,7 +1069,7 @@ const PayablesHistory = ({ payables, fetchPayables }) => {
                         <div className="flex flex-col">
                           <span>${totalAmount.toFixed(2)}</span>
                           {shouldShowBs && (
-                            <span className="text-xs text-green-600 dark:text-green-400">
+                            <span className="text-xs text-success">
                               Bs. {bsAmount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           )}
@@ -1386,6 +1393,7 @@ const PaymentHistory = () => {
           </div>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </>
   );
 };

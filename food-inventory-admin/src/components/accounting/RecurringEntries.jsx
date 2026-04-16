@@ -60,9 +60,11 @@ import {
   toggleRecurringEntryActive,
   deleteRecurringEntry,
 } from '../../lib/api';
+import { useConfirm } from '@/hooks/use-confirm';
 import { format } from 'date-fns';
 
 const RecurringEntries = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [entries, setEntries] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -369,12 +371,13 @@ const RecurringEntries = () => {
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive"
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  '¿Está seguro de que desea eliminar este asiento recurrente?',
-                                )
-                              ) {
+                            onClick={async () => {
+                              const ok = await confirm({
+                                title: '¿Eliminar este asiento recurrente?',
+                                description: 'Esta acción no se puede deshacer.',
+                                destructive: true,
+                              });
+                              if (ok) {
                                 handleDeleteEntry(entry._id);
                               }
                             }}
@@ -601,7 +604,7 @@ const RecurringEntries = () => {
               </div>
               <div className="flex justify-between text-sm pt-2 border-t">
                 <span className="font-semibold">Estado:</span>
-                <span className={isBalanced ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-destructive font-semibold'}>
+                <span className={isBalanced ? 'text-success font-semibold' : 'text-destructive font-semibold'}>
                   {isBalanced ? '✓ Balanceado' : '⚠ No balanceado'}
                 </span>
               </div>
@@ -628,6 +631,7 @@ const RecurringEntries = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </div>
   );
 };

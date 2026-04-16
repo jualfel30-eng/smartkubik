@@ -20,6 +20,7 @@ import {
   getAvailableTables,
 } from '@/lib/api';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/use-confirm';
 import {
   Users,
   Clock,
@@ -43,6 +44,7 @@ const STATUS_CONFIG = {
 };
 
 const WaitListManager = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [entries, setEntries] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -185,7 +187,12 @@ const WaitListManager = () => {
   };
 
   const handleCancel = async (id) => {
-    if (!confirm('¿Cancelar esta entrada?')) return;
+    const ok = await confirm({
+      title: '¿Cancelar esta entrada?',
+      description: 'El cliente será removido de la lista de espera.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await updateWaitListStatus(id, { status: 'cancelled' });
@@ -198,7 +205,12 @@ const WaitListManager = () => {
   };
 
   const handleNoShow = async (id) => {
-    if (!confirm('¿Marcar como No Show?')) return;
+    const ok = await confirm({
+      title: '¿Marcar como No Show?',
+      description: 'El cliente será registrado como no presentado.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await updateWaitListStatus(id, { status: 'no-show' });
@@ -640,6 +652,8 @@ const WaitListManager = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog />
     </div>
   );
 };

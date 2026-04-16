@@ -69,9 +69,11 @@ import {
   exportIvaWithholdingsToARC,
 } from '../../lib/api';
 import IvaWithholdingForm from './IvaWithholdingForm';
+import { useConfirm } from '@/hooks/use-confirm';
 import { format } from 'date-fns';
 
 const IvaWithholdingList = ({ suppliers }) => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [withholdings, setWithholdings] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -123,7 +125,11 @@ const IvaWithholdingList = ({ suppliers }) => {
   };
 
   const handlePost = async (id) => {
-    if (!window.confirm('¿Contabilizar esta retención?')) return;
+    const ok = await confirm({
+      title: '¿Contabilizar esta retención?',
+      description: 'Se generará el asiento contable correspondiente.',
+    });
+    if (!ok) return;
 
     try {
       await postIvaWithholding(id);
@@ -157,7 +163,12 @@ const IvaWithholdingList = ({ suppliers }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar esta retención?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta retención?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deleteIvaWithholding(id);
@@ -387,14 +398,14 @@ const IvaWithholdingList = ({ suppliers }) => {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => handlePost(w._id)}
-                                  className="text-green-600 dark:text-green-400"
+                                  className="text-success"
                                 >
                                   <CheckCircle className="mr-2 h-4 w-4" />
                                   Contabilizar
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onClick={() => handleDelete(w._id)}
-                                  className="text-red-600 dark:text-red-400"
+                                  className="text-destructive"
                                 >
                                   <Trash2 className="mr-2 h-4 w-4" />
                                   Eliminar
@@ -405,7 +416,7 @@ const IvaWithholdingList = ({ suppliers }) => {
                               <>
                                 <DropdownMenuItem
                                   onClick={() => handleOpenAnnulDialog(w)}
-                                  className="text-red-600 dark:text-red-400"
+                                  className="text-destructive"
                                 >
                                   <X className="mr-2 h-4 w-4" />
                                   Anular
@@ -507,6 +518,7 @@ const IvaWithholdingList = ({ suppliers }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </Card>
   );
 };

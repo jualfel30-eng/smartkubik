@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { format } from 'date-fns';
 import { Check, Receipt, X, User } from 'lucide-react';
@@ -30,6 +31,7 @@ const STATUS_LABEL = {
 const REVEAL = 168; // 3 actions × 56px
 
 export default function MobileAppointmentCard({ appointment, onTap, onChanged }) {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [posOpen, setPosOpen] = useState(false);
   const x = useMotionValue(0);
   const actionsOpacity = useTransform(x, [-REVEAL, -40, 0], [1, 0.3, 0]);
@@ -78,7 +80,12 @@ export default function MobileAppointmentCard({ appointment, onTap, onChanged })
         haptics.success();
         toast.success('Cita completada');
       } else if (action === 'cancel') {
-        if (!confirm('¿Cancelar esta cita?')) return;
+        const ok = await confirm({
+          title: '¿Cancelar esta cita?',
+          description: 'La cita será marcada como cancelada.',
+          destructive: true,
+        });
+        if (!ok) return;
         await fetchApi(`/beauty-bookings/${appointment._id}/status`, {
           method: 'PATCH',
           body: JSON.stringify({ status: 'cancelled' }),
@@ -226,6 +233,7 @@ export default function MobileAppointmentCard({ appointment, onTap, onChanged })
         onPaid={() => { setPosOpen(false); close(); onChanged?.(); }}
       />
     )}
+    <ConfirmDialog />
   </>
   );
 }

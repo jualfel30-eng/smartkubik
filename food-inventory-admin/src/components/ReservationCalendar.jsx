@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,15 +49,16 @@ const TIME_SLOTS = [
 ];
 
 const STATUS_CONFIG = {
-  pending: { label: 'Pendiente', color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-700', icon: Clock },
-  confirmed: { label: 'Confirmada', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-700', icon: Check },
-  seated: { label: 'Sentados', color: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700', icon: Users },
+  pending: { label: 'Pendiente', color: 'bg-warning-muted text-yellow-800 dark:text-yellow-200 border-warning/40', icon: Clock },
+  confirmed: { label: 'Confirmada', color: 'bg-info-muted text-blue-800 dark:text-blue-200 border-info/40', icon: Check },
+  seated: { label: 'Sentados', color: 'bg-success-muted text-green-800 dark:text-green-200 border-success/40', icon: Users },
   completed: { label: 'Completada', color: 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600', icon: Check },
-  cancelled: { label: 'Cancelada', color: 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 border-red-300 dark:border-red-700', icon: X },
+  cancelled: { label: 'Cancelada', color: 'bg-destructive/10 text-red-800 dark:text-red-200 border-destructive/40', icon: X },
   'no-show': { label: 'No Show', color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700', icon: AlertCircle },
 };
 
 const ReservationCalendar = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [view, setView] = useState('month'); // 'day', 'week', 'month'
   const [currentDate, setCurrentDate] = useState(new Date());
   const [calendarData, setCalendarData] = useState([]);
@@ -172,7 +174,12 @@ const ReservationCalendar = () => {
   };
 
   const handleCancel = async (id) => {
-    if (!confirm('¿Estás seguro de cancelar esta reserva?')) return;
+    const ok = await confirm({
+      title: '¿Cancelar esta reserva?',
+      description: 'La reserva será marcada como cancelada.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await cancelReservation(id, { reason: 'Cancelada desde calendario' });
       toast.success('Reserva cancelada');
@@ -184,7 +191,12 @@ const ReservationCalendar = () => {
   };
 
   const handleNoShow = async (id) => {
-    if (!confirm('¿Marcar como No Show?')) return;
+    const ok = await confirm({
+      title: '¿Marcar como No Show?',
+      description: 'La reserva será marcada como no presentada.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await markReservationNoShow(id);
       toast.success('Marcada como No Show');
@@ -322,7 +334,7 @@ const ReservationCalendar = () => {
               <Card className="dark:bg-gray-800 dark:border-gray-700">
                 <CardContent className="pt-4">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{daySummary.total}</p>
+                    <p className="text-2xl font-bold text-info">{daySummary.total}</p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Total Reservas</p>
                   </div>
                 </CardContent>
@@ -330,7 +342,7 @@ const ReservationCalendar = () => {
               <Card className="dark:bg-gray-800 dark:border-gray-700">
                 <CardContent className="pt-4">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">{daySummary.guests}</p>
+                    <p className="text-2xl font-bold text-success">{daySummary.guests}</p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Comensales</p>
                   </div>
                 </CardContent>
@@ -616,11 +628,11 @@ const WeekView = ({ currentDate, calendarData, handleDayClick }) => {
           <div
             key={idx}
             className={`p-2 text-center border-l dark:border-gray-700 ${
-              isToday(date) ? 'bg-blue-100 dark:bg-blue-900/30' : ''
+              isToday(date) ? 'bg-info-muted' : ''
             }`}
           >
             <div className="text-xs text-gray-600 dark:text-gray-400">{DAYS_OF_WEEK[idx]}</div>
-            <div className={`text-sm font-semibold ${isToday(date) ? 'text-blue-600 dark:text-blue-400' : 'dark:text-gray-200'}`}>
+            <div className={`text-sm font-semibold ${isToday(date) ? 'text-info' : 'dark:text-gray-200'}`}>
               {date.getDate()}
             </div>
           </div>
@@ -748,7 +760,7 @@ const MonthView = ({ currentDate, calendarData, handleDayClick }) => {
               className={`
                 min-h-[100px] p-2 border dark:border-gray-700 rounded-lg transition-all
                 ${day ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 hover:shadow-md' : 'bg-gray-100 dark:bg-gray-800/50'}
-                ${isCurrentDay ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 border-2' : ''}
+                ${isCurrentDay ? 'bg-blue-50 dark:bg-blue-900/20 border-info/40 border-2' : ''}
                 ${isPastDay && day ? 'opacity-60' : ''}
               `}
               onClick={() => day && handleDayClick(dateStr)}
@@ -765,7 +777,7 @@ const MonthView = ({ currentDate, calendarData, handleDayClick }) => {
                       {day}
                     </span>
                     {reservations.length > 0 && (
-                      <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200">
+                      <Badge variant="outline" className="text-xs bg-info-muted border-info/40 text-blue-800 dark:text-blue-200">
                         {reservations.length}
                       </Badge>
                     )}
@@ -808,22 +820,23 @@ const MonthView = ({ currentDate, calendarData, handleDayClick }) => {
       {/* Legend */}
       <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t dark:border-gray-700 text-sm">
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded"></div>
+          <div className="w-4 h-4 bg-success-muted border border-success/40 rounded"></div>
           <span className="text-gray-600 dark:text-gray-400">Confirmada</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded"></div>
+          <div className="w-4 h-4 bg-warning-muted border border-warning/40 rounded"></div>
           <span className="text-gray-600 dark:text-gray-400">Pendiente</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded"></div>
+          <div className="w-4 h-4 bg-info-muted border border-info/40 rounded"></div>
           <span className="text-gray-600 dark:text-gray-400">Sentados</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-700 border-2 rounded"></div>
+          <div className="w-4 h-4 bg-blue-50 dark:bg-blue-900/20 border border-info/40 border-2 rounded"></div>
           <span className="text-gray-600 dark:text-gray-400">Hoy</span>
         </div>
       </div>
+      <ConfirmDialog />
     </>
   );
 };

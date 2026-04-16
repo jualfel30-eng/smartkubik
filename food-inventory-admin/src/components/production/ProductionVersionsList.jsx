@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Layers, Plus, Edit, Trash2, Star } from 'lucide-react';
 import { useProductionVersions } from '@/hooks/useProductionVersions';
+import { useConfirm } from '@/hooks/use-confirm';
 import { ProductionVersionDialog } from './ProductionVersionDialog';
 
 export function ProductionVersionsList() {
@@ -18,6 +19,7 @@ export function ProductionVersionsList() {
     deleteProductionVersion,
   } = useProductionVersions();
 
+  const [ConfirmDialog, confirm] = useConfirm();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState(null);
 
@@ -51,12 +53,16 @@ export function ProductionVersionsList() {
   };
 
   const handleDelete = async (versionId) => {
-    if (window.confirm('¿Estás seguro de eliminar esta versión de producción?')) {
-      try {
-        await deleteProductionVersion(versionId);
-      } catch (err) {
-        console.error('Error deleting production version:', err);
-      }
+    const ok = await confirm({
+      title: '¿Eliminar esta versión de producción?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteProductionVersion(versionId);
+    } catch (err) {
+      console.error('Error deleting production version:', err);
     }
   };
 
@@ -169,6 +175,8 @@ export function ProductionVersionsList() {
         }}
         onSave={handleSave}
       />
+
+      <ConfirmDialog />
     </>
   );
 }

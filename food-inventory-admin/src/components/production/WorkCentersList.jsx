@@ -5,12 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Settings, Plus, Edit, Trash2 } from 'lucide-react';
 import { useWorkCenters } from '@/hooks/useWorkCenters';
+import { useConfirm } from '@/hooks/use-confirm';
 import { WorkCenterDialog } from './WorkCenterDialog';
 
 export function WorkCentersList() {
   const { workCenters, loading, error, loadWorkCenters, createWorkCenter, updateWorkCenter, deleteWorkCenter } =
     useWorkCenters();
 
+  const [ConfirmDialog, confirm] = useConfirm();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedWorkCenter, setSelectedWorkCenter] = useState(null);
 
@@ -44,12 +46,16 @@ export function WorkCentersList() {
   };
 
   const handleDelete = async (workCenterId) => {
-    if (window.confirm('¿Estás seguro de eliminar este centro de trabajo?')) {
-      try {
-        await deleteWorkCenter(workCenterId);
-      } catch (err) {
-        console.error('Error deleting work center:', err);
-      }
+    const ok = await confirm({
+      title: '¿Eliminar este centro de trabajo?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteWorkCenter(workCenterId);
+    } catch (err) {
+      console.error('Error deleting work center:', err);
     }
   };
 
@@ -144,6 +150,8 @@ export function WorkCentersList() {
         }}
         onSave={handleSave}
       />
+
+      <ConfirmDialog />
     </>
   );
 }

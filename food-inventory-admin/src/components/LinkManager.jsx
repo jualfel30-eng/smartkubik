@@ -28,6 +28,7 @@ import {
   Link2,
   Play,
 } from 'lucide-react';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const ICON_MAP = {
   link: Link2,
@@ -63,6 +64,7 @@ const emptyLink = {
 };
 
 export default function LinkManager({ mode = 'super-admin' }) {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -137,7 +139,12 @@ export default function LinkManager({ mode = 'super-admin' }) {
   };
 
   const handleDelete = async (linkId) => {
-    if (!confirm('¿Eliminar este link?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar este link?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await fetchApi(`${apiBase}/${linkId}`, { method: 'DELETE' });
       toast.success('Link eliminado');
@@ -370,6 +377,7 @@ export default function LinkManager({ mode = 'super-admin' }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </Card>
   );
 }

@@ -27,8 +27,10 @@ import {
 } from 'lucide-react';
 import { UnitConversionDialog } from './UnitConversionDialog';
 import { useUnitConversions } from '../hooks/useUnitConversions';
+import { useConfirm } from '@/hooks/use-confirm';
 
 function ConsumablesTab() {
+  const [ConfirmDialog, confirm] = useConfirm();
   // State for consumable configurations
   const [consumableConfigs, setConsumableConfigs] = useState([]);
   const [relations, setRelations] = useState([]);
@@ -194,7 +196,12 @@ function ConsumablesTab() {
   };
 
   const handleDeleteRelation = async (relationId) => {
-    if (!confirm('¿Estás seguro de eliminar esta relación?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta relación?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       const result = await deleteProductConsumableRelation(relationId);
       if (result.success) {
@@ -802,6 +809,7 @@ function ConsumablesTab() {
           onSave={handleSaveUnitConfig}
         />
       )}
+      <ConfirmDialog />
     </div>
   );
 }

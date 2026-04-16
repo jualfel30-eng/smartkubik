@@ -20,6 +20,7 @@ import {
 import { useBusinessLocation } from '@/context/BusinessLocationContext';
 import { Plus, Loader2, Pencil, Trash2, MapPin, Warehouse, Package, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const LOCATION_TYPES = [
   { value: 'warehouse', label: 'Almacen' },
@@ -38,6 +39,7 @@ const emptyForm = {
 };
 
 export default function BusinessLocationsManagement() {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -142,7 +144,12 @@ export default function BusinessLocationsManagement() {
   };
 
   const handleDelete = async (location) => {
-    if (!confirm(`¿Eliminar sede "${location.name}"? Esta accion no se puede deshacer.`)) return;
+    const ok = await confirm({
+      title: `¿Eliminar sede "${location.name}"?`,
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
     setDeleting(true);
     try {
       await deleteBusinessLocation(location._id || location.id);
@@ -396,6 +403,7 @@ export default function BusinessLocationsManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </div>
   );
 }

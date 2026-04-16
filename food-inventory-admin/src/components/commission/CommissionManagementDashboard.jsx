@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -74,6 +75,7 @@ import { useModuleAccess } from '../../hooks/useModuleAccess';
 import { useAuth } from '../../hooks/use-auth';
 
 export default function CommissionManagementDashboard() {
+  const [ConfirmDialog, confirm] = useConfirm();
   const hasCommissionsModule = useModuleAccess('commissions');
   const { tenant } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -269,7 +271,12 @@ export default function CommissionManagementDashboard() {
   };
 
   const handleDeletePlan = async (planId) => {
-    if (!confirm('¿Estás seguro de eliminar este plan?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar este plan de comisión?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteCommissionPlan(planId);
       toast.success('Plan eliminado');
@@ -321,7 +328,12 @@ export default function CommissionManagementDashboard() {
   };
 
   const handleDeleteGoal = async (goalId) => {
-    if (!confirm('¿Estás seguro de eliminar esta meta?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta meta?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteGoal(goalId);
       toast.success('Meta eliminada');
@@ -1329,6 +1341,7 @@ export default function CommissionManagementDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+      <ConfirmDialog />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
 import { PlusCircle, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, List as ListIcon, RefreshCcw, CheckCircle } from 'lucide-react';
 import { Textarea } from './ui/textarea';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const initialFormState = {
   bankName: '',
@@ -39,6 +40,7 @@ const STANDARD_PAYMENT_METHODS = [
 ];
 
 export default function BankAccountsManagement() {
+  const [ConfirmDialog, confirm] = useConfirm();
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -259,7 +261,12 @@ export default function BankAccountsManagement() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Está seguro de eliminar esta cuenta bancaria?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar cuenta bancaria?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await fetchApi(`/bank-accounts/${id}`, { method: 'DELETE' });
@@ -998,6 +1005,7 @@ export default function BankAccountsManagement() {
           </form>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </div>
   );
 }

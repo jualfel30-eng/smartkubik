@@ -21,6 +21,7 @@ import {
   getProducts,
 } from '@/lib/api';
 import { toast } from 'sonner';
+import { useConfirm } from '@/hooks/use-confirm';
 import {
   Trash2,
   AlertTriangle,
@@ -52,6 +53,7 @@ const WASTE_REASONS = [
 ];
 
 const WasteTrackingWidget = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [activeTab, setActiveTab] = useState('entries');
   const [entries, setEntries] = useState([]);
   const [analytics, setAnalytics] = useState(null);
@@ -237,15 +239,19 @@ const WasteTrackingWidget = () => {
   };
 
   const handleDeleteEntry = async (id) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar esta entrada de desperdicio?')) {
-      try {
-        await deleteWasteEntry(id);
-        toast.success('Entrada de desperdicio eliminada');
-        fetchEntries();
-        if (activeTab === 'analytics') fetchAnalytics();
-      } catch (error) {
-        toast.error('Error al eliminar entrada', { description: error.message });
-      }
+    const ok = await confirm({
+      title: '¿Eliminar esta entrada de desperdicio?',
+      description: 'Esta acción es permanente.',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteWasteEntry(id);
+      toast.success('Entrada de desperdicio eliminada');
+      fetchEntries();
+      if (activeTab === 'analytics') fetchAnalytics();
+    } catch (error) {
+      toast.error('Error al eliminar entrada', { description: error.message });
     }
   };
 
@@ -995,6 +1001,8 @@ const WasteTrackingWidget = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog />
     </div>
   );
 };

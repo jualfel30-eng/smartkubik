@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -117,6 +118,7 @@ const BASE_VERTICAL_LABELS = {
 };
 
 const SettingsPage = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [settings, setSettings] = useState(initialSettings);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -261,19 +263,21 @@ const SettingsPage = () => {
     setNestedValue(name, value);
   };
 
-  const handleVerticalChange = (value) => {
+  const handleVerticalChange = async (value) => {
     if (!value || value === settings.verticalProfile?.key) {
       return;
     }
 
     const selectedOption = verticalOptions.find((option) => option.key === value);
     const confirmationMessage = selectedOption
-      ? `¿Confirmas que deseas cambiar el perfil vertical a "${selectedOption.label}"?`
-      : '¿Confirmas que deseas cambiar el perfil vertical?';
+      ? `¿Cambiar el perfil vertical a "${selectedOption.label}"?`
+      : '¿Cambiar el perfil vertical?';
 
-    if (!window.confirm(`${confirmationMessage} Esto puede afectar los formularios y validaciones del sistema.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: confirmationMessage,
+      description: 'Esto puede afectar los formularios y validaciones del sistema.',
+    });
+    if (!ok) return;
 
     setSettings((prev) => ({
       ...prev,
@@ -1050,6 +1054,7 @@ const SettingsPage = () => {
           </div>
         </TabsContent>
       </Tabs>
+      <ConfirmDialog />
     </div>
   );
 };

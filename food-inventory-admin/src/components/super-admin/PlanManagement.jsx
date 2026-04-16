@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { getSubscriptionPlans, createSubscriptionPlan, updateSubscriptionPlan, deleteSubscriptionPlan } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { toast } from 'sonner';
 import PlanForm from './PlanForm';
 
 const PlanManagement = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -51,7 +53,12 @@ const PlanManagement = () => {
   };
 
   const handleDelete = async (planId) => {
-    if (!confirm('¿Estás seguro de que quieres archivar este plan?')) return;
+    const ok = await confirm({
+      title: '¿Archivar este plan?',
+      description: 'El plan será archivado y dejará de estar disponible.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deleteSubscriptionPlan(planId);
@@ -140,6 +147,7 @@ const PlanManagement = () => {
           />
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </>
   );
 };

@@ -14,6 +14,8 @@ import { useModuleAccess } from '../hooks/useModuleAccess';
 import { useBusinessModel, getBusinessContextText } from '../hooks/useBusinessModel';
 import { useAuth } from '@/hooks/use-auth';
 import ModuleAccessDenied from './ModuleAccessDenied';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useConfirm } from '@/hooks/use-confirm';
 import {
   Plus,
   Search,
@@ -103,6 +105,7 @@ const initialServiceState = {
 };
 
 function ServicesManagement() {
+  const [ConfirmDialog, confirmAction] = useConfirm();
   const hasAccess = useModuleAccess('appointments');
   const { isResourceCentric, isFlexible, businessType } = useBusinessModel();
   const { tenant } = useAuth();
@@ -307,7 +310,8 @@ function ServicesManagement() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este servicio?')) return;
+    const ok = await confirmAction({ title: '¿Eliminar este servicio?', description: 'Esta acción no se puede deshacer.', destructive: true, confirmLabel: 'Eliminar' });
+    if (!ok) return;
 
     try {
       setLoading(true);
@@ -343,6 +347,7 @@ function ServicesManagement() {
 
   return (
     <div className="p-6 space-y-6">
+      <ConfirmDialog />
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -420,8 +425,14 @@ function ServicesManagement() {
             <TableBody>
               {filteredServices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-gray-500 py-8">
-                    No se encontraron servicios
+                  <TableCell colSpan={7}>
+                    <EmptyState
+                      icon={Wrench}
+                      title="No se encontraron servicios"
+                      description={searchTerm ? "Intenta con otro término de búsqueda" : "Crea tu primer servicio para comenzar"}
+                      actionLabel={!searchTerm ? "Crear servicio" : undefined}
+                      onAction={!searchTerm ? () => setShowCreateDialog(true) : undefined}
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -477,7 +488,7 @@ function ServicesManagement() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex justify-end gap-2 md:opacity-0 md:group-hover/row:opacity-100 transition-opacity duration-150">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -565,10 +576,10 @@ function ServicesManagement() {
               </div>
 
               {isResourceCentric && !isFlexible ? (
-                <div className="col-span-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="col-span-2 bg-info-muted border border-info/30 rounded-lg p-4">
                   <div className="flex items-start gap-3">
-                    <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded">
-                      <Building className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <div className="bg-info-muted p-2 rounded">
+                      <Building className="h-5 w-5 text-info" />
                     </div>
                     <div className="flex-1">
                       <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">
@@ -592,7 +603,7 @@ function ServicesManagement() {
                             placeholder="Ej: 100"
                             className="bg-white dark:bg-gray-950"
                           />
-                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          <p className="text-xs text-info mt-1">
                             Solo referencial, el precio real está en cada recurso
                           </p>
                         </div>

@@ -12,6 +12,7 @@ import { NumberInput } from '@/components/ui/number-input.jsx';
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
 import { Plus, Loader2, Pencil, Trash2, MapPin } from 'lucide-react';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const LOCATION_TYPES = [
   { value: 'picking', label: 'Picking' },
@@ -35,6 +36,7 @@ const emptyForm = {
 };
 
 export default function BinLocationsPanel({ warehouses = [] }) {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [binLocations, setBinLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -132,7 +134,12 @@ export default function BinLocationsPanel({ warehouses = [] }) {
   };
 
   const handleDelete = async (loc) => {
-    if (!confirm(`¿Eliminar ubicación "${loc.code}"?`)) return;
+    const ok = await confirm({
+      title: `¿Eliminar ubicación "${loc.code}"?`,
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
     setDeleting(true);
     try {
       await fetchApi(`/bin-locations/${loc._id || loc.id}`, {
@@ -395,6 +402,7 @@ export default function BinLocationsPanel({ warehouses = [] }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </Card>
   );
 }

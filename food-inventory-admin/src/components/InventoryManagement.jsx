@@ -44,12 +44,14 @@ import {
 } from 'lucide-react';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const DEFAULT_ITEMS_PER_PAGE = 20;
 const SEARCH_ITEMS_PER_PAGE = 100;
 const SEARCH_DEBOUNCE_MS = 600;
 
 function InventoryManagement() {
+  const [ConfirmDialog, confirm] = useConfirm();
   const { flags } = useFeatureFlags();
   const multiWarehouseEnabled = flags.MULTI_WAREHOUSE;
   const [inventoryData, setInventoryData] = useState([]);
@@ -783,8 +785,12 @@ function InventoryManagement() {
   };
 
   const handleDeleteItem = async (id) => {
-    const confirmed = window.confirm('¿Seguro que deseas eliminar este inventario? Esta acción desactivará el stock asociado.');
-    if (!confirmed) return;
+    const ok = await confirm({
+      title: '¿Eliminar este inventario?',
+      description: 'Esta acción desactivará el stock asociado y no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await fetchApi(`/inventory/${id}`, { method: 'DELETE' });
@@ -2391,6 +2397,7 @@ function InventoryManagement() {
         onClose={() => setIsLabelWizardOpen(false)}
         initialSelectedItems={recentlyAddedItems}
       />
+      <ConfirmDialog />
     </div>
   );
 }

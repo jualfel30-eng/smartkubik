@@ -44,9 +44,11 @@ import {
   getPurchaseBookSummary,
   deletePurchaseBookEntry,
 } from '../../lib/api';
+import { useConfirm } from '@/hooks/use-confirm';
 import { format } from 'date-fns';
 
 const IvaPurchaseBook = ({ suppliers }) => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [entries, setEntries] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -139,7 +141,12 @@ const IvaPurchaseBook = ({ suppliers }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar esta entrada del libro de compras?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta entrada del libro de compras?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deletePurchaseBookEntry(id);
@@ -514,6 +521,7 @@ const IvaPurchaseBook = ({ suppliers }) => {
           </DialogActions>
         </Dialog>
       </CardContent>
+      <ConfirmDialog />
     </Card>
   );
 };

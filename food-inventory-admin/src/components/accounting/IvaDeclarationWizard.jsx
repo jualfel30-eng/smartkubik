@@ -51,6 +51,7 @@ import {
   fetchIvaDeclarations,
   deleteIvaDeclaration,
 } from '../../lib/api';
+import { useConfirm } from '@/hooks/use-confirm';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from "@/lib/utils";
@@ -58,6 +59,7 @@ import { cn } from "@/lib/utils";
 const steps = ['Validar Libros', 'Calcular Declaración', 'Revisar', 'Presentar y Pagar'];
 
 const IvaDeclarationWizard = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
 
@@ -141,7 +143,11 @@ const IvaDeclarationWizard = () => {
 
   // Step 3: Presentar a SENIAT
   const handleFile = async () => {
-    if (!window.confirm('¿Presentar esta declaración a SENIAT?')) return;
+    const ok = await confirm({
+      title: '¿Presentar esta declaración a SENIAT?',
+      description: 'Se registrará la declaración como presentada.',
+    });
+    if (!ok) return;
 
     try {
       setLoading(true);
@@ -761,12 +767,14 @@ const IvaDeclarationWizard = () => {
       <div className="min-h-[400px]">
         {renderStepContent()}
       </div>
+      <ConfirmDialog />
     </div>
   );
 };
 
 
 const DeclarationsHistory = ({ refreshTrigger, onSelect }) => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [declarations, setDeclarations] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -787,7 +795,12 @@ const DeclarationsHistory = ({ refreshTrigger, onSelect }) => {
   }, [refreshTrigger]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("¿Seguro que desea eliminar esta declaración? Esto permitirá recalcular el período.")) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta declaración?',
+      description: 'Esto permitirá recalcular el período.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteIvaDeclaration(id);
       toast.success("Declaración eliminada");
@@ -801,40 +814,43 @@ const DeclarationsHistory = ({ refreshTrigger, onSelect }) => {
   if (declarations.length === 0) return <div className="text-sm text-muted-foreground italic">No hay declaraciones previas.</div>;
 
   return (
-    <div className="border rounded-md">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Período</TableHead>
-            <TableHead>Número</TableHead>
-            <TableHead>Estado</TableHead>
-            <TableHead className="text-right">Monto</TableHead>
-            <TableHead className="w-[50px]"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {declarations.map((decl) => (
-            <TableRow key={decl._id}>
-              <TableCell>{decl.month}/{decl.year}</TableCell>
-              <TableCell className="font-mono">{decl.declarationNumber}</TableCell>
-              <TableCell>
-                <Badge variant={decl.status === 'paid' ? 'success' : decl.status === 'filed' ? 'warning' : 'outline'}>
-                  {decl.status === 'calculated' ? 'Borrador' : decl.status}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right font-mono">
-                {decl.ivaToPay > 0 ? `Bs. ${decl.ivaToPay.toFixed(2)}` : 'Crédito'}
-              </TableCell>
-              <TableCell>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(decl._id)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </TableCell>
+    <>
+      <div className="border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Período</TableHead>
+              <TableHead>Número</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="text-right">Monto</TableHead>
+              <TableHead className="w-[50px]"></TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {declarations.map((decl) => (
+              <TableRow key={decl._id}>
+                <TableCell>{decl.month}/{decl.year}</TableCell>
+                <TableCell className="font-mono">{decl.declarationNumber}</TableCell>
+                <TableCell>
+                  <Badge variant={decl.status === 'paid' ? 'success' : decl.status === 'filed' ? 'warning' : 'outline'}>
+                    {decl.status === 'calculated' ? 'Borrador' : decl.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right font-mono">
+                  {decl.ivaToPay > 0 ? `Bs. ${decl.ivaToPay.toFixed(2)}` : 'Crédito'}
+                </TableCell>
+                <TableCell>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(decl._id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <ConfirmDialog />
+    </>
   );
 };
 

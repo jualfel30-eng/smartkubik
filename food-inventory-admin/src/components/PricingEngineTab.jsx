@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,7 @@ class ErrorBoundary extends React.Component {
 }
 
 function PricingOrchestratorContent() {
+    const [ConfirmDialog, confirm] = useConfirm();
     const [loading, setLoading] = useState(false);
 
     const [previewData, setPreviewData] = useState([]);
@@ -255,7 +257,11 @@ function PricingOrchestratorContent() {
     };
 
     const handleExecute = async () => {
-        if (!confirm("⚠️ ¿Aplicar estos precios/promociones?")) return;
+        const ok = await confirm({
+            title: '¿Aplicar estos precios/promociones?',
+            description: 'Los precios seleccionados serán actualizados.',
+        });
+        if (!ok) return;
         setLoading(true);
         try {
             // Re-construct payload (same as preview)
@@ -599,7 +605,7 @@ function PricingOrchestratorContent() {
 
                                 {/* Rate change preview */}
                                 {oldSupplierRate && newSupplierRate && parseFloat(oldSupplierRate) > 0 && (
-                                    <div className="p-2 bg-blue-50 dark:bg-blue-950 rounded text-sm">
+                                    <div className="p-2 bg-info-muted rounded text-sm">
                                         <div className="flex justify-between items-center">
                                             <span>Cambio en tasa:</span>
                                             <Badge className={parseFloat(newSupplierRate) > parseFloat(oldSupplierRate) ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}>
@@ -819,6 +825,7 @@ function PricingOrchestratorContent() {
                     </Table>
                 </div>
             </div>
+            <ConfirmDialog />
         </div >
     );
 }

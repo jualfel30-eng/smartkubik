@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -54,6 +55,7 @@ import { useModuleAccess } from '../hooks/useModuleAccess';
 import { useTipsLabels } from '../hooks/useTipsLabels';
 
 export default function TipsManagementDashboard() {
+  const [ConfirmDialog, confirm] = useConfirm();
   const hasTipsModule = useModuleAccess('tips');
   const labels = useTipsLabels();
   const [loading, setLoading] = useState(false);
@@ -144,7 +146,12 @@ export default function TipsManagementDashboard() {
   };
 
   const handleDeleteRule = async (ruleId) => {
-    if (!confirm('¿Estás seguro de eliminar esta regla?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta regla?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deleteTipsDistributionRule(ruleId);
@@ -751,6 +758,7 @@ export default function TipsManagementDashboard() {
           </Card>
         </TabsContent>
       </Tabs>
+      <ConfirmDialog />
     </div>
   );
 }

@@ -15,6 +15,8 @@ import { useBusinessModel, getBusinessContextText } from '../hooks/useBusinessMo
 import { useVerticalLabels } from '../hooks/use-vertical-labels';
 import { useAuth } from '@/hooks/use-auth';
 import ModuleAccessDenied from './ModuleAccessDenied';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useConfirm } from '@/hooks/use-confirm';
 import {
   Plus,
   Search,
@@ -142,6 +144,7 @@ const DAYS = [
 const WEEKDAY_KEYS = DAYS.map((day) => day.key);
 
 function ResourcesManagement() {
+  const [ConfirmDialog, confirmAction] = useConfirm();
   const hasAccess = useModuleAccess('appointments');
   const { isResourceCentric, isFlexible, businessType } = useBusinessModel();
   const labels = useVerticalLabels();
@@ -506,7 +509,8 @@ function ResourcesManagement() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este recurso?')) return;
+    const ok = await confirmAction({ title: '¿Eliminar este recurso?', description: 'Esta acción no se puede deshacer.', destructive: true, confirmLabel: 'Eliminar' });
+    if (!ok) return;
 
     try {
       setLoading(true);
@@ -696,6 +700,7 @@ function ResourcesManagement() {
 
   return (
     <div className="p-6 space-y-6">
+      <ConfirmDialog />
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -776,8 +781,14 @@ function ResourcesManagement() {
             <TableBody>
               {filteredResources.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-gray-500 py-8">
-                    No se encontraron recursos
+                  <TableCell colSpan={7}>
+                    <EmptyState
+                      icon={User}
+                      title="No se encontraron recursos"
+                      description={searchTerm ? "Intenta con otro término de búsqueda" : "Agrega profesionales, estaciones o equipos para asignarlos a servicios"}
+                      actionLabel={!searchTerm ? "Agregar recurso" : undefined}
+                      onAction={!searchTerm ? () => setIsDialogOpen(true) : undefined}
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -874,7 +885,7 @@ function ResourcesManagement() {
                       </TableCell>
                       <TableCell>{getStatusBadge(resource.status)}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-2 md:opacity-0 md:group-hover/row:opacity-100 transition-opacity duration-150">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1069,10 +1080,10 @@ function ResourcesManagement() {
             {/* Pricing */}
             <div className="space-y-4">
               {isResourceCentric || isFlexible ? (
-                <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="bg-success-muted border border-success/30 rounded-lg p-4">
                   <div className="flex items-start gap-3 mb-4">
-                    <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded">
-                      <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <div className="bg-success-muted p-2 rounded">
+                      <DollarSign className="h-5 w-5 text-success" />
                     </div>
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-green-900 dark:text-green-100 mb-1">
@@ -1083,7 +1094,7 @@ function ResourcesManagement() {
                       </p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border border-green-200 dark:border-green-800 rounded-lg bg-white dark:bg-gray-950">
+                  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border border-success/30 rounded-lg bg-white dark:bg-gray-950">
                     <div className="md:col-span-3">
                       <Label htmlFor="base-rate-amount" className="text-green-900 dark:text-green-100">
                         Precio al cliente ($)
@@ -1097,7 +1108,7 @@ function ResourcesManagement() {
                         onChange={(e) => handleBaseRateChange('amount', e.target.value)}
                         placeholder="Ej: 150.00"
                       />
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      <p className="text-xs text-success mt-1">
                         {getBusinessContextText(businessType, 'resource').example}
                       </p>
                     </div>

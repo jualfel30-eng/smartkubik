@@ -6,11 +6,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Calendar, Plus, Edit, Trash2, Users, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useReservations } from '@/hooks/useReservations';
 import { ReservationDialog } from './ReservationDialog';
+import { useConfirm } from '@/hooks/use-confirm';
 
 export function ReservationList() {
   const { reservations, loading, error, loadReservations, createReservation, updateReservation, deleteReservation, confirmReservation, seatReservation, markNoShow } =
     useReservations();
 
+  const [ConfirmDialog, confirm] = useConfirm();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedReservation, setSelectedReservation] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -46,12 +48,16 @@ export function ReservationList() {
   };
 
   const handleDelete = async (reservationId) => {
-    if (window.confirm('¿Estás seguro de cancelar esta reserva?')) {
-      try {
-        await deleteReservation(reservationId);
-      } catch (err) {
-        console.error('Error deleting reservation:', err);
-      }
+    const ok = await confirm({
+      title: '¿Cancelar esta reserva?',
+      description: 'La reserva será eliminada.',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteReservation(reservationId);
+    } catch (err) {
+      console.error('Error deleting reservation:', err);
     }
   };
 
@@ -76,12 +82,16 @@ export function ReservationList() {
   };
 
   const handleNoShow = async (reservationId) => {
-    if (window.confirm('¿Marcar esta reserva como no show?')) {
-      try {
-        await markNoShow(reservationId);
-      } catch (err) {
-        console.error('Error marking no-show:', err);
-      }
+    const ok = await confirm({
+      title: '¿Marcar como No Show?',
+      description: 'La reserva será registrada como no presentada.',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await markNoShow(reservationId);
+    } catch (err) {
+      console.error('Error marking no-show:', err);
     }
   };
 
@@ -324,6 +334,8 @@ export function ReservationList() {
           onSave={handleSave}
         />
       )}
+
+      <ConfirmDialog />
     </>
   );
 }

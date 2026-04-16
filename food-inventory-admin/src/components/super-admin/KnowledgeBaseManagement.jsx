@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,6 +10,7 @@ import { fetchApi } from '@/lib/api';
 import { Trash2, Search, Sparkles } from 'lucide-react';
 
 const KnowledgeBaseManagement = () => {
+  const [ConfirmDialog, confirm] = useConfirm();
   // State for file upload
   const [files, setFiles] = useState([]);
   const [tenantId, setTenantId] = useState('smartkubik_docs');
@@ -88,9 +90,12 @@ const KnowledgeBaseManagement = () => {
   };
 
   const handleDelete = async (docSource) => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar el documento '${docSource}'? Esta acción es irreversible.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `¿Eliminar el documento "${docSource}"?`,
+      description: 'Esta acción es irreversible.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await fetchApi(`/super-admin/knowledge-base/document?tenantId=${tenantId}&source=${encodeURIComponent(docSource)}`, { method: 'DELETE' });
       toast.success(`Documento '${docSource}' eliminado.`);
@@ -284,6 +289,7 @@ const KnowledgeBaseManagement = () => {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog />
     </div>
   );
 };

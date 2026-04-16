@@ -10,8 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Percent, Plus, Edit, Trash2, BarChart3, TrendingUp, Gift, Package } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const PROMOTION_TYPES = [
   { value: 'percentage_discount', label: '% Descuento', icon: Percent },
@@ -22,7 +23,6 @@ const PROMOTION_TYPES = [
 ];
 
 const PromotionsManager = () => {
-  const { toast } = useToast();
   const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -30,6 +30,7 @@ const PromotionsManager = () => {
   const [isStatsDialogOpen, setIsStatsDialogOpen] = useState(false);
   const [selectedPromotion, setSelectedPromotion] = useState(null);
   const [promotionStats, setPromotionStats] = useState(null);
+  const [ConfirmDialog, confirm] = useConfirm();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -59,15 +60,13 @@ const PromotionsManager = () => {
       setPromotions(response.data || []);
     } catch (error) {
       console.error('Error fetching promotions:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudieron cargar las promociones',
-        variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchPromotions();
@@ -80,10 +79,8 @@ const PromotionsManager = () => {
       setIsStatsDialogOpen(true);
     } catch (error) {
       console.error('Error fetching stats:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudieron cargar las estadísticas',
-        variant: 'destructive',
       });
     }
   };
@@ -149,8 +146,7 @@ const PromotionsManager = () => {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
-        toast({
-          title: 'Promoción actualizada',
+        toast.success('Promoción actualizada', {
           description: `La promoción "${payload.name}" ha sido actualizada`,
         });
         setIsEditDialogOpen(false);
@@ -159,8 +155,7 @@ const PromotionsManager = () => {
           method: 'POST',
           body: JSON.stringify(payload),
         });
-        toast({
-          title: 'Promoción creada',
+        toast.success('Promoción creada', {
           description: `La promoción "${payload.name}" ha sido creada exitosamente`,
         });
         setIsCreateDialogOpen(false);
@@ -169,10 +164,8 @@ const PromotionsManager = () => {
       resetForm();
       fetchPromotions();
     } catch (error) {
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: error.response?.data?.message || 'No se pudo guardar la promoción',
-        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -180,23 +173,25 @@ const PromotionsManager = () => {
   };
 
   const handleDelete = async (promotionId) => {
-    if (!confirm('¿Estás seguro de eliminar esta promoción?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta promoción?',
+      description: 'Esta acción es permanente.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await fetchApi(`/promotions/${promotionId}`, {
         method: 'DELETE',
       });
-      toast({
-        title: 'Promoción eliminada',
+      toast.success('Promoción eliminada', {
         description: 'La promoción ha sido eliminada exitosamente',
       });
       fetchPromotions();
     } catch (error) {
       console.error('Error deleting promotion:', error);
-      toast({
-        title: 'Error',
+      toast.error('Error', {
         description: 'No se pudo eliminar la promoción',
-        variant: 'destructive',
       });
     }
   };
@@ -777,6 +772,8 @@ const PromotionsManager = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog />
     </div>
   );
 };

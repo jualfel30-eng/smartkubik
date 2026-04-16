@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileText, Plus, Edit, Trash2, DollarSign, CheckCircle, Layers } from 'lucide-react';
 import { useBillOfMaterials } from '@/hooks/useBillOfMaterials';
+import { useConfirm } from '@/hooks/use-confirm';
 import { BillOfMaterialsDialog } from './BillOfMaterialsDialog';
 import { BOMExplosionDialog } from './BOMExplosionDialog';
 
@@ -16,6 +17,7 @@ export function BillOfMaterialsList() {
   const [selectedBom, setSelectedBom] = useState(null);
   const [explosionDialogOpen, setExplosionDialogOpen] = useState(false);
   const [explosionBom, setExplosionBom] = useState(null);
+  const [ConfirmDialog, confirm] = useConfirm();
   const [costs, setCosts] = useState({});
   const [availabilities, setAvailabilities] = useState({});
 
@@ -49,12 +51,16 @@ export function BillOfMaterialsList() {
   };
 
   const handleDelete = async (bomId) => {
-    if (window.confirm('¿Estás seguro de eliminar esta receta?')) {
-      try {
-        await deleteBom(bomId);
-      } catch (err) {
-        console.error('Error deleting BOM:', err);
-      }
+    const ok = await confirm({
+      title: '¿Eliminar esta receta?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteBom(bomId);
+    } catch (err) {
+      console.error('Error deleting BOM:', err);
     }
   };
 
@@ -236,6 +242,8 @@ export function BillOfMaterialsList() {
           setExplosionBom(null);
         }}
       />
+
+      <ConfirmDialog />
     </>
   );
 }

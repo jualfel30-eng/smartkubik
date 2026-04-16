@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { useSearchParams } from 'react-router-dom';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -203,6 +205,7 @@ const normalizeId = (value) => {
 };
 
 function AppointmentsManagement() {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const hasAccess = useModuleAccess('appointments');
   const hasBankAccess = useModuleAccess('bankAccounts');
@@ -1325,9 +1328,10 @@ function AppointmentsManagement() {
         !normalizeBankAccountSelection(depositActionForm.bankAccountId) &&
         hasBankAccess
       ) {
-        const continueWithoutAccount = window.confirm(
-          'No seleccionaste una cuenta bancaria para registrar el depósito. ¿Deseas continuar de todas formas?',
-        );
+        const continueWithoutAccount = await confirm({
+          title: '¿Continuar sin cuenta bancaria?',
+          description: 'No seleccionaste una cuenta bancaria para registrar el depósito.',
+        });
         if (!continueWithoutAccount) {
           return;
         }
@@ -1818,7 +1822,12 @@ function AppointmentsManagement() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar esta cita?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta cita?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       setLoading(true);
@@ -1971,8 +1980,14 @@ function AppointmentsManagement() {
                 <TableBody>
                   {appointments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-gray-500 py-8">
-                        No se encontraron citas en este rango de fechas
+                      <TableCell colSpan={6}>
+                        <EmptyState
+                          icon={Calendar}
+                          title="Sin citas en este rango"
+                          description="No se encontraron citas en las fechas seleccionadas. Ajusta el rango o crea una nueva cita."
+                          actionLabel="Nueva cita"
+                          onAction={() => openCreateDialog()}
+                        />
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -2765,7 +2780,7 @@ function AppointmentsManagement() {
                 )}
 
                 {editingAppointment.paymentStatus === 'paid' && (
-                  <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                  <div className="flex items-center gap-2 text-sm text-success">
                     <CheckCircle className="h-4 w-4" />
                     <span>Servicio cobrado completamente</span>
                   </div>
@@ -2828,9 +2843,9 @@ function AppointmentsManagement() {
                               return (
                                 <div key={key} className="text-[11px]">
                                   <span className="font-medium text-gray-700 dark:text-gray-300">{label}:</span>{' '}
-                                  <span className="text-red-600 dark:text-red-400 line-through">{oldValue}</span>
+                                  <span className="text-destructive line-through">{oldValue}</span>
                                   {' → '}
-                                  <span className="text-green-600 dark:text-green-400">{newValue}</span>
+                                  <span className="text-success">{newValue}</span>
                                 </div>
                               );
                             })}
@@ -3425,6 +3440,7 @@ function AppointmentsManagement() {
           setPaymentDialogAppointment(null);
         }}
       />
+      <ConfirmDialog />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Factory, Plus, Eye, Play, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useManufacturingOrders } from '@/hooks/useManufacturingOrders';
+import { useConfirm } from '@/hooks/use-confirm';
 import { ManufacturingOrderDialog } from './ManufacturingOrderDialog';
 import { ManufacturingOrderWizard } from './ManufacturingOrderWizard';
 import { ManufacturingOrderDetails } from './ManufacturingOrderDetails';
@@ -32,6 +33,7 @@ export function ManufacturingOrdersList() {
     deleteManufacturingOrder,
   } = useManufacturingOrders();
 
+  const [ConfirmDialog, confirm] = useConfirm();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -117,12 +119,16 @@ export function ManufacturingOrdersList() {
   };
 
   const handleDelete = async (orderId) => {
-    if (window.confirm('¿Estás seguro de eliminar esta orden de manufactura?')) {
-      try {
-        await deleteManufacturingOrder(orderId);
-      } catch (err) {
-        console.error('Error deleting order:', err);
-      }
+    const ok = await confirm({
+      title: '¿Eliminar esta orden de manufactura?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteManufacturingOrder(orderId);
+    } catch (err) {
+      console.error('Error deleting order:', err);
     }
   };
 
@@ -276,6 +282,8 @@ export function ManufacturingOrdersList() {
           setSelectedOrder(null);
         }}
       />
+
+      <ConfirmDialog />
     </>
   );
 }

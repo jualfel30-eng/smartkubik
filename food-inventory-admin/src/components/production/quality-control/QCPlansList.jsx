@@ -5,12 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { FileText, Plus, Edit, Trash2, Eye } from 'lucide-react';
 import { useQualityControl } from '@/hooks/useQualityControl';
+import { useConfirm } from '@/hooks/use-confirm';
 import { QCPlanDialog } from './QCPlanDialog';
 
 export function QCPlansList() {
   const { qcPlans, loading, error, loadQCPlans, createQCPlan, updateQCPlan, deleteQCPlan } =
     useQualityControl();
 
+  const [ConfirmDialog, confirm] = useConfirm();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [viewMode, setViewMode] = useState(false);
@@ -54,12 +56,16 @@ export function QCPlansList() {
   };
 
   const handleDelete = async (planId) => {
-    if (window.confirm('¿Estás seguro de eliminar este plan de QC?')) {
-      try {
-        await deleteQCPlan(planId);
-      } catch (err) {
-        console.error('Error deleting QC plan:', err);
-      }
+    const ok = await confirm({
+      title: '¿Eliminar este plan de QC?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteQCPlan(planId);
+    } catch (err) {
+      console.error('Error deleting QC plan:', err);
     }
   };
 
@@ -178,6 +184,8 @@ export function QCPlansList() {
         }}
         onSave={handleSave}
       />
+
+      <ConfirmDialog />
     </>
   );
 }

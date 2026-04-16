@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Phone, MessageCircle, PlayCircle, CheckCircle2, XCircle, Receipt, CalendarClock } from 'lucide-react';
@@ -17,6 +18,7 @@ const STATUS_LABELS = {
 };
 
 export default function MobileAppointmentDetailSheet({ appointment, endpoint, onClose, onChanged }) {
+  const [ConfirmDialog, confirmDialog] = useConfirm();
   const [posOpen, setPosOpen] = useState(false);
   if (!appointment) return null;
 
@@ -145,8 +147,13 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
           {appointment.status !== 'cancelled' && (
             <button
               type="button"
-              onClick={() => {
-                if (confirm('¿Cancelar esta cita?')) updateStatus('cancelled');
+              onClick={async () => {
+                const ok = await confirmDialog({
+                  title: '¿Cancelar esta cita?',
+                  description: 'La cita será marcada como cancelada.',
+                  destructive: true,
+                });
+                if (ok) updateStatus('cancelled');
               }}
               className="tap-target rounded-[var(--mobile-radius-md)] border border-destructive/30 text-destructive flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
             >
@@ -167,6 +174,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
         }}
       />
     )}
+    <ConfirmDialog />
   </>
   );
 }

@@ -10,15 +10,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { ScrollArea } from '@/components/ui/scroll-area.jsx';
 import { fetchApi } from '@/lib/api';
-import { 
-  Plus, 
-  Pencil, 
-  Trash2, 
-  Layers, 
-  RefreshCw, 
-  CheckCircle, 
-  AlertTriangle 
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Layers,
+  RefreshCw,
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react';
+import { useConfirm } from '@/hooks/use-confirm';
 
 const initialFormState = {
   _id: null,
@@ -34,6 +35,7 @@ const initialFormState = {
 };
 
 export default function ModifierGroupsManagement() {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [groups, setGroups] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -310,7 +312,12 @@ export default function ModifierGroupsManagement() {
   };
 
   const handleDeleteGroup = async (groupId) => {
-    if (!window.confirm('¿Seguro que deseas eliminar este grupo de modificadores?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar este grupo de modificadores?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await fetchApi(`/modifier-groups/${groupId}`, { method: 'DELETE' });
       await loadModifierGroups();
@@ -679,6 +686,7 @@ export default function ModifierGroupsManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </div>
   );
 }

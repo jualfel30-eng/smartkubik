@@ -55,10 +55,12 @@ import {
   annulSalesBookEntry,
   deleteSalesBookEntry,
 } from '../../lib/api';
+import { useConfirm } from '@/hooks/use-confirm';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const IvaSalesBook = ({ customers }) => {
+  const [ConfirmDialog, confirm] = useConfirm();
   const [entries, setEntries] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -187,7 +189,12 @@ const IvaSalesBook = ({ customers }) => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar esta entrada del libro de ventas?')) return;
+    const ok = await confirm({
+      title: '¿Eliminar esta entrada del libro de ventas?',
+      description: 'Esta acción no se puede deshacer.',
+      destructive: true,
+    });
+    if (!ok) return;
 
     try {
       await deleteSalesBookEntry(id);
@@ -591,6 +598,7 @@ const IvaSalesBook = ({ customers }) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog />
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useConfirm } from '@/hooks/use-confirm';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { useLocation } from 'react-router-dom';
 import { DriverMap } from './DriverMap';
 
 export const DriverDashboard = () => {
+    const [ConfirmDialog, confirm] = useConfirm();
     const location = useLocation();
     // Determine mode based on URL: /driver/pool or /driver/active
     const mode = location.pathname.includes('active') ? 'active' : 'pool';
@@ -49,17 +51,20 @@ export const DriverDashboard = () => {
 
     const handleComplete = async (orderId) => {
         // For simplicity, direct completion without photo for now
-        if (confirm('¿Confirmar entrega completada?')) {
-            try {
-                await fetchApi(`/drivers/orders/${orderId}/complete`, {
-                    method: 'POST',
-                    body: JSON.stringify({ notes: 'Entregado vía Driver App' })
-                });
-                toast.success('¡Entrega completada!');
-                fetchOrders();
-            } catch (error) {
-                toast.error('Error al completar la entrega');
-            }
+        const ok = await confirm({
+            title: '¿Confirmar entrega completada?',
+            description: 'La orden será marcada como entregada.',
+        });
+        if (!ok) return;
+        try {
+            await fetchApi(`/drivers/orders/${orderId}/complete`, {
+                method: 'POST',
+                body: JSON.stringify({ notes: 'Entregado vía Driver App' })
+            });
+            toast.success('¡Entrega completada!');
+            fetchOrders();
+        } catch (error) {
+            toast.error('Error al completar la entrega');
         }
     };
 
@@ -154,6 +159,7 @@ export const DriverDashboard = () => {
                     </CardFooter>
                 </Card>
             ))}
+        <ConfirmDialog />
         </div>
     );
 };
