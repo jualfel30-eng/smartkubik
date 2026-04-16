@@ -11,6 +11,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert.jsx';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar as CalendarIcon, Users, Clock, MapPin, RefreshCw, Plus } from 'lucide-react';
+import { useDrag, useDrop, DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 const DAYS_OF_WEEK = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 const DAYS_OF_WEEK_FULL = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -37,8 +39,121 @@ const STATUS_CONFIG = {
   no_show: { label: 'No asistió', color: 'bg-warning/10 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700' },
 };
 
+// DnD item type constant
+const DND_ITEM_TYPE = 'APPOINTMENT';
+
+// Detect if running on a touch/mobile device — DnD is desktop only
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768 || ('ontouchstart' in window));
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return isMobile;
+}
+
+// Draggable appointment chip
+function DraggableAppointmentChip({ apt, children, isMobile }) {
+  const canDrag = !isMobile && ['pending', 'confirmed'].includes(apt.status);
+  const [{ isDragging }, dragRef] = useDrag({
+    type: DND_ITEM_TYPE,
+    item: () => ({ apt }),
+    canDrag: () => canDrag,
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  });
+
+  return (
+    <div
+      ref={canDrag ? dragRef : null}
+      style={{
+        opacity: isDragging ? 0.35 : 1,
+        cursor: canDrag ? 'grab' : 'default',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// Droppable time cell (used in ResourceColumnsView, DayView, WeekView)
+function DroppableTimeCell({ droppableId, droppableData, onDrop, children, className, style, onClick }) {
+  const [{ isOver, canDrop }, dropRef] = useDrop({
+    accept: DND_ITEM_TYPE,
+    drop: (item) => onDrop && onDrop(item, droppableData),
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop(),
+    }),
+  });
+
+  return (
+    <div
+      ref={dropRef}
+      className={className}
+      style={{
+        ...style,
+        backgroundColor: isOver && canDrop ? 'rgba(59,130,246,0.12)' : undefined,
+        transition: 'background-color 120ms ease',
+        outline: isOver && canDrop ? '2px dashed rgba(59,130,246,0.4)' : undefined,
+      }}
+      onClick={onClick}
+    >
+      {children}
+    </div>
+  );
+}
+
+// Drag confirmation dialog
+function DragConfirmDialog({ dialog, onConfirm, onCancel }) {
+  if (!dialog) return null;
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={onCancel}>
+      <div
+        className="bg-background rounded-xl p-6 max-w-sm w-full shadow-2xl mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="font-semibold text-base mb-2">Reagendar cita</h3>
+        {dialog.isRecurring && (
+          <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 rounded p-2 mb-3">
+            Esta cita es parte de una serie recurrente. Solo se moverá esta ocurrencia.
+          </p>
+        )}
+        {dialog.hasConflict && (
+          <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/20 rounded p-2 mb-3">
+            El profesional ya tiene una cita a esa hora. Se puede confirmar igualmente.
+          </p>
+        )}
+        <p className="text-sm text-muted-foreground mb-4">
+          Mover cita de <strong>{dialog.apt.customerName || dialog.apt.client?.name || 'Cliente'}</strong>
+          {dialog.newResourceId && dialog.newResourceId !== (dialog.apt.resourceId?._id || dialog.apt.resourceId) && (
+            <> a otro profesional</>
+          )}{' '}
+          a las <strong>{dialog.newTime}</strong>
+          {dialog.newDateStr && <> del <strong>{dialog.newDateStr}</strong></>}.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 border border-border rounded-lg py-2 text-sm hover:bg-muted transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => onConfirm(dialog)}
+            className="flex-1 bg-primary text-primary-foreground rounded-lg py-2 text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            Confirmar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Componente helper: Vista columnar por recurso
-function ResourceColumnsView({ resources, appointmentsByResource, labels, onAppointmentClick, timeSlots }) {
+function ResourceColumnsView({ resources, appointmentsByResource, labels, onAppointmentClick, timeSlots, onDropAppointment, isMobile }) {
   if (resources.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
@@ -81,18 +196,25 @@ function ResourceColumnsView({ resources, appointmentsByResource, labels, onAppo
               });
 
               return (
-                <div key={resource._id} className="border-l pl-2 min-h-[40px]">
+                <DroppableTimeCell
+                  key={resource._id}
+                  droppableId={`res-${resource._id}-${timeSlot}`}
+                  droppableData={{ resourceId: resource._id, timeSlot }}
+                  onDrop={onDropAppointment}
+                  className="border-l pl-2 min-h-[40px]"
+                >
                   {aptsAtThisTime.map((apt) => (
-                    <div
-                      key={apt._id}
-                      className="text-xs p-1 mb-1 rounded bg-info-muted cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-900/50"
-                      onClick={() => onAppointmentClick && onAppointmentClick(apt)}
-                    >
-                      <div className="font-medium truncate">{apt.serviceName || 'Servicio'}</div>
-                      <div className="text-muted-foreground truncate">{apt.customerName || 'Cliente'}</div>
-                    </div>
+                    <DraggableAppointmentChip key={apt._id} apt={apt} isMobile={isMobile}>
+                      <div
+                        className="text-xs p-1 mb-1 rounded bg-info-muted cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-900/50"
+                        onClick={() => onAppointmentClick && onAppointmentClick(apt)}
+                      >
+                        <div className="font-medium truncate">{apt.serviceName || 'Servicio'}</div>
+                        <div className="text-muted-foreground truncate">{apt.customerName || 'Cliente'}</div>
+                      </div>
+                    </DraggableAppointmentChip>
                   ))}
-                </div>
+                </DroppableTimeCell>
               );
             })}
           </div>
@@ -102,11 +224,12 @@ function ResourceColumnsView({ resources, appointmentsByResource, labels, onAppo
   );
 }
 
-export function AppointmentsCalendar({ resourceId, onCreateAppointment }) {
+export function AppointmentsCalendar({ resourceId, onCreateAppointment, onReschedule }) {
   // Hooks para detección de perfil y labels adaptativos
   const { tenant } = useAuth();
   const labels = useVerticalLabels();
   const profileKey = tenant?.verticalProfile?.key || 'hospitality';
+  const isMobile = useIsMobile();
 
   // Determinar tipo de recurso principal por perfil
   const resourceType = useMemo(() => {
@@ -161,6 +284,9 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [resources, setResources] = useState([]);
   const [groupByResource, setGroupByResource] = useState(false);
+
+  // DnD confirm dialog state
+  const [dragConfirmDialog, setDragConfirmDialog] = useState(null);
 
   const normalizeListResponse = (apiResponse) => {
     if (Array.isArray(apiResponse)) return apiResponse;
@@ -411,243 +537,376 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment }) {
     return acc;
   }, { total: 0, guests: 0, pending: 0, confirmed: 0, inProgress: 0 });
 
+  // ─── DnD: handle drop onto a time cell ───────────────────────────────────────
+  const handleDropAppointment = useCallback((item, droppableData) => {
+    const { apt } = item;
+    const { resourceId: newResourceId, timeSlot: newTime, dateStr: newDateStr } = droppableData;
+
+    // Derive current values
+    const originalResourceId = apt.resourceId?._id || apt.resourceId || null;
+    const originalTime = apt.startTime
+      ? `${String(new Date(apt.startTime).getHours()).padStart(2, '0')}:${String(new Date(apt.startTime).getMinutes()).padStart(2, '0')}`
+      : null;
+    const originalDate = apt.startTime ? apt.startTime.slice(0, 10) : null;
+    const resolvedNewDate = newDateStr || originalDate;
+
+    // No-op if nothing changed
+    if (
+      newTime === originalTime &&
+      resolvedNewDate === originalDate &&
+      (newResourceId == null || String(newResourceId) === String(originalResourceId))
+    ) {
+      return;
+    }
+
+    // Conflict detection: another appointment at same resource+time+date
+    const hasConflict = filteredAppointments.some((a) => {
+      if (a._id === apt._id) return false;
+      const aResourceId = a.resourceId?._id || a.resourceId;
+      if (newResourceId && String(aResourceId) !== String(newResourceId)) return false;
+      if (!a.startTime) return false;
+      const aTime = `${String(new Date(a.startTime).getHours()).padStart(2, '0')}:${String(new Date(a.startTime).getMinutes()).padStart(2, '0')}`;
+      const aDate = a.startTime.slice(0, 10);
+      return aTime === newTime && aDate === resolvedNewDate;
+    });
+
+    const isRecurring = !!(apt.isRecurring && apt.seriesId);
+
+    setDragConfirmDialog({
+      apt,
+      newTime,
+      newDateStr: resolvedNewDate !== originalDate ? resolvedNewDate : null,
+      newResourceId: newResourceId || originalResourceId,
+      hasConflict,
+      isRecurring,
+      originalDate,
+    });
+  }, [filteredAppointments]);
+
+  const confirmDragReschedule = useCallback(async ({ apt, newTime, newDateStr, newResourceId, originalDate }) => {
+    setDragConfirmDialog(null);
+
+    const resolvedDate = newDateStr || originalDate;
+
+    // Calculate new endTime
+    const [h, m] = newTime.split(':').map(Number);
+    const durationMinutes = apt.totalDuration || 60;
+    const endMinutes = h * 60 + m + durationMinutes;
+    const newEndTime = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`;
+
+    // If parent provided onReschedule handler, delegate to it (beauty vertical)
+    if (onReschedule) {
+      try {
+        await onReschedule({
+          appointment: apt,
+          newDate: resolvedDate,
+          newStartTime: newTime,
+          newEndTime,
+          newResourceId,
+        });
+        loadAppointments();
+      } catch (err) {
+        console.error('Reschedule error:', err);
+        toast.error('Error al reagendar', { description: err.message });
+      }
+      return;
+    }
+
+    // Fallback: update via generic appointments endpoint
+    try {
+      // Build new ISO startTime / endTime
+      const newStartISO = resolvedDate
+        ? `${resolvedDate}T${newTime}:00`
+        : apt.startTime;
+
+      await fetchApi(`/appointments/${apt._id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          startTime: newStartISO,
+          endTime: `${resolvedDate || originalDate}T${newEndTime}:00`,
+          resourceId: newResourceId,
+        }),
+      });
+      toast.success('Cita reagendada');
+      loadAppointments();
+    } catch (err) {
+      console.error('Reschedule error:', err);
+      toast.error('Error al reagendar', { description: err.message });
+    }
+  }, [onReschedule, loadAppointments]);
+
   return (
-    <>
-      <Card className="dark:bg-gray-900 dark:border-gray-800">
-        <CardHeader>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <CardTitle className="text-2xl dark:text-gray-100">Calendario Hotelero</CardTitle>
-              <p className="text-sm text-muted-foreground dark:text-gray-400 mt-1">{getHeaderText()}</p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={goToPrevious} className="dark:border-gray-700 dark:hover:bg-gray-800">
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={goToToday} className="dark:border-gray-700 dark:hover:bg-gray-800">
-                Hoy
-              </Button>
-              <Button variant="outline" size="sm" onClick={goToNext} className="dark:border-gray-700 dark:hover:bg-gray-800">
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={loadAppointments} disabled={loading} className="dark:border-gray-700 dark:hover:bg-gray-800">
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-          </div>
-
-          {/* View Tabs */}
-          <Tabs value={view} onValueChange={setView} className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-3">
-              <TabsTrigger value="day">
-                <CalendarDays className="h-4 w-4 mr-2" />
-                Día
-              </TabsTrigger>
-              <TabsTrigger value="week">
-                <CalendarRange className="h-4 w-4 mr-2" />
-                Semana
-              </TabsTrigger>
-              <TabsTrigger value="month">
-                <CalendarIcon className="h-4 w-4 mr-2" />
-                Mes
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
-          {/* Toggle vista columnar (solo week/day) */}
-          {(view === 'week' || view === 'day') && profileKey !== 'hospitality' && (
-            <div className="mt-3 flex justify-center">
-              <Button
-                variant={groupByResource ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setGroupByResource(!groupByResource)}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Ver por {labels.recurso.singularLower}
-              </Button>
-            </div>
-          )}
-
-          {/* Filtros */}
-          <div className="grid gap-3 md:grid-cols-2 mt-4">
-            <div>
-              <label className="text-xs uppercase tracking-wider text-muted-foreground dark:text-gray-400 mb-1 block">Tipo de servicio</label>
-              <Select value={serviceTypeFilter} onValueChange={setServiceTypeFilter}>
-                <SelectTrigger className="dark:border-gray-700 dark:bg-gray-800">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {Object.entries(SERVICE_TYPE_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {label} ({groupedByServiceType[key] || 0})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs uppercase tracking-wider text-muted-foreground dark:text-gray-400 mb-1 block">Estado</label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="dark:border-gray-700 dark:bg-gray-800">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {Object.entries(STATUS_CONFIG).map(([key, config]) => (
-                    <SelectItem key={key} value={key}>{config.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            </div>
-          ) : groupByResource && (view === 'week' || view === 'day') ? (
-            <ResourceColumnsView
-              resources={resources}
-              appointmentsByResource={appointmentsByResource}
-              labels={labels}
-              timeSlots={filteredTimeSlots}
-              onAppointmentClick={(apt) => {
-                setSelectedDate(new Date(apt.startTime).toDateString());
-                setDayAppointments([apt]);
-                setShowDayPanel(true);
-              }}
-            />
-          ) : (
-            <>
-              {view === 'day' && <DayView currentDate={currentDate} appointments={filteredAppointments} handleDayClick={handleDayClick} timeSlots={filteredTimeSlots} />}
-              {view === 'week' && <WeekView currentDate={currentDate} appointments={filteredAppointments} handleDayClick={handleDayClick} timeSlots={filteredTimeSlots} />}
-              {view === 'month' && <MonthView currentDate={currentDate} appointments={filteredAppointments} handleDayClick={handleDayClick} />}
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Day Panel - Sheet lateral */}
-      <Sheet open={showDayPanel} onOpenChange={setShowDayPanel}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto dark:bg-gray-900 dark:border-gray-800 px-12">
-          <SheetHeader>
-            <SheetTitle className="dark:text-gray-100">
-              Citas del {selectedDate && formatDate(selectedDate)}
-            </SheetTitle>
-            <SheetDescription className="dark:text-gray-400">
-              Gestiona las citas de este día
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="mt-12 space-y-12">
-            {/* Summary Cards */}
-            <div className="grid grid-cols-3 gap-6">
-              <Card className="dark:bg-gray-800 dark:border-gray-700">
-                <CardContent className="pt-4">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-info">{daySummary.total}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Total Citas</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="dark:bg-gray-800 dark:border-gray-700">
-                <CardContent className="pt-4">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-success">{daySummary.guests}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Clientes</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="dark:bg-gray-800 dark:border-gray-700">
-                <CardContent className="pt-4">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{daySummary.inProgress}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">En Progreso</p>
-                  </div>
-                </CardContent>
-              </Card>
+    <DndProvider backend={HTML5Backend}>
+      <>
+        <Card className="dark:bg-gray-900 dark:border-gray-800">
+          <CardHeader>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <CardTitle className="text-2xl dark:text-gray-100">Calendario Hotelero</CardTitle>
+                <p className="text-sm text-muted-foreground dark:text-gray-400 mt-1">{getHeaderText()}</p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={goToPrevious} className="dark:border-gray-700 dark:hover:bg-gray-800">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={goToToday} className="dark:border-gray-700 dark:hover:bg-gray-800">
+                  Hoy
+                </Button>
+                <Button variant="outline" size="sm" onClick={goToNext} className="dark:border-gray-700 dark:hover:bg-gray-800">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={loadAppointments} disabled={loading} className="dark:border-gray-700 dark:hover:bg-gray-800">
+                  <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
             </div>
 
-            {/* New Appointment Button */}
-            {onCreateAppointment && (
-              <Button
-                className="w-full"
-                onClick={() => {
-                  setShowDayPanel(false);
-                  onCreateAppointment(selectedDate);
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nueva Cita para este día
-              </Button>
+            {/* View Tabs */}
+            <Tabs value={view} onValueChange={setView} className="w-full">
+              <TabsList className="grid w-full max-w-md grid-cols-3">
+                <TabsTrigger value="day">
+                  <CalendarDays className="h-4 w-4 mr-2" />
+                  Día
+                </TabsTrigger>
+                <TabsTrigger value="week">
+                  <CalendarRange className="h-4 w-4 mr-2" />
+                  Semana
+                </TabsTrigger>
+                <TabsTrigger value="month">
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  Mes
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {/* Toggle vista columnar (solo week/day) */}
+            {(view === 'week' || view === 'day') && profileKey !== 'hospitality' && (
+              <div className="mt-3 flex justify-center">
+                <Button
+                  variant={groupByResource ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setGroupByResource(!groupByResource)}
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  Ver por {labels.recurso.singularLower}
+                </Button>
+              </div>
             )}
 
-            {/* Appointments List */}
-            <div className="space-y-3">
-              {dayAppointments.length === 0 ? (
-                <Alert className="dark:bg-gray-800 dark:border-gray-700">
-                  <AlertDescription className="dark:text-gray-400">
-                    No hay citas para este día.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                dayAppointments.map((appointment) => {
-                  const statusConfig = STATUS_CONFIG[appointment.status] || STATUS_CONFIG.pending;
-                  const startTime = appointment.startTime ? new Date(appointment.startTime).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '';
-                  const endTime = appointment.endTime ? new Date(appointment.endTime).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '';
+            {/* Filtros */}
+            <div className="grid gap-3 md:grid-cols-2 mt-4">
+              <div>
+                <label className="text-xs uppercase tracking-wider text-muted-foreground dark:text-gray-400 mb-1 block">Tipo de servicio</label>
+                <Select value={serviceTypeFilter} onValueChange={setServiceTypeFilter}>
+                  <SelectTrigger className="dark:border-gray-700 dark:bg-gray-800">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {Object.entries(SERVICE_TYPE_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label} ({groupedByServiceType[key] || 0})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-wider text-muted-foreground dark:text-gray-400 mb-1 block">Estado</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="dark:border-gray-700 dark:bg-gray-800">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {Object.entries(STATUS_CONFIG).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardHeader>
 
-                  return (
-                    <Card key={appointment._id || appointment.appointmentId} className="dark:bg-gray-800 dark:border-gray-700">
-                      <CardContent className="pt-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <h4 className="font-semibold text-lg dark:text-gray-100">{appointment.serviceName || 'Servicio'}</h4>
-                              <Badge className={statusConfig.color}>
-                                {statusConfig.label}
-                              </Badge>
-                            </div>
-                            <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                              <div className="flex items-center gap-2">
-                                <Clock className="h-4 w-4" />
-                                {startTime} - {endTime}
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              </div>
+            ) : groupByResource && (view === 'week' || view === 'day') ? (
+              <ResourceColumnsView
+                resources={resources}
+                appointmentsByResource={appointmentsByResource}
+                labels={labels}
+                timeSlots={filteredTimeSlots}
+                onDropAppointment={handleDropAppointment}
+                isMobile={isMobile}
+                onAppointmentClick={(apt) => {
+                  setSelectedDate(new Date(apt.startTime).toDateString());
+                  setDayAppointments([apt]);
+                  setShowDayPanel(true);
+                }}
+              />
+            ) : (
+              <>
+                {view === 'day' && (
+                  <DayView
+                    currentDate={currentDate}
+                    appointments={filteredAppointments}
+                    handleDayClick={handleDayClick}
+                    timeSlots={filteredTimeSlots}
+                    onDropAppointment={handleDropAppointment}
+                    isMobile={isMobile}
+                  />
+                )}
+                {view === 'week' && (
+                  <WeekView
+                    currentDate={currentDate}
+                    appointments={filteredAppointments}
+                    handleDayClick={handleDayClick}
+                    timeSlots={filteredTimeSlots}
+                    onDropAppointment={handleDropAppointment}
+                    isMobile={isMobile}
+                  />
+                )}
+                {view === 'month' && (
+                  <MonthView
+                    currentDate={currentDate}
+                    appointments={filteredAppointments}
+                    handleDayClick={handleDayClick}
+                  />
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Day Panel - Sheet lateral */}
+        <Sheet open={showDayPanel} onOpenChange={setShowDayPanel}>
+          <SheetContent className="w-full sm:max-w-xl overflow-y-auto dark:bg-gray-900 dark:border-gray-800 px-12">
+            <SheetHeader>
+              <SheetTitle className="dark:text-gray-100">
+                Citas del {selectedDate && formatDate(selectedDate)}
+              </SheetTitle>
+              <SheetDescription className="dark:text-gray-400">
+                Gestiona las citas de este día
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="mt-12 space-y-12">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-3 gap-6">
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
+                  <CardContent className="pt-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-info">{daySummary.total}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Total Citas</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
+                  <CardContent className="pt-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-success">{daySummary.guests}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">Clientes</p>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="dark:bg-gray-800 dark:border-gray-700">
+                  <CardContent className="pt-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{daySummary.inProgress}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">En Progreso</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* New Appointment Button */}
+              {onCreateAppointment && (
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    setShowDayPanel(false);
+                    onCreateAppointment(selectedDate);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nueva Cita para este día
+                </Button>
+              )}
+
+              {/* Appointments List */}
+              <div className="space-y-3">
+                {dayAppointments.length === 0 ? (
+                  <Alert className="dark:bg-gray-800 dark:border-gray-700">
+                    <AlertDescription className="dark:text-gray-400">
+                      No hay citas para este día.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  dayAppointments.map((appointment) => {
+                    const statusConfig = STATUS_CONFIG[appointment.status] || STATUS_CONFIG.pending;
+                    const startTime = appointment.startTime ? new Date(appointment.startTime).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '';
+                    const endTime = appointment.endTime ? new Date(appointment.endTime).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '';
+
+                    return (
+                      <Card key={appointment._id || appointment.appointmentId} className="dark:bg-gray-800 dark:border-gray-700">
+                        <CardContent className="pt-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <h4 className="font-semibold text-lg dark:text-gray-100">{appointment.serviceName || 'Servicio'}</h4>
+                                <Badge className={statusConfig.color}>
+                                  {statusConfig.label}
+                                </Badge>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <Users className="h-4 w-4" />
-                                {appointment.customerName || 'Cliente'} · {appointment.capacityUsed || 1}/{appointment.capacity || 1} personas
-                              </div>
-                              {appointment.resourceName && (
+                              <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                                 <div className="flex items-center gap-2">
-                                  <MapPin className="h-4 w-4" />
-                                  {appointment.resourceName}
+                                  <Clock className="h-4 w-4" />
+                                  {startTime} - {endTime}
                                 </div>
-                              )}
-                              {appointment.notes && (
-                                <p className="text-xs italic mt-2 dark:text-gray-500">
-                                  "{appointment.notes}"
-                                </p>
-                              )}
+                                <div className="flex items-center gap-2">
+                                  <Users className="h-4 w-4" />
+                                  {appointment.customerName || 'Cliente'} · {appointment.capacityUsed || 1}/{appointment.capacity || 1} personas
+                                </div>
+                                {appointment.resourceName && (
+                                  <div className="flex items-center gap-2">
+                                    <MapPin className="h-4 w-4" />
+                                    {appointment.resourceName}
+                                  </div>
+                                )}
+                                {appointment.notes && (
+                                  <p className="text-xs italic mt-2 dark:text-gray-500">
+                                    "{appointment.notes}"
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                )}
+              </div>
             </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-    </>
+          </SheetContent>
+        </Sheet>
+
+        {/* DnD Confirmation Dialog */}
+        <DragConfirmDialog
+          dialog={dragConfirmDialog}
+          onConfirm={confirmDragReschedule}
+          onCancel={() => setDragConfirmDialog(null)}
+        />
+      </>
+    </DndProvider>
   );
 }
 
 // Day View Component
-const DayView = ({ currentDate, appointments, handleDayClick, timeSlots }) => {
+const DayView = ({ currentDate, appointments, handleDayClick, timeSlots, onDropAppointment, isMobile }) => {
   const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
 
   return (
@@ -661,8 +920,11 @@ const DayView = ({ currentDate, appointments, handleDayClick, timeSlots }) => {
           });
 
           return (
-            <div
+            <DroppableTimeCell
               key={timeSlot}
+              droppableId={`day-${dateStr}-${timeSlot}`}
+              droppableData={{ timeSlot, dateStr }}
+              onDrop={onDropAppointment}
               className="flex border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
               onClick={() => handleDayClick(dateStr)}
             >
@@ -674,19 +936,21 @@ const DayView = ({ currentDate, appointments, handleDayClick, timeSlots }) => {
                   {aptsAtTime.map((apt) => {
                     const statusConfig = STATUS_CONFIG[apt.status] || STATUS_CONFIG.pending;
                     return (
-                      <div
-                        key={apt._id || apt.appointmentId}
-                        className={`text-xs p-2 rounded ${statusConfig.color} flex items-center gap-2`}
-                      >
-                        <Users className="h-3 w-3" />
-                        <span className="font-medium">{apt.serviceName}</span>
-                        <span>({apt.capacityUsed || 1}/{apt.capacity || 1})</span>
-                      </div>
+                      <DraggableAppointmentChip key={apt._id || apt.appointmentId} apt={apt} isMobile={isMobile}>
+                        <div
+                          className={`text-xs p-2 rounded ${statusConfig.color} flex items-center gap-2`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Users className="h-3 w-3" />
+                          <span className="font-medium">{apt.serviceName}</span>
+                          <span>({apt.capacityUsed || 1}/{apt.capacity || 1})</span>
+                        </div>
+                      </DraggableAppointmentChip>
                     );
                   })}
                 </div>
               </div>
-            </div>
+            </DroppableTimeCell>
           );
         })}
       </div>
@@ -695,7 +959,7 @@ const DayView = ({ currentDate, appointments, handleDayClick, timeSlots }) => {
 };
 
 // Week View Component
-const WeekView = ({ currentDate, appointments, handleDayClick, timeSlots }) => {
+const WeekView = ({ currentDate, appointments, handleDayClick, timeSlots, onDropAppointment, isMobile }) => {
   const getWeekDates = () => {
     const start = new Date(currentDate);
     const day = start.getDay();
@@ -756,8 +1020,11 @@ const WeekView = ({ currentDate, appointments, handleDayClick, timeSlots }) => {
               });
 
               return (
-                <div
+                <DroppableTimeCell
                   key={idx}
+                  droppableId={`week-${dateStr}-${timeSlot}`}
+                  droppableData={{ timeSlot, dateStr }}
+                  onDrop={onDropAppointment}
                   className="p-1 border-l dark:border-gray-700 min-h-[50px] hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
                   onClick={() => handleDayClick(dateStr)}
                 >
@@ -765,16 +1032,18 @@ const WeekView = ({ currentDate, appointments, handleDayClick, timeSlots }) => {
                     {aptsAtTime.slice(0, 2).map((apt) => {
                       const statusConfig = STATUS_CONFIG[apt.status] || STATUS_CONFIG.pending;
                       return (
-                        <div
-                          key={apt._id || apt.appointmentId}
-                          className={`text-xs p-1 rounded ${statusConfig.color} truncate`}
-                          title={`${apt.serviceName} (${apt.capacityUsed || 1}/${apt.capacity || 1})`}
-                        >
-                          <div className="flex items-center gap-1">
-                            <Users className="h-2 w-2" />
-                            <span className="truncate">{apt.serviceName}</span>
+                        <DraggableAppointmentChip key={apt._id || apt.appointmentId} apt={apt} isMobile={isMobile}>
+                          <div
+                            className={`text-xs p-1 rounded ${statusConfig.color} truncate`}
+                            title={`${apt.serviceName} (${apt.capacityUsed || 1}/${apt.capacity || 1})`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center gap-1">
+                              <Users className="h-2 w-2" />
+                              <span className="truncate">{apt.serviceName}</span>
+                            </div>
                           </div>
-                        </div>
+                        </DraggableAppointmentChip>
                       );
                     })}
                     {aptsAtTime.length > 2 && (
@@ -783,7 +1052,7 @@ const WeekView = ({ currentDate, appointments, handleDayClick, timeSlots }) => {
                       </div>
                     )}
                   </div>
-                </div>
+                </DroppableTimeCell>
               );
             })}
           </div>

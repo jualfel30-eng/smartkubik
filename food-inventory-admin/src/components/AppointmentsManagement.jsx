@@ -1901,6 +1901,41 @@ function AppointmentsManagement() {
     }
   };
 
+  // ─── Calendar drag-and-drop reschedule ────────────────────────────────────────
+  const handleCalendarReschedule = useCallback(async ({ appointment, newDate, newStartTime, newEndTime, newResourceId }) => {
+    const id = appointment._id;
+
+    if (isBeautyVertical) {
+      // Beauty bookings: send date + startTime/endTime as plain strings
+      const payload = {
+        startTime: newStartTime,
+        endTime: newEndTime,
+        date: newDate,
+      };
+      if (newResourceId) payload.professional = newResourceId;
+
+      await fetchApi(`${endpoints.appointments}/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+    } else {
+      // Generic appointments: send full ISO startTime/endTime
+      const payload = {
+        startTime: newDate ? `${newDate}T${newStartTime}:00` : appointment.startTime,
+        endTime: newDate ? `${newDate}T${newEndTime}:00` : appointment.endTime,
+      };
+      if (newResourceId) payload.resourceId = newResourceId;
+
+      await fetchApi(`${endpoints.appointments}/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+    }
+
+    toast.success('Cita reagendada correctamente');
+    await loadAppointments();
+  }, [isBeautyVertical, endpoints.appointments, loadAppointments]);
+
   const handleStatusChange = async (appointmentId, newStatus) => {
     try {
       setLoading(true);
@@ -2156,7 +2191,7 @@ function AppointmentsManagement() {
         </TabsContent>
 
         <TabsContent value="calendar">
-          <AppointmentsCalendar onCreateAppointment={openCreateDialog} />
+          <AppointmentsCalendar onCreateAppointment={openCreateDialog} onReschedule={handleCalendarReschedule} />
         </TabsContent>
       </Tabs>
 
