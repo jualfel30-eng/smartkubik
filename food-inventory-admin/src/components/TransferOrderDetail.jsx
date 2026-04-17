@@ -476,11 +476,12 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
 
       {/* Receive dialog */}
       <Dialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Recibir productos</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">Ingresa las cantidades recibidas para cada producto.</p>
+          <div className="overflow-y-auto flex-1 min-h-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -519,6 +520,7 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
               ))}
             </TableBody>
           </Table>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setReceiveDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleReceive} disabled={actionLoading}>
