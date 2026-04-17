@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -106,6 +107,8 @@ const initialServiceState = {
 };
 
 function ServicesManagement() {
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'services';
   const [ConfirmDialog, confirmAction] = useConfirm();
   const hasAccess = useModuleAccess('appointments');
   const { isResourceCentric, isFlexible, businessType } = useBusinessModel();
@@ -791,7 +794,7 @@ function ServicesManagement() {
       </div>
 
       {isBeautyVertical ? (
-        <Tabs defaultValue="services">
+        <Tabs defaultValue={initialTab}>
           <TabsList>
             <TabsTrigger value="services">Servicios</TabsTrigger>
             <TabsTrigger value="packages">Paquetes</TabsTrigger>
