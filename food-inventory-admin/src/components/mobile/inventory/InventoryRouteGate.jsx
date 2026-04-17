@@ -1,5 +1,4 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 
 const DesktopInventoryDashboard = lazy(() => import('@/components/InventoryDashboard.jsx'));
 const MobileInventoryPage = lazy(() => import('./MobileInventoryPage.jsx'));
@@ -19,14 +18,10 @@ function useIsMobile() {
 
 export default function InventoryRouteGate() {
   const isMobile = useIsMobile();
-  const [searchParams] = useSearchParams();
-  // When a specific tab is selected (products, purchases, etc.),
-  // show the desktop dashboard which handles those tabs
-  const hasTab = searchParams.has('tab');
 
   return (
     <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Cargando...</div>}>
-      {isMobile && !hasTab ? <MobileInventoryPage /> : <DesktopInventoryDashboard />}
+      {isMobile ? <MobileInventoryPage /> : <DesktopInventoryDashboard />}
     </Suspense>
   );
 }
