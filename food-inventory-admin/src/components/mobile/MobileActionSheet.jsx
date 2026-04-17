@@ -77,10 +77,11 @@ export default function MobileActionSheet({
       />
       <motion.div
         className={cn(
-          'absolute bottom-0 inset-x-0 bg-card shadow-2xl safe-bottom flex flex-col',
+          'absolute bottom-0 inset-x-0 bg-card shadow-2xl flex flex-col overflow-hidden',
           className,
         )}
         style={{
+          maxHeight: '85dvh',
           borderTopLeftRadius: 'var(--mobile-radius-xl)',
           borderTopRightRadius: 'var(--mobile-radius-xl)',
           boxShadow: 'var(--elevation-overlay)',
@@ -100,10 +101,13 @@ export default function MobileActionSheet({
             <X size={20} />
           </button>
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain mobile-scroll px-4 pb-4 pt-2">
+        <div className={cn(
+          'flex-1 min-h-0 overflow-y-auto overscroll-contain mobile-scroll px-4 pb-4 pt-2',
+          !footer && 'safe-bottom',
+        )}>
           {children}
         </div>
-        {footer && <div className="shrink-0">{footer}</div>}
+        {footer && <div className="shrink-0 safe-bottom">{footer}</div>}
       </motion.div>
     </div>
   );

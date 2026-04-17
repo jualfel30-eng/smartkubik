@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, RefreshCw, Package, Plus, Minus, History, Filter, X, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchApi } from '@/lib/api';
@@ -225,8 +226,7 @@ function AdjustStockSheet({ product, mode, onClose }) {
   };
 
   const footer = (
-    <div className="px-4 pt-3 pb-4 bg-card border-t border-border safe-bottom"
-      style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}>
+    <div className="px-4 pt-3 pb-4 bg-card border-t border-border">
       <p className="text-xs text-muted-foreground text-center mb-2">
         Stock actual: {currentStock} → Nuevo: <strong>{newStock}</strong>
       </p>
@@ -370,6 +370,7 @@ function FilterSheet({ open, onClose, filters, onApply }) {
 
 // ─── Main component ���─────────────────────────────────────────────────────────
 export default function MobileInventoryPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('stock');
   const [inventory, setInventory] = useState([]);
   const [movements, setMovements] = useState([]);
@@ -513,8 +514,17 @@ export default function MobileInventoryPage() {
                     {search || activeFilterCount > 0 ? 'Sin resultados' : 'Sin productos en inventario'}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {search ? 'Intenta con otro termino' : 'Agrega productos desde el modulo de Productos'}
+                    {search ? 'Intenta con otro termino' : 'Crea productos primero y luego registra inventario'}
                   </p>
+                  {!search && activeFilterCount === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/inventory-management?tab=products')}
+                      className="mt-4 px-4 py-2.5 rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground text-sm font-semibold no-tap-highlight"
+                    >
+                      Ir a Productos
+                    </button>
+                  )}
                 </div>
               ) : (
                 <motion.div

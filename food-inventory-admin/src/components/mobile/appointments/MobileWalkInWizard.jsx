@@ -601,8 +601,7 @@ export default function MobileWalkInWizard({
     (step === 3 && customerName);
 
   const stickyFooter = (
-    <div className="px-4 pt-3 pb-4 bg-card border-t border-border safe-bottom"
-      style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}>
+    <div className="px-4 pt-3 pb-4 bg-card border-t border-border">
       {/* Summary line */}
       {step >= 2 && selectedServiceIds.length > 0 && (
         <p className="text-xs text-muted-foreground mb-2 text-center">
@@ -657,7 +656,6 @@ export default function MobileWalkInWizard({
       open
       onClose={() => onClose?.(false)}
       title="Walk-in"
-      className="max-h-[85vh]"
       footer={stickyFooter}
     >
       <StepIndicator current={step} total={3} />

@@ -210,7 +210,6 @@ export default function MobileChargeFlow({ onClose }) {
         open
         onClose={() => onClose?.()}
         title="Cobrar"
-        className="max-h-[85vh]"
       >
         {loading ? (
           <div className="space-y-3 animate-pulse">

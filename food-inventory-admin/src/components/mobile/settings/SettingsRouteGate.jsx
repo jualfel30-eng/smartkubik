@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 const DesktopSettingsPage = lazy(() => import('@/components/SettingsPage.jsx'));
 const MobileSettingsPage = lazy(() => import('./MobileSettingsPage.jsx'));
@@ -18,10 +19,14 @@ function useIsMobile() {
 
 export default function SettingsRouteGate() {
   const isMobile = useIsMobile();
+  const [searchParams] = useSearchParams();
+  // When a section is selected, show the desktop settings page
+  // which already handles tab/section navigation internally
+  const hasSection = searchParams.has('section');
 
   return (
     <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Cargando...</div>}>
-      {isMobile ? <MobileSettingsPage /> : <DesktopSettingsPage />}
+      {isMobile && !hasSection ? <MobileSettingsPage /> : <DesktopSettingsPage />}
     </Suspense>
   );
 }

@@ -375,10 +375,7 @@ export default function MobileQuickCreateAppointment({
   };
 
   const stickyFooter = (
-    <div
-      className="px-4 pt-3 pb-4 bg-card border-t border-border safe-bottom"
-      style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}
-    >
+    <div className="px-4 pt-3 pb-4 bg-card border-t border-border">
       {conflictWarning && (
         <div className="mb-2 rounded-[var(--mobile-radius-md)] bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
           ⚠ {conflictWarning.name} ya tiene una cita de {conflictWarning.startStr} a {conflictWarning.endStr}. Toca "Guardar" para continuar.
@@ -418,7 +415,6 @@ export default function MobileQuickCreateAppointment({
       open
       onClose={() => onClose?.(false)}
       title="Nueva cita"
-      className="max-h-[85vh]"
       footer={stickyFooter}
     >
       <div className="space-y-4 pb-4">
