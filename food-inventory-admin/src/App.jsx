@@ -220,7 +220,7 @@ const StorefrontRouteGate = lazy(() => import('./components/mobile/storefront/St
 const RestaurantStorefrontPage = lazy(() => import('./pages/RestaurantStorefrontPage.jsx'));
 const ReservationsPage = lazy(() => import('./pages/ReservationsPage.jsx'));
 const TipsPage = lazy(() => import('./pages/TipsPage.jsx'));
-const CommissionsPage = lazy(() => import('./pages/CommissionsPage.jsx'));
+const CommissionsRouteGate = lazy(() => import('@/components/mobile/commissions/CommissionsRouteGate.jsx'));
 const MenuEngineeringPage = lazy(() => import('./pages/MenuEngineeringPage.jsx'));
 const RecipesPage = lazy(() => import('./pages/RecipesPage.jsx'));
 const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage.jsx'));
@@ -1400,7 +1400,7 @@ function TenantLayout() {
                 <Route path="restaurant/reservations" element={<ReservationsPage />} />
                 <Route path="tips" element={<TipsPage />} />
                 <Route path="restaurant/tips" element={<Navigate to="/tips" replace />} /> {/* Redirect old route */}
-                <Route path="commissions" element={<CommissionsPage />} />
+                <Route path="commissions" element={<CommissionsRouteGate />} />
                 <Route path="restaurant/menu-engineering" element={<MenuEngineeringPage />} />
                 <Route path="restaurant/recipes" element={<RecipesPage />} />
                 <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />
