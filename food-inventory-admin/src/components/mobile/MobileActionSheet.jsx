@@ -59,7 +59,7 @@ export default function MobileActionSheet({
   return (
     <div
       className="fixed inset-0 md:hidden"
-      style={{ zIndex: 'var(--z-mobile-sheet)' }}
+      style={{ zIndex: 'var(--z-mobile-sheet)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -76,32 +76,25 @@ export default function MobileActionSheet({
       />
 
       {/* ── Sheet panel ──
-       * The panel IS the scroll container (overflow-y auto).
-       * Header and footer use position:sticky so they stay visible
-       * while the content between them scrolls.
-       * max-height: 85vh keeps the panel from overflowing the viewport.
-       * bottom:0 anchors it to the viewport bottom.
+       * Flex child pushed to bottom by justify-end on wrapper.
+       * No position:absolute needed — flex handles the anchoring.
        */}
-      <motion.div
+      <div
         className={cn(
-          'absolute inset-x-0 bg-card shadow-2xl',
+          'relative bg-card shadow-2xl',
           className,
         )}
         style={{
-          bottom: 0,
           maxHeight: '85vh',
           overflowY: 'auto',
           overscrollBehavior: 'contain',
           WebkitOverflowScrolling: 'touch',
           paddingBottom: 80,
-          borderTopLeftRadius: 'var(--mobile-radius-xl)',
-          borderTopRightRadius: 'var(--mobile-radius-xl)',
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
           boxShadow: 'var(--elevation-overlay)',
+          zIndex: 1,
         }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
       >
         {/* Sticky header: handle + title — always visible at top */}
         <div
@@ -110,8 +103,8 @@ export default function MobileActionSheet({
             position: 'sticky',
             top: 0,
             zIndex: 2,
-            borderTopLeftRadius: 'var(--mobile-radius-xl)',
-            borderTopRightRadius: 'var(--mobile-radius-xl)',
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
           }}
         >
           <div className="flex justify-center pt-2 pb-1">
