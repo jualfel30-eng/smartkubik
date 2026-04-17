@@ -77,11 +77,12 @@ export default function MobileActionSheet({
       />
       <motion.div
         className={cn(
-          'absolute bottom-0 inset-x-0 bg-card shadow-2xl flex flex-col overflow-hidden',
+          'absolute bottom-0 inset-x-0 bg-card shadow-2xl flex flex-col',
           className,
         )}
         style={{
-          maxHeight: '85dvh',
+          maxHeight: '85vh',
+          overflow: 'hidden',
           borderTopLeftRadius: 'var(--mobile-radius-xl)',
           borderTopRightRadius: 'var(--mobile-radius-xl)',
           boxShadow: 'var(--elevation-overlay)',
@@ -89,7 +90,7 @@ export default function MobileActionSheet({
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
-        transition={SPRING.drawer}
+        transition={{ duration: DUR.slow, ease: EASE.out }}
       >
         <div className="shrink-0 flex justify-center pt-2 pb-1">
           <span className="block w-10 h-1 rounded-full bg-muted-foreground/40" aria-hidden />
