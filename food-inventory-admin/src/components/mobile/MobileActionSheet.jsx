@@ -98,10 +98,10 @@ export default function MobileActionSheet({
           borderTopRightRadius: 'var(--mobile-radius-xl)',
           boxShadow: 'var(--elevation-overlay)',
         }}
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
-        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
       >
         {/* Sticky header: handle + title — always visible at top */}
         <div
