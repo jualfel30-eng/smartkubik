@@ -84,11 +84,12 @@ export default function MobileActionSheet({
        */}
       <motion.div
         className={cn(
-          'absolute bottom-0 inset-x-0 bg-card shadow-2xl safe-bottom',
+          'absolute inset-x-0 bg-card shadow-2xl',
           className,
         )}
         style={{
-          maxHeight: '85vh',
+          bottom: 'calc(var(--mobile-bottomnav-h) + var(--safe-bottom))',
+          maxHeight: 'calc(85vh - var(--mobile-bottomnav-h) - var(--safe-bottom))',
           overflowY: 'auto',
           overscrollBehavior: 'contain',
           WebkitOverflowScrolling: 'touch',
