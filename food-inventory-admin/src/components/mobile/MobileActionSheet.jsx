@@ -24,6 +24,7 @@ export default function MobileActionSheet({
   title,
   children,
   className,
+  footer,
   snapPoints,
   defaultSnap = 0,
 }) {
@@ -76,7 +77,7 @@ export default function MobileActionSheet({
       />
       <motion.div
         className={cn(
-          'absolute bottom-0 inset-x-0 bg-card shadow-2xl safe-bottom',
+          'absolute bottom-0 inset-x-0 bg-card shadow-2xl safe-bottom flex flex-col',
           className,
         )}
         style={{
@@ -89,17 +90,20 @@ export default function MobileActionSheet({
         exit={{ y: '100%' }}
         transition={SPRING.drawer}
       >
-        <div className="flex justify-center pt-2 pb-1">
+        <div className="shrink-0 flex justify-center pt-2 pb-1">
           <span className="block w-10 h-1 rounded-full bg-muted-foreground/40" aria-hidden />
         </div>
-        <div className="flex items-center justify-between px-4 pb-2">
+        <div className="shrink-0 flex items-center justify-between px-4 pb-2">
           <h2 className="text-base font-semibold">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Cerrar"
             className="tap-target no-tap-highlight text-muted-foreground">
             <X size={20} />
           </button>
         </div>
-        <div className="px-4 pb-4 pt-2">{children}</div>
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain mobile-scroll px-4 pb-4 pt-2">
+          {children}
+        </div>
+        {footer && <div className="shrink-0">{footer}</div>}
       </motion.div>
     </div>
   );

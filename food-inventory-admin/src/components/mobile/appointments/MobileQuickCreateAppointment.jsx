@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { format, addMinutes, startOfDay, setHours, setMinutes, roundToNearestMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Search, ChevronRight, Clock, User, Scissors, X } from 'lucide-react';
+import { Search, ChevronRight, ChevronDown, Clock, User, Scissors, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { fetchApi, addToWaitlist, getClientNoShowStatus } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import { cn } from '@/lib/utils';
+import { SPRING, DUR, EASE } from '@/lib/motion';
 import haptics from '@/lib/haptics';
 import { emitBadgeUpdate } from '@/lib/badge-events';
 
@@ -14,6 +16,41 @@ const toTimeInputValue = (d) => format(d, "yyyy-MM-dd'T'HH:mm");
 
 function nextQuarterHour(base) {
   return roundToNearestMinutes(addMinutes(base, 1), { nearestTo: 15, roundingMethod: 'ceil' });
+}
+
+// ─── collapsible section (notas, recurrencia) ───────────────────────────────
+function CollapsibleSection({ title, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border-t border-border pt-3 mt-2">
+      <button
+        type="button"
+        onClick={() => { haptics.tap(); setOpen((o) => !o); }}
+        className="w-full flex items-center justify-between py-1 tap-target no-tap-highlight"
+      >
+        <span className="text-xs font-medium text-muted-foreground">{title}</span>
+        <motion.span
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={SPRING.snappy}
+        >
+          <ChevronDown size={14} className="text-muted-foreground" />
+        </motion.span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: DUR.base, ease: EASE.out }}
+            className="overflow-hidden"
+          >
+            <div className="pt-2 pb-1">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 export default function MobileQuickCreateAppointment({
@@ -337,14 +374,54 @@ export default function MobileQuickCreateAppointment({
     }
   };
 
+  const stickyFooter = (
+    <div
+      className="px-4 pt-3 pb-4 bg-card border-t border-border safe-bottom"
+      style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}
+    >
+      {conflictWarning && (
+        <div className="mb-2 rounded-[var(--mobile-radius-md)] bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+          ⚠ {conflictWarning.name} ya tiene una cita de {conflictWarning.startStr} a {conflictWarning.endStr}. Toca "Guardar" para continuar.
+        </div>
+      )}
+      {showWaitlistOption && (
+        <div className="mb-3 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
+          <p className="text-sm text-amber-600 dark:text-amber-400 mb-2">
+            No hay disponibilidad en ese horario. ¿Agregar a lista de espera?
+          </p>
+          <div className="space-y-2 mb-2">
+            <p className="text-xs text-muted-foreground">Rango horario flexible:</p>
+            <div className="flex gap-2">
+              <input type="time" value={waitlistFrom} onChange={e => setWaitlistFrom(e.target.value)} className="flex-1 border border-border rounded-[var(--mobile-radius-md)] px-2 py-1.5 text-sm bg-background" />
+              <span className="self-center text-sm text-muted-foreground">a</span>
+              <input type="time" value={waitlistTo} onChange={e => setWaitlistTo(e.target.value)} className="flex-1 border border-border rounded-[var(--mobile-radius-md)] px-2 py-1.5 text-sm bg-background" />
+            </div>
+          </div>
+          <button onClick={handleAddToWaitlist} className="w-full bg-amber-600 text-white py-2 rounded-[var(--mobile-radius-md)] text-sm font-medium no-tap-highlight">
+            Agregar a lista de espera
+          </button>
+        </div>
+      )}
+      <button
+        type="button"
+        disabled={submitting || noShowWarning?.level === 'blacklisted'}
+        onClick={submit}
+        className="w-full rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground py-4 text-base font-semibold no-tap-highlight disabled:opacity-60"
+      >
+        {submitting ? 'Guardando…' : conflictWarning ? 'Guardar de todas formas' : selectedServiceIds.length > 1 ? `Guardar ${selectedServiceIds.length} servicios` : 'Guardar cita'}
+      </button>
+    </div>
+  );
+
   return (
     <MobileActionSheet
       open
       onClose={() => onClose?.(false)}
       title="Nueva cita"
-      className="max-h-[92vh] overflow-y-auto mobile-scroll"
+      className="max-h-[85vh]"
+      footer={stickyFooter}
     >
-      <div className="space-y-4 pb-20">
+      <div className="space-y-4 pb-4">
 
         {/* Cliente */}
         <section>
@@ -593,124 +670,106 @@ export default function MobileQuickCreateAppointment({
           </section>
         )}
 
-        {/* Notas */}
-        <section>
-          <label className="text-xs font-medium text-muted-foreground">Notas (opcional)</label>
+        {/* Notas — collapsed by default to save space */}
+        <CollapsibleSection title="Notas (opcional)">
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            className="mt-1 w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2 text-sm"
+            className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2 text-sm"
             placeholder="Preferencias, observaciones…"
           />
-        </section>
+        </CollapsibleSection>
 
-        {/* Recurring toggle — solo beauty */}
+        {/* Recurring toggle — collapsed by default, solo beauty */}
         {isBeauty && (
-          <div className="border-t pt-4 mt-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Repetir esta cita</p>
-                <p className="text-xs text-muted-foreground">Misma hora y profesional</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsRecurring(r => !r)}
-                className={`relative w-11 h-6 rounded-full transition-colors ${isRecurring ? 'bg-primary' : 'bg-gray-200'}`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isRecurring ? 'translate-x-5' : ''}`} />
-              </button>
-            </div>
-
-            {isRecurring && (
-              <div className="mt-3 space-y-3 animate-in fade-in slide-in-from-top-2">
-                {/* Frequency */}
+          <CollapsibleSection title="Repetir esta cita">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1.5">Frecuencia</p>
-                  <div className="flex gap-2">
-                    {[
-                      { value: 'weekly', label: 'Semanal' },
-                      { value: 'biweekly', label: 'Cada 2 sem.' },
-                      { value: 'monthly', label: 'Mensual' },
-                    ].map(opt => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setRecurrenceFrequency(opt.value)}
-                        className={`flex-1 py-1.5 text-xs rounded-lg border transition-colors ${
-                          recurrenceFrequency === opt.value
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'border-input hover:bg-accent'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-sm font-medium">Activar recurrencia</p>
+                  <p className="text-xs text-muted-foreground">Misma hora y profesional</p>
                 </div>
-
-                {/* End after N occurrences */}
-                <div className="flex items-center gap-3">
-                  <p className="text-xs text-muted-foreground">Número de citas:</p>
-                  <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => setRecurrenceCount(c => Math.max(2, c - 1))}
-                      className="w-7 h-7 rounded border flex items-center justify-center text-sm">−</button>
-                    <span className="w-6 text-center text-sm font-medium">{recurrenceCount}</span>
-                    <button type="button" onClick={() => setRecurrenceCount(c => Math.min(12, c + 1))}
-                      className="w-7 h-7 rounded border flex items-center justify-center text-sm">+</button>
-                  </div>
-                </div>
-
-                {/* Summary */}
-                <p className="text-xs text-muted-foreground bg-muted rounded-lg p-2">
-                  Se crearán <strong>{recurrenceCount} citas</strong> {
-                    recurrenceFrequency === 'weekly' ? 'cada semana' :
-                    recurrenceFrequency === 'biweekly' ? 'cada 2 semanas' : 'cada mes'
-                  }. Mismo profesional y horario.
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsRecurring(r => !r)}
+                  className={cn(
+                    'relative w-11 h-6 rounded-full transition-colors',
+                    isRecurring ? 'bg-primary' : 'bg-muted-foreground/30',
+                  )}
+                >
+                  <motion.span
+                    className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow"
+                    animate={{ x: isRecurring ? 20 : 0 }}
+                    transition={SPRING.snappy}
+                  />
+                </button>
               </div>
-            )}
-          </div>
-        )}
-      </div>
 
-      {/* Sticky save */}
-      <div
-        className="absolute inset-x-0 bottom-0 px-4 pt-3 pb-4 bg-card border-t border-border safe-bottom"
-        style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}
-      >
-        {conflictWarning && (
-          <div className="mb-2 rounded-[var(--mobile-radius-md)] bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
-            ⚠ {conflictWarning.name} ya tiene una cita de {conflictWarning.startStr} a {conflictWarning.endStr}. Toca "Guardar" para continuar.
-          </div>
-        )}
-        {showWaitlistOption && (
-          <div className="mb-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-            <p className="text-sm text-amber-800 mb-2">
-              No hay disponibilidad en ese horario. ¿Agregar a lista de espera?
-            </p>
-            <div className="space-y-2 mb-2">
-              <p className="text-xs text-amber-700">Rango horario flexible:</p>
-              <div className="flex gap-2">
-                <input type="time" value={waitlistFrom} onChange={e => setWaitlistFrom(e.target.value)} className="flex-1 border rounded px-2 py-1 text-sm bg-white" />
-                <span className="self-center text-sm text-amber-800">a</span>
-                <input type="time" value={waitlistTo} onChange={e => setWaitlistTo(e.target.value)} className="flex-1 border rounded px-2 py-1 text-sm bg-white" />
-              </div>
+              <AnimatePresence initial={false}>
+                {isRecurring && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: DUR.base, ease: EASE.out }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-3 pt-1">
+                      {/* Frequency */}
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1.5">Frecuencia</p>
+                        <div className="flex gap-2">
+                          {[
+                            { value: 'weekly', label: 'Semanal' },
+                            { value: 'biweekly', label: 'Cada 2 sem.' },
+                            { value: 'monthly', label: 'Mensual' },
+                          ].map(opt => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setRecurrenceFrequency(opt.value)}
+                              className={cn(
+                                'flex-1 py-1.5 text-xs rounded-lg border transition-colors',
+                                recurrenceFrequency === opt.value
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'border-input hover:bg-accent',
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* End after N occurrences */}
+                      <div className="flex items-center gap-3">
+                        <p className="text-xs text-muted-foreground">Número de citas:</p>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => setRecurrenceCount(c => Math.max(2, c - 1))}
+                            className="w-7 h-7 rounded border flex items-center justify-center text-sm">−</button>
+                          <span className="w-6 text-center text-sm font-medium">{recurrenceCount}</span>
+                          <button type="button" onClick={() => setRecurrenceCount(c => Math.min(12, c + 1))}
+                            className="w-7 h-7 rounded border flex items-center justify-center text-sm">+</button>
+                        </div>
+                      </div>
+
+                      {/* Summary */}
+                      <p className="text-xs text-muted-foreground bg-muted rounded-lg p-2">
+                        Se crearán <strong>{recurrenceCount} citas</strong> {
+                          recurrenceFrequency === 'weekly' ? 'cada semana' :
+                          recurrenceFrequency === 'biweekly' ? 'cada 2 semanas' : 'cada mes'
+                        }. Mismo profesional y horario.
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-            <button onClick={handleAddToWaitlist} className="w-full bg-amber-600 text-white py-2 rounded-lg text-sm font-medium">
-              Agregar a lista de espera
-            </button>
-          </div>
+          </CollapsibleSection>
         )}
-        <button
-          type="button"
-          disabled={submitting || noShowWarning?.level === 'blacklisted'}
-          onClick={submit}
-          className="w-full rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground py-4 text-base font-semibold no-tap-highlight disabled:opacity-60"
-        >
-          {submitting ? 'Guardando…' : conflictWarning ? 'Guardar de todas formas' : selectedServiceIds.length > 1 ? `Guardar ${selectedServiceIds.length} servicios` : 'Guardar cita'}
-        </button>
       </div>
+
     </MobileActionSheet>
   );
 }
