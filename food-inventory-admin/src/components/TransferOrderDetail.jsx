@@ -476,7 +476,7 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
 
       {/* Receive dialog */}
       <Dialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen}>
-        <DialogContent className="max-h-[90vh] flex flex-col max-w-2xl">
+        <DialogContent className="max-h-[90vh] flex flex-col max-w-[640px]">
           <DialogHeader>
             <DialogTitle>Recibir productos</DialogTitle>
           </DialogHeader>
