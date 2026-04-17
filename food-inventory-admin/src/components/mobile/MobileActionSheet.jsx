@@ -131,7 +131,7 @@ export default function MobileActionSheet({
         {/* Sticky footer — always visible at bottom */}
         {footer && (
           <div
-            className="bg-card safe-bottom"
+            className="bg-card"
             style={{ position: 'sticky', bottom: 0, zIndex: 2 }}
           >
             {footer}
