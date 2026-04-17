@@ -209,6 +209,8 @@ const CrmRouteGate = lazy(() => import('@/components/mobile/clients/CrmRouteGate
 const ServicesRouteGate = lazy(() => import('@/components/mobile/services/ServicesRouteGate.jsx'));
 const FloorViewRouteGate = lazy(() => import('@/components/mobile/floor/FloorViewRouteGate.jsx'));
 const ProfessionalsRouteGate = lazy(() => import('@/components/mobile/professionals/ProfessionalsRouteGate.jsx'));
+const InventoryRouteGate = lazy(() => import('@/components/mobile/inventory/InventoryRouteGate.jsx'));
+const SettingsRouteGate = lazy(() => import('@/components/mobile/settings/SettingsRouteGate.jsx'));
 const PublicCheckinPage = lazy(() => import('./pages/PublicCheckinPage.jsx'));
 const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'));
 const OrganizationsManagement = lazy(() => import('@/components/OrganizationsManagement.jsx'));
@@ -1258,7 +1260,7 @@ function TenantLayout() {
               <PageTransition>
               <Routes>
                 <Route path="dashboard" element={<><TodayDashboard /><DashboardView /></>} />
-                <Route path="inventory-management" element={<InventoryDashboard />} />
+                <Route path="inventory-management" element={<InventoryRouteGate />} />
                 <Route
                   path="storefront"
                   element={
@@ -1417,7 +1419,7 @@ function TenantLayout() {
                     <ShiftManagement />
                   }
                 />
-                <Route path="settings" element={<SettingsPage />} />
+                <Route path="settings" element={<SettingsRouteGate />} />
                 <Route path="business-locations" element={<BusinessLocationsManagement />} />
                 <Route path="subsidiaries" element={<SubsidiariesPanel />} />
                 <Route path="data-import" element={<DataImportPage />} />
