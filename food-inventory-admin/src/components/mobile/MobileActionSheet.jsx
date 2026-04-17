@@ -68,8 +68,7 @@ export default function MobileActionSheet({
         type="button"
         aria-label="Cerrar"
         onClick={onClose}
-        className="absolute inset-x-0 top-0 bg-black"
-        style={{ bottom: 'calc(var(--mobile-bottomnav-h) + var(--safe-bottom))' }}
+        className="absolute inset-0 bg-black"
         initial={{ opacity: 0 }}
         animate={{ opacity: 0.5 }}
         exit={{ opacity: 0 }}
@@ -89,11 +88,12 @@ export default function MobileActionSheet({
           className,
         )}
         style={{
-          bottom: 'calc(var(--mobile-bottomnav-h) + var(--safe-bottom))',
-          maxHeight: 'calc(85vh - var(--mobile-bottomnav-h) - var(--safe-bottom))',
+          bottom: 0,
+          maxHeight: '85vh',
           overflowY: 'auto',
           overscrollBehavior: 'contain',
           WebkitOverflowScrolling: 'touch',
+          paddingBottom: 80,
           borderTopLeftRadius: 'var(--mobile-radius-xl)',
           borderTopRightRadius: 'var(--mobile-radius-xl)',
           boxShadow: 'var(--elevation-overlay)',
