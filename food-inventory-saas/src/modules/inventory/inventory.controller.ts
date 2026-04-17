@@ -386,6 +386,21 @@ export class InventoryController {
     }
   }
 
+  @Get("alerts/count")
+  @Permissions("inventory_read")
+  @ApiOperation({ summary: "Conteo de alertas de stock bajo (para badges)" })
+  @ApiResponse({ status: 200, description: "Conteo de alertas" })
+  async getAlertsCount(@Request() req) {
+    try {
+      const alerts = await this.inventoryService.getLowStockAlerts(
+        req.user.tenantId,
+      );
+      return { data: { count: Array.isArray(alerts) ? alerts.length : 0 } };
+    } catch {
+      return { data: { count: 0 } };
+    }
+  }
+
   @Get("alerts/low-stock")
   @Permissions("inventory_read")
   @ApiOperation({ summary: "Obtener alertas de stock bajo" })
