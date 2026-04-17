@@ -1,10 +1,10 @@
 import { useState, useRef } from 'react';
-import { Plus, CalendarPlus, UserPlus, Receipt, ShoppingCart } from 'lucide-react';
+import { Plus, CalendarPlus, UserPlus, Receipt, ShoppingCart, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import MobileActionSheet from './MobileActionSheet.jsx';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
-import { SPRING } from '@/lib/motion';
+import { SPRING, STAGGER, scaleIn } from '@/lib/motion';
 import haptics from '@/lib/haptics';
 import { useFabContext } from '@/contexts/FabContext';
 
@@ -12,14 +12,23 @@ const ACTIONS_BY_VERTICAL = {
   beauty: [
     { id: 'new-appointment', label: 'Nueva cita', icon: CalendarPlus, to: '/appointments?new=1' },
     { id: 'walk-in', label: 'Walk-in', icon: UserPlus, to: '/appointments?walkin=1' },
-    { id: 'charge', label: 'Cobrar', icon: Receipt, to: '/cash-register' },
-    { id: 'new-client', label: 'Nuevo cliente', icon: UserPlus, to: '/crm?new=1' },
+    { id: 'charge', label: 'Cobrar', icon: Receipt, to: '/appointments?charge=1' },
+    { id: 'next-apt', label: 'Siguiente', icon: Clock, to: '/appointments?next=1' },
   ],
   default: [
     { id: 'new-sale', label: 'Nueva venta', icon: ShoppingCart, to: '/orders/new' },
     { id: 'new-client', label: 'Nuevo cliente', icon: UserPlus, to: '/crm?new=1' },
     { id: 'charge', label: 'Cobrar', icon: Receipt, to: '/cash-register' },
   ],
+};
+
+const ACTION_COLORS = {
+  'new-appointment': 'text-primary',
+  'walk-in': 'text-emerald-500',
+  'charge': 'text-amber-500',
+  'next-apt': 'text-muted-foreground',
+  'new-sale': 'text-primary',
+  'new-client': 'text-muted-foreground',
 };
 
 // Long-press threshold in ms
@@ -120,13 +129,20 @@ export default function MobileFAB() {
         onClose={() => setOpen(false)}
         title="Acciones rápidas"
       >
-        <div className="grid grid-cols-2 gap-3">
+        <motion.div
+          className="grid grid-cols-2 gap-3"
+          variants={STAGGER(0.06, 0.05)}
+          initial="initial"
+          animate="animate"
+        >
           {actions.map((action) => {
             const Icon = action.icon;
+            const iconColor = ACTION_COLORS[action.id] || 'text-primary';
             return (
               <motion.button
                 key={action.id}
                 type="button"
+                variants={scaleIn}
                 onClick={() => handlePick(action)}
                 whileTap={{ scale: 0.96 }}
                 className="no-tap-highlight no-select flex flex-col items-center justify-center gap-2
@@ -136,12 +152,12 @@ export default function MobileFAB() {
                   boxShadow: 'var(--elevation-rest)',
                 }}
               >
-                <Icon size={26} className="text-primary" />
+                <Icon size={26} className={iconColor} />
                 <span className="text-sm font-medium">{action.label}</span>
               </motion.button>
             );
           })}
-        </div>
+        </motion.div>
       </MobileActionSheet>
     </>
   );
