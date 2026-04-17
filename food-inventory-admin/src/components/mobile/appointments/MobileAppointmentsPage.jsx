@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format, addDays, startOfDay, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, RefreshCw, Filter, X, Check, List, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RefreshCw, Filter, X, Check, List, CalendarDays, Users } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/lib/toast';
@@ -16,6 +16,7 @@ import MobileAppointmentDetailSheet from './MobileAppointmentDetailSheet.jsx';
 import MobileQuickCreateAppointment from './MobileQuickCreateAppointment.jsx';
 import MobileWalkInWizard from './MobileWalkInWizard.jsx';
 import MobileChargeFlow from '../pos/MobileChargeFlow.jsx';
+import MobileWaitlistPanel from './MobileWaitlistPanel.jsx';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import PullProgress from '../primitives/PullProgress.jsx';
 
@@ -135,6 +136,7 @@ export default function MobileAppointmentsPage() {
   const [walkinProfId, setWalkinProfId] = useState(searchParams.get('professionalId') || null);
   const [chargeOpen, setChargeOpen] = useState(searchParams.get('charge') === '1');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [resourceFilter, setResourceFilter] = useState('');
   const [viewMode, setViewMode] = useState('day'); // 'day' | 'list'
@@ -326,6 +328,11 @@ export default function MobileAppointmentsPage() {
               <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>
             )}
           </button>
+          {isBeauty && (
+            <button type="button" aria-label="Cola de espera" onClick={() => setWaitlistOpen(true)} className="tap-target no-tap-highlight rounded-full hover:bg-muted">
+              <Users size={16} />
+            </button>
+          )}
           <button type="button" aria-label="Recargar" onClick={() => load()} className="tap-target no-tap-highlight rounded-full hover:bg-muted">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -439,6 +446,26 @@ export default function MobileAppointmentsPage() {
 
       {chargeOpen && isBeauty && (
         <MobileChargeFlow onClose={handleCloseCharge} />
+      )}
+
+      {waitlistOpen && isBeauty && (
+        <MobileWaitlistPanel
+          open
+          onClose={() => setWaitlistOpen(false)}
+          onConvertToBooking={(entry) => {
+            setWaitlistOpen(false);
+            setQuickOpen({
+              startAt: null,
+              prefill: {
+                customerName: entry.client?.name || '',
+                customerPhone: entry.client?.phone || '',
+                serviceIds: entry.services?.map((s) => s.service || s._id).filter(Boolean) || [],
+                professionalId: entry.waitlistPreferredProfessionalId || null,
+                waitlistEntryId: entry._id || entry.id,
+              },
+            });
+          }}
+        />
       )}
     </div>
   );

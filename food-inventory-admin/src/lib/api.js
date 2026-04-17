@@ -2904,4 +2904,11 @@ export const getWaitlist = (params = {}) => {
 export const getClientNoShowStatus = (tenantId, phone) =>
   fetchApi(`/public/beauty-bookings/client-status?tenantId=${tenantId}&phone=${encodeURIComponent(phone)}`, { isPublic: true });
 
+// ── No-Show management (admin) ───────────────────────────────────────
+export const getNoShowFlaggedCustomers = () =>
+  fetchApi('/customers/no-show-flagged');
+
+export const resetCustomerNoShow = (customerId) =>
+  fetchApi(`/customers/${customerId}/reset-no-show`, { method: 'PATCH' });
+
 // ==================== IVA Declaration API ====================
