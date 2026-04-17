@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 
-const DesktopStorefrontPage = lazy(() => import('@/pages/RestaurantStorefrontPage.jsx'));
+const DesktopStorefrontSettings = lazy(() => import('@/components/StorefrontSettings'));
 const MobileStorefrontPage = lazy(() => import('./MobileStorefrontPage.jsx'));
 
 function useIsMobile() {
@@ -21,7 +21,7 @@ export default function StorefrontRouteGate() {
 
   return (
     <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Cargando...</div>}>
-      {isMobile ? <MobileStorefrontPage /> : <DesktopStorefrontPage />}
+      {isMobile ? <MobileStorefrontPage /> : <DesktopStorefrontSettings />}
     </Suspense>
   );
 }
