@@ -147,6 +147,13 @@ export class AppointmentsController {
     );
   }
 
+  @Get("count-today")
+  @ApiOperation({ summary: "Contar citas de hoy pendientes/confirmadas" })
+  @ApiResponse({ status: 200, description: "Conteo de citas" })
+  async countToday(@Request() req) {
+    return this.appointmentsService.countToday(req.user.tenantId);
+  }
+
   @Get(":id/manual-deposits/:depositId/receipt")
   @ApiOperation({ summary: "Obtener comprobante de un depósito confirmado" })
   async getManualDepositReceipt(
@@ -166,13 +173,6 @@ export class AppointmentsController {
   @ApiResponse({ status: 200, description: "Lista de citas" })
   findAll(@Request() req, @Query() filters: AppointmentFilterDto) {
     return this.appointmentsService.findAll(req.user.tenantId, filters);
-  }
-
-  @Get("count-today")
-  @ApiOperation({ summary: "Contar citas de hoy pendientes/confirmadas" })
-  @ApiResponse({ status: 200, description: "Conteo de citas" })
-  async countToday(@Request() req) {
-    return this.appointmentsService.countToday(req.user.tenantId);
   }
 
   @Get("deposits/pending")
