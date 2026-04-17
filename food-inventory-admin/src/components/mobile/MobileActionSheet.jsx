@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -56,10 +57,10 @@ export default function MobileActionSheet({
     );
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 md:hidden"
-      style={{ zIndex: 'var(--z-mobile-sheet)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}
+      style={{ zIndex: 9999 }}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -76,12 +77,12 @@ export default function MobileActionSheet({
       />
 
       {/* ── Sheet panel ──
-       * Flex child pushed to bottom by justify-end on wrapper.
-       * No position:absolute needed — flex handles the anchoring.
+       * Portaled to document.body to escape PageTransition transform
+       * which breaks position:fixed containing block.
        */}
-      <div
+      <motion.div
         className={cn(
-          'relative bg-card shadow-2xl',
+          'absolute bottom-0 inset-x-0 bg-card shadow-2xl safe-bottom',
           className,
         )}
         style={{
@@ -89,50 +90,30 @@ export default function MobileActionSheet({
           overflowY: 'auto',
           overscrollBehavior: 'contain',
           WebkitOverflowScrolling: 'touch',
-          paddingBottom: 80,
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
+          borderTopLeftRadius: 'var(--mobile-radius-xl)',
+          borderTopRightRadius: 'var(--mobile-radius-xl)',
           boxShadow: 'var(--elevation-overlay)',
-          zIndex: 1,
         }}
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={SPRING.drawer}
       >
-        {/* Sticky header: handle + title — always visible at top */}
-        <div
-          className="bg-card"
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 2,
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-          }}
-        >
-          <div className="flex justify-center pt-2 pb-1">
-            <span className="block w-10 h-1 rounded-full bg-muted-foreground/40" aria-hidden />
-          </div>
-          <div className="flex items-center justify-between px-4 pb-2">
-            <h2 className="text-base font-semibold">{title}</h2>
-            <button type="button" onClick={onClose} aria-label="Cerrar"
-              className="tap-target no-tap-highlight text-muted-foreground">
-              <X size={20} />
-            </button>
-          </div>
+        <div className="flex justify-center pt-2 pb-1">
+          <span className="block w-10 h-1 rounded-full bg-muted-foreground/40" aria-hidden />
         </div>
-
-        {/* Content — scrolls naturally inside the panel */}
+        <div className="flex items-center justify-between px-4 pb-2">
+          <h2 className="text-base font-semibold">{title}</h2>
+          <button type="button" onClick={onClose} aria-label="Cerrar"
+            className="tap-target no-tap-highlight text-muted-foreground">
+            <X size={20} />
+          </button>
+        </div>
         <div className="px-4 pb-4 pt-2">{children}</div>
-
-        {/* Sticky footer — always visible at bottom */}
-        {footer && (
-          <div
-            className="bg-card"
-            style={{ position: 'sticky', bottom: 0, zIndex: 2 }}
-          >
-            {footer}
-          </div>
-        )}
+        {footer && <div>{footer}</div>}
       </motion.div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
