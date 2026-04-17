@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { X, Check, Banknote, Smartphone, CreditCard, Zap, ArrowRight, Plus, Trash2, Package } from 'lucide-react';
+import { X, Check, Banknote, Smartphone, CreditCard, Zap, ArrowRight, Plus, Trash2, Package, Scissors } from 'lucide-react';
 import { fetchApi, getLoyaltyBalance, getProducts } from '@/lib/api';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { useAuth } from '@/hooks/use-auth';
@@ -167,6 +167,12 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
   const [productSearchResults, setProductSearchResults] = useState([]);
   const [productSearchLoading, setProductSearchLoading] = useState(false);
 
+  // Service upsell state
+  const [serviceSearchOpen, setServiceSearchOpen] = useState(false);
+  const [serviceSearchQuery, setServiceSearchQuery] = useState('');
+  const [serviceSearchResults, setServiceSearchResults] = useState([]);
+  const [serviceSearchLoading, setServiceSearchLoading] = useState(false);
+
   // Mixed payment state
   const [mixedMode, setMixedMode] = useState(false);
   const [lines, setLines] = useState([
@@ -266,6 +272,34 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
     setProductSearchResults([]);
   }, []);
 
+  const searchServices = useCallback(async (query) => {
+    if (!query || query.length < 2) { setServiceSearchResults([]); return; }
+    setServiceSearchLoading(true);
+    try {
+      const res = await fetchApi('/beauty-services');
+      const items = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const q = query.toLowerCase();
+      setServiceSearchResults(items.filter(s => s.isActive !== false && s.name?.toLowerCase().includes(q)));
+    } catch (e) {
+      console.error('Service search error:', e);
+    } finally {
+      setServiceSearchLoading(false);
+    }
+  }, []);
+
+  const addService = useCallback((service) => {
+    const price = service.price?.amount ?? service.price ?? 0;
+    const id = service._id;
+    setAddedProducts(prev => {
+      const existing = prev.find(p => p._id === id);
+      if (existing) return prev;
+      return [...prev, { _id: id, name: service.name, price, quantity: 1, isService: true, duration: service.duration }];
+    });
+    setServiceSearchOpen(false);
+    setServiceSearchQuery('');
+    setServiceSearchResults([]);
+  }, []);
+
   const updateProductQty = useCallback((productId, delta) => {
     setAddedProducts(prev =>
       prev
@@ -316,7 +350,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
               loyaltyDiscount: appliedLoyaltyDiscount,
             }),
             ...(addedProducts.length > 0 && {
-              addons: addedProducts.map(p => ({ name: p.name, price: p.price, quantity: p.quantity, productId: p._id })),
+              addons: addedProducts.map(p => ({ name: p.name, price: p.price, quantity: p.quantity, ...(p.isService ? {} : { productId: p._id }) })),
             }),
           }),
         });
@@ -376,7 +410,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
                 amountPaid: Number(line.amount),
                 ...loyaltyFields,
                 ...(idx === 0 && addedProducts.length > 0 && {
-                  addons: addedProducts.map(p => ({ name: p.name, price: p.price, quantity: p.quantity, productId: p._id })),
+                  addons: addedProducts.map(p => ({ name: p.name, price: p.price, quantity: p.quantity, ...(p.isService ? {} : { productId: p._id }) })),
                 }),
               }),
             });
@@ -411,7 +445,7 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
                 loyaltyDiscount: appliedLoyaltyDiscount,
               }),
               ...(addedProducts.length > 0 && {
-                addons: addedProducts.map(p => ({ name: p.name, price: p.price, quantity: p.quantity, productId: p._id })),
+                addons: addedProducts.map(p => ({ name: p.name, price: p.price, quantity: p.quantity, ...(p.isService ? {} : { productId: p._id }) })),
               }),
             }),
           });
@@ -452,22 +486,31 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
           <p className="text-sm text-muted-foreground">{appointment?.serviceName || 'Servicio'}</p>
         </div>
 
-        {/* Product upsell — beauty vertical only */}
+        {/* Product & Service upsell — beauty vertical only */}
         {isBeauty && (
           <div className="border-t pt-3 mt-1">
             {addedProducts.length > 0 && (
               <div className="space-y-1 mb-2">
-                <p className="text-xs font-medium text-muted-foreground mb-1">Productos adicionales</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Adicionales</p>
                 {addedProducts.map(p => (
                   <div key={p._id} className="flex items-center gap-2 text-sm">
+                    {p.isService
+                      ? <Scissors className="h-3 w-3 text-primary shrink-0" />
+                      : <Package className="h-3 w-3 text-muted-foreground shrink-0" />
+                    }
                     <span className="flex-1 truncate">{p.name}</span>
-                    <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => updateProductQty(p._id, -1)}
-                        className="w-5 h-5 rounded border text-xs flex items-center justify-center">-</button>
-                      <span className="w-4 text-center text-xs">{p.quantity}</span>
-                      <button type="button" onClick={() => updateProductQty(p._id, 1)}
-                        className="w-5 h-5 rounded border text-xs flex items-center justify-center">+</button>
-                    </div>
+                    {!p.isService && (
+                      <div className="flex items-center gap-1">
+                        <button type="button" onClick={() => updateProductQty(p._id, -1)}
+                          className="w-5 h-5 rounded border text-xs flex items-center justify-center">-</button>
+                        <span className="w-4 text-center text-xs">{p.quantity}</span>
+                        <button type="button" onClick={() => updateProductQty(p._id, 1)}
+                          className="w-5 h-5 rounded border text-xs flex items-center justify-center">+</button>
+                      </div>
+                    )}
+                    {p.isService && p.duration && (
+                      <span className="text-[10px] text-muted-foreground">{p.duration}min</span>
+                    )}
                     <span className="text-xs text-muted-foreground w-16 text-right">{formatCurrency(p.price * p.quantity)}</span>
                     <button type="button" onClick={() => removeProduct(p._id)} className="text-red-400 hover:text-red-600">
                       <X className="h-3 w-3" />
@@ -476,13 +519,22 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
                 ))}
               </div>
             )}
-            <button
-              type="button"
-              onClick={() => setProductSearchOpen(true)}
-              className="w-full text-xs text-muted-foreground border border-dashed rounded-md py-1.5 flex items-center justify-center gap-1 hover:border-primary hover:text-primary transition-colors"
-            >
-              <Package className="h-3 w-3" /> Agregar producto
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setProductSearchOpen(true)}
+                className="flex-1 text-xs text-muted-foreground border border-dashed rounded-md py-1.5 flex items-center justify-center gap-1 hover:border-primary hover:text-primary transition-colors"
+              >
+                <Package className="h-3 w-3" /> Producto
+              </button>
+              <button
+                type="button"
+                onClick={() => setServiceSearchOpen(true)}
+                className="flex-1 text-xs text-muted-foreground border border-dashed rounded-md py-1.5 flex items-center justify-center gap-1 hover:border-primary hover:text-primary transition-colors"
+              >
+                <Scissors className="h-3 w-3" /> Servicio
+              </button>
+            </div>
 
             {/* Product search bottom sheet */}
             {productSearchOpen && (
@@ -516,6 +568,50 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
                     <p className="text-sm text-muted-foreground text-center py-4">Sin resultados</p>
                   )}
                   <button type="button" onClick={() => setProductSearchOpen(false)}
+                    className="mt-2 w-full text-sm text-muted-foreground py-2 border rounded-md">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Service search bottom sheet */}
+            {serviceSearchOpen && (
+              <div className="fixed inset-0 z-50 bg-black/40 flex items-end" onClick={() => setServiceSearchOpen(false)}>
+                <div className="bg-background w-full rounded-t-xl p-4 max-h-[70vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <h3 className="font-medium mb-3 text-sm">Agregar servicio</h3>
+                  <input
+                    autoFocus
+                    className="w-full border rounded-md px-3 py-2 text-sm mb-3 bg-background"
+                    placeholder="Buscar servicio..."
+                    value={serviceSearchQuery}
+                    onChange={e => { setServiceSearchQuery(e.target.value); searchServices(e.target.value); }}
+                  />
+                  {serviceSearchLoading && <p className="text-sm text-muted-foreground text-center py-4">Buscando...</p>}
+                  {serviceSearchResults.map(s => {
+                    const price = s.price?.amount ?? s.price ?? 0;
+                    const alreadyAdded = addedProducts.some(p => p._id === s._id);
+                    return (
+                      <button key={s._id} type="button" onClick={() => !alreadyAdded && addService(s)}
+                        disabled={alreadyAdded}
+                        className={cn(
+                          "w-full text-left p-2 rounded-md flex justify-between items-center mb-1",
+                          alreadyAdded ? "opacity-40 cursor-default" : "hover:bg-accent"
+                        )}>
+                        <div>
+                          <p className="text-sm font-medium">{s.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {s.duration}min · {s.category || 'Servicio'}
+                          </p>
+                        </div>
+                        <span className="text-sm font-medium">{formatCurrency(price)}</span>
+                      </button>
+                    );
+                  })}
+                  {!serviceSearchLoading && serviceSearchResults.length === 0 && serviceSearchQuery.length >= 2 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">Sin resultados</p>
+                  )}
+                  <button type="button" onClick={() => setServiceSearchOpen(false)}
                     className="mt-2 w-full text-sm text-muted-foreground py-2 border rounded-md">
                     Cancelar
                   </button>
