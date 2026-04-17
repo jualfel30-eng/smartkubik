@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { fetchApi } from '../../../lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { useModuleAccess } from '../../../hooks/useModuleAccess';
 import { Plus, Search, Edit2, Lock, Star, Clock, ChevronRight, LayoutGrid, List, RefreshCw, User } from 'lucide-react';
+import { DUR, EASE } from '@/lib/motion';
+import haptics from '@/lib/haptics';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const DAYS_ES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
@@ -212,19 +216,19 @@ export default function MobileProfessionalsPage() {
     setFiltered(result);
   }, [professionals, search, statusFilter]);
 
+  const navigate = useNavigate();
+
   const handleEdit = (professional) => {
-    // Navigate to desktop resources management with edit intent — or open a sheet
-    // For now, navigate to resources page on desktop or show an alert
-    window.location.href = `/resources?edit=${professional._id}`;
+    navigate(`/resources?edit=${professional._id}`);
   };
 
   const handleBlock = (professional) => {
-    // Navigate to resources page focusing block UI
-    window.location.href = `/resources?block=${professional._id}`;
+    navigate(`/resources?block=${professional._id}`);
   };
 
   const handleCreate = () => {
-    window.location.href = '/resources?create=1';
+    haptics.tap();
+    navigate('/resources?create=1');
   };
 
   const activeCount = professionals.filter(p => p.isActive !== false).length;
@@ -243,6 +247,18 @@ export default function MobileProfessionalsPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              {/* + Nuevo button */}
+              <motion.button
+                onClick={handleCreate}
+                whileTap={{ scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: DUR.base, ease: EASE.out, delay: 0.1 }}
+                className="flex items-center gap-1 px-3 py-2 text-xs font-semibold rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground no-tap-highlight"
+              >
+                <Plus size={14} />
+                <span className="hidden min-[360px]:inline">Nuevo</span>
+              </motion.button>
               {/* View toggle */}
               <div className="flex rounded-lg border overflow-hidden">
                 <button
@@ -320,7 +336,7 @@ export default function MobileProfessionalsPage() {
             <p className="text-xs text-muted-foreground mt-1">
               {search || statusFilter !== 'all'
                 ? 'Ajusta los filtros de búsqueda'
-                : 'Agrega tu primer profesional usando el botón +'}
+                : 'Agrega tu primer profesional con el botón "Nuevo" arriba'}
             </p>
           </div>
         ) : viewMode === 'cards' ? (
@@ -343,13 +359,6 @@ export default function MobileProfessionalsPage() {
         )}
       </div>
 
-      {/* FAB */}
-      <button
-        onClick={handleCreate}
-        className="fixed bottom-24 right-4 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center z-20 active:scale-95 transition-transform"
-      >
-        <Plus className="h-6 w-6" />
-      </button>
     </div>
   );
 }
