@@ -1503,4 +1503,43 @@ export class CustomersService {
       topProducts: topProductsResult,
     };
   }
+
+  /**
+   * Obtiene clientes con penalizaciones por no-show (noShowCount > 0 o isBlacklisted)
+   */
+  async findNoShowFlagged(tenantId: string) {
+    return this.customerModel
+      .find({
+        tenantId: { $in: [tenantId, this.toObjectId(tenantId)] },
+        isDeleted: { $ne: true },
+        $or: [
+          { noShowCount: { $gt: 0 } },
+          { isBlacklisted: true },
+          { requiresDeposit: true },
+        ],
+      })
+      .select('name companyName phone whatsappNumber noShowCount lastNoShowDate requiresDeposit isBlacklisted')
+      .sort({ noShowCount: -1 })
+      .lean();
+  }
+
+  /**
+   * Resetear penalizaciones de un cliente
+   */
+  async resetNoShowPenalty(tenantId: string, customerId: string) {
+    const customer = await this.customerModel.findOne({
+      _id: this.toObjectId(customerId),
+      tenantId: { $in: [tenantId, this.toObjectId(tenantId)] },
+      isDeleted: { $ne: true },
+    });
+    if (!customer) {
+      throw new Error('Cliente no encontrado');
+    }
+    customer.noShowCount = 0;
+    customer.lastNoShowDate = undefined;
+    customer.requiresDeposit = false;
+    customer.isBlacklisted = false;
+    await customer.save();
+    return customer;
+  }
 }

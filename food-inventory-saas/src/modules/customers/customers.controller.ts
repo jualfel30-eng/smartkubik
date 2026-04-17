@@ -98,6 +98,45 @@ export class CustomersController {
     }
   }
 
+  @Patch(":id/reset-no-show")
+  @Permissions("customers_write")
+  @ApiOperation({ summary: "Resetear penalizaciones de no-show de un cliente" })
+  async resetNoShow(@Param("id") id: string, @Request() req) {
+    try {
+      const customer = await this.customersService.resetNoShowPenalty(
+        req.user.tenantId,
+        id,
+      );
+      return { success: true, data: customer };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al resetear penalizaciones",
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Get("no-show-flagged")
+  @Permissions("customers_read")
+  @ApiOperation({ summary: "Obtener clientes con penalizaciones por no-show" })
+  @ApiResponse({ status: 200, description: "Clientes penalizados" })
+  async getNoShowFlagged(@Request() req) {
+    try {
+      const customers = await this.customersService.findNoShowFlagged(
+        req.user.tenantId,
+      );
+      return {
+        success: true,
+        data: customers,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al obtener clientes penalizados",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   @Get(":id")
   @Permissions("customers_read")
   @ApiOperation({ summary: "Obtener cliente por ID" })
