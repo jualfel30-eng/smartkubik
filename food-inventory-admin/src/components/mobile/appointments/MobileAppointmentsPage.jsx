@@ -14,6 +14,8 @@ import MobileAgendaList from './MobileAgendaList.jsx';
 import MobileWeekStrip from './MobileWeekStrip.jsx';
 import MobileAppointmentDetailSheet from './MobileAppointmentDetailSheet.jsx';
 import MobileQuickCreateAppointment from './MobileQuickCreateAppointment.jsx';
+import MobileWalkInWizard from './MobileWalkInWizard.jsx';
+import MobileChargeFlow from '../pos/MobileChargeFlow.jsx';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import PullProgress from '../primitives/PullProgress.jsx';
 
@@ -129,6 +131,9 @@ export default function MobileAppointmentsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState(null);
   const [quickOpen, setQuickOpen] = useState(searchParams.get('new') === '1');
+  const [walkinOpen, setWalkinOpen] = useState(searchParams.get('walkin') === '1');
+  const [walkinProfId, setWalkinProfId] = useState(searchParams.get('professionalId') || null);
+  const [chargeOpen, setChargeOpen] = useState(searchParams.get('charge') === '1');
   const [filterOpen, setFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [resourceFilter, setResourceFilter] = useState('');
@@ -210,12 +215,37 @@ export default function MobileAppointmentsPage() {
 
   useEffect(() => {
     if (searchParams.get('new') === '1') setQuickOpen(true);
+    if (searchParams.get('walkin') === '1') {
+      setWalkinOpen(true);
+      setWalkinProfId(searchParams.get('professionalId') || null);
+    }
+    if (searchParams.get('charge') === '1') setChargeOpen(true);
   }, [searchParams]);
 
   const handleCloseQuick = (created) => {
     setQuickOpen(false);
     if (searchParams.get('new')) { searchParams.delete('new'); setSearchParams(searchParams, { replace: true }); }
     if (created) load();
+  };
+
+  const handleCloseWalkin = (created) => {
+    setWalkinOpen(false);
+    setWalkinProfId(null);
+    if (searchParams.get('walkin')) {
+      searchParams.delete('walkin');
+      searchParams.delete('professionalId');
+      setSearchParams(searchParams, { replace: true });
+    }
+    if (created) load();
+  };
+
+  const handleCloseCharge = () => {
+    setChargeOpen(false);
+    if (searchParams.get('charge')) {
+      searchParams.delete('charge');
+      setSearchParams(searchParams, { replace: true });
+    }
+    load();
   };
 
   const label = useMemo(() => {
@@ -398,6 +428,17 @@ export default function MobileAppointmentsPage() {
           initialStart={typeof quickOpen === 'object' ? quickOpen.startAt : null}
           onClose={handleCloseQuick}
         />
+      )}
+
+      {walkinOpen && isBeauty && (
+        <MobileWalkInWizard
+          initialProfessionalId={walkinProfId}
+          onClose={handleCloseWalkin}
+        />
+      )}
+
+      {chargeOpen && isBeauty && (
+        <MobileChargeFlow onClose={handleCloseCharge} />
       )}
     </div>
   );
