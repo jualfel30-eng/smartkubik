@@ -216,7 +216,7 @@ const StorefrontSettings = lazy(() => import('@/components/StorefrontSettings'))
 const OrganizationsManagement = lazy(() => import('@/components/OrganizationsManagement.jsx'));
 const TablesPage = lazy(() => import('./pages/TablesPage.jsx'));
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
-const RestaurantStorefrontPage = lazy(() => import('./pages/RestaurantStorefrontPage.jsx'));
+const StorefrontRouteGate = lazy(() => import('./components/mobile/storefront/StorefrontRouteGate.jsx'));
 const ReservationsPage = lazy(() => import('./pages/ReservationsPage.jsx'));
 const TipsPage = lazy(() => import('./pages/TipsPage.jsx'));
 const CommissionsPage = lazy(() => import('./pages/CommissionsPage.jsx'));
@@ -1405,7 +1405,7 @@ function TenantLayout() {
                 <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />
                 <Route path="restaurant/storefront" element={
                   restaurantModuleEnabled
-                    ? <RestaurantStorefrontPage />
+                    ? <StorefrontRouteGate />
                     : <Navigate to="/dashboard" replace />
                 } />
                 <Route path="waste-control" element={<WasteManagementPage />} />
