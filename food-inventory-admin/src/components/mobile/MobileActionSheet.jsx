@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { motion, useMotionValue, useTransform, animate, AnimatePresence } from 'framer-motion';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SPRING, DUR, EASE } from '@/lib/motion';
@@ -13,9 +13,8 @@ import { SPRING, DUR, EASE } from '@/lib/motion';
  *  - title: string
  *  - children
  *  - className: string (applied to the sheet panel)
+ *  - footer: ReactNode (sticky at bottom of scrollable area)
  *  - snapPoints: [number, number]  (percentages of viewport, e.g. [0.4, 0.9])
- *    When provided, the sheet starts at the first snap point and can drag to the second.
- *    Dragging down past 20% of the first snap closes the sheet.
  *  - defaultSnap: 0 | 1  (index into snapPoints, default 0)
  */
 export default function MobileActionSheet({
@@ -75,14 +74,24 @@ export default function MobileActionSheet({
         exit={{ opacity: 0 }}
         transition={{ duration: DUR.base, ease: EASE.out }}
       />
+
+      {/* ── Sheet panel ──
+       * The panel IS the scroll container (overflow-y auto).
+       * Header and footer use position:sticky so they stay visible
+       * while the content between them scrolls.
+       * max-height: 85vh keeps the panel from overflowing the viewport.
+       * bottom:0 anchors it to the viewport bottom.
+       */}
       <motion.div
         className={cn(
-          'absolute bottom-0 inset-x-0 bg-card shadow-2xl flex flex-col',
+          'absolute bottom-0 inset-x-0 bg-card shadow-2xl safe-bottom',
           className,
         )}
         style={{
           maxHeight: '85vh',
-          overflow: 'hidden',
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+          WebkitOverflowScrolling: 'touch',
           borderTopLeftRadius: 'var(--mobile-radius-xl)',
           borderTopRightRadius: 'var(--mobile-radius-xl)',
           boxShadow: 'var(--elevation-overlay)',
@@ -90,25 +99,43 @@ export default function MobileActionSheet({
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
-        transition={{ duration: DUR.slow, ease: EASE.out }}
+        transition={SPRING.drawer}
       >
-        <div className="shrink-0 flex justify-center pt-2 pb-1">
-          <span className="block w-10 h-1 rounded-full bg-muted-foreground/40" aria-hidden />
+        {/* Sticky header: handle + title — always visible at top */}
+        <div
+          className="bg-card"
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 2,
+            borderTopLeftRadius: 'var(--mobile-radius-xl)',
+            borderTopRightRadius: 'var(--mobile-radius-xl)',
+          }}
+        >
+          <div className="flex justify-center pt-2 pb-1">
+            <span className="block w-10 h-1 rounded-full bg-muted-foreground/40" aria-hidden />
+          </div>
+          <div className="flex items-center justify-between px-4 pb-2">
+            <h2 className="text-base font-semibold">{title}</h2>
+            <button type="button" onClick={onClose} aria-label="Cerrar"
+              className="tap-target no-tap-highlight text-muted-foreground">
+              <X size={20} />
+            </button>
+          </div>
         </div>
-        <div className="shrink-0 flex items-center justify-between px-4 pb-2">
-          <h2 className="text-base font-semibold">{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar"
-            className="tap-target no-tap-highlight text-muted-foreground">
-            <X size={20} />
-          </button>
-        </div>
-        <div className={cn(
-          'flex-1 min-h-0 overflow-y-auto overscroll-contain mobile-scroll px-4 pb-4 pt-2',
-          !footer && 'safe-bottom',
-        )}>
-          {children}
-        </div>
-        {footer && <div className="shrink-0 safe-bottom">{footer}</div>}
+
+        {/* Content — scrolls naturally inside the panel */}
+        <div className="px-4 pb-4 pt-2">{children}</div>
+
+        {/* Sticky footer — always visible at bottom */}
+        {footer && (
+          <div
+            className="bg-card safe-bottom"
+            style={{ position: 'sticky', bottom: 0, zIndex: 2 }}
+          >
+            {footer}
+          </div>
+        )}
       </motion.div>
     </div>
   );
@@ -117,12 +144,9 @@ export default function MobileActionSheet({
 // ─── SnapSheet — framer-motion drag with 40%/90% snap points ─────────────────
 function SnapSheet({ onClose, title, children, className, snapPoints, defaultSnap }) {
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
-  // Heights from bottom: snapPoints[0] = 40% → sheet height = 0.4 * vh
   const heights = snapPoints.map((p) => Math.round(p * vh));
   const startH = heights[defaultSnap];
 
-  // y = translateY applied to a full-height (h-screen) sheet anchored at top:0.
-  // y = 0 → fully open; y = vh - heights[i] → only heights[i] visible at the top.
   const y = useMotionValue(vh - startH);
   const backdropOpacity = useTransform(y, [0, vh - heights[0] * 0.3], [0.5, 0]);
 
@@ -148,7 +172,6 @@ function SnapSheet({ onClose, title, children, className, snapPoints, defaultSna
 
   return (
     <div className="fixed inset-0 md:hidden" style={{ zIndex: 'var(--z-mobile-sheet)' }} role="dialog" aria-modal="true" aria-label={title}>
-      {/* Backdrop */}
       <motion.button
         type="button"
         aria-label="Cerrar"
@@ -157,7 +180,6 @@ function SnapSheet({ onClose, title, children, className, snapPoints, defaultSna
         className="absolute inset-0 bg-black"
       />
 
-      {/* Sheet */}
       <motion.div
         drag="y"
         dragConstraints={{ top: vh - topHeight, bottom: vh - heights[0] * 0.3 }}
@@ -176,12 +198,10 @@ function SnapSheet({ onClose, title, children, className, snapPoints, defaultSna
           className,
         )}
       >
-        {/* Drag handle */}
         <div className="flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing">
           <span className="block w-10 h-1 rounded-full bg-muted-foreground/40" aria-hidden />
         </div>
 
-        {/* Header */}
         <div className="flex items-center justify-between px-4 pb-2">
           <h2 className="text-base font-semibold">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Cerrar"
@@ -190,7 +210,6 @@ function SnapSheet({ onClose, title, children, className, snapPoints, defaultSna
           </button>
         </div>
 
-        {/* Scroll content */}
         <div className="px-4 pb-4 pt-2 overflow-y-auto mobile-scroll h-[calc(100%-64px)]">
           {children}
         </div>
