@@ -68,7 +68,8 @@ export default function MobileActionSheet({
         type="button"
         aria-label="Cerrar"
         onClick={onClose}
-        className="absolute inset-0 bg-black"
+        className="absolute inset-x-0 top-0 bg-black"
+        style={{ bottom: 'calc(var(--mobile-bottomnav-h) + var(--safe-bottom))' }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 0.5 }}
         exit={{ opacity: 0 }}
@@ -100,7 +101,7 @@ export default function MobileActionSheet({
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
-        transition={SPRING.drawer}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       >
         {/* Sticky header: handle + title — always visible at top */}
         <div
