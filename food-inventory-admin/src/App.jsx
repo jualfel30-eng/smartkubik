@@ -244,6 +244,7 @@ const BillingSequencesManager = lazy(() => import('@/components/billing/BillingS
 const WithholdingManagement = lazy(() => import('@/components/billing/WithholdingManagement.jsx'));
 const FulfillmentDashboard = lazy(() => import('@/components/fulfillment/FulfillmentDashboard.jsx').then(module => ({ default: module.FulfillmentDashboard })));
 const CashRegisterPage = lazy(() => import('./pages/CashRegisterPage.jsx'));
+const CashRegisterRouteGate = lazy(() => import('./components/mobile/cash-register/CashRegisterRouteGate.jsx'));
 const DataImportPage = lazy(() => import('./components/data-import/DataImportPage.jsx'));
 const BusinessLocationsManagement = lazy(() => import('./components/BusinessLocationsManagement.jsx'));
 const SubsidiariesPanel = lazy(() => import('./components/SubsidiariesPanel.jsx'));
@@ -1359,7 +1360,7 @@ function TenantLayout() {
                 <Route path="billing/sequences" element={<BillingSequencesManager />} />
                 <Route path="billing/documents/:id" element={<BillingDocumentDetail />} />
                 <Route path="billing/retenciones" element={<WithholdingManagement />} />
-                <Route path="cash-register" element={<CashRegisterPage />} />
+                <Route path="cash-register" element={<CashRegisterRouteGate />} />
                 <Route path="fixed-assets" element={<FixedAssetsView />} />
                 <Route path="investments" element={<InvestmentsView />} />
                 <Route path="bank-accounts" element={<BankAccountsManagement />} />
