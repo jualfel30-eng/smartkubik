@@ -27,7 +27,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'inventory-management',   // Inventario (gel, shampoo, etc.)
     'purchases',              // Compras (tintes, shampoo, cuchillas)
     'marketing',              // Campañas, cupones, programa de lealtad, promociones
-    'tips',                   // Propinas / Comisiones de barberos
+    'commissions',            // Comisiones y Metas de barberos
     'bank-accounts',          // Cuentas Bancarias
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (reservas online)
@@ -48,7 +48,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'inventory-management',   // Inventario (repuestos, aceites)
     'purchases',              // Compras (repuestos a proveedores)
     'receivables?tab=pending', // Cuentas por Cobrar
-    'tips',                   // Comisiones de mecánicos
+    'commissions',            // Comisiones y Metas de mecánicos
     'bank-accounts',          // Cuentas Bancarias
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (citas online)
@@ -67,7 +67,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'crm',                    // CRM — Pacientes/clientes
     'inventory-management',   // Inventario (insumos médicos)
     'purchases',              // Compras (insumos)
-    'tips',                   // Comisiones de especialistas
+    'commissions',            // Comisiones y Metas de especialistas
     'bank-accounts',          // Cuentas Bancarias
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (reservas online)

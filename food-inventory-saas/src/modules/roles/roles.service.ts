@@ -69,6 +69,7 @@ export class RolesService {
     const effectiveModules = getEffectiveModulesForTenant(
       tenant.vertical || "FOOD_SERVICE",
       tenant.enabledModules || {},
+      tenant.verticalProfile?.key,
     );
     const enabledModuleNames = Object.entries(effectiveModules)
       .filter(([, isEnabled]) => isEnabled)

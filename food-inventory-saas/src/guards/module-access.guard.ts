@@ -72,6 +72,7 @@ export class ModuleAccessGuard implements CanActivate {
     const effectiveModules = getEffectiveModulesForTenant(
       tenant.vertical || "FOOD_SERVICE",
       tenant.enabledModules,
+      tenant.verticalProfile?.key,
     );
 
     if (!effectiveModules[requiredModule]) {

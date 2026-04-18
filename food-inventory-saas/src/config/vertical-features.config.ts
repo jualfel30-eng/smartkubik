@@ -291,6 +291,8 @@ export const VERTICAL_FEATURES = {
 export const NICHE_MODULE_OVERRIDES: Record<string, Record<string, boolean>> = {
   'barbershop-salon': {
     ecommerce: true,       // Mi Sitio Web — reservas online
+    commissions: true,     // Comisiones y metas de barberos (% por servicio)
+    tips: false,           // Propinas van directo al barbero, no se registran
     chat: false,           // WhatsApp — premium, se habilita por upgrade
     marketing: false,      // Premium
     hrCore: false,         // No necesario para barberías
@@ -299,6 +301,8 @@ export const NICHE_MODULE_OVERRIDES: Record<string, Record<string, boolean>> = {
   },
   'mechanic-shop': {
     ecommerce: true,       // Mi Sitio Web — agendar citas online
+    commissions: true,     // Comisiones de mecánicos por servicio
+    tips: false,           // Propinas no aplican en talleres
     chat: false,           // WhatsApp — premium
     marketing: false,      // Premium
     hrCore: false,
@@ -307,6 +311,8 @@ export const NICHE_MODULE_OVERRIDES: Record<string, Record<string, boolean>> = {
   },
   'clinic-spa': {
     ecommerce: true,       // Mi Sitio Web — reservas de consultas
+    commissions: true,     // Comisiones de especialistas por consulta/tratamiento
+    tips: false,           // Propinas no aplican en clínicas
     chat: false,           // WhatsApp — premium
     marketing: false,      // Premium
     hrCore: false,
@@ -347,16 +353,20 @@ export function isModuleAvailableForVertical(
 }
 
 /**
- * Combina los módulos por defecto del vertical con los módulos configurados explícitamente
- * Permite que los valores `false` guardados sobrescriban los defaults habilitados.
+ * Combina los módulos por defecto del vertical con los overrides de nicho
+ * y los módulos configurados explícitamente.
+ * Prioridad: vertical defaults → niche overrides → tenant explicit settings.
  */
 export function getEffectiveModulesForTenant(
   vertical: string,
   enabledModules?: Record<string, boolean>,
+  profileKey?: string,
 ): Record<string, boolean> {
   const defaults = getDefaultModulesForVertical(vertical);
+  const nicheOverrides = profileKey ? (NICHE_MODULE_OVERRIDES[profileKey] || {}) : {};
   return {
     ...defaults,
+    ...nicheOverrides,
     ...(enabledModules || {}),
   };
 }
