@@ -333,11 +333,13 @@ export class CommissionRecordFilterDto {
   commissionPlanId?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @Max(100)
@@ -694,11 +696,13 @@ export class GoalProgressFilterDto {
   achieved?: boolean;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @Max(100)
@@ -797,11 +801,13 @@ export class BonusFilterDto {
   endDate?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   page?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @Max(100)
