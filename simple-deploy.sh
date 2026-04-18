@@ -154,6 +154,8 @@ fi
 if $DEPLOY_BACKEND; then
   echo -e "${YELLOW}📤 Uploading backend...${NC}"
   rsync -avz --delete $BACKEND_LOCAL/dist/ $SERVER:~/smartkubik/food-inventory-saas/dist/
+  # PM2 runs from ~/smartkubik/api/dist/ — sync there too
+  rsync -avz --delete $BACKEND_LOCAL/dist/ $SERVER:~/smartkubik/api/dist/
   echo -e "${GREEN}✅ Backend uploaded${NC}"
 fi
 
