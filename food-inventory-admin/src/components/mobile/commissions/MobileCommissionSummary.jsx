@@ -84,9 +84,9 @@ export default function MobileCommissionSummary({
       .map((e) => ({
         employeeId: e.employeeId || e._id,
         employeeName: e.employeeName || e.name || 'Profesional',
-        total: e.totalCommission || e.total || 0,
-        count: e.serviceCount || e.count || e.recordCount || 0,
-        rate: e.averageRate || e.rate || 0,
+        total: e.totalCommissions || e.totalCommission || e.total || 0,
+        count: e.ordersCount || e.serviceCount || e.count || e.recordCount || 0,
+        rate: e.averageCommission || e.averageRate || e.rate || 0,
       }))
       .sort((a, b) => b.total - a.total);
   }, [reportData]);
@@ -236,7 +236,7 @@ export default function MobileCommissionSummary({
                     Pendientes por aprobar ({pendingCount})
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Total: {fmt(pendingRecords.reduce((s, r) => s + (r.totalCommission || r.commissionCalculated || 0), 0))}
+                    Total: {fmt(pendingRecords.reduce((s, r) => s + (r.commissionAmount || r.totalCommission || 0), 0))}
                   </p>
                 </div>
                 <button
