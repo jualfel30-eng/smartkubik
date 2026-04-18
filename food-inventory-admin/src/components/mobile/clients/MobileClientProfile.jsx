@@ -170,9 +170,16 @@ function AppointmentTimeline({ bookings }) {
               {b.professionalName && <p className="text-xs text-muted-foreground">{b.professionalName}</p>}
               <p className="text-xs text-muted-foreground">{STATUS_LABEL[b.status] || b.status}</p>
             </div>
-            {b.totalPrice != null && (
-              <p className="text-sm font-semibold tabular-nums shrink-0">${Number(b.totalPrice).toFixed(2)}</p>
-            )}
+            <div className="shrink-0 text-right">
+              {b.totalPrice != null && (
+                <p className="text-sm font-semibold tabular-nums">${Number(b.amountPaid || b.totalPrice).toFixed(2)}</p>
+              )}
+              {b.paymentStatus === 'paid' ? (
+                <span className="text-[10px] text-emerald-600 font-medium">{b.paymentMethod || 'Pagado'}</span>
+              ) : b.status === 'completed' ? (
+                <span className="text-[10px] text-orange-500 font-medium">Sin cobrar</span>
+              ) : null}
+            </div>
           </div>
         );
       })}

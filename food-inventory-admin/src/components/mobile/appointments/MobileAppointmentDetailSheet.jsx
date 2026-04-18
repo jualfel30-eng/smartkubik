@@ -40,7 +40,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
   // Register FAB context action based on appointment status
   useEffect(() => {
     if (!appointment) return;
-    if (appointment.status === 'in_progress') {
+    if (appointment.status === 'in_progress' && appointment.paymentStatus !== 'paid') {
       setContextAction({
         label: 'Cobrar',
         icon: Receipt,
@@ -268,13 +268,24 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
                   <CheckCircle2 size={18} /> Completar
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => setPosOpen(true)}
-                className="tap-target rounded-[var(--mobile-radius-md)] border border-border flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
-              >
-                <Receipt size={18} /> Cobrar
-              </button>
+              {appointment.paymentStatus === 'paid' ? (
+                <div className="rounded-[var(--mobile-radius-md)] border border-emerald-500/30 bg-emerald-500/10 flex flex-col items-center justify-center gap-1 py-3 px-2">
+                  <div className="flex items-center gap-1.5 text-emerald-600 font-semibold text-sm">
+                    <CheckCircle2 size={16} /> Pagado
+                  </div>
+                  <span className="text-xs text-emerald-600/80">
+                    ${Number(appointment.amountPaid || appointment.totalPrice || 0).toFixed(2)} — {appointment.paymentMethod || 'N/A'}
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setPosOpen(true)}
+                  className="tap-target rounded-[var(--mobile-radius-md)] border border-border flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
+                >
+                  <Receipt size={18} /> Cobrar
+                </button>
+              )}
               {canReschedule && (
                 <button
                   type="button"
