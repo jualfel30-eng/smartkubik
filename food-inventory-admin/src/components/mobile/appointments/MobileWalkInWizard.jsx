@@ -277,8 +277,8 @@ function StepClient({
   recentClients,
   startAt, setStartAt,
   quickTimes,
+  query, setQuery,
 }) {
-  const [query, setQuery] = useState('');
   const [customers, setCustomers] = useState([]);
 
   // Async customer search
@@ -377,13 +377,9 @@ function StepClient({
               </ul>
             )}
             {query.length >= 2 && customers.length === 0 && (
-              <button
-                type="button"
-                onClick={() => { setCustomerName(query); setQuery(''); }}
-                className="mt-2 text-sm font-medium text-primary no-tap-highlight"
-              >
-                + Crear "{query}" como nuevo cliente
-              </button>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Se registrará como nuevo cliente al confirmar
+              </p>
             )}
           </>
         )}
@@ -432,6 +428,7 @@ export default function MobileWalkInWizard({
   const [recentClients, setRecentClients] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [clientQuery, setClientQuery] = useState('');
   const [startAt, setStartAt] = useState(nextQuarterHour(new Date()));
   const [submitting, setSubmitting] = useState(false);
   const [loadingServices, setLoadingServices] = useState(true);
@@ -515,7 +512,10 @@ export default function MobileWalkInWizard({
 
   // Submit
   const submit = async () => {
-    if (!customerName) { toast.error('Selecciona un cliente'); return; }
+    // Use query text as customer name if no customer was explicitly selected
+    const finalName = customerName || clientQuery.trim();
+    if (!finalName) { toast.error('Escribe el nombre del cliente'); return; }
+    if (!customerName) setCustomerName(finalName);
     if (selectedServiceIds.length === 0) { toast.error('Selecciona al menos un servicio'); return; }
 
     // If professional is busy, add to waitlist
@@ -523,7 +523,7 @@ export default function MobileWalkInWizard({
       try {
         setSubmitting(true);
         await addToWaitlist({
-          client: { name: customerName, phone: customerPhone || '+10000000000' },
+          client: { name: finalName, phone: customerPhone || '+10000000000' },
           services: selectedServiceIds.map((id) => ({ service: id })),
           preferredDate: format(startAt, 'yyyy-MM-dd'),
           preferredTimeRange: { from: format(startAt, 'HH:mm'), to: format(endAt, 'HH:mm') },
@@ -531,7 +531,7 @@ export default function MobileWalkInWizard({
         });
         haptics.success();
         toast.success('Agregado a la cola de espera', {
-          description: `${customerName} sera notificado cuando haya disponibilidad`,
+          description: `${finalName} sera notificado cuando haya disponibilidad`,
         });
         onClose?.(true);
       } catch (err) {
@@ -548,7 +548,7 @@ export default function MobileWalkInWizard({
       setSubmitting(true);
       const payload = {
         client: {
-          name: customerName,
+          name: finalName,
           phone: customerPhone && /^\+[1-9]\d{1,14}$/.test(customerPhone) ? customerPhone : undefined,
         },
         services: selectedServiceIds.map((id) => ({ service: id })),
@@ -571,10 +571,10 @@ export default function MobileWalkInWizard({
           ? selectedServices[0].name
           : `${selectedServices.length} servicios`;
         const waText = encodeURIComponent(
-          `Hola ${customerName}, ya estas registrado para ${svcName}. Te esperamos!`,
+          `Hola ${finalName}, ya estas registrado para ${svcName}. Te esperamos!`,
         );
         toast.success('Walk-in creado', {
-          description: `${customerName} · ${format(startAt, 'HH:mm')}`,
+          description: `${finalName} · ${format(startAt, 'HH:mm')}`,
           action: {
             label: 'Enviar WhatsApp',
             onClick: () => window.open(`https://wa.me/${phone}?text=${waText}`, '_blank'),
@@ -583,7 +583,7 @@ export default function MobileWalkInWizard({
         });
       } else {
         toast.success('Walk-in creado', {
-          description: `${customerName} · ${format(startAt, 'HH:mm')}`,
+          description: `${finalName} · ${format(startAt, 'HH:mm')}`,
         });
       }
 
@@ -601,7 +601,7 @@ export default function MobileWalkInWizard({
   const canGoNext =
     (step === 1 && selectedProfessional) ||
     (step === 2 && selectedServiceIds.length > 0) ||
-    (step === 3 && customerName);
+    (step === 3 && (customerName || clientQuery.trim().length >= 2));
 
   const stickyFooter = (
     <div className="px-4 pt-3 pb-4 bg-card border-t border-border">
@@ -704,6 +704,8 @@ export default function MobileWalkInWizard({
               startAt={startAt}
               setStartAt={setStartAt}
               quickTimes={quickTimes}
+              query={clientQuery}
+              setQuery={setClientQuery}
             />
           )}
         </motion.div>

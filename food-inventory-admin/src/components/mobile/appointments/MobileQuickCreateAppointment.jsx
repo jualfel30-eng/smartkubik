@@ -280,7 +280,9 @@ export default function MobileQuickCreateAppointment({
   };
 
   const submit = async () => {
-    if (!customerName) { toast.error('Selecciona un cliente'); return; }
+    const finalName = customerName || query.trim();
+    if (!finalName) { toast.error('Escribe el nombre del cliente'); return; }
+    if (!customerName) setCustomerName(finalName);
     if (selectedServiceIds.length === 0) { toast.error('Selecciona al menos un servicio'); return; }
     if (!isOnline) { toast.error('Sin conexión — no se puede crear una cita ahora'); return; }
 
@@ -297,7 +299,7 @@ export default function MobileQuickCreateAppointment({
       const payload = isBeauty
         ? {
             client: {
-              name: customerName,
+              name: finalName,
               phone: customerPhone || undefined,
             },
             services: selectedServiceIds.map((id) => ({ service: id })),
@@ -314,7 +316,7 @@ export default function MobileQuickCreateAppointment({
             }),
           }
         : {
-            customerName,
+            customerName: finalName,
             serviceId: selectedServiceIds[0] || '',
             resourceId: resourceId || undefined,
             startTime: startAt.toISOString(),
@@ -344,10 +346,10 @@ export default function MobileQuickCreateAppointment({
 
       if (phone) {
         const waText = encodeURIComponent(
-          `Hola ${customerName}, te confirmamos tu cita para ${svcName} el ${dateStr} a las ${timeStr}. ¡Te esperamos!`,
+          `Hola ${finalName}, te confirmamos tu cita para ${svcName} el ${dateStr} a las ${timeStr}. ¡Te esperamos!`,
         );
         toast.success(toastTitle, {
-          description: `${customerName} · ${timeStr}`,
+          description: `${finalName} · ${timeStr}`,
           action: {
             label: 'Enviar WhatsApp',
             onClick: () => window.open(`https://wa.me/${phone}?text=${waText}`, '_blank'),
@@ -356,7 +358,7 @@ export default function MobileQuickCreateAppointment({
         });
       } else {
         toast.success(toastTitle, {
-          description: `${customerName} · ${timeStr}`,
+          description: `${finalName} · ${timeStr}`,
         });
       }
 
@@ -489,13 +491,9 @@ export default function MobileQuickCreateAppointment({
                 </ul>
               )}
               {query.length >= 2 && customers.length === 0 && (
-                <button
-                  type="button"
-                  onClick={() => { setCustomerName(query); setQuery(''); }}
-                  className="mt-2 text-sm font-medium text-primary no-tap-highlight"
-                >
-                  + Crear "{query}" como nuevo cliente
-                </button>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Se registrará como nuevo cliente al confirmar
+                </p>
               )}
             </>
           )}
