@@ -177,7 +177,12 @@ export default function TodayDashboard() {
   const unpaid = appointments.filter(a => a.status === 'completed' && a.paymentStatus !== 'paid');
   const upcoming = [...inProgress, ...pending].slice(0, 4);
 
-  const salesToday = summary?.salesToday ?? summary?.todaySales ?? 0;
+  const paidToday = isBeauty
+    ? appointments.filter(a => a.paymentStatus === 'paid')
+    : [];
+  const salesToday = isBeauty
+    ? paidToday.reduce((sum, a) => sum + Number(a.amountPaid || a.totalPrice || 0), 0)
+    : (summary?.salesToday ?? summary?.todaySales ?? 0);
   const weekValues = summary?.weeklyRevenue ?? summary?.revenueByDay ?? [];
 
   // Alerts
@@ -325,6 +330,45 @@ export default function TodayDashboard() {
           <CheckCircle2 size={14} className="text-emerald-500" />
           <span>{done.length} cita{done.length > 1 ? 's' : ''} completada{done.length > 1 ? 's' : ''} hoy</span>
         </div>
+      )}
+
+      {/* Recent payments — beauty only */}
+      {isBeauty && paidToday.length > 0 && (
+        <motion.section variants={listItem}>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold flex items-center gap-1.5">
+              <Receipt size={14} /> Cobros de hoy
+            </h2>
+            <span className="text-xs text-emerald-600 font-semibold tabular-nums">
+              ${salesToday.toFixed(2)}
+            </span>
+          </div>
+          <div
+            className="border border-border bg-card divide-y divide-border overflow-hidden"
+            style={{ borderRadius: 'var(--mobile-radius-lg)' }}
+          >
+            {paidToday.slice(0, 6).map(apt => {
+              const start = apt.startTime ? new Date(apt.startTime) : null;
+              return (
+                <div key={apt._id} className="flex items-center gap-3 px-3 py-2.5">
+                  <div className="text-xs font-medium tabular-nums text-muted-foreground w-10 shrink-0">
+                    {start ? format(start, 'HH:mm') : '--:--'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{apt.customerName || '—'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{apt.serviceName || '—'}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-sm font-bold tabular-nums text-emerald-600">
+                      ${Number(apt.amountPaid || apt.totalPrice || 0).toFixed(2)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{apt.paymentMethod || '—'}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </motion.section>
       )}
 
       {/* Push notifications prompt — aparece con contexto, no al entrar */}
