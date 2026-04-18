@@ -47,6 +47,7 @@ import { BeautyWhatsAppNotificationsService } from './beauty-whatsapp-notificati
 import { BeautyLoyaltyService } from './beauty-loyalty.service';
 import { WebPushService } from '../../notification-center/web-push.service';
 import { CashRegisterService } from '../../cash-register/cash-register.service';
+import { CommissionService } from '../../commissions/services/commission.service';
 
 /**
  * Servicio para gestión de reservas de belleza
@@ -77,6 +78,7 @@ export class BeautyBookingsService {
     private readonly loyaltyService: BeautyLoyaltyService,
     private readonly webPushService: WebPushService,
     private readonly cashRegisterService: CashRegisterService,
+    private readonly commissionService: CommissionService,
   ) {}
 
   /**
@@ -752,6 +754,24 @@ export class BeautyBookingsService {
         );
       } catch (cashErr) {
         this.logger.error(`Cash register integration failed: ${cashErr.message}`);
+      }
+
+      // ── Comisiones: generar comisión para el profesional ──
+      if (booking.professional) {
+        try {
+          const serviceName = booking.services?.map(s => s.name).join(' + ') || 'Servicio';
+          await this.commissionService.calculateServiceCommission({
+            tenantId: booking.tenantId.toString(),
+            bookingId: booking._id.toString(),
+            bookingNumber: booking.bookingNumber,
+            professionalId: booking.professional.toString(),
+            professionalName: booking.professionalName || 'Profesional',
+            totalAmount: dto.amountPaid ?? booking.totalPrice ?? 0,
+            date: booking.date || new Date(),
+          });
+        } catch (commErr) {
+          this.logger.error(`Commission calculation failed: ${commErr.message}`);
+        }
       }
     }
 

@@ -64,6 +64,7 @@ import { BeautyReportsService } from './services/beauty-reports.service';
 import { ResourceBlocksService } from './services/resource-blocks.service';
 import { NotificationCenterModule } from '../notification-center/notification-center.module';
 import { CashRegisterModule } from '../cash-register/cash-register.module';
+import { CommissionsModule } from '../commissions/commissions.module';
 
 // Controllers - Private
 import { BeautyPackagesController } from './controllers/service-packages.controller';
@@ -116,6 +117,7 @@ import { BeautyLoyaltyPublicController } from './controllers/beauty-loyalty-publ
     ScheduleModule.forRoot(),
     NotificationCenterModule,
     CashRegisterModule,
+    CommissionsModule,
     MongooseModule.forFeature([
       { name: BeautyPackage.name, schema: BeautyPackageSchema },
       { name: BeautyService.name, schema: BeautyServiceSchema },

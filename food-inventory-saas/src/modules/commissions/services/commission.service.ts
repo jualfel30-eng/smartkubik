@@ -628,6 +628,129 @@ export class CommissionService {
   }
 
   /**
+   * Calculate commission for a beauty/service booking.
+   * Called when a beauty booking is marked as paid.
+   * Uses professionalId as the employee for commission lookup.
+   */
+  async calculateServiceCommission(params: {
+    tenantId: string;
+    bookingId: string;
+    bookingNumber: string;
+    professionalId: string;
+    professionalName: string;
+    totalAmount: number;
+    date: Date;
+  }): Promise<void> {
+    const { tenantId, bookingId, bookingNumber, professionalId, professionalName, totalAmount, date } = params;
+
+    try {
+      // Check if commission already exists for this booking
+      const existing = await this.commissionRecordModel.findOne({
+        tenantId: new Types.ObjectId(tenantId),
+        orderId: new Types.ObjectId(bookingId),
+      });
+      if (existing) {
+        this.logger.log(`Commission already exists for booking ${bookingNumber}`);
+        return;
+      }
+
+      // Try to find employee config using professionalId as employeeId
+      const config = await this.getEmployeeCommissionConfig(professionalId, tenantId);
+      const plan = config
+        ? (config as any).commissionPlanId  // populated
+        : await this.findDefaultPlan(tenantId);
+
+      if (!plan) {
+        this.logger.warn(`No commission plan found for tenant ${tenantId} — skipping service commission`);
+        return;
+      }
+
+      // Calculate commission
+      const commissionBase = totalAmount;
+      let commissionAmount = 0;
+      let commissionPercentage = 0;
+      let wasOverridden = false;
+      let wasCapped = false;
+      let originalAmount: number | undefined;
+
+      const effectivePercentage = config?.overridePercentage ?? plan.defaultPercentage ?? 0;
+      const effectiveFixedAmount = config?.overrideFixedAmount ?? plan.fixedAmount ?? 0;
+
+      if (config?.overridePercentage != null || config?.overrideFixedAmount != null) {
+        wasOverridden = true;
+      }
+
+      switch (plan.type) {
+        case 'percentage':
+          commissionPercentage = effectivePercentage;
+          commissionAmount = commissionBase * (commissionPercentage / 100);
+          break;
+        case 'fixed':
+          commissionAmount = effectiveFixedAmount;
+          break;
+        case 'mixed':
+          commissionPercentage = effectivePercentage;
+          commissionAmount = effectiveFixedAmount + commissionBase * (commissionPercentage / 100);
+          break;
+        case 'tiered': {
+          const tiers = (config?.overrideTiers?.length ? config.overrideTiers : plan.tiers) || [];
+          const tier = this.findApplicableTier(commissionBase, tiers);
+          if (tier) {
+            commissionPercentage = tier.percentage;
+            commissionAmount = commissionBase * (commissionPercentage / 100);
+          }
+          break;
+        }
+        default:
+          commissionPercentage = effectivePercentage;
+          commissionAmount = commissionBase * (commissionPercentage / 100);
+      }
+
+      // Apply cap
+      const maxCap = config?.overrideMaxCommission ?? plan.maxCommissionAmount;
+      if (maxCap && commissionAmount > maxCap) {
+        originalAmount = commissionAmount;
+        commissionAmount = maxCap;
+        wasCapped = true;
+      }
+
+      if (commissionAmount <= 0) {
+        this.logger.log(`Commission amount is 0 for booking ${bookingNumber} — skipping`);
+        return;
+      }
+
+      await this.commissionRecordModel.create({
+        tenantId: new Types.ObjectId(tenantId),
+        employeeId: new Types.ObjectId(professionalId),
+        orderId: new Types.ObjectId(bookingId),
+        orderNumber: bookingNumber,
+        orderDate: date,
+        orderTotalAmount: totalAmount,
+        orderSubtotal: totalAmount,
+        orderDiscountAmount: 0,
+        commissionBaseAmount: commissionBase,
+        commissionPlanId: plan._id,
+        commissionPlanName: plan.name,
+        commissionType: plan.type,
+        commissionPercentage,
+        commissionAmount,
+        wasOverridden,
+        wasCapped,
+        originalAmount: wasCapped ? originalAmount : undefined,
+        status: 'pending',
+        journalEntryCreated: false,
+      });
+
+      this.logger.log(
+        `Service commission created for booking ${bookingNumber}: $${commissionAmount.toFixed(2)} (${commissionPercentage}%) for professional ${professionalName}`,
+      );
+    } catch (error) {
+      // Never block the booking payment flow
+      this.logger.error(`Failed to calculate service commission for booking ${bookingNumber}: ${error.message}`);
+    }
+  }
+
+  /**
    * Encontrar tier aplicable según monto
    */
   private findApplicableTier(
