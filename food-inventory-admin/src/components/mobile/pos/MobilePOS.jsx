@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { X, Check, Banknote, Smartphone, CreditCard, Zap, ArrowRight, Plus, Trash2, Package, Scissors } from 'lucide-react';
-import { fetchApi, getLoyaltyBalance, getProducts } from '@/lib/api';
+import { fetchApi, getLoyaltyBalance, getProducts, getTenantSettings } from '@/lib/api';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from '@/lib/toast';
@@ -150,29 +150,32 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
   const [amount, setAmount] = useState(total > 0 ? total.toFixed(2) : '0');
   const [showNumPad, setShowNumPad] = useState(!hasPrefilledAmount);
   const [tipPct, setTipPct] = useState(defaultTipPct);
-  const [method, setMethod] = useState(() => {
-    const saved = tenant?.settings?.paymentMethods;
-    if (Array.isArray(saved) && saved.length > 0) {
-      const first = saved.find(m => m.enabled);
-      if (first) return first.id;
-    }
-    return 'efectivo_usd';
-  });
+  const [method, setMethod] = useState('efectivo_usd');
   const [reference, setReference] = useState('');
   const [exchangeRate, setExchangeRate] = useState(null);
-  const [paymentMethods, setPaymentMethods] = useState(() => {
-    // Initialize from tenant settings — only enabled methods
-    const saved = tenant?.settings?.paymentMethods;
-    if (Array.isArray(saved) && saved.length > 0) {
-      return saved.filter(m => m.enabled).map(m => ({ id: m.id, name: m.name }));
-    }
-    return [];
-  });
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
   // Loyalty state
   const [loyaltyBalance, setLoyaltyBalance] = useState(null); // null = not loaded / not applicable
   const [loyaltyApplied, setLoyaltyApplied] = useState(false);
+
+  // Load tenant's configured payment methods
+  useEffect(() => {
+    getTenantSettings()
+      .then(res => {
+        const data = res?.data || res;
+        const saved = data?.settings?.paymentMethods;
+        if (Array.isArray(saved) && saved.length > 0) {
+          const enabled = saved.filter(m => m.enabled).map(m => ({ id: m.id, name: m.name }));
+          if (enabled.length > 0) {
+            setPaymentMethods(enabled);
+            setMethod(enabled[0].id);
+          }
+        }
+      })
+      .catch(() => { /* fallback to hardcoded methods */ });
+  }, []);
 
   // Product upsell state
   const [addedProducts, setAddedProducts] = useState([]);
