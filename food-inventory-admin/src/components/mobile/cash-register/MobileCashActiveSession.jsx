@@ -89,6 +89,13 @@ export default function MobileCashActiveSession({ session, onRefresh, onClose, o
       .map(m => ({ ...m, pct: (m.amount / max) * 100 }));
   }, [totals]);
 
+  // Service payments (beauty vertical — registered automatically when charging a booking)
+  const servicePayments = useMemo(() => {
+    return (session?.servicePayments || [])
+      .slice()
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  }, [session?.servicePayments]);
+
   // Movements (from session object)
   const movements = useMemo(() => {
     return (session?.cashMovements || [])
@@ -212,6 +219,48 @@ export default function MobileCashActiveSession({ session, onRefresh, onClose, o
               })}
             </div>
           </motion.div>
+        )}
+
+        {/* Service payments log */}
+        {servicePayments.length > 0 && (
+          <div>
+            <h3 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
+              Cobros del día ({servicePayments.length})
+            </h3>
+            <motion.div
+              variants={STAGGER(0.04, 0.1)}
+              initial="initial"
+              animate="animate"
+              className="space-y-1.5"
+            >
+              {servicePayments.map((sp, i) => {
+                const time = sp.timestamp
+                  ? new Date(sp.timestamp).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', hour12: true })
+                  : '';
+                return (
+                  <motion.div
+                    key={sp.bookingId || i}
+                    variants={listItem}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-card border border-border"
+                  >
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-emerald-500/15 text-emerald-500">
+                      <ArrowDownLeft className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{sp.clientName || 'Cliente'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{sp.serviceName || 'Servicio'} · {time}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-sm font-semibold tabular-nums text-emerald-500">
+                        +{fmt(sp.amount, sp.currency || 'USD')}
+                      </span>
+                      <p className="text-[10px] text-muted-foreground">{sp.paymentMethod || ''}</p>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          </div>
         )}
 
         {/* Movements log */}
