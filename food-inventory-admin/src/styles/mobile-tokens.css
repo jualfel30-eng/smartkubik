@@ -209,3 +209,15 @@
     padding-bottom: var(--mobile-content-pad-bottom);
   }
 }
+
+/* Prevent Safari iOS auto-zoom on input focus.
+   Safari zooms the page when an input's font-size < 16px.
+   Force 16px on all form controls in mobile viewports. */
+@media (max-width: 767.98px) {
+  input,
+  select,
+  textarea,
+  .PhoneInputInput {
+    font-size: 16px !important;
+  }
+}
