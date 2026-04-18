@@ -285,10 +285,10 @@ export default function BeautyDashboardView() {
               <button
                 type="button"
                 onClick={() => navigate('/cash-register')}
-                className="flex items-center gap-3 w-full rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-left hover:bg-destructive/10 transition-colors"
+                className="flex items-center gap-3 w-full rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3 text-left hover:bg-blue-500/10 transition-colors"
               >
-                <AlertTriangle size={16} className="text-destructive shrink-0" />
-                <span className="flex-1 text-sm font-medium">Caja no abierta — abre sesión para registrar pagos</span>
+                <DollarSign size={16} className="text-blue-500 shrink-0" />
+                <span className="flex-1 text-sm">Abre caja para registrar cobros automáticamente</span>
               </button>
             )}
           </div>

@@ -138,6 +138,20 @@ export class CashRegisterSession {
   @Prop({ type: [CashMovementSchema], default: [] })
   cashMovements: CashMovement[];
 
+  // === COBROS DE SERVICIOS (Beauty / Service verticals) ===
+  @Prop({ type: [{ type: Object }], default: [] })
+  servicePayments: Array<{
+    bookingId: string;
+    bookingNumber?: string;
+    clientName: string;
+    serviceName: string;
+    amount: number;
+    currency: string;       // 'USD' | 'VES'
+    paymentMethod: string;  // 'Efectivo USD', 'Transf. VES', etc.
+    methodId?: string;      // 'efectivo_usd', 'transferencia_ves', etc.
+    timestamp: Date;
+  }>;
+
   // === REFERENCIA AL DOCUMENTO DE CIERRE ===
   @Prop({ type: Types.ObjectId, ref: "CashRegisterClosing" })
   closingDocumentId?: Types.ObjectId;

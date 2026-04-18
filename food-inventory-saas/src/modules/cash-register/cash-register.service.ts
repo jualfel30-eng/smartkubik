@@ -194,6 +194,60 @@ export class CashRegisterService {
   }
 
   // ============================================
+  // REGISTRO DE COBRO DE SERVICIO (Beauty vertical)
+  // ============================================
+
+  /**
+   * Registra un cobro de servicio en la sesión de caja activa del tenant.
+   * Llamado automáticamente cuando un beauty-booking se marca como pagado.
+   * Si no hay sesión abierta, loguea warning pero no falla.
+   */
+  async registerServicePayment(tenantId: string, payment: {
+    bookingId: string;
+    bookingNumber?: string;
+    clientName: string;
+    serviceName: string;
+    amount: number;
+    currency: string;
+    paymentMethod: string;
+    methodId?: string;
+  }): Promise<void> {
+    try {
+      const session = await this.sessionModel.findOne({
+        tenantId,
+        status: 'open',
+      }).sort({ openedAt: -1 });
+
+      if (!session) {
+        this.logger.warn(
+          `No open cash session for tenant ${tenantId} — service payment $${payment.amount} (${payment.paymentMethod}) not linked to cash register`,
+        );
+        return;
+      }
+
+      session.servicePayments.push({
+        ...payment,
+        timestamp: new Date(),
+      });
+
+      session.totalTransactions = (session.totalTransactions || 0) + 1;
+      if (payment.currency === 'VES') {
+        session.totalSalesVes = (session.totalSalesVes || 0) + payment.amount;
+      } else {
+        session.totalSalesUsd = (session.totalSalesUsd || 0) + payment.amount;
+      }
+
+      await session.save();
+      this.logger.log(
+        `Service payment registered in session ${session.sessionNumber}: $${payment.amount} ${payment.currency} (${payment.paymentMethod})`,
+      );
+    } catch (error) {
+      // Never block the booking payment flow
+      this.logger.error(`Failed to register service payment in cash session: ${error.message}`);
+    }
+  }
+
+  // ============================================
   // CIERRE DE CAJA (INDIVIDUAL)
   // ============================================
 
@@ -619,8 +673,52 @@ export class CashRegisterService {
       }
     }
 
+    // ── Include service payments (beauty vertical) ──────────────────────
+    const session = await this.sessionModel.findById(sessionObjectId).lean();
+    const servicePayments = (session as any)?.servicePayments || [];
+    for (const sp of servicePayments) {
+      const amount = Number(sp.amount) || 0;
+      if (amount <= 0) continue;
+
+      totals.totalOrders++;
+      if (sp.currency === 'VES') {
+        totals.salesVes += amount;
+      } else {
+        totals.salesUsd += amount;
+      }
+
+      // Map payment method to totals buckets
+      const methodLower = (sp.paymentMethod || '').toLowerCase();
+      if (methodLower.includes('efectivo')) {
+        if (sp.currency === 'VES') totals.cashVes += amount;
+        else totals.cashUsd += amount;
+      } else if (methodLower.includes('transf')) {
+        if (sp.currency === 'VES') totals.transferVes += amount;
+        else totals.transferUsd += amount;
+      } else if (methodLower.includes('pago') && methodLower.includes('móvil') || methodLower.includes('movil')) {
+        totals.mobilePaymentVes += amount;
+      } else if (methodLower.includes('pos') || methodLower.includes('tarjeta')) {
+        if (sp.currency === 'VES') totals.cardVes += amount;
+        else totals.cardUsd += amount;
+      } else if (methodLower.includes('zelle')) {
+        totals.otherUsd += amount;
+      } else {
+        if (sp.currency === 'VES') totals.otherVes += amount;
+        else totals.otherUsd += amount;
+      }
+
+      // Add to payment method summary
+      const summaryKey = sp.paymentMethod || 'Otro';
+      const summary = getPaymentSummary(summaryKey, sp.currency || 'USD');
+      summary.transactionCount++;
+      summary.totalAmount += amount;
+      if (sp.currency === 'VES') summary.totalAmountVes += amount;
+      else summary.totalAmountUsd += amount;
+    }
+
     const finalTotals = {
       ...totals,
+      servicePaymentsCount: servicePayments.length,
       paymentMethodSummary: Array.from(paymentMethodMap.values()),
       taxSummary: Array.from(taxMap.values())
     };

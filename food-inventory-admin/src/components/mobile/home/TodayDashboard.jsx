@@ -192,7 +192,7 @@ export default function TodayDashboard() {
   if (unpaid.length > 0)
     alerts.push({ id: 'unpaid', icon: Receipt, color: 'orange', label: `${unpaid.length} cita${unpaid.length > 1 ? 's' : ''} completada${unpaid.length > 1 ? 's' : ''} sin cobrar`, to: '/appointments' });
   if (!cashSession)
-    alerts.push({ id: 'cash', icon: DollarSign, color: 'red', label: 'Caja no abierta', to: '/cash-register' });
+    alerts.push({ id: 'cash', icon: DollarSign, color: 'blue', label: 'Abre caja para registrar cobros', to: '/cash-register' });
 
   const { v: rv, t: rt } = useReducedMotionSafe();
   const ownerName = tenant?.ownerFirstName || 'Bienvenido';

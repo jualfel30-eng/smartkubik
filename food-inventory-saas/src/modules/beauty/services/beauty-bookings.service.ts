@@ -46,6 +46,7 @@ import {
 import { BeautyWhatsAppNotificationsService } from './beauty-whatsapp-notifications.service';
 import { BeautyLoyaltyService } from './beauty-loyalty.service';
 import { WebPushService } from '../../notification-center/web-push.service';
+import { CashRegisterService } from '../../cash-register/cash-register.service';
 
 /**
  * Servicio para gestión de reservas de belleza
@@ -75,6 +76,7 @@ export class BeautyBookingsService {
     private readonly whatsappService: BeautyWhatsAppNotificationsService,
     private readonly loyaltyService: BeautyLoyaltyService,
     private readonly webPushService: WebPushService,
+    private readonly cashRegisterService: CashRegisterService,
   ) {}
 
   /**
@@ -726,6 +728,30 @@ export class BeautyBookingsService {
           // No revertir el pago si falla el descuento de inventario
           this.logger.error(`Error descontando inventario para addon productId=${addon.productId?.toString()}: ${invErr.message}`);
         }
+      }
+    }
+
+    // ── Caja registradora: registrar cobro en sesión activa ────────────
+    if (dto.paymentStatus === 'paid' && previousPaymentStatus !== 'paid') {
+      try {
+        const method = dto.paymentMethod || booking.paymentMethod || '';
+        const isVes = /ves|pago\s*m[oó]vil|pos\b/i.test(method);
+        const serviceName = booking.services?.map(s => s.name).join(' + ') || 'Servicio';
+
+        await this.cashRegisterService.registerServicePayment(
+          booking.tenantId.toString(),
+          {
+            bookingId: booking._id.toString(),
+            bookingNumber: booking.bookingNumber,
+            clientName: booking.client?.name || 'Walk-in',
+            serviceName,
+            amount: dto.amountPaid ?? booking.totalPrice ?? 0,
+            currency: isVes ? 'VES' : 'USD',
+            paymentMethod: method,
+          },
+        );
+      } catch (cashErr) {
+        this.logger.error(`Cash register integration failed: ${cashErr.message}`);
       }
     }
 
