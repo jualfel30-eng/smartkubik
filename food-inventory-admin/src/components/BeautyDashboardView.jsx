@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import {
   DollarSign, CalendarDays, CheckCircle2, Clock,
-  AlertTriangle, Receipt, RefreshCw, PlusCircle,
+  AlertTriangle, Receipt, RefreshCw, PlusCircle, UserPlus,
   PlayCircle, Users,
 } from 'lucide-react';
 import { fetchApi } from '../lib/api';
@@ -179,9 +179,13 @@ export default function BeautyDashboardView() {
             <RefreshCw size={14} className={`mr-1 ${refreshing ? 'animate-spin' : ''}`} />
             Actualizar
           </Button>
-          <Button size="sm" onClick={() => navigate('/appointments')}>
+          <Button size="sm" onClick={() => navigate('/appointments?new=1')}>
             <PlusCircle size={14} className="mr-1" />
             Nueva cita
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => navigate('/appointments?walkin=1')}>
+            <UserPlus size={14} className="mr-1" />
+            Walk-in
           </Button>
         </div>
       </div>
