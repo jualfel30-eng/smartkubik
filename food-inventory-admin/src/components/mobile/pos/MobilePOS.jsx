@@ -150,10 +150,24 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
   const [amount, setAmount] = useState(total > 0 ? total.toFixed(2) : '0');
   const [showNumPad, setShowNumPad] = useState(!hasPrefilledAmount);
   const [tipPct, setTipPct] = useState(defaultTipPct);
-  const [method, setMethod] = useState('efectivo_usd');
+  const [method, setMethod] = useState(() => {
+    const saved = tenant?.settings?.paymentMethods;
+    if (Array.isArray(saved) && saved.length > 0) {
+      const first = saved.find(m => m.enabled);
+      if (first) return first.id;
+    }
+    return 'efectivo_usd';
+  });
   const [reference, setReference] = useState('');
   const [exchangeRate, setExchangeRate] = useState(null);
-  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState(() => {
+    // Initialize from tenant settings — only enabled methods
+    const saved = tenant?.settings?.paymentMethods;
+    if (Array.isArray(saved) && saved.length > 0) {
+      return saved.filter(m => m.enabled).map(m => ({ id: m.id, name: m.name }));
+    }
+    return [];
+  });
   const [submitting, setSubmitting] = useState(false);
 
   // Loyalty state
