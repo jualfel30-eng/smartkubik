@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings, LogOut, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button.jsx';
-import { SidebarTrigger } from '@/components/ui/sidebar.jsx';
 import { cn } from '@/lib/utils';
 
 // MobileTopBar — se oculta al hacer scroll hacia abajo y reaparece al subir.
@@ -43,7 +42,6 @@ export default function MobileTopBar({ logoSrc, onAssistantOpen, onLogout, child
       style={{ position: 'sticky', top: 0 }}
     >
       <div className="flex items-center gap-2">
-        <SidebarTrigger className="text-muted-foreground" />
         {logoSrc && <img src={logoSrc} alt="SmartKubik" className="h-[18px] w-auto" />}
       </div>
       <div className="flex items-center gap-1">
