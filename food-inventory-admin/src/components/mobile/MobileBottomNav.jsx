@@ -10,6 +10,10 @@ import { useReducedMotionSafe } from '@/hooks/use-reduced-motion-safe';
 import { fetchApi } from '@/lib/api';
 import MobileFAB from './MobileFAB.jsx';
 import { onBadgeUpdate } from '@/lib/badge-events';
+import { useAuth } from '@/hooks/use-auth';
+import { useSidebarBadges } from '@/hooks/use-sidebar-badges';
+import { useNotification } from '@/context/NotificationContext';
+import { BOTTOM_NAV_HREFS } from '@/config/mobileNavGroups';
 
 const TAB_CONFIGS = {
   beauty: [
@@ -96,6 +100,14 @@ export default function MobileBottomNav() {
   const [pendingCount, setPendingCount] = useState(0);
   const [unpaidCount, setUnpaidCount] = useState(0);
 
+  // Aggregate badge for "Más" tab
+  const { tenant } = useAuth();
+  const sidebarBadges = useSidebarBadges(!!tenant);
+  const { unreadCount } = useNotification();
+  const masBadgeCount = Object.entries(sidebarBadges)
+    .filter(([key]) => !BOTTOM_NAV_HREFS.has(key))
+    .reduce((sum, [, n]) => sum + n, 0) + (unreadCount || 0);
+
   const loadCounts = useCallback(async () => {
     if (!isBeauty) return;
     try {
@@ -128,6 +140,7 @@ export default function MobileBottomNav() {
     if (!tab.to) return tab;
     if (isBeauty && tab.to === '/appointments') return { ...tab, badge: pendingCount };
     if (isBeauty && tab.to === '/dashboard') return { ...tab, badge: unpaidCount };
+    if (tab.to === '/mas') return { ...tab, badge: masBadgeCount };
     return tab;
   });
 
