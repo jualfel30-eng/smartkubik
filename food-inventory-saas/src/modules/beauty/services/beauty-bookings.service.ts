@@ -173,6 +173,53 @@ export class BeautyBookingsService {
       professionalName = professional?.name || undefined;
     }
 
+    // 6.5 Ensure a Customer record exists for this client (walk-in auto-register)
+    if (dto.client?.phone) {
+      try {
+        const existingCustomer = await this.customerModel.findOne({
+          tenantId,
+          phone: dto.client.phone,
+        }).exec();
+
+        if (!existingCustomer) {
+          // Generate customerNumber (CLI-XXXXXX)
+          const lastCli = await this.customerModel
+            .findOne({ tenantId, customerNumber: /^CLI-/ })
+            .sort({ customerNumber: -1 })
+            .select('customerNumber')
+            .exec();
+          let nextNum = 1;
+          if (lastCli?.customerNumber) {
+            const match = lastCli.customerNumber.match(/CLI-(\d+)/);
+            if (match) nextNum = parseInt(match[1], 10) + 1;
+          }
+          const customerNumber = `CLI-${String(nextNum).padStart(6, '0')}`;
+
+          await this.customerModel.create({
+            tenantId,
+            customerNumber,
+            name: dto.client.name || 'Walk-in',
+            phone: dto.client.phone,
+            email: dto.client.email || undefined,
+            customerType: 'individual',
+            tags: ['walk-in'],
+            source: 'walk-in',
+            createdBy: dto.professionalId
+              ? new Types.ObjectId(dto.professionalId)
+              : tenantId,
+          });
+          this.logger.log(`Auto-created customer ${customerNumber} for walk-in: ${dto.client.phone}`);
+        } else if (dto.client.name && existingCustomer.name !== dto.client.name) {
+          // Update name if changed
+          existingCustomer.name = dto.client.name;
+          await existingCustomer.save();
+        }
+      } catch (error) {
+        // Don't block booking creation if customer upsert fails (e.g. duplicate key race)
+        this.logger.warn(`Customer auto-register failed: ${error.message}`);
+      }
+    }
+
     // 7. Crear booking
     const booking = await this.beautyBookingModel.create({
       tenantId,
