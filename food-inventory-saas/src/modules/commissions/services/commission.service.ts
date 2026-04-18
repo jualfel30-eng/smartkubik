@@ -656,9 +656,17 @@ export class CommissionService {
 
       // Try to find employee config using professionalId as employeeId
       const config = await this.getEmployeeCommissionConfig(professionalId, tenantId);
-      const plan = config
+      let plan = config
         ? (config as any).commissionPlanId  // populated
         : await this.findDefaultPlan(tenantId);
+
+      // Fallback: if no default plan, use any active plan
+      if (!plan) {
+        plan = await this.commissionPlanModel.findOne({
+          tenantId: new Types.ObjectId(tenantId),
+          isActive: true,
+        });
+      }
 
       if (!plan) {
         this.logger.warn(`No commission plan found for tenant ${tenantId} — skipping service commission`);
