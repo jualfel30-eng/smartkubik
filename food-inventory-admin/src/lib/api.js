@@ -2167,7 +2167,7 @@ export const getEmployeeCommissionsSummary = (employeeId, params = {}) => {
   if (params.endDate) queryParams.append('endDate', params.endDate);
 
   const queryString = queryParams.toString();
-  return fetchApi(`/commissions/employees/${employeeId}/summary${queryString ? `?${queryString}` : ''}`);
+  return fetchApi(`/commissions/reports/employee/${employeeId}${queryString ? `?${queryString}` : ''}`);
 };
 
 export const getCommissionsReport = (params = {}) => {

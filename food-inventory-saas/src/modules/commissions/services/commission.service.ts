@@ -23,6 +23,7 @@ import {
 } from "../../../schemas/commission-record.schema";
 import { Order, OrderDocument } from "../../../schemas/order.schema";
 import { User, UserDocument } from "../../../schemas/user.schema";
+import { Professional, ProfessionalDocument } from "../../../schemas/professional.schema";
 
 import {
   CreateCommissionPlanDto,
@@ -51,6 +52,8 @@ export class CommissionService {
     private orderModel: Model<OrderDocument>,
     @InjectModel(User.name)
     private userModel: Model<UserDocument>,
+    @InjectModel(Professional.name)
+    private professionalModel: Model<ProfessionalDocument>,
     private eventEmitter: EventEmitter2,
   ) { }
 
@@ -1217,10 +1220,25 @@ export class CommissionService {
         ordersWithCommissions: records.length,
         averageCommissionRate: avgPercentage,
       },
-      byEmployee: Array.from(byEmployee.values()).map((e) => ({
-        ...e,
-        averageCommission: e.totalCommissions / e.ordersCount,
-      })),
+      byEmployee: await Promise.all(
+        Array.from(byEmployee.values()).map(async (e) => {
+          // Resolve employee name from Users or Professionals
+          if (!e.employeeName) {
+            try {
+              const user = await this.userModel.findById(e.employeeId).select('firstName lastName').lean();
+              if (user) {
+                e.employeeName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Empleado';
+              } else {
+                const prof = await this.professionalModel.findById(e.employeeId).select('name').lean();
+                e.employeeName = prof?.name || 'Profesional';
+              }
+            } catch {
+              e.employeeName = 'Profesional';
+            }
+          }
+          return { ...e, averageCommission: e.totalCommissions / e.ordersCount };
+        }),
+      ),
       byPlan: Array.from(byPlan.values()).map((p) => ({
         planId: p.planId,
         planName: p.planName,

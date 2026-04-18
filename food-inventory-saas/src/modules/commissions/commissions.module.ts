@@ -35,6 +35,7 @@ import {
 import { BonusRecord, BonusRecordSchema } from "../../schemas/bonus-record.schema";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import { User, UserSchema } from "../../schemas/user.schema";
+import { Professional, ProfessionalSchema } from "../../schemas/professional.schema";
 import { Role, RoleSchema } from "../../schemas/role.schema";
 
 // Modules
@@ -55,6 +56,7 @@ import { PermissionsModule } from "../permissions/permissions.module";
       // Related schemas
       { name: Order.name, schema: OrderSchema },
       { name: User.name, schema: UserSchema },
+      { name: Professional.name, schema: ProfessionalSchema },
       { name: "Role", schema: RoleSchema },
     ]),
     PermissionsModule,
