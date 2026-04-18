@@ -144,21 +144,23 @@ export class BeautyBookingsService {
     // 3. Calcular endTime
     const endTime = this.addMinutesToTime(dto.startTime, totalDuration);
 
-    // 4. Validar disponibilidad
-    const isAvailable = await this.validateAvailability({
-      tenantId: dto.tenantId,
-      date: dto.date,
-      professionalId: dto.professionalId || undefined,
-      serviceIds: dto.services.map((s) => s.service),
-      startTime: dto.startTime,
-      duration: totalDuration,
-      locationId: dto.professionalId || undefined,
-    });
+    // 4. Validar disponibilidad (skip for admin/walk-in bookings)
+    if (!(dto as any).skipAvailabilityCheck) {
+      const isAvailable = await this.validateAvailability({
+        tenantId: dto.tenantId,
+        date: dto.date,
+        professionalId: dto.professionalId || undefined,
+        serviceIds: dto.services.map((s) => s.service),
+        startTime: dto.startTime,
+        duration: totalDuration,
+        locationId: dto.professionalId || undefined,
+      });
 
-    if (!isAvailable) {
-      throw new BadRequestException(
-        'The selected time slot is not available',
-      );
+      if (!isAvailable) {
+        throw new BadRequestException(
+          'The selected time slot is not available',
+        );
+      }
     }
 
     // 5. Generar booking number

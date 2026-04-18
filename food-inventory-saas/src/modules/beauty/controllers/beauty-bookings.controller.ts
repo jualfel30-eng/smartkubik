@@ -49,6 +49,8 @@ export class BeautyBookingsController {
       notes: dto.notes,
       locationId: dto.locationId,
       recurrenceRule: dto.recurrenceRule,
+      // Admin bookings (walk-ins) skip availability validation — client is already present
+      skipAvailabilityCheck: true,
     };
     return this.beautyBookingsService.create(fullDto as any);
   }
