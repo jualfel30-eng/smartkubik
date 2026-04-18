@@ -1,5 +1,7 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/use-auth';
+import { SIDEBAR_PROFILE_WHITELIST } from '@/config/sidebarProfiles';
 
 /**
  * PageTransition — direction-aware fade+slide on navigation,
@@ -77,7 +79,16 @@ function getPrefix(pathname) {
 export default function PageTransition({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { tenant } = useAuth();
   const containerRef = useRef(null);
+
+  // Filter ROUTE_ORDER by vertical profile whitelist
+  const routeOrder = useMemo(() => {
+    const profileKey = tenant?.verticalProfile?.key || '';
+    const whitelist = SIDEBAR_PROFILE_WHITELIST[profileKey];
+    if (!whitelist) return ROUTE_ORDER;
+    return ROUTE_ORDER.filter(r => whitelist.has(r));
+  }, [tenant?.verticalProfile?.key]);
 
   const [phase, setPhase] = useState('visible');
   const [axis, setAxis] = useState('y');
@@ -108,8 +119,8 @@ export default function PageTransition({ children }) {
       newAxis = 'y';
       newDir = currentDepth > prevDepth ? 1 : -1;
     } else if (currentBase !== prevBase) {
-      const ci = ROUTE_ORDER.indexOf(currentBase);
-      const pi = ROUTE_ORDER.indexOf(prevBase);
+      const ci = routeOrder.indexOf(currentBase);
+      const pi = routeOrder.indexOf(prevBase);
       newAxis = 'x';
       newDir = (ci === -1 || pi === -1 || ci > pi) ? 1 : -1;
     } else {
@@ -134,7 +145,7 @@ export default function PageTransition({ children }) {
     }, DURATION * 0.4);
 
     return () => clearTimeout(timerRef.current);
-  }, [location.pathname]);
+  }, [location.pathname, routeOrder]);
 
   // ─── Mobile edge-swipe navigation ──────────────────────────────────────────
   const touchStart = useRef(null);
@@ -172,14 +183,14 @@ export default function PageTransition({ children }) {
     const goingBack = dx > 0;
     const currentBase = getBaseSegment(location.pathname);
     const prefix = getPrefix(location.pathname);
-    const idx = ROUTE_ORDER.indexOf(currentBase);
+    const idx = routeOrder.indexOf(currentBase);
     if (idx === -1) return;
 
     const targetIdx = goingBack ? idx - 1 : idx + 1;
-    if (targetIdx < 0 || targetIdx >= ROUTE_ORDER.length) return;
+    if (targetIdx < 0 || targetIdx >= routeOrder.length) return;
 
-    navigate(`${prefix}/${ROUTE_ORDER[targetIdx]}`);
-  }, [location.pathname, navigate]);
+    navigate(`${prefix}/${routeOrder[targetIdx]}`);
+  }, [location.pathname, navigate, routeOrder]);
 
   useEffect(() => {
     const el = containerRef.current;
