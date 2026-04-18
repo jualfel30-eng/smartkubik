@@ -477,8 +477,24 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
   };
 
   return (
-    <MobileActionSheet open onClose={onClose} title="Cobrar" className="max-h-[94vh] flex flex-col">
-      <div className="flex-1 overflow-y-auto mobile-scroll space-y-4 pb-28">
+    <MobileActionSheet open onClose={onClose} title="Cobrar" className="max-h-[94vh]" footer={
+      <div className="px-4 pt-3 pb-4 bg-card border-t border-border" style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}>
+        <div className="flex items-center justify-between mb-2 text-sm" aria-live="polite" aria-atomic="true">
+          <span className="text-muted-foreground">Total a cobrar</span>
+          <AnimatedNumber
+            value={effectiveTotal}
+            format={(n) => `$${n.toFixed(2)}`}
+            className="font-bold text-lg tabular-nums"
+          />
+        </div>
+        <button type="button" disabled={submitting || (mixedMode ? !mixedBalanced || linesTotal <= 0 : Number(amount) <= 0)} onClick={submit}
+          className="w-full rounded-[var(--mobile-radius-md)] bg-emerald-600 text-white py-4 text-base font-bold no-tap-highlight flex items-center justify-center gap-2 disabled:opacity-50">
+          <Check size={20} />
+          {submitting ? 'Procesando…' : 'Confirmar pago'}
+        </button>
+      </div>
+    }>
+      <div className="space-y-4 pb-4">
 
         {/* Summary */}
         <div className="rounded-[var(--mobile-radius-md)] bg-muted px-3 py-2.5">
@@ -796,22 +812,6 @@ export default function MobilePOS({ appointment, onClose, onPaid }) {
         )}
       </div>
 
-      {/* Sticky confirm */}
-      <div className="absolute inset-x-0 bottom-0 px-4 pt-3 pb-4 bg-card border-t border-border" style={{ paddingBottom: 'calc(1rem + var(--safe-bottom))' }}>
-        <div className="flex items-center justify-between mb-2 text-sm" aria-live="polite" aria-atomic="true">
-          <span className="text-muted-foreground">Total a cobrar</span>
-          <AnimatedNumber
-            value={effectiveTotal}
-            format={(n) => `$${n.toFixed(2)}`}
-            className="font-bold text-lg tabular-nums"
-          />
-        </div>
-        <button type="button" disabled={submitting || (mixedMode ? !mixedBalanced || linesTotal <= 0 : Number(amount) <= 0)} onClick={submit}
-          className="w-full rounded-[var(--mobile-radius-md)] bg-emerald-600 text-white py-4 text-base font-bold no-tap-highlight flex items-center justify-center gap-2 disabled:opacity-50">
-          <Check size={20} />
-          {submitting ? 'Procesando…' : 'Confirmar pago'}
-        </button>
-      </div>
     </MobileActionSheet>
   );
 }

@@ -115,7 +115,14 @@ export default function BeautyDashboardView() {
   const pending = appointments.filter(a => a.status === 'pending' || a.status === 'confirmed');
   const completed = appointments.filter(a => a.status === 'completed');
   const unpaid = appointments.filter(a => a.status === 'completed' && a.paymentStatus !== 'paid');
-  const salesToday = summary?.salesToday ?? summary?.todaySales ?? 0;
+  const paidToday = appointments
+    .filter(a => a.paymentStatus === 'paid')
+    .sort((a, b) => {
+      const ta = a.startTime ? new Date(a.startTime).getTime() : 0;
+      const tb = b.startTime ? new Date(b.startTime).getTime() : 0;
+      return tb - ta;
+    });
+  const salesToday = paidToday.reduce((sum, a) => sum + Number(a.amountPaid || a.totalPrice || 0), 0);
 
   const todayAppointments = appointments
     .filter(a => a.status !== 'cancelled' && a.status !== 'no_show')
@@ -281,6 +288,56 @@ export default function BeautyDashboardView() {
               </button>
             )}
           </div>
+        </ScrollReveal>
+      )}
+
+      {/* Recent Payments */}
+      {paidToday.length > 0 && (
+        <ScrollReveal>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt size={18} />
+                  Cobros de Hoy
+                </CardTitle>
+                <CardDescription>{paidToday.length} cobro{paidToday.length > 1 ? 's' : ''} — Total: ${salesToday.toFixed(2)}</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Hora</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Servicio</TableHead>
+                    <TableHead>Método</TableHead>
+                    <TableHead className="text-right">Monto</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paidToday.map((apt) => {
+                    const start = apt.startTime ? new Date(apt.startTime) : null;
+                    return (
+                      <TableRow key={apt._id}>
+                        <TableCell className="font-medium tabular-nums">
+                          {start ? format(start, 'HH:mm') : '--:--'}
+                        </TableCell>
+                        <TableCell>{apt.customerName || '—'}</TableCell>
+                        <TableCell className="max-w-[180px] truncate">{apt.serviceName || '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">{apt.paymentMethod || '—'}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums text-emerald-600">
+                          ${Number(apt.amountPaid || apt.totalPrice || 0).toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </ScrollReveal>
       )}
 

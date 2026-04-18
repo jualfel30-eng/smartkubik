@@ -51,6 +51,7 @@ export default function MobileActionSheet({
         className={className}
         snapPoints={snapPoints}
         defaultSnap={defaultSnap}
+        footer={footer}
       >
         {children}
       </SnapSheet>
@@ -82,14 +83,12 @@ export default function MobileActionSheet({
        */}
       <motion.div
         className={cn(
-          'absolute bottom-0 inset-x-0 bg-card shadow-2xl safe-bottom',
+          'absolute bottom-0 inset-x-0 bg-card shadow-2xl safe-bottom flex flex-col',
           className,
         )}
         style={{
           maxHeight: '85vh',
-          overflowY: 'auto',
-          overscrollBehavior: 'contain',
-          WebkitOverflowScrolling: 'touch',
+          overflow: 'hidden',
           borderTopLeftRadius: 'var(--mobile-radius-xl)',
           borderTopRightRadius: 'var(--mobile-radius-xl)',
           boxShadow: 'var(--elevation-overlay)',
@@ -99,18 +98,18 @@ export default function MobileActionSheet({
         exit={{ y: '100%' }}
         transition={SPRING.drawer}
       >
-        <div className="flex justify-center pt-2 pb-1">
+        <div className="flex justify-center pt-2 pb-1 shrink-0">
           <span className="block w-10 h-1 rounded-full bg-muted-foreground/40" aria-hidden />
         </div>
-        <div className="flex items-center justify-between px-4 pb-2">
+        <div className="flex items-center justify-between px-4 pb-2 shrink-0">
           <h2 className="text-base font-semibold">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Cerrar"
             className="tap-target no-tap-highlight text-muted-foreground">
             <X size={20} />
           </button>
         </div>
-        <div className="px-4 pb-4 pt-2">{children}</div>
-        {footer && <div>{footer}</div>}
+        <div className="px-4 pb-4 pt-2 flex-1 overflow-y-auto" style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>{children}</div>
+        {footer && <div className="shrink-0">{footer}</div>}
       </motion.div>
     </div>,
     document.body,
@@ -118,7 +117,7 @@ export default function MobileActionSheet({
 }
 
 // ─── SnapSheet — framer-motion drag with 40%/90% snap points ─────────────────
-function SnapSheet({ onClose, title, children, className, snapPoints, defaultSnap }) {
+function SnapSheet({ onClose, title, children, className, snapPoints, defaultSnap, footer }) {
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
   const heights = snapPoints.map((p) => Math.round(p * vh));
   const startH = heights[defaultSnap];
@@ -170,7 +169,7 @@ function SnapSheet({ onClose, title, children, className, snapPoints, defaultSna
           boxShadow: 'var(--elevation-overlay)',
         }}
         className={cn(
-          'absolute top-0 inset-x-0 bg-card overflow-hidden safe-bottom',
+          'absolute top-0 inset-x-0 bg-card overflow-hidden safe-bottom flex flex-col',
           className,
         )}
       >
@@ -186,9 +185,10 @@ function SnapSheet({ onClose, title, children, className, snapPoints, defaultSna
           </button>
         </div>
 
-        <div className="px-4 pb-4 pt-2 overflow-y-auto mobile-scroll h-[calc(100%-64px)]">
+        <div className={cn('px-4 pb-4 pt-2 overflow-y-auto mobile-scroll', footer ? 'flex-1' : 'h-[calc(100%-64px)]')}>
           {children}
         </div>
+        {footer && <div className="shrink-0">{footer}</div>}
       </motion.div>
     </div>
   );
