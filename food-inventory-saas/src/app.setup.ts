@@ -93,6 +93,7 @@ export async function configureApp(
     new ValidationPipe({
       whitelist: true,
       transform: true,
+      transformOptions: { enableImplicitConversion: true },
       exceptionFactory: (errors: ValidationError[]) => {
         const messages = formatValidationErrors(errors);
         logger.error(`Validation errors: ${messages.join(", ")}`);
