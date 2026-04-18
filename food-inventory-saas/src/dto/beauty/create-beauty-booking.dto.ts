@@ -23,13 +23,13 @@ class ClientDataDto {
   @MaxLength(200)
   name: string;
 
-  @ApiProperty({ example: '+584121234567' })
+  @ApiPropertyOptional({ example: '+584121234567' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @Matches(/^\+[1-9]\d{1,14}$/, {
     message: 'phone must be in international format (+country_code...)',
   })
-  phone: string;
+  phone?: string;
 
   @ApiPropertyOptional({ example: 'maria@example.com' })
   @IsOptional()

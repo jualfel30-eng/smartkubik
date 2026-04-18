@@ -547,7 +547,10 @@ export default function MobileWalkInWizard({
     try {
       setSubmitting(true);
       const payload = {
-        client: { name: customerName, phone: customerPhone || undefined },
+        client: {
+          name: customerName,
+          phone: customerPhone && /^\+[1-9]\d{1,14}$/.test(customerPhone) ? customerPhone : undefined,
+        },
         services: selectedServiceIds.map((id) => ({ service: id })),
         professionalId: selectedProfessional?._id || undefined,
         date: format(startAt, 'yyyy-MM-dd'),
