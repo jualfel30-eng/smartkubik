@@ -1,4 +1,5 @@
 import { ChevronLeft, Loader2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SPRING, fadeUp } from '@/lib/motion';
 import haptics from '@/lib/haptics';
@@ -35,15 +36,16 @@ export default function MobileSettingsLayout({
         {children}
       </div>
 
-      {/* Sticky save footer */}
+      {/* Sticky save footer — portaled to body to escape transform containment */}
       <AnimatePresence>
-        {isDirty && onSave && (
+        {isDirty && onSave && createPortal(
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             transition={SPRING.snappy}
-            className="fixed bottom-0 left-0 right-0 z-[40] bg-background/80 backdrop-blur-lg border-t border-border px-4 py-3 safe-bottom"
+            className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t border-border px-4 py-3 safe-bottom"
+            style={{ zIndex: 9998 }}
           >
             <motion.button
               type="button"
@@ -61,7 +63,8 @@ export default function MobileSettingsLayout({
                 'Guardar cambios'
               )}
             </motion.button>
-          </motion.div>
+          </motion.div>,
+          document.body,
         )}
       </AnimatePresence>
     </div>
