@@ -49,6 +49,7 @@ export class RolesService {
     _id: Types.ObjectId;
     enabledModules?: Record<string, boolean>;
     vertical?: string;
+    verticalProfile?: { key?: string; overrides?: Record<string, any> };
   }): Promise<{
     roles: Array<Record<string, any>>;
     availablePermissions: string[];
