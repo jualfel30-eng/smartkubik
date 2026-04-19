@@ -1,6 +1,9 @@
-import { motion } from 'framer-motion';
-import { Landmark } from 'lucide-react';
+import { useState, forwardRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Landmark, ChevronDown, ArrowUpDown, List, Edit3, Trash2 } from 'lucide-react';
 import AnimatedNumber from '../primitives/AnimatedNumber.jsx';
+import haptics from '@/lib/haptics';
+import { DUR, EASE, SPRING, listItem } from '@/lib/motion';
 
 function formatCurrency(n, currency) {
   const sym = currency === 'VES' ? 'Bs' : '$';
@@ -8,80 +11,173 @@ function formatCurrency(n, currency) {
 }
 
 function maskAccount(num) {
-  if (!num) return '•••• ----';
-  const last4 = num.slice(-4);
-  return `•••• •••• •••• ${last4}`;
+  if (!num) return '****----';
+  return `****${num.slice(-4)}`;
 }
 
-export default function MobileBankAccountCard({ account, isActive }) {
+const MobileBankAccountCard = forwardRef(function MobileBankAccountCard(
+  { account, onAdjust, onMovements, onEdit, onDelete },
+  ref,
+) {
+  const [expanded, setExpanded] = useState(false);
   const typeLabel = account.accountType === 'ahorro' ? 'Ahorro' : 'Corriente';
   const isUSD = account.currency === 'USD';
   const methods = account.acceptedPaymentMethods || [];
   const maxChips = 3;
   const overflow = methods.length > maxChips ? methods.length - maxChips : 0;
 
+  const toggle = () => {
+    haptics.tap();
+    setExpanded((p) => !p);
+  };
+
   return (
     <motion.div
-      animate={{ scale: isActive ? 1 : 0.92, opacity: isActive ? 1 : 0.5 }}
-      transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-      className={`w-[85vw] max-w-[340px] flex-shrink-0 rounded-2xl p-5 relative overflow-hidden select-none ${
-        isUSD
-          ? 'bg-gradient-to-br from-emerald-950/80 via-emerald-900/50 to-card border border-emerald-500/20'
-          : 'bg-gradient-to-br from-blue-950/80 via-blue-900/50 to-card border border-blue-500/20'
-      }`}
-      style={{ minHeight: 190 }}
+      ref={ref}
+      variants={listItem}
+      className="bg-card rounded-[var(--mobile-radius-lg,12px)] border border-border overflow-hidden"
     >
-      {/* Bank chip */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-            isUSD ? 'bg-emerald-500/15' : 'bg-blue-500/15'
-          }`}>
+      {/* Compact — always visible */}
+      <button onClick={toggle} className="w-full text-left p-4 no-tap-highlight">
+        <div className="flex items-start gap-3">
+          {/* Bank icon */}
+          <div
+            className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+              isUSD ? 'bg-emerald-500/10' : 'bg-blue-500/10'
+            }`}
+          >
             <Landmark size={16} className={isUSD ? 'text-emerald-400' : 'text-blue-400'} />
           </div>
-          <div>
-            <p className="text-sm font-semibold text-foreground leading-tight">{account.bankName}</p>
-            <p className="text-[11px] text-muted-foreground">{typeLabel} · {account.currency}</p>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold truncate">{account.bankName}</span>
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  account.isActive !== false ? 'bg-emerald-500' : 'bg-muted-foreground/40'
+                }`}
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {typeLabel} · {maskAccount(account.accountNumber)}
+            </p>
+          </div>
+
+          {/* Balance + chevron */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <AnimatedNumber
+              value={account.currentBalance}
+              format={(n) => formatCurrency(n, account.currency)}
+              className={`text-base font-bold tabular-nums ${isUSD ? 'text-emerald-400' : 'text-blue-400'}`}
+            />
+            <motion.div
+              animate={{ rotate: expanded ? 180 : 0 }}
+              transition={{ duration: DUR.base, ease: EASE.out }}
+            >
+              <ChevronDown size={14} className="text-muted-foreground" />
+            </motion.div>
           </div>
         </div>
-        <span className={`w-2 h-2 rounded-full ${account.isActive !== false ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`} />
-      </div>
 
-      {/* Account number */}
-      <p className="text-[13px] text-muted-foreground font-mono tracking-widest mb-4">
-        {maskAccount(account.accountNumber)}
-      </p>
+        {/* Payment method chips */}
+        {methods.length > 0 && (
+          <div className="flex items-center gap-1 mt-2.5 pl-12">
+            {methods.slice(0, maxChips).map((m) => (
+              <span
+                key={m}
+                className="text-[11px] bg-muted text-muted-foreground rounded-full px-2 py-0.5"
+              >
+                {m}
+              </span>
+            ))}
+            {overflow > 0 && (
+              <span className="text-[11px] bg-muted text-muted-foreground rounded-full px-2 py-0.5">
+                +{overflow}
+              </span>
+            )}
+          </div>
+        )}
+      </button>
 
-      {/* Balance */}
-      <div className="mb-3">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground block mb-0.5">Saldo disponible</span>
-        <AnimatedNumber
-          value={account.currentBalance}
-          format={(n) => formatCurrency(n, account.currency)}
-          className={`text-2xl font-bold tabular-nums ${isUSD ? 'text-emerald-400' : 'text-blue-400'}`}
-        />
-      </div>
+      {/* Expanded details + actions */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: DUR.base, ease: EASE.out }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-0 space-y-3 border-t border-border">
+              {/* Detail rows */}
+              <div className="space-y-2 pt-3">
+                {account.accountHolderName && (
+                  <DetailRow label="Titular" value={account.accountHolderName} />
+                )}
+                {account.branchName && (
+                  <DetailRow label="Sucursal" value={account.branchName} />
+                )}
+                {account.swiftCode && (
+                  <DetailRow label="SWIFT" value={account.swiftCode} />
+                )}
+                {account.notes && (
+                  <DetailRow label="Notas" value={account.notes} />
+                )}
+              </div>
 
-      {/* Payment methods */}
-      {methods.length > 0 && (
-        <div className="flex items-center gap-1 flex-wrap">
-          {methods.slice(0, maxChips).map((m) => (
-            <span key={m} className="text-[10px] bg-white/5 text-muted-foreground rounded-full px-2 py-0.5 border border-white/5">
-              {m}
-            </span>
-          ))}
-          {overflow > 0 && (
-            <span className="text-[10px] bg-white/5 text-muted-foreground rounded-full px-2 py-0.5 border border-white/5">
-              +{overflow}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Holder name subtle */}
-      {account.accountHolderName && (
-        <p className="text-[10px] text-muted-foreground/60 mt-2 truncate">{account.accountHolderName}</p>
-      )}
+              {/* Action buttons */}
+              <div className="grid grid-cols-4 gap-2 pt-1">
+                <ActionBtn
+                  icon={ArrowUpDown}
+                  label="Ajustar"
+                  onClick={() => { haptics.tap(); onAdjust?.(account); }}
+                />
+                <ActionBtn
+                  icon={List}
+                  label="Movimientos"
+                  onClick={() => { haptics.tap(); onMovements?.(account); }}
+                />
+                <ActionBtn
+                  icon={Edit3}
+                  label="Editar"
+                  onClick={() => { haptics.tap(); onEdit?.(account); }}
+                />
+                <ActionBtn
+                  icon={Trash2}
+                  label="Eliminar"
+                  className="text-destructive"
+                  onClick={() => { haptics.tap(); onDelete?.(account); }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
+});
+
+function DetailRow({ label, value }) {
+  return (
+    <div className="flex justify-between text-[12px]">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-foreground font-medium text-right max-w-[65%] truncate">{value}</span>
+    </div>
+  );
 }
+
+function ActionBtn({ icon: Icon, label, onClick, className = '' }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+      className={`flex flex-col items-center gap-1.5 py-2.5 rounded-xl bg-muted/50 border border-border active:bg-muted transition-colors text-muted-foreground ${className}`}
+    >
+      <Icon size={16} />
+      <span className="text-[10px] font-medium leading-none">{label}</span>
+    </button>
+  );
+}
+
+export default MobileBankAccountCard;
