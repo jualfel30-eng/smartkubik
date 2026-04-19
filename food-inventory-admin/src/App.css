@@ -146,45 +146,65 @@
 }
 
 .dark {
-  --radius: 0.5rem;
-  --background: oklch(0.20 0.02 255);
-  --foreground: oklch(0.95 0.01 255);
-  --card: oklch(0.22 0.02 255);
-  --card-foreground: oklch(0.95 0.01 255);
-  --popover: oklch(0.22 0.02 255);
-  --popover-foreground: oklch(0.95 0.01 255);
-  --primary: oklch(0.58 0.18 264);
+  --radius: 0.625rem;
+
+  /* ── Premium dark foundation ──
+     Deeper backgrounds, subtler borders, more vibrant accents.
+     Background L=0.14 (was 0.20) — closer to the onboarding's #0a0e1a.
+     Card L=0.17 — creates layered depth without harsh borders.
+     Border L=0.24 (was 0.33) — barely visible, premium feel.
+     Primary chroma 0.22 (was 0.18) — more vibrant purple. */
+  --background: oklch(0.14 0.02 260);
+  --foreground: oklch(0.95 0.01 260);
+  --card: oklch(0.17 0.025 260);
+  --card-foreground: oklch(0.95 0.01 260);
+  --popover: oklch(0.17 0.025 260);
+  --popover-foreground: oklch(0.95 0.01 260);
+  --primary: oklch(0.62 0.22 268);
   --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.22 0.02 255);
-  --secondary-foreground: oklch(0.85 0.01 255);
-  --muted: oklch(0.22 0.02 255);
-  --muted-foreground: oklch(0.67 0.01 255);
-  --accent: oklch(0.22 0.02 255);
-  --accent-foreground: oklch(0.95 0.01 255);
+  --secondary: oklch(0.19 0.02 260);
+  --secondary-foreground: oklch(0.85 0.01 260);
+  --muted: oklch(0.19 0.02 260);
+  --muted-foreground: oklch(0.60 0.02 260);
+  --accent: oklch(0.20 0.025 260);
+  --accent-foreground: oklch(0.95 0.01 260);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(0.33 0.02 255);
-  --input: oklch(0.33 0.02 255);
-  --input-background: oklch(0.25 0.02 255);
-  --ring: oklch(0.58 0.18 264);
-  --sidebar: oklch(0.22 0.02 255);
-  --sidebar-foreground: oklch(0.95 0.01 255);
-  --sidebar-primary: oklch(0.58 0.18 264);
+  --border: oklch(0.24 0.02 260);
+  --input: oklch(0.24 0.02 260);
+  --input-background: oklch(0.17 0.02 260);
+  --ring: oklch(0.62 0.22 268);
+
+  /* Sidebar */
+  --sidebar: oklch(0.13 0.02 260);
+  --sidebar-foreground: oklch(0.95 0.01 260);
+  --sidebar-primary: oklch(0.62 0.22 268);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.28 0.02 255);
-  --sidebar-accent-foreground: oklch(0.95 0.01 255);
-  --sidebar-border: oklch(0.33 0.02 255);
-  --sidebar-ring: oklch(0.58 0.18 264);
+  --sidebar-accent: oklch(0.20 0.025 260);
+  --sidebar-accent-foreground: oklch(0.95 0.01 260);
+  --sidebar-border: oklch(0.22 0.02 260);
+  --sidebar-ring: oklch(0.62 0.22 268);
 
   /* Semantic status colors — dark */
   --status-success: oklch(0.65 0.19 155);
   --status-success-foreground: oklch(0.15 0.02 155);
-  --status-success-muted: oklch(0.28 0.06 155);
+  --status-success-muted: oklch(0.22 0.08 155);
   --status-warning: oklch(0.78 0.16 75);
   --status-warning-foreground: oklch(0.18 0.04 60);
-  --status-warning-muted: oklch(0.30 0.06 75);
+  --status-warning-muted: oklch(0.24 0.08 75);
   --status-info: oklch(0.65 0.16 250);
   --status-info-foreground: oklch(0.15 0.02 250);
-  --status-info-muted: oklch(0.28 0.05 250);
+  --status-info-muted: oklch(0.22 0.06 250);
+
+  /* ── Premium tokens ──
+     Gradient, glow, and glass effects for ceremony moments.
+     Use via: background: var(--gradient-primary);
+              box-shadow: var(--glow-primary); */
+  --gradient-primary: linear-gradient(135deg, oklch(0.65 0.25 280), oklch(0.55 0.22 265));
+  --gradient-primary-subtle: linear-gradient(135deg, oklch(0.65 0.25 280 / 0.15), oklch(0.55 0.22 265 / 0.08));
+  --glow-primary: 0 0 0 1px oklch(0.62 0.22 268 / 0.4), 0 4px 20px -4px oklch(0.62 0.22 268 / 0.3);
+  --glow-primary-strong: 0 0 0 1px oklch(0.62 0.22 268 / 0.5), 0 4px 28px -4px oklch(0.62 0.22 268 / 0.4);
+  --glass-subtle: oklch(0.95 0.01 260 / 0.03);
+  --glass-medium: oklch(0.95 0.01 260 / 0.06);
 }
 
 @layer base {

@@ -48,11 +48,12 @@
   --mobile-gap-lg: 16px;
   --mobile-gap-xl: 24px;
 
-  /* Mobile radii */
-  --mobile-radius-sm: 8px;
-  --mobile-radius-md: 12px;
-  --mobile-radius-lg: 16px;
-  --mobile-radius-xl: 22px;
+  /* Mobile radii — generous for premium feel */
+  --mobile-radius-sm: 10px;
+  --mobile-radius-md: 14px;
+  --mobile-radius-lg: 18px;
+  --mobile-radius-xl: 24px;
+  --mobile-radius-2xl: 28px;
   --mobile-radius-full: 9999px;
 
   /* Animation */
@@ -84,23 +85,39 @@
   --ring-danger-glow: 0 0 0 3px rgb(239 68 68 / 0.25);
 }
 
-/* Dark mode: deeper shadows, slightly stronger glows */
+/* Dark mode: deeper shadows with subtle brand tint, stronger glows */
 .dark {
   --elevation-rest:
-    0 1px 2px rgb(0 0 0 / 0.35),
-    0 1px 3px rgb(0 0 0 / 0.45);
+    0 1px 3px rgb(0 0 0 / 0.5),
+    0 1px 2px rgb(0 0 0 / 0.4);
   --elevation-raised:
-    0 4px 12px rgb(0 0 0 / 0.45),
-    0 2px 4px rgb(0 0 0 / 0.35);
+    0 4px 16px rgb(0 0 0 / 0.5),
+    0 2px 4px rgb(0 0 0 / 0.4),
+    0 0 0 1px rgb(255 255 255 / 0.03);
   --elevation-floating:
-    0 12px 32px rgb(0 0 0 / 0.55),
-    0 4px 8px rgb(0 0 0 / 0.4);
+    0 12px 40px rgb(0 0 0 / 0.6),
+    0 4px 12px rgb(0 0 0 / 0.45),
+    0 0 0 1px rgb(255 255 255 / 0.04);
   --elevation-overlay:
-    0 24px 64px rgb(0 0 0 / 0.7),
-    0 8px 16px rgb(0 0 0 / 0.5);
-  --ring-active-glow: 0 0 0 3px rgb(16 185 129 / 0.35), 0 0 24px rgb(16 185 129 / 0.5);
-  --ring-pending-glow: 0 0 0 3px rgb(245 158 11 / 0.35), 0 0 16px rgb(245 158 11 / 0.4);
-  --ring-danger-glow: 0 0 0 3px rgb(239 68 68 / 0.35), 0 0 16px rgb(239 68 68 / 0.4);
+    0 24px 64px rgb(0 0 0 / 0.75),
+    0 8px 24px rgb(0 0 0 / 0.5),
+    0 0 0 1px rgb(255 255 255 / 0.05);
+
+  /* Status glows — brighter with larger spread for premium depth */
+  --ring-active-glow:
+    0 0 0 2px rgb(16 185 129 / 0.4),
+    0 0 20px rgb(16 185 129 / 0.25);
+  --ring-pending-glow:
+    0 0 0 2px rgb(245 158 11 / 0.4),
+    0 0 16px rgb(245 158 11 / 0.2);
+  --ring-danger-glow:
+    0 0 0 2px rgb(239 68 68 / 0.4),
+    0 0 16px rgb(239 68 68 / 0.2);
+
+  /* Brand glow — for primary interactive elements */
+  --ring-primary-glow:
+    0 0 0 2px oklch(0.62 0.22 268 / 0.4),
+    0 0 20px oklch(0.62 0.22 268 / 0.2);
 }
 
 /* --------------------------------------------------------------------------
