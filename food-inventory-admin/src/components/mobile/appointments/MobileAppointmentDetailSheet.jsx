@@ -6,6 +6,7 @@ import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { Phone, MessageCircle, PlayCircle, CheckCircle2, XCircle, Receipt, CalendarClock, ChevronLeft } from 'lucide-react';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import MobilePOS from '../pos/MobilePOS.jsx';
+import CommissionSetupPrompt, { shouldShowCommissionPrompt } from '@/components/beauty/CommissionSetupPrompt.jsx';
 import { fetchApi, cancelBeautyBookingSeries } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import haptics from '@/lib/haptics';
@@ -36,6 +37,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
   const [newStartStr, setNewStartStr] = useState('');
   const [rescheduling, setRescheduling] = useState(false);
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
+  const [showCommissionPrompt, setShowCommissionPrompt] = useState(false);
 
   // Register FAB context action based on appointment status
   useEffect(() => {
@@ -374,12 +376,20 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
         <MobilePOS
           appointment={appointment}
           onClose={() => setPosOpen(false)}
-          onPaid={() => {
+          onPaid={async () => {
             setPosOpen(false);
             onChanged?.();
+            if (isBeauty) {
+              const show = await shouldShowCommissionPrompt();
+              if (show) setShowCommissionPrompt(true);
+            }
           }}
         />
       )}
+      <CommissionSetupPrompt
+        open={showCommissionPrompt}
+        onClose={() => setShowCommissionPrompt(false)}
+      />
       <ConfirmDialog />
     </>
   );

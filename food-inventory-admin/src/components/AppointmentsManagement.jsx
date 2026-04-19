@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/use-auth';
 import ModuleAccessDenied from './ModuleAccessDenied';
 import { AppointmentsCalendar } from './appointments/AppointmentsCalendar.jsx';
 import { AppointmentsPaymentDialog } from './hospitality/AppointmentsPaymentDialog.jsx';
+import CommissionSetupPrompt, { shouldShowCommissionPrompt } from './beauty/CommissionSetupPrompt.jsx';
 import {
   Plus,
   Calendar,
@@ -575,6 +576,7 @@ function AppointmentsManagement() {
   const [beautyBookingServices, setBeautyBookingServices] = useState([]); // services from beauty booking
   const [extraBeautyServiceId, setExtraBeautyServiceId] = useState(''); // service being added as extra
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [showCommissionPrompt, setShowCommissionPrompt] = useState(false);
   const [paymentDialogAppointment, setPaymentDialogAppointment] = useState(null);
   const [conflictWarning, setConflictWarning] = useState(null);
   const depositFileInputRef = useRef(null);
@@ -3553,7 +3555,15 @@ function AppointmentsManagement() {
           await loadAppointments();
           setIsPaymentDialogOpen(false);
           setPaymentDialogAppointment(null);
+          if (isBeautyVertical) {
+            const show = await shouldShowCommissionPrompt();
+            if (show) setShowCommissionPrompt(true);
+          }
         }}
+      />
+      <CommissionSetupPrompt
+        open={showCommissionPrompt}
+        onClose={() => setShowCommissionPrompt(false)}
       />
       <ConfirmDialog />
     </div>
