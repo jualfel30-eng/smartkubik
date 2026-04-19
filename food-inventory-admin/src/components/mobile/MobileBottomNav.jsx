@@ -74,18 +74,22 @@ function TabItem({ to, label, Icon, active, badge = 0 }) {
       {active && (
         <motion.span
           layoutId={shouldReduce ? undefined : 'mobile-nav-pill'}
-          className="absolute top-1.5 h-1 w-8 rounded-full bg-primary"
+          className="absolute top-1 h-[3px] w-6 rounded-full"
+          style={{
+            background: 'var(--gradient-primary)',
+            boxShadow: '0 0 8px oklch(0.62 0.22 268 / 0.4)',
+          }}
           transition={t(SPRING.soft)}
           aria-hidden
         />
       )}
       <motion.span
-        animate={{ scale: active ? 1.08 : 1, y: active ? -1 : 0 }}
+        animate={{ scale: active ? 1.05 : 1, y: active ? -1 : 0 }}
         transition={t(SPRING.soft)}
         className="flex flex-col items-center gap-0.5"
       >
         <span className="relative">
-          <Icon size={22} strokeWidth={active ? 2.2 : 1.8} />
+          <Icon size={21} strokeWidth={active ? 2 : 1.5} />
           <BadgeDot count={badge} />
         </span>
         <span className="leading-none transition-colors">{label}</span>
@@ -154,14 +158,14 @@ export default function MobileBottomNav() {
       aria-label="Navegación principal"
       className={cn(
         'md:hidden fixed bottom-0 inset-x-0',
-        'bg-card/95 backdrop-blur border-t border-border',
+        'bg-card/90 backdrop-blur-xl',
         'flex items-stretch justify-between',
         'safe-bottom',
       )}
       style={{
         height: `calc(var(--mobile-bottomnav-h) + var(--safe-bottom))`,
         zIndex: 'var(--z-mobile-bottomnav)',
-        boxShadow: 'var(--elevation-raised)',
+        boxShadow: '0 -1px 0 var(--border), var(--elevation-raised)',
       }}
     >
       {tabs.map((tab, idx) => {
