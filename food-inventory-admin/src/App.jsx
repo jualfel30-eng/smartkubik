@@ -93,7 +93,8 @@ const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const AuthCallback = lazy(() => import('./pages/AuthCallback'));
 const OrganizationSelector = lazy(() => import('./pages/OrganizationSelector'));
-const OnboardingWizard = lazy(() => import('./pages/OnboardingWizard'));
+const OnboardingGate = lazy(() => import('./pages/onboarding/OnboardingGate'));
+const OnboardingBeautyPreview = lazy(() => import('./pages/onboarding/beauty/OnboardingBeautyPreview'));
 const DashboardView = lazy(() => import('./components/DashboardView.jsx'));
 const TodayDashboard = lazy(() => import('./components/mobile/home/TodayDashboard.jsx'));
 const SettingsPage = lazy(() => import('./components/SettingsPage.jsx'));
@@ -1099,6 +1100,7 @@ function AppContent() {
           <Route path="/fundadores" element={<FoundersPage />} />
           <Route path="/links" element={<LinksPage />} />
           <Route path="/demo-web-ventas" element={<WebVentasSectionDemo />} />
+          <Route path="/onboarding-preview" element={<OnboardingBeautyPreview />} />
           <Route path="/" element={<SmartKubikLanding />} />
           <Route path="/blog" element={<BlogIndex />} />
           <Route path="/blog/:slug" element={<BlogPost />} />
@@ -1139,7 +1141,7 @@ function AppContent() {
             path="/onboarding"
             element={
               <ProtectedRoute requireOrganization>
-                <OnboardingWizard />
+                <OnboardingGate />
               </ProtectedRoute>
             }
           />
