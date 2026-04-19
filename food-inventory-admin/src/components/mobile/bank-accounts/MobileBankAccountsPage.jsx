@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, RefreshCw, Landmark } from 'lucide-react';
+import { Plus, RefreshCw, Landmark, ArrowUpDown, List, Edit3, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import haptics from '@/lib/haptics';
@@ -21,6 +21,7 @@ export default function MobileBankAccountsPage() {
   const [accounts, setAccounts] = useState([]);
   const [balances, setBalances] = useState({});
   const [loading, setLoading] = useState(true);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   // Sheet states
   const [createOpen, setCreateOpen] = useState(false);
@@ -35,6 +36,9 @@ export default function MobileBankAccountsPage() {
   const [pulling, setPulling] = useState(false);
   const [pullDist, setPullDist] = useState(0);
   const THRESHOLD = 64;
+
+  // Carousel scroll ref
+  const scrollRef = useRef(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -80,6 +84,26 @@ export default function MobileBankAccountsPage() {
     setPullDist(0);
   }, [pullDist, handleRefresh]);
 
+  // Carousel scroll snap detection
+  const handleCarouselScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || accounts.length === 0) return;
+    const cardWidth = el.firstChild?.offsetWidth || 280;
+    const gap = 12;
+    const idx = Math.round(el.scrollLeft / (cardWidth + gap));
+    setActiveIndex(Math.max(0, Math.min(idx, accounts.length - 1)));
+  }, [accounts.length]);
+
+  const scrollToIndex = useCallback((idx) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const cardWidth = el.firstChild?.offsetWidth || 280;
+    const gap = 12;
+    el.scrollTo({ left: idx * (cardWidth + gap), behavior: 'smooth' });
+    setActiveIndex(idx);
+    haptics.select();
+  }, []);
+
   // Delete handler
   const handleDelete = async () => {
     if (!deleteAccount) return;
@@ -89,6 +113,9 @@ export default function MobileBankAccountsPage() {
       haptics.error();
       toast.success('Cuenta eliminada');
       setDeleteAccount(null);
+      if (activeIndex >= accounts.length - 1 && activeIndex > 0) {
+        setActiveIndex(activeIndex - 1);
+      }
       loadData();
     } catch (error) {
       toast.error('Error al eliminar', { description: error.message });
@@ -97,25 +124,11 @@ export default function MobileBankAccountsPage() {
     }
   };
 
-  // Group accounts by currency for currency card counts
-  const currencyGroups = {};
-  for (const acct of accounts) {
-    const c = acct.currency || 'USD';
-    if (!currencyGroups[c]) currencyGroups[c] = [];
-    currencyGroups[c].push(acct);
-  }
-
-  // Currency card refs for scroll-to
-  const accountRefs = useRef({});
-  const scrollToCurrency = (currency) => {
-    haptics.tap();
-    const firstAcct = currencyGroups[currency]?.[0];
-    if (firstAcct && accountRefs.current[firstAcct._id]) {
-      accountRefs.current[firstAcct._id].scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  };
-
+  const currentAccount = accounts[activeIndex] || null;
   const maskedForDelete = deleteAccount?.accountNumber?.slice(-4) || '----';
+
+  // Currency totals
+  const currencyEntries = Object.entries(balances).filter(([, v]) => v != null);
 
   return (
     <div
@@ -136,7 +149,7 @@ export default function MobileBankAccountsPage() {
       )}
 
       {/* Header */}
-      <header className="flex items-center justify-between mb-4">
+      <header className="flex items-center justify-between mb-5">
         <h1 className="text-xl font-semibold">Cuentas Bancarias</h1>
         <button
           onClick={() => { haptics.tap(); setCreateOpen(true); }}
@@ -146,51 +159,16 @@ export default function MobileBankAccountsPage() {
         </button>
       </header>
 
-      {/* Currency Summary Cards */}
-      {!loading && Object.keys(balances).length > 0 && (
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={{ visible: STAGGER(0.06) }}
-          className="flex gap-3 overflow-x-auto scrollbar-hide mb-5 -mx-1 px-1"
-        >
-          {Object.entries(balances).map(([currency, total]) => {
-            const count = currencyGroups[currency]?.length || 0;
-            const isUSD = currency === 'USD';
-            return (
-              <motion.button
-                key={currency}
-                variants={listItem}
-                onClick={() => scrollToCurrency(currency)}
-                className={`flex-shrink-0 min-w-[150px] p-4 rounded-[var(--mobile-radius-lg,12px)] border text-left active:scale-[0.97] transition-transform ${
-                  isUSD
-                    ? 'border-emerald-500/30 bg-emerald-500/5'
-                    : 'border-blue-500/30 bg-blue-500/5'
-                }`}
-              >
-                <span className="text-xs font-semibold text-muted-foreground">{currency}</span>
-                <AnimatedNumber
-                  value={total}
-                  format={(n) => formatCurrency(n, currency)}
-                  className={`block text-xl font-bold tabular-nums mt-1 ${isUSD ? 'text-emerald-400' : 'text-blue-400'}`}
-                />
-                <span className="text-[11px] text-muted-foreground mt-0.5 block">
-                  {count} {count === 1 ? 'cuenta' : 'cuentas'}
-                </span>
-              </motion.button>
-            );
-          })}
-        </motion.div>
-      )}
-
-      {/* Account List */}
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-28 bg-card rounded-[var(--mobile-radius-lg,12px)] border border-border animate-pulse" />
-          ))}
+        /* Skeleton */
+        <div className="space-y-4">
+          <div className="h-[190px] bg-card rounded-2xl border border-border animate-pulse mx-auto w-[85vw] max-w-[340px]" />
+          <div className="grid grid-cols-4 gap-3 px-2">
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-16 bg-card rounded-xl animate-pulse" />)}
+          </div>
         </div>
       ) : accounts.length === 0 ? (
+        /* Empty state */
         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
           <Landmark size={36} className="mb-3 opacity-30" />
           <p className="text-sm">No hay cuentas bancarias</p>
@@ -198,31 +176,151 @@ export default function MobileBankAccountsPage() {
         </div>
       ) : (
         <>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">
-            Cuentas activas
-          </p>
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={{ visible: STAGGER(0.04) }}
-            className="space-y-3"
-          >
-            {accounts.map((acct) => (
-              <motion.div
-                key={acct._id}
-                variants={listItem}
-                ref={(el) => { accountRefs.current[acct._id] = el; }}
-              >
-                <MobileBankAccountCard
-                  account={acct}
-                  onAdjust={(a) => setAdjustAccount(a)}
-                  onMovements={(a) => setMovementsAccount(a)}
-                  onEdit={(a) => setEditAccount(a)}
-                  onDelete={(a) => setDeleteAccount(a)}
+          {/* Card Carousel */}
+          <div className="relative -mx-4 mb-2">
+            <div
+              ref={scrollRef}
+              onScroll={handleCarouselScroll}
+              className="flex gap-3 overflow-x-auto scrollbar-hide px-4 snap-x snap-mandatory pb-2"
+              style={{ scrollSnapType: 'x mandatory' }}
+            >
+              {accounts.map((acct, idx) => (
+                <div
+                  key={acct._id}
+                  className="snap-center"
+                  style={{ scrollSnapAlign: 'center' }}
+                >
+                  <MobileBankAccountCard
+                    account={acct}
+                    isActive={idx === activeIndex}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Dot indicators */}
+          {accounts.length > 1 && (
+            <div className="flex justify-center gap-1.5 mb-5">
+              {accounts.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => scrollToIndex(idx)}
+                  className={`rounded-full transition-all duration-200 ${
+                    idx === activeIndex
+                      ? 'w-6 h-1.5 bg-primary'
+                      : 'w-1.5 h-1.5 bg-muted-foreground/30'
+                  }`}
                 />
+              ))}
+            </div>
+          )}
+
+          {/* Action Buttons for current card */}
+          {currentAccount && (
+            <motion.div
+              key={currentAccount._id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.15 }}
+              className="grid grid-cols-4 gap-3 mb-6"
+            >
+              <ActionBtn
+                icon={ArrowUpDown}
+                label="Ajustar"
+                onClick={() => { haptics.tap(); setAdjustAccount(currentAccount); }}
+              />
+              <ActionBtn
+                icon={List}
+                label="Movimientos"
+                onClick={() => { haptics.tap(); setMovementsAccount(currentAccount); }}
+              />
+              <ActionBtn
+                icon={Edit3}
+                label="Editar"
+                onClick={() => { haptics.tap(); setEditAccount(currentAccount); }}
+              />
+              <ActionBtn
+                icon={Trash2}
+                label="Eliminar"
+                onClick={() => { haptics.tap(); setDeleteAccount(currentAccount); }}
+                className="text-destructive"
+              />
+            </motion.div>
+          )}
+
+          {/* Account details for current card */}
+          {currentAccount && (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentAccount._id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15 }}
+                className="bg-card rounded-[var(--mobile-radius-lg,12px)] border border-border p-4 space-y-2.5 mb-6"
+              >
+                {currentAccount.accountHolderName && (
+                  <DetailRow label="Titular" value={currentAccount.accountHolderName} />
+                )}
+                <DetailRow label="Número" value={currentAccount.accountNumber} />
+                <DetailRow
+                  label="Tipo"
+                  value={currentAccount.accountType === 'ahorro' ? 'Ahorro' : 'Corriente'}
+                />
+                {currentAccount.branchName && (
+                  <DetailRow label="Sucursal" value={currentAccount.branchName} />
+                )}
+                {currentAccount.swiftCode && (
+                  <DetailRow label="SWIFT" value={currentAccount.swiftCode} />
+                )}
+                {currentAccount.notes && (
+                  <DetailRow label="Notas" value={currentAccount.notes} />
+                )}
               </motion.div>
-            ))}
-          </motion.div>
+            </AnimatePresence>
+          )}
+
+          {/* Currency Totals */}
+          {currencyEntries.length > 0 && (
+            <>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 px-1">
+                Totales por moneda
+              </p>
+              <motion.div
+                initial="hidden"
+                animate="visible"
+                variants={{ visible: STAGGER(0.06) }}
+                className="grid grid-cols-2 gap-3"
+              >
+                {currencyEntries.map(([currency, total]) => {
+                  const isUSD = currency === 'USD';
+                  const count = accounts.filter(a => a.currency === currency).length;
+                  return (
+                    <motion.div
+                      key={currency}
+                      variants={listItem}
+                      className={`p-4 rounded-[var(--mobile-radius-lg,12px)] border ${
+                        isUSD
+                          ? 'border-emerald-500/20 bg-emerald-500/5'
+                          : 'border-blue-500/20 bg-blue-500/5'
+                      }`}
+                    >
+                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{currency}</span>
+                      <AnimatedNumber
+                        value={total}
+                        format={(n) => formatCurrency(n, currency)}
+                        className={`block text-lg font-bold tabular-nums mt-1 ${isUSD ? 'text-emerald-400' : 'text-blue-400'}`}
+                      />
+                      <span className="text-[11px] text-muted-foreground">
+                        {count} {count === 1 ? 'cuenta' : 'cuentas'}
+                      </span>
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
+            </>
+          )}
         </>
       )}
 
@@ -285,3 +383,23 @@ export default function MobileBankAccountsPage() {
   );
 }
 
+function ActionBtn({ icon: Icon, label, onClick, className = '' }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-col items-center gap-1.5 py-3 rounded-xl bg-card border border-border active:bg-muted transition-colors text-muted-foreground ${className}`}
+    >
+      <Icon size={18} />
+      <span className="text-[10px] font-medium leading-none">{label}</span>
+    </button>
+  );
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <div className="flex justify-between text-[12px]">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-foreground font-medium text-right max-w-[65%] truncate">{value}</span>
+    </div>
+  );
+}
