@@ -65,16 +65,16 @@ function TabItem({ to, label, Icon, active, badge = 0 }) {
     <NavLink
       to={to}
       onClick={() => { if (!active) haptics.tap(); }}
+      aria-label={label}
       className={cn(
-        'relative flex flex-1 flex-col items-center justify-center gap-0.5 tap-target no-tap-highlight no-select',
-        'text-[11px] font-medium',
-        active ? 'text-primary' : 'text-muted-foreground',
+        'relative flex flex-1 flex-col items-center justify-center tap-target no-tap-highlight no-select',
+        active ? 'text-primary' : 'text-muted-foreground/50',
       )}
     >
       {active && (
         <motion.span
           layoutId={shouldReduce ? undefined : 'mobile-nav-pill'}
-          className="absolute top-1 h-[3px] w-6 rounded-full"
+          className="absolute top-1.5 h-[3px] w-5 rounded-full"
           style={{
             background: 'var(--gradient-primary)',
             boxShadow: '0 0 8px oklch(0.62 0.22 268 / 0.4)',
@@ -84,15 +84,12 @@ function TabItem({ to, label, Icon, active, badge = 0 }) {
         />
       )}
       <motion.span
-        animate={{ scale: active ? 1.05 : 1, y: active ? -1 : 0 }}
+        animate={{ scale: active ? 1.1 : 1 }}
         transition={t(SPRING.soft)}
-        className="flex flex-col items-center gap-0.5"
+        className="relative"
       >
-        <span className="relative">
-          <Icon size={21} strokeWidth={active ? 2 : 1.5} />
-          <BadgeDot count={badge} />
-        </span>
-        <span className="leading-none transition-colors">{label}</span>
+        <Icon size={22} strokeWidth={active ? 2 : 1.5} />
+        <BadgeDot count={badge} />
       </motion.span>
     </NavLink>
   );
