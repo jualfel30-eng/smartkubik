@@ -10,25 +10,16 @@ import { useFabContext } from '@/contexts/FabContext';
 
 const ACTIONS_BY_VERTICAL = {
   beauty: [
-    { id: 'new-appointment', label: 'Nueva cita', icon: CalendarPlus, to: '/appointments?new=1' },
-    { id: 'walk-in', label: 'Walk-in', icon: UserPlus, to: '/appointments?walkin=1' },
-    { id: 'charge', label: 'Cobrar', icon: Receipt, to: '/appointments?charge=1' },
-    { id: 'next-apt', label: 'Siguiente', icon: Clock, to: '/appointments?next=1' },
+    { id: 'new-appointment', label: 'Nueva cita', icon: CalendarPlus, to: '/appointments?new=1', gradient: ['#c084fc', '#a855f7'] },
+    { id: 'walk-in', label: 'Walk-in', icon: UserPlus, to: '/appointments?walkin=1', gradient: ['#4ade80', '#22c55e'] },
+    { id: 'charge', label: 'Cobrar', icon: Receipt, to: '/appointments?charge=1', gradient: ['#fb923c', '#f97316'] },
+    { id: 'next-apt', label: 'Siguiente', icon: Clock, to: '/appointments?next=1', gradient: ['#38bdf8', '#0ea5e9'] },
   ],
   default: [
-    { id: 'new-sale', label: 'Nueva venta', icon: ShoppingCart, to: '/orders/new' },
-    { id: 'new-client', label: 'Nuevo cliente', icon: UserPlus, to: '/crm?new=1' },
-    { id: 'charge', label: 'Cobrar', icon: Receipt, to: '/cash-register' },
+    { id: 'new-sale', label: 'Nueva venta', icon: ShoppingCart, to: '/orders/new', gradient: ['#c084fc', '#a855f7'] },
+    { id: 'new-client', label: 'Nuevo cliente', icon: UserPlus, to: '/crm?new=1', gradient: ['#4ade80', '#22c55e'] },
+    { id: 'charge', label: 'Cobrar', icon: Receipt, to: '/cash-register', gradient: ['#fb923c', '#f97316'] },
   ],
-};
-
-const ACTION_COLORS = {
-  'new-appointment': 'text-primary',
-  'walk-in': 'text-emerald-500',
-  'charge': 'text-amber-500',
-  'next-apt': 'text-muted-foreground',
-  'new-sale': 'text-primary',
-  'new-client': 'text-muted-foreground',
 };
 
 // Long-press threshold in ms
@@ -96,13 +87,14 @@ export default function MobileFAB() {
         onPointerCancel={clearTimer}
         whileTap={{ scale: 0.92 }}
         className="no-tap-highlight no-select absolute left-1/2 -translate-x-1/2 -top-6
-                   rounded-full bg-primary text-primary-foreground
-                   flex items-center justify-center transition-colors duration-200"
+                   rounded-full text-white
+                   flex items-center justify-center transition-all duration-300"
         style={{
           width: 'var(--mobile-fab-size)',
           height: 'var(--mobile-fab-size)',
           zIndex: 'var(--z-mobile-fab)',
-          boxShadow: 'var(--elevation-floating)',
+          background: 'var(--gradient-primary)',
+          boxShadow: '0 4px 20px oklch(0.62 0.22 268 / 0.35), var(--elevation-floating)',
         }}
       >
         <motion.span
@@ -110,7 +102,7 @@ export default function MobileFAB() {
           transition={SPRING.soft}
           className="flex items-center justify-center"
         >
-          <FabIcon size={28} strokeWidth={2.4} />
+          <FabIcon size={24} strokeWidth={2} />
         </motion.span>
       </motion.button>
 
@@ -137,7 +129,7 @@ export default function MobileFAB() {
         >
           {actions.map((action) => {
             const Icon = action.icon;
-            const iconColor = ACTION_COLORS[action.id] || 'text-primary';
+            const [g1, g2] = action.gradient;
             return (
               <motion.button
                 key={action.id}
@@ -145,15 +137,22 @@ export default function MobileFAB() {
                 variants={scaleIn}
                 onClick={() => handlePick(action)}
                 whileTap={{ scale: 0.96 }}
-                className="no-tap-highlight no-select flex flex-col items-center justify-center gap-2
-                           border border-border bg-card p-4 min-h-[96px]"
+                className="no-tap-highlight no-select flex flex-col items-center justify-center gap-3 p-5"
                 style={{
-                  borderRadius: 'var(--mobile-radius-lg)',
+                  borderRadius: 'var(--mobile-radius-xl)',
+                  background: `linear-gradient(135deg, ${g1}10, ${g2}06)`,
                   boxShadow: 'var(--elevation-rest)',
                 }}
               >
-                <Icon size={26} className={iconColor} />
-                <span className="text-sm font-medium">{action.label}</span>
+                <div
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                  style={{
+                    background: `linear-gradient(135deg, ${g1}25, ${g2}15)`,
+                  }}
+                >
+                  <Icon size={22} strokeWidth={1.5} style={{ color: g1 }} />
+                </div>
+                <span className="text-[13px] font-semibold text-foreground/80">{action.label}</span>
               </motion.button>
             );
           })}
