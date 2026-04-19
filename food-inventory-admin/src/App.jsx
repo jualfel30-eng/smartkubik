@@ -129,6 +129,7 @@ const TimeClock = lazy(() => import('./pages/TimeClock.jsx'));
 const DocsArticle = lazy(() => import('./pages/DocsArticle.jsx'));
 const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
 const BankAccountsManagement = lazy(() => import('@/components/BankAccountsManagement.jsx'));
+const BankAccountsRouteGate = lazy(() => import('@/components/mobile/bank-accounts/BankAccountsRouteGate.jsx'));
 const FixedAssetsView = lazy(() => import('@/components/FixedAssetsView.jsx'));
 const InvestmentsView = lazy(() => import('@/components/InvestmentsView.jsx'));
 const BankReconciliationView = lazy(() => import('@/components/BankReconciliationView.jsx'));
@@ -986,7 +987,7 @@ function TenantLayout() {
                 <Route path="cash-register" element={<CashRegisterRouteGate />} />
                 <Route path="fixed-assets" element={<FixedAssetsView />} />
                 <Route path="investments" element={<InvestmentsView />} />
-                <Route path="bank-accounts" element={<BankAccountsManagement />} />
+                <Route path="bank-accounts" element={<BankAccountsRouteGate />} />
                 <Route path="bank-accounts/:accountId/reconciliation" element={<BankReconciliationView />} />
                 <Route path="organizations" element={<OrganizationsManagement />} />
                 <Route path="receivables" element={
