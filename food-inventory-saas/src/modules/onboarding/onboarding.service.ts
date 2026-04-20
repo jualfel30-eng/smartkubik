@@ -491,11 +491,51 @@ export class OnboardingService {
 
     if (tenant.isConfirmed) {
       this.logger.log(
-        `Tenant ${tenant.name} ya estaba confirmado. Ignorando nueva confirmación para ${dto.email}.`,
+        `Tenant ${tenant.name} ya estaba confirmado. Generando sesión para ${dto.email}.`,
       );
+
+      // Even if already confirmed, we need to return tokens + memberships
+      // so the frontend can establish a proper session
+      const trimmedEmailEarly = dto.email.trim();
+      const emailCandidatesEarly = Array.from(
+        new Set([trimmedEmailEarly, trimmedEmailEarly.toLowerCase()]),
+      );
+      const userEarly = await this.userModel
+        .findOne({ email: { $in: emailCandidatesEarly }, tenantId: tenant._id })
+        .populate({ path: "role", populate: { path: "permissions", select: "name" } })
+        .exec();
+
+      if (!userEarly) {
+        throw new NotFoundException("Usuario no encontrado para este tenant.");
+      }
+
+      const tokensEarly = await this.tokenService.generateTokens(userEarly, tenant);
+
+      const membershipsEarly: MembershipSummary[] = [];
+      try {
+        const membershipEarly = await this.userTenantMembershipModel
+          .findOne({ userId: userEarly._id, tenantId: tenant._id })
+          .populate({ path: "roleId", populate: { path: "permissions", select: "name" } })
+          .exec();
+        if (membershipEarly) {
+          membershipsEarly.push(
+            await this.membershipsService.buildMembershipSummary(membershipEarly),
+          );
+        }
+      } catch (e) {
+        this.logger.warn(`Could not build membership summary: ${e}`);
+      }
+
       return {
         success: true,
         message: "La cuenta ya estaba confirmada.",
+        user: {
+          id: userEarly._id,
+          email: userEarly.email,
+          firstName: userEarly.firstName,
+          lastName: userEarly.lastName,
+          role: userEarly.role,
+        },
         tenant: {
           id: tenant._id,
           name: tenant.name,
@@ -505,8 +545,14 @@ export class OnboardingService {
           subscriptionPlan: tenant.subscriptionPlan,
           isConfirmed: tenant.isConfirmed,
           verticalProfile: tenant.verticalProfile,
+          trialStartDate: tenant.trialStartDate,
+          trialEndDate: tenant.trialEndDate,
           onboardingCompleted: tenant.onboardingCompleted ?? false,
+          onboardingStep: tenant.onboardingStep ?? 0,
+          onboardingStepsCompleted: tenant.onboardingStepsCompleted ?? [],
         },
+        memberships: membershipsEarly,
+        ...tokensEarly,
       } as const;
     }
 

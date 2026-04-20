@@ -32,14 +32,18 @@ export function getVerticalProfileKey(
 
   // SERVICES vertical
   if (verticalUpper === "SERVICES") {
-    // Barbería / Peluquería / Salón de Belleza
+    // Barbería / Peluquería / Salón de Belleza / Nail Studio
     if (
       businessTypeLower.includes("barber") ||
       businessTypeLower.includes("peluquer") ||
       businessTypeLower.includes("salón de belleza") ||
       businessTypeLower.includes("salon de belleza") ||
+      businessTypeLower.includes("beauty") ||
+      businessTypeLower.includes("nail") ||
       businessTypeLower.includes("estilis") ||
-      businessTypeLower.includes("hair")
+      businessTypeLower.includes("hair") ||
+      businessTypeLower.includes("belleza") ||
+      businessTypeLower.includes("uñas")
     ) {
       return "barbershop-salon";
     }
