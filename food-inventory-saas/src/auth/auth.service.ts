@@ -390,6 +390,7 @@ export class AuthService {
     return {
       id: tenant._id,
       name: tenant.name,
+      slug: (tenant as any).slug,
       businessType: tenant.businessType,
       vertical: tenant.vertical,
       enabledModules: effectiveModules,

@@ -25,6 +25,7 @@ function normalizeTenant(rawTenant) {
   return {
     id: rawTenant.id || rawTenant._id,
     code: rawTenant.code,
+    slug: rawTenant.slug,
     name: rawTenant.name,
     businessType: rawTenant.businessType,
     vertical: rawTenant.vertical,

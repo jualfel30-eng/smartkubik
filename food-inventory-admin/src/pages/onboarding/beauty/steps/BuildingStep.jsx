@@ -74,7 +74,7 @@ export default function BuildingStep({ onNext, tenant, preview = false }) {
       try { setResult('storefront', 'loading');
         await fetchApi('/restaurant-storefront/config', { method: 'PUT', body: JSON.stringify({ restaurantConfig: { enabled: true, restaurantName: state.salonName, whatsappNumber: state.whatsappNumber ? `58${state.whatsappNumber}` : undefined, currency: state.currency, businessHours: buildBusinessHours(state.schedule) } }) });
         setResult('storefront', 'success');
-        dispatch({ type: 'SET_BOOKING_URL', payload: `${(tenant?.code || '').toLowerCase()}.smartkubik.com` });
+        dispatch({ type: 'SET_BOOKING_URL', payload: `${(tenant?.slug || tenant?.code || '').toLowerCase()}.smartkubik.com` });
       } catch { setResult('storefront', 'error'); } advance();
 
       haptics.success(); await delay(1200); onNext();

@@ -58,6 +58,30 @@ export class OnboardingService {
     @InjectConnection() private readonly connection: Connection,
   ) { }
 
+  /**
+   * Generate a URL-safe slug from the business name.
+   * Appends a short random suffix to ensure uniqueness.
+   */
+  private async generateUniqueSlug(name: string): Promise<string> {
+    const base = name
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip accents
+      .replace(/[^a-z0-9\s-]/g, "")                    // keep alphanumeric + spaces + hyphens
+      .trim()
+      .replace(/\s+/g, "-")                             // spaces → hyphens
+      .replace(/-+/g, "-")                              // collapse multiple hyphens
+      .slice(0, 40);                                    // max length
+
+    // Try without suffix first, then with random suffix
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const slug = attempt === 0 ? base : `${base}-${Math.random().toString(36).slice(2, 6)}`;
+      const exists = await this.tenantModel.findOne({ slug }).lean().exec();
+      if (!exists) return slug;
+    }
+    // Fallback: base + timestamp fragment
+    return `${base}-${Date.now().toString(36).slice(-5)}`;
+  }
+
   async createTenantAndAdmin(dto: CreateTenantWithAdminDto) {
     this.logger.log(
       `Iniciando proceso de onboarding para el tenant: ${dto.businessName}`,
@@ -154,15 +178,18 @@ export class OnboardingService {
         );
 
         const confirmationEnforced = isTenantConfirmationEnforced();
-        // Generamos siempre un código para poder enviar el correo de bienvenida,
-        // aunque la confirmación no sea obligatoria en todos los entornos.
         const confirmationCode = Math.floor(100000 + Math.random() * 900000)
           .toString()
           .padStart(6, "0");
         const confirmationCodeExpiresAt = new Date(Date.now() + 1000 * 60 * 60);
 
+        // Generate URL-safe slug for storefront subdomain
+        const slug = await this.generateUniqueSlug(dto.businessName);
+        this.logger.log(`Generated slug: ${slug}`);
+
         const newTenant = new this.tenantModel({
           name: dto.businessName,
+          slug,
           businessType: dto.businessType,
           vertical: vertical,
           enabledModules: enabledModules,
@@ -331,6 +358,7 @@ export class OnboardingService {
         tenant: {
           id: tenantDoc._id,
           name: tenantDoc.name,
+          slug: tenantDoc.slug,
           businessType: tenantDoc.businessType,
           vertical: tenantDoc.vertical,
           enabledModules: tenantDoc.enabledModules,
@@ -539,6 +567,7 @@ export class OnboardingService {
         tenant: {
           id: tenant._id,
           name: tenant.name,
+          slug: tenant.slug,
           businessType: tenant.businessType,
           vertical: tenant.vertical,
           enabledModules: tenant.enabledModules,
@@ -636,6 +665,7 @@ export class OnboardingService {
       tenant: {
         id: tenant._id,
         name: tenant.name,
+        slug: tenant.slug,
         businessType: tenant.businessType,
         vertical: tenant.vertical,
         enabledModules: tenant.enabledModules,

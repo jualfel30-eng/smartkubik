@@ -266,6 +266,9 @@ export class Tenant {
   @Prop({ type: String, required: true })
   name: string;
 
+  @Prop({ type: String, unique: true, sparse: true })
+  slug?: string;
+
   @Prop({ type: String })
   ownerFirstName?: string;
 

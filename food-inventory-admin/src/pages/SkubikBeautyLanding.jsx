@@ -19,12 +19,12 @@ const BEAUTY_DATA = {
       {
         eyebrow: 'Software de agendamiento para belleza',
         title: 'Tu salón, abierto siempre. Aunque tú estés dormida.',
-        subtitle: 'Agenda 24/7, señas que no se pierden, y cero mensajes de WhatsApp a las 11pm. Para salones, barberías, spas y nail studios en Venezuela y LATAM.',
+        subtitle: 'Agenda 24/7, anticipos que no se pierden, y cero mensajes de WhatsApp a las 11pm. Para salones, barberías, spas y nail studios en Venezuela y LATAM.',
       },
       {
         eyebrow: 'Agenda sin caos',
         title: 'Menos "¿tenés hueco pa\' mañana?". Más tijera en mano.',
-        subtitle: 'Tus clientas reservan solas. Tú cobras seña antes. Y el domingo lo tienes libre, de verdad.',
+        subtitle: 'Tus clientas reservan solas. Tú cobras anticipo antes. Y el domingo lo tienes libre, de verdad.',
       },
       {
         eyebrow: 'SmartKubik · Belleza',
@@ -47,7 +47,7 @@ const BEAUTY_DATA = {
     subtitle: 'Llevamos 3 años hablando con dueñas de salón. Siempre salen los mismos siete.',
     items: [
       { q: '"Son las 10:47pm y tengo 14 WhatsApps sin responder."', a: 'Tu cliente reserva sola, sin escribirte.' },
-      { q: '"Me dejó plantada. Otra vez. Y hoy rechacé dos clientas por ese hueco."', a: 'Seña del 30% antes de reservar. No viene = no pierdes.' },
+      { q: '"Me dejó plantada. Otra vez. Y hoy rechacé dos clientas por ese hueco."', a: 'Anticipo del 30% antes de reservar. No viene = no pierdes.' },
       { q: '"Mi cuaderno se me mojó y con él, tres meses de citas."', a: 'Todo en la nube. Sincronizado con tu equipo.' },
       { q: '"No sé cuánto vendí el mes pasado. Ni quién es mi mejor clienta."', a: 'Dashboard con ingresos, frecuencia y ticket promedio.' },
       { q: '"Mi recepcionista renunció y toda la información se fue con ella."', a: 'Tus datos son tuyos. Exporta cuando quieras, sin permisos.' },
@@ -69,9 +69,9 @@ const BEAUTY_DATA = {
       },
       {
         num: '02',
-        kicker: 'Señas que se cobran solas',
+        kicker: 'Anticipos que se cobran solos',
         title: 'No más plantones. No más "se me olvidó".',
-        body: 'Configura el % de seña por servicio. El sistema cobra por Zelle, Pago Móvil, tarjeta o Binance antes de confirmar. Si no pagan, no reservan.',
+        body: 'Configura el % de anticipo por servicio. El sistema cobra por Zelle, Pago Móvil, tarjeta o Binance antes de confirmar. Si no pagan, no reservan.',
         outcome: '–38%',
         outcomeLabel: 'cancelaciones de último minuto',
       },
@@ -94,7 +94,7 @@ const BEAUTY_DATA = {
         stage: 'Etapa 1',
         name: 'Solita en casa',
         who: '1 persona · 0 empleados',
-        features: ['Agenda online', 'Cobro de seña', 'Ficha de clienta', 'Recordatorios WhatsApp'],
+        features: ['Agenda online', 'Cobro de anticipo', 'Ficha de clienta', 'Recordatorios WhatsApp'],
       },
       {
         stage: 'Etapa 2',
@@ -121,7 +121,7 @@ const BEAUTY_DATA = {
     ],
     prompts: [
       '¿Cuánto cuesta para un salón de 3 estilistas?',
-      '¿Cómo funcionan las señas en Venezuela?',
+      '¿Cómo funcionan los anticipos en Venezuela?',
       '¿Puedo migrar desde mi cuaderno/Excel?',
       '¿Cobran comisión por cita?',
     ],
@@ -151,7 +151,7 @@ const BEAUTY_DATA = {
         price: '15',
         per: '/mes',
         desc: 'Para quien empieza sola.',
-        features: ['1 agenda', 'Reservas online', 'Cobro de seña', '200 clientas', 'WhatsApp recordatorios'],
+        features: ['1 agenda', 'Reservas online', 'Cobro de anticipo', '200 clientas', 'WhatsApp recordatorios'],
         cta: 'Probar Solo',
       },
       {
@@ -182,7 +182,7 @@ const BEAUTY_DATA = {
       },
     ],
     blocks: [
-      { t: 'Qué incluye todo', d: 'Reservas online, cobro de seña, recordatorios WhatsApp, ficha de clienta, reportes, exportación de datos, soporte humano en español.' },
+      { t: 'Qué incluye todo', d: 'Reservas online, cobro de anticipo, recordatorios WhatsApp, ficha de clienta, reportes, exportación de datos, soporte humano en español.' },
       { t: 'Qué no recortamos', d: 'Ningún plan tiene comisión por cita. Ninguno te obliga a pagar por pasarela de cobro. Ninguno te amarra más allá del mes en curso.' },
       { t: 'Cuando crezcas', d: 'Cambia de plan en un clic. No pierdes datos, no pagas setup, no re-entrenas al equipo. El mismo producto, más capacidad.' },
     ],
@@ -192,7 +192,7 @@ const BEAUTY_DATA = {
     title: 'Preguntas que nos hacen mucho',
     items: [
       { q: '¿Funciona en Venezuela con pagos locales?', a: 'Sí. Aceptamos Pago Móvil, Zelle, transferencias, tarjeta internacional, Binance Pay y efectivo. Configuras qué métodos muestras a tus clientas.' },
-      { q: '¿Cobran comisión por cada reserva?', a: 'No. Cero. Tu plan mensual es todo lo que pagas. Las señas van directo a tu cuenta (o pasarela si usas una), nosotros no tocamos ese dinero.' },
+      { q: '¿Cobran comisión por cada reserva?', a: 'No. Cero. Tu plan mensual es todo lo que pagas. Los anticipos van directo a tu cuenta (o pasarela si usas una), nosotros no tocamos ese dinero.' },
       { q: '¿Puedo migrar desde mi cuaderno o Excel?', a: 'Sí, gratis. Nos mandas fotos del cuaderno o el archivo, y un humano de nuestro equipo te sube clientas, servicios y precios en 48h.' },
       { q: '¿Qué pasa si mi internet se cae?', a: 'La app funciona offline para crear citas y ver tu agenda del día. Cuando vuelve la señal, sincroniza sola. Nada se pierde.' },
       { q: '¿Mis clientas necesitan bajar una app?', a: 'No. Reservan desde el navegador, con su número de WhatsApp. Cero fricción.' },
@@ -710,13 +710,13 @@ function SNav({ D }) {
 // ---- Hero ----
 const HERO_APPTS = [
   { d: 0, h: 0, name: 'Karina R.', svc: 'Corte + Brush', label: 'Reservó a las 2:14am', accent: false },
-  { d: 1, h: 2, name: 'Vanessa M.', svc: 'Balayage', label: 'Pagó seña vía Zelle', accent: false },
+  { d: 1, h: 2, name: 'Vanessa M.', svc: 'Balayage', label: 'Pagó anticipo vía Zelle', accent: false },
   { d: 0, h: 3, name: 'Jesús T.', svc: 'Barba + Fade', label: 'Viene por IG', accent: true },
   { d: 2, h: 1, name: 'Fiorella', svc: 'Mani+Pedi', label: 'Confirmó por WA', accent: false },
   { d: 3, h: 0, name: 'Luisa P.', svc: 'Coloración', label: 'Pago Móvil ✓', accent: true },
   { d: 4, h: 3, name: 'Rebeca G.', svc: 'Alisado', label: 'Reserva nueva', accent: false },
   { d: 2, h: 2, name: 'Emilia', svc: 'Tinte raíz', label: 'Domingo confirmado', accent: false },
-  { d: 4, h: 1, name: 'Andrea V.', svc: 'Extensiones', label: 'Seña 30% cobrada', accent: true },
+  { d: 4, h: 1, name: 'Andrea V.', svc: 'Extensiones', label: 'Anticipo 30% cobrado', accent: true },
 ];
 
 function HeroCalendar() {
@@ -775,7 +775,7 @@ function HeroCalendar() {
       </div>
       <div className="s-cal-foot">
         <span>Reservas activas · <strong>{visible}</strong></span>
-        <span>Seña cobrada · <strong>${(visible*12).toFixed(0)}</strong></span>
+        <span>Anticipo cobrado · <strong>${(visible*12).toFixed(0)}</strong></span>
       </div>
       {toast && (
         <div className="s-toast show">
@@ -842,7 +842,7 @@ function SHero({ D }) {
 
 // ---- Marquee ----
 function SMarquee() {
-  const items = ['Reservas 24/7', 'Señas cobradas', 'Cero plantones', 'Tu data es tuya', 'Sin comisión por cita', 'Migramos gratis', 'Soporte humano', '14 días free'];
+  const items = ['Reservas 24/7', 'Anticipos cobrados', 'Cero plantones', 'Tu data es tuya', 'Sin comisión por cita', 'Migramos gratis', 'Soporte humano', '14 días free'];
   const dup = [...items, ...items, ...items];
   return (
     <div className="s-marquee">
@@ -995,7 +995,7 @@ function MoneyCounter({ progress }) {
       <div className="s-money-sub">= plantones evitados × ticket promedio · salta de $50 en $50</div>
       <div className="s-money-list">
         {[
-          { n: 'Karina R.', s: 'Pagó seña · no vino', v: '+ $50' },
+          { n: 'Karina R.', s: 'Pagó anticipo · no vino', v: '+ $50' },
           { n: 'Paola M.', s: 'Intentó cancelar 2h antes', v: '+ $50' },
           { n: 'Jennifer T.', s: 'Re-agendó con 48h', v: '+ $50' },
           { n: 'Moraima G.', s: 'Pagó completo · vino', v: '+ $50' },
@@ -1164,9 +1164,9 @@ function SChat({ D }) {
 
   const replies = {
     '¿Cuánto cuesta para un salón de 3 estilistas?': 'Para 3 estilistas el plan Estudio ($35/mes) es perfecto. Incluye comisiones, inventario, reportes y hasta 5 agendas. ¿Cobrar en Zelle/Pago Móvil? También sin comisión extra.',
-    '¿Cómo funcionan las señas en Venezuela?': 'Configuras el % por servicio (típico: 30%). La clienta paga al reservar vía Pago Móvil, Zelle, tarjeta, Binance o efectivo. El dinero va directo a tu cuenta. Nosotros no tocamos un centavo.',
+    '¿Cómo funcionan los anticipos en Venezuela?': 'Configuras el % por servicio (típico: 30%). La clienta paga al reservar vía Pago Móvil, Zelle, tarjeta, Binance o efectivo. El dinero va directo a tu cuenta. Nosotros no tocamos un centavo.',
     '¿Puedo migrar desde mi cuaderno/Excel?': 'Sí, gratis. Nos mandas fotos del cuaderno o tu Excel. En 48h tu salón está completo: clientas, servicios, precios, historial. Humanos reales haciéndolo, no un bot que se equivoca.',
-    '¿Cobran comisión por cita?': 'No. Cero. Tu plan mensual es todo. Cobras 50 citas o 500: mismo precio. Las señas van 100% a tu cuenta. Esto nos diferencia de Fresha, Booksy y compañía.',
+    '¿Cobran comisión por cita?': 'No. Cero. Tu plan mensual es todo. Cobras 50 citas o 500: mismo precio. Los anticipos van 100% a tu cuenta. Esto nos diferencia de Fresha, Booksy y compañía.',
   };
 
   const sendPrompt = (p) => {
@@ -1185,7 +1185,7 @@ function SChat({ D }) {
     setInput('');
     let reply = 'Buena pregunta. ¿Me cuentas más? O mejor: escríbenos por WhatsApp y te respondemos en segundos.';
     if (q.includes('precio') || q.includes('cuesta') || q.includes('cuanto')) reply = replies['¿Cuánto cuesta para un salón de 3 estilistas?'];
-    else if (q.includes('seña') || q.includes('sena') || q.includes('pago')) reply = replies['¿Cómo funcionan las señas en Venezuela?'];
+    else if (q.includes('anticipo') || q.includes('seña') || q.includes('sena') || q.includes('pago')) reply = replies['¿Cómo funcionan los anticipos en Venezuela?'];
     else if (q.includes('migrar') || q.includes('cuaderno') || q.includes('excel')) reply = replies['¿Puedo migrar desde mi cuaderno/Excel?'];
     else if (q.includes('comisi')) reply = replies['¿Cobran comisión por cita?'];
     addBot(reply, 1200);
@@ -1319,12 +1319,12 @@ function SPricing({ D }) {
             <div className="s-roi-col bad">
               <div className="s-roi-col-label">Sin SmartKubik · plantones al mes</div>
               <div className="s-roi-col-val">${lostWithout.toLocaleString('es-VE')}</div>
-              <div className="s-roi-col-sub">22% de no-show sin seña obligatoria</div>
+              <div className="s-roi-col-sub">22% de no-show sin anticipo obligatorio</div>
             </div>
             <div className="s-roi-col good">
               <div className="s-roi-col-label">Con SmartKubik · plantones al mes</div>
               <div className="s-roi-col-val">${lostWith.toLocaleString('es-VE')}</div>
-              <div className="s-roi-col-sub">6% residual · señas hacen el trabajo</div>
+              <div className="s-roi-col-sub">6% residual · anticipos hacen el trabajo</div>
             </div>
           </div>
           <div className="s-roi-saves">

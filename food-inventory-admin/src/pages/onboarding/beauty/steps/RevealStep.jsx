@@ -12,7 +12,7 @@ export default function RevealStep({ onNext, tenant }) {
   const [copied, setCopied] = useState(false);
   const { celebrating, stop } = useCelebration();
 
-  const bookingUrl = state.bookingUrl || `${(tenant?.code || '').toLowerCase()}.smartkubik.com`;
+  const bookingUrl = state.bookingUrl || `${(tenant?.slug || tenant?.code || '').toLowerCase()}.smartkubik.com`;
   const selectedServices = state.services.filter(s => s.isSelected);
   const sym = state.currency === 'VES' ? 'Bs.' : '$';
 
