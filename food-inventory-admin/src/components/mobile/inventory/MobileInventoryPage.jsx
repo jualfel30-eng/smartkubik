@@ -279,21 +279,33 @@ function MobileInventoryPageInner() {
     try {
       setLoadingAlerts(true);
       const res = await fetchApi('/inventory/alerts/low-stock');
+      console.log('[MobileInventory] raw alerts response type:', typeof res, 'keys:', res ? Object.keys(res) : 'null');
+      console.log('[MobileInventory] raw alerts res.data type:', typeof res?.data, 'isArray:', Array.isArray(res?.data));
+      if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
+        console.log('[MobileInventory] first raw item keys:', Object.keys(res.data[0]));
+        console.log('[MobileInventory] first raw item productId type:', typeof res.data[0].productId);
+      }
       const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-      // Normalize: the aggregation replaces productId with the full product object.
-      // Flatten all object fields to safe primitives to prevent React error #300.
-      const list = raw.map((item) => {
+      const list = raw.map((item, i) => {
         const prod = (typeof item.productId === 'object' && item.productId) || {};
-        return {
-          _id: String(item._id || ''),
+        const normalized = {
+          _id: String(item._id || i),
           productId: prod._id ? String(prod._id) : (typeof item.productId === 'string' ? item.productId : ''),
           productName: String(item.productName || prod.name || 'Producto'),
           productSku: String(item.productSku || prod.sku || '—'),
           availableQuantity: Number(item.availableQuantity ?? 0),
           minimumStock: Number(prod.inventoryConfig?.minimumStock ?? item.minimumStock ?? item.minStock ?? 5),
         };
+        // Verify ALL values are primitives
+        for (const [k, v] of Object.entries(normalized)) {
+          if (v !== null && v !== undefined && typeof v === 'object') {
+            console.error('[MobileInventory] OBJECT FIELD DETECTED:', k, '=', JSON.stringify(v));
+            normalized[k] = String(v);
+          }
+        }
+        return normalized;
       });
-      console.log('[MobileInventory] alerts normalized:', JSON.stringify(list.slice(0, 2)));
+      console.log('[MobileInventory] alerts normalized OK, count:', list.length);
       setAlerts(list);
       setAlertCount(list.length);
       loadedTabs.current.alerts = true;
@@ -325,8 +337,7 @@ function MobileInventoryPageInner() {
   // Lazy load on tab switch
   useEffect(() => {
     if (activeTab === 'movements' && !loadedTabs.current.movements) loadMovements();
-    // ALERTS DISABLED FOR DEBUG — if this fixes #300, the issue is in loadAlerts
-    // if (activeTab === 'alerts' && !loadedTabs.current.alerts) loadAlerts();
+    if (activeTab === 'alerts' && !loadedTabs.current.alerts) loadAlerts();
     if (activeTab === 'orders' && !loadedTabs.current.orders) loadOrders();
   }, [activeTab, loadMovements, loadAlerts, loadOrders]);
 
