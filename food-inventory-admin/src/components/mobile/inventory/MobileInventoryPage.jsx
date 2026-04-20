@@ -264,14 +264,12 @@ export default function MobileInventoryPage() {
       const list = raw.map((item) => {
         const prod = (typeof item.productId === 'object' && item.productId) || {};
         return {
-          ...item,
           _id: String(item._id || ''),
           productId: prod._id ? String(prod._id) : (typeof item.productId === 'string' ? item.productId : ''),
           productName: String(item.productName || prod.name || 'Producto'),
           productSku: String(item.productSku || prod.sku || '—'),
           availableQuantity: Number(item.availableQuantity ?? 0),
           minimumStock: Number(prod.inventoryConfig?.minimumStock ?? item.minimumStock ?? item.minStock ?? 5),
-          _productInfo: prod,
         };
       });
       setAlerts(list);
