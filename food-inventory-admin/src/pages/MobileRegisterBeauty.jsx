@@ -808,6 +808,7 @@ export default function MobileRegisterBeauty() {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [registrationResponse, setRegistrationResponse] = useState(null);
 
   const prefilledCategory = location.state?.category || null;
 
@@ -845,21 +846,29 @@ export default function MobileRegisterBeauty() {
 
     try {
       const categoryObj = CATEGORIES.find(c => c.id === formData.category);
-      const phone = formData.phone.startsWith('+') ? formData.phone : `+58${formData.phone.replace(/^0/, '')}`;
+
+      // Phone: normalize to E.164 format (+58XXXXXXXXXX)
+      const rawPhone = formData.phone.replace(/[\s\-()]/g, '');
+      const phone = rawPhone.startsWith('+')
+        ? rawPhone
+        : `+58${rawPhone.replace(/^0/, '')}`;
 
       const payload = {
         businessName: formData.businessName.trim(),
         numberOfUsers: formData.numberOfUsers,
         vertical: 'SERVICES',
-        specificCategory: categoryObj?.specificCategory || 'Barbería / Peluquería',
         firstName: formData.firstName.trim(),
-        lastName: formData.lastName?.trim() || '',
+        lastName: formData.lastName?.trim() || '-',
         email: formData.email.trim().toLowerCase(),
-        phone,
         password: formData.password,
         businessType: categoryObj?.id || 'barbershop-salon',
         subscriptionPlan: 'trial',
       };
+
+      // Only include phone if user actually typed something
+      if (rawPhone.length >= 7) {
+        payload.phone = phone;
+      }
 
       const response = await fetchApi('/onboarding/register', {
         method: 'POST',
@@ -867,7 +876,8 @@ export default function MobileRegisterBeauty() {
         isPublic: true,
       });
 
-      await loginWithTokens(response);
+      const authResult = await loginWithTokens(response);
+      setRegistrationResponse(response);
       setIsLoading(false);
     } catch (err) {
       setIsLoading(false);
@@ -875,21 +885,26 @@ export default function MobileRegisterBeauty() {
       setDirection(-1);
 
       const msg = err?.message || err?.error || '';
-      if (msg.includes('already') || msg.includes('existe') || msg.includes('duplicate')) {
+      if (msg.includes('already') || msg.includes('existe') || msg.includes('duplicate') || msg.includes('already registered')) {
         toast.error('Este correo ya tiene cuenta. ¿Quieres iniciar sesión?', {
           action: { label: 'Ir a login', onClick: () => navigate('/login') },
         });
       } else if (msg.includes('rate') || msg.includes('limit')) {
         toast.error('Demasiados intentos. Espera un momento.');
       } else {
-        toast.error('Algo salió mal. Intenta de nuevo.');
+        console.error('Registration error:', msg);
+        toast.error(msg || 'Algo salió mal. Intenta de nuevo.');
       }
     }
   };
 
   const handleConfirm = () => {
     navigate('/confirm-account', {
-      state: { email: formData.email, plan: 'trial' },
+      state: {
+        email: formData.email,
+        plan: 'trial',
+        tenant: registrationResponse?.tenant,
+      },
     });
   };
 
