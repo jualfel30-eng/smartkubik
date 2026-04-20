@@ -121,6 +121,7 @@ const TrialExpired = lazy(() => import('./pages/TrialExpired'));
 const LinksPage = lazy(() => import('./pages/LinksPage'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
 const SmartKubikLandingV2 = lazy(() => import('./pages/SmartKubikLandingV2'));
+const SkubikBeautyLanding = lazy(() => import('./pages/SkubikBeautyLanding'));
 const WebVentasSectionDemo = lazy(() => import('./pages/WebVentasSectionDemo'));
 const BlogIndex = lazy(() => import('./pages/BlogIndex.jsx'));
 const BlogPost = lazy(() => import('./pages/BlogPost.jsx'));
@@ -1096,6 +1097,7 @@ function AppContent() {
       <Suspense fallback={<LoadingFallback />}>
 
         <Routes>
+          <Route path="/skubik" element={<SkubikBeautyLanding />} />
           <Route path="/v2" element={<SmartKubikLandingV2 />} />
           <Route path="/fundadores" element={<FoundersPage />} />
           <Route path="/links" element={<LinksPage />} />
