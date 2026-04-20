@@ -182,8 +182,29 @@ function FilterSheet({ open, onClose, filters, onApply }) {
   );
 }
 
+// ─── Error boundary to catch render errors ─────────────────────────────────
+import { Component } from 'react';
+class InventoryErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error('[InventoryErrorBoundary]', error, info?.componentStack); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="p-4 m-4 bg-destructive/10 border border-destructive rounded-lg text-sm">
+          <p className="font-bold text-destructive mb-2">Error en Inventario</p>
+          <p className="text-xs text-muted-foreground break-all">{String(this.state.error?.message || this.state.error)}</p>
+          <pre className="text-[10px] text-muted-foreground mt-2 whitespace-pre-wrap max-h-40 overflow-auto">{this.state.error?.stack}</pre>
+          <button onClick={() => this.setState({ error: null })} className="mt-2 px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs">Reintentar</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ─── Main component ─────────────────────────────────────────────────────────
-export default function MobileInventoryPage() {
+function MobileInventoryPageInner() {
   const { setContextAction, clearContextAction } = useFabContext();
   const [mode, setMode] = useState('products'); // 'products' | 'operations'
   const [activeTab, setActiveTab] = useState('stock');
@@ -730,6 +751,14 @@ export default function MobileInventoryPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function MobileInventoryPage() {
+  return (
+    <InventoryErrorBoundary>
+      <MobileInventoryPageInner />
+    </InventoryErrorBoundary>
   );
 }
 
