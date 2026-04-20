@@ -4,6 +4,8 @@ import {
   Post,
   Put,
   Patch,
+  Delete,
+  Param,
   Body,
   UseGuards,
   Request,
@@ -424,5 +426,62 @@ export class StorefrontController {
       data: result,
       message: "Video subido exitosamente",
     };
+  }
+
+  @Post("upload-gallery")
+  @Permissions("storefront_update")
+  @UseInterceptors(FileInterceptor("file"))
+  @ApiConsumes("multipart/form-data")
+  @ApiOperation({
+    summary: "Subir imagen al portafolio/galería",
+    description: "Sube una imagen al portafolio del negocio. Máximo 5MB",
+  })
+  @ApiBody({
+    schema: {
+      type: "object",
+      properties: {
+        file: { type: "string", format: "binary" },
+      },
+    },
+  })
+  async uploadGalleryImage(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new FileTypeValidator({
+            fileType: /image\/(png|jpeg|jpg|gif|webp)/,
+            skipMagicNumbersValidation: true,
+          }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+    @Request() req,
+  ) {
+    const result = await this.storefrontService.uploadGalleryImage(
+      file,
+      req.user.tenantId,
+    );
+
+    return {
+      success: true,
+      data: result,
+      message: "Imagen agregada al portafolio",
+    };
+  }
+
+  @Delete("gallery/:imageUrl")
+  @Permissions("storefront_update")
+  @ApiOperation({ summary: "Eliminar imagen del portafolio" })
+  async removeGalleryImage(
+    @Param("imageUrl") imageUrl: string,
+    @Request() req,
+  ) {
+    const result = await this.storefrontService.removeGalleryImage(
+      decodeURIComponent(imageUrl),
+      req.user.tenantId,
+    );
+    return { success: true, data: result };
   }
 }

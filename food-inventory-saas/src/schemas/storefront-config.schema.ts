@@ -165,6 +165,9 @@ export class StorefrontConfig {
   @Prop({ type: String })
   googlePlaceId?: string;
 
+  @Prop({ type: [String], default: [] })
+  gallery?: string[];
+
   @Prop({ type: Object })
   beautyConfig?: {
     enabled: boolean;

@@ -678,4 +678,49 @@ export class StorefrontService {
       throw new BadRequestException("Error al procesar el video");
     }
   }
+
+  async uploadGalleryImage(
+    file: Express.Multer.File,
+    tenantId: string,
+  ): Promise<{ imageUrl: string; gallery: string[] }> {
+    this.logger.log(`Uploading gallery image for tenant: ${tenantId}`);
+
+    try {
+      const uploadDir = path.join(process.cwd(), "uploads", "storefront", "gallery");
+      await fs.mkdir(uploadDir, { recursive: true });
+
+      const ext = file.originalname.split(".").pop() || "jpg";
+      const filename = `gallery-${tenantId}-${Date.now()}.${ext}`;
+      const filepath = path.join(uploadDir, filename);
+      await fs.writeFile(filepath, file.buffer);
+
+      const baseUrl =
+        process.env.API_BASE_URL ||
+        `http://localhost:${process.env.PORT || 3000}`;
+      const imageUrl = `${baseUrl}/uploads/storefront/gallery/${filename}`;
+
+      const config = await this.storefrontConfigModel.findOneAndUpdate(
+        { tenantId },
+        { $push: { gallery: imageUrl } },
+        { new: true },
+      );
+
+      return { imageUrl, gallery: config?.gallery || [imageUrl] };
+    } catch (error) {
+      this.logger.error(`Error uploading gallery image: ${error.message}`);
+      throw new BadRequestException("Error al subir la imagen");
+    }
+  }
+
+  async removeGalleryImage(
+    imageUrl: string,
+    tenantId: string,
+  ): Promise<{ gallery: string[] }> {
+    const config = await this.storefrontConfigModel.findOneAndUpdate(
+      { tenantId },
+      { $pull: { gallery: imageUrl } },
+      { new: true },
+    );
+    return { gallery: config?.gallery || [] };
+  }
 }

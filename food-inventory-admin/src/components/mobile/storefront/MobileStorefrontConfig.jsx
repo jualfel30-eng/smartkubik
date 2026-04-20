@@ -301,6 +301,14 @@ export default function MobileStorefrontConfig() {
           onTap={() => openSheet('images')}
         />
 
+        {/* Portfolio / Gallery */}
+        <SettingCard
+          icon={Camera}
+          label="Portafolio"
+          value={config.gallery?.length ? `${config.gallery.length} foto(s)` : 'Sin fotos'}
+          onTap={() => openSheet('gallery')}
+        />
+
         {/* SEO */}
         <SettingCard
           icon={Search}
@@ -461,6 +469,70 @@ export default function MobileStorefrontConfig() {
             }}
             onClear={() => setDraft((d) => ({ ...d, theme: { ...d.theme, videoUrl: '' } }))}
           />
+        </div>
+      </MobileActionSheet>
+
+      {/* ── Gallery / Portfolio Sheet ──────────────────────────────────── */}
+      <MobileActionSheet
+        open={sheetOpen === 'gallery'}
+        onClose={closeSheet}
+        title="Portafolio"
+      >
+        <div className="px-4 py-4 space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Sube fotos de tu trabajo para mostrar en tu sitio web.
+          </p>
+
+          {/* Gallery grid */}
+          {config.gallery?.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {config.gallery.map((url, i) => (
+                <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-border group">
+                  <img src={url} alt={`Portafolio ${i + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await fetchApi(`/storefront/gallery/${encodeURIComponent(url)}`, { method: 'DELETE' });
+                        const data = res?.data ?? res;
+                        setConfig((c) => ({ ...c, gallery: data.gallery }));
+                        haptics.tap();
+                        toast.success('Foto eliminada');
+                      } catch { toast.error('Error al eliminar'); }
+                    }}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Upload button */}
+          <label className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 transition-colors">
+            <ImagePlus size={28} className="text-muted-foreground mb-2" />
+            <span className="text-sm font-medium text-muted-foreground">
+              {uploading === 'gallery' ? 'Subiendo...' : 'Agregar foto'}
+            </span>
+            <span className="text-xs text-muted-foreground/60 mt-1">JPG, PNG, WebP — Máx 5MB</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              disabled={uploading === 'gallery'}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const result = await uploadFile('/admin/storefront/upload-gallery', file, 'gallery');
+                if (result?.gallery) {
+                  setConfig((c) => ({ ...c, gallery: result.gallery }));
+                } else if (result?.imageUrl) {
+                  setConfig((c) => ({ ...c, gallery: [...(c.gallery || []), result.imageUrl] }));
+                }
+                e.target.value = '';
+              }}
+            />
+          </label>
         </div>
       </MobileActionSheet>
 
@@ -773,7 +845,7 @@ function CreateStorefrontPrompt({ onCreated }) {
 
       const payload = {
         domain: domain.toLowerCase().replace(/[^a-z0-9-]/g, ''),
-        isActive: false,
+        isActive: true,
         templateType: 'beauty',
         theme: { primaryColor: '#3B82F6', secondaryColor: '#10B981' },
         seo: { title: tenant?.name || 'Mi Negocio', description: `Reserva tu cita en ${tenant?.name || 'nuestro salón'}`, keywords: [] },
