@@ -642,19 +642,22 @@ export default function MobileInventoryPage() {
                 initial="initial"
                 animate="animate"
               >
-                {alerts.map((item) => (
+                {alerts.map((item, idx) => {
+                  const alertName = item.productName || (typeof item.productId === 'object' ? item.productId?.name : '') || 'Producto';
+                  const alertSku = item.productSku || (typeof item.productId === 'object' ? item.productId?.sku : '') || '—';
+                  return (
                   <motion.div
-                    key={item._id}
+                    key={item._id?.toString?.() || item._id || idx}
                     variants={listItem}
                     className="bg-card border border-border rounded-[var(--mobile-radius-lg)] p-4"
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">
-                          {item.productName || item.productId?.name || 'Producto'}
+                          {String(alertName)}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {item.productSku || item.productId?.sku || '—'}
+                          {String(alertSku)}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
@@ -687,7 +690,8 @@ export default function MobileInventoryPage() {
                       </button>
                     </div>
                   </motion.div>
-                ))}
+                  );
+                })}
               </motion.div>
             )}
           </div>
