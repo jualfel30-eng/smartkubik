@@ -529,7 +529,7 @@ function MobileInventoryPageInner() {
       <div className="flex-1 overflow-y-auto mobile-scroll">
         {/* ── Products mode ─────────────────────────────────────────────── */}
         {mode === 'products' && (
-          <MobileProductCatalog onCreateProduct={() => setCreating(true)} />
+          <div className="px-4 pt-4"><p className="text-sm text-muted-foreground">{'Catalogo desactivado para debug'}</p></div>
         )}
 
         {/* ── Operations mode ───────────────────────────────────────────── */}
