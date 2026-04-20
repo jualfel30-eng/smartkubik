@@ -258,7 +258,22 @@ export default function MobileInventoryPage() {
     try {
       setLoadingAlerts(true);
       const res = await fetchApi('/inventory/alerts/low-stock');
-      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      // Normalize: the aggregation replaces productId with the full product object.
+      // Flatten all object fields to safe primitives to prevent React error #300.
+      const list = raw.map((item) => {
+        const prod = (typeof item.productId === 'object' && item.productId) || {};
+        return {
+          ...item,
+          _id: String(item._id || ''),
+          productId: prod._id ? String(prod._id) : (typeof item.productId === 'string' ? item.productId : ''),
+          productName: String(item.productName || prod.name || 'Producto'),
+          productSku: String(item.productSku || prod.sku || '—'),
+          availableQuantity: Number(item.availableQuantity ?? 0),
+          minimumStock: Number(prod.inventoryConfig?.minimumStock ?? item.minimumStock ?? item.minStock ?? 5),
+          _productInfo: prod,
+        };
+      });
       setAlerts(list);
       setAlertCount(list.length);
       loadedTabs.current.alerts = true;
@@ -642,30 +657,27 @@ export default function MobileInventoryPage() {
                 initial="initial"
                 animate="animate"
               >
-                {alerts.map((item, idx) => {
-                  const alertName = item.productName || (typeof item.productId === 'object' ? item.productId?.name : '') || 'Producto';
-                  const alertSku = item.productSku || (typeof item.productId === 'object' ? item.productId?.sku : '') || '—';
-                  return (
+                {alerts.map((item) => (
                   <motion.div
-                    key={item._id?.toString?.() || item._id || idx}
+                    key={item._id}
                     variants={listItem}
                     className="bg-card border border-border rounded-[var(--mobile-radius-lg)] p-4"
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold truncate">
-                          {String(alertName)}
+                          {item.productName}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {String(alertSku)}
+                          {item.productSku}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
                         <span className="text-sm font-bold text-destructive tabular-nums">
-                          {Number(item.availableQuantity ?? item.totalQuantity ?? item.currentStock ?? 0)}
+                          {item.availableQuantity}
                         </span>
                         <p className="text-[10px] text-muted-foreground">
-                          mín: {Number(item.minimumStock ?? item.minStock ?? 5)}
+                          min: {item.minimumStock}
                         </p>
                       </div>
                     </div>
@@ -690,8 +702,7 @@ export default function MobileInventoryPage() {
                       </button>
                     </div>
                   </motion.div>
-                  );
-                })}
+                ))}
               </motion.div>
             )}
           </div>
