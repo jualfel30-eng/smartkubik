@@ -17,6 +17,7 @@ import MobileMovementCard, { groupMovementsByDate } from './MobileMovementCard.j
 import MobileAdjustStock from './MobileAdjustStock.jsx';
 import MobileCreateProduct from './MobileCreateProduct.jsx';
 import MobileCreatePO from './MobileCreatePO.jsx';
+import MobileProductCatalog from './MobileProductCatalog.jsx';
 
 // ─── Pull-to-refresh hook (duplicated from MobileAppointmentsPage) ──────────
 function usePullToRefresh(onRefresh) {
@@ -183,6 +184,7 @@ function FilterSheet({ open, onClose, filters, onApply }) {
 // ─── Main component ─────────────────────────────────────────────────────────
 export default function MobileInventoryPage() {
   const { setContextAction, clearContextAction } = useFabContext();
+  const [mode, setMode] = useState('products'); // 'products' | 'operations'
   const [activeTab, setActiveTab] = useState('stock');
 
   // Data state
@@ -302,10 +304,16 @@ export default function MobileInventoryPage() {
 
   // ─── FAB context ────────────────────────────────────────────────────────
   useEffect(() => {
-    if (activeTab === 'stock') {
+    if (mode === 'products') {
       setContextAction({
         icon: Plus,
         label: 'Nuevo producto',
+        action: () => setCreating(true),
+      });
+    } else if (activeTab === 'stock') {
+      setContextAction({
+        icon: Package,
+        label: 'Agregar inventario',
         action: () => setCreating(true),
       });
     } else if (activeTab === 'orders') {
@@ -318,7 +326,7 @@ export default function MobileInventoryPage() {
       clearContextAction();
     }
     return () => clearContextAction();
-  }, [activeTab, setContextAction, clearContextAction]);
+  }, [mode, activeTab, setContextAction, clearContextAction]);
 
   // ─── Filtered & sorted inventory ────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -438,17 +446,56 @@ export default function MobileInventoryPage() {
           <h1 className="text-xl font-bold">Inventario</h1>
           <button
             type="button"
-            onClick={refreshTab}
+            onClick={mode === 'operations' ? refreshTab : undefined}
             className="p-2 rounded-lg hover:bg-accent transition-colors no-tap-highlight"
           >
-            <RefreshCw className={cn('h-4 w-4', loadingStock && 'animate-spin')} />
+            <RefreshCw className={cn('h-4 w-4', loadingStock && mode === 'operations' && 'animate-spin')} />
           </button>
         </div>
-        <TabPills activeTab={activeTab} onTabChange={setActiveTab} alertCount={displayAlertCount} />
+
+        {/* Segmented control */}
+        <div className="px-4 pb-2">
+          <div className="relative flex bg-muted rounded-lg p-1">
+            {['products', 'operations'].map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => { haptics.tap(); setMode(m); }}
+                className={cn(
+                  'relative z-10 flex-1 py-2 text-sm font-medium rounded-md transition-colors no-tap-highlight',
+                  mode === m ? 'text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {m === 'products' ? 'Productos' : 'Operaciones'}
+              </button>
+            ))}
+            {/* Active indicator */}
+            <motion.div
+              className="absolute top-1 bottom-1 rounded-md bg-background shadow-sm"
+              initial={false}
+              animate={{
+                left: mode === 'products' ? '4px' : '50%',
+                width: 'calc(50% - 4px)',
+              }}
+              transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+            />
+          </div>
+        </div>
+
+        {mode === 'operations' && (
+          <TabPills activeTab={activeTab} onTabChange={setActiveTab} alertCount={displayAlertCount} />
+        )}
       </div>
 
-      {/* Tab content */}
+      {/* Content */}
       <div className="flex-1 overflow-y-auto mobile-scroll">
+        {/* ── Products mode ─────────────────────────────────────────────── */}
+        {mode === 'products' && (
+          <MobileProductCatalog onCreateProduct={() => setCreating(true)} />
+        )}
+
+        {/* ── Operations mode ───────────────────────────────────────────── */}
+        {mode === 'operations' && (<>
         {/* ── Stock tab ─────────────────────────────────────────────────── */}
         {activeTab === 'stock' && (
           <>
@@ -678,6 +725,7 @@ export default function MobileInventoryPage() {
             )}
           </div>
         )}
+        </>)}
       </div>
 
       {/* ── Sheets ──────────────────────────────────────────────────────── */}
