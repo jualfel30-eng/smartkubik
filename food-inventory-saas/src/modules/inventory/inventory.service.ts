@@ -1200,10 +1200,11 @@ export class InventoryService {
       {
         $project: {
           _id: 1,
-          productName: 1,
-          productSku: 1,
+          productName: { $ifNull: ["$productName", "$productInfo.name"] },
+          productSku: { $ifNull: ["$productSku", { $arrayElemAt: ["$productInfo.variants.sku", 0] }] },
           availableQuantity: 1,
-          productId: "$productInfo", // Populate productId with the full product info
+          minimumStock: "$productInfo.inventoryConfig.minimumStock",
+          productId: "$productInfo._id",
         },
       },
     ]);

@@ -182,29 +182,8 @@ function FilterSheet({ open, onClose, filters, onApply }) {
   );
 }
 
-// ─── Error boundary to catch render errors ─────────────────────────────────
-import { Component } from 'react';
-class InventoryErrorBoundary extends Component {
-  constructor(props) { super(props); this.state = { error: null }; }
-  static getDerivedStateFromError(error) { return { error }; }
-  componentDidCatch(error, info) { console.error('[InventoryErrorBoundary]', error, info?.componentStack); }
-  render() {
-    if (this.state.error) {
-      return (
-        <div className="p-4 m-4 bg-destructive/10 border border-destructive rounded-lg text-sm">
-          <p className="font-bold text-destructive mb-2">Error en Inventario</p>
-          <p className="text-xs text-muted-foreground break-all">{String(this.state.error?.message || this.state.error)}</p>
-          <pre className="text-[10px] text-muted-foreground mt-2 whitespace-pre-wrap max-h-40 overflow-auto">{this.state.error?.stack}</pre>
-          <button onClick={() => this.setState({ error: null })} className="mt-2 px-3 py-1.5 bg-primary text-primary-foreground rounded text-xs">Reintentar</button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
 // ─── Main component ─────────────────────────────────────────────────────────
-function MobileInventoryPageInner() {
+export default function MobileInventoryPage() {
   const { setContextAction, clearContextAction } = useFabContext();
   const [mode, setMode] = useState('products'); // 'products' | 'operations'
   const [activeTab, setActiveTab] = useState('stock');
@@ -279,38 +258,20 @@ function MobileInventoryPageInner() {
     try {
       setLoadingAlerts(true);
       const res = await fetchApi('/inventory/alerts/low-stock');
-      console.log('[MobileInventory] raw alerts response type:', typeof res, 'keys:', res ? Object.keys(res) : 'null');
-      console.log('[MobileInventory] raw alerts res.data type:', typeof res?.data, 'isArray:', Array.isArray(res?.data));
-      if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
-        console.log('[MobileInventory] first raw item keys:', Object.keys(res.data[0]));
-        console.log('[MobileInventory] first raw item productId type:', typeof res.data[0].productId);
-      }
       const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-      const list = raw.map((item, i) => {
-        const prod = (typeof item.productId === 'object' && item.productId) || {};
-        const normalized = {
-          _id: String(item._id || i),
-          productId: prod._id ? String(prod._id) : (typeof item.productId === 'string' ? item.productId : ''),
-          productName: String(item.productName || prod.name || 'Producto'),
-          productSku: String(item.productSku || prod.sku || '—'),
-          availableQuantity: Number(item.availableQuantity ?? 0),
-          minimumStock: Number(prod.inventoryConfig?.minimumStock ?? item.minimumStock ?? item.minStock ?? 5),
-        };
-        // Verify ALL values are primitives
-        for (const [k, v] of Object.entries(normalized)) {
-          if (v !== null && v !== undefined && typeof v === 'object') {
-            console.error('[MobileInventory] OBJECT FIELD DETECTED:', k, '=', JSON.stringify(v));
-            normalized[k] = String(v);
-          }
-        }
-        return normalized;
-      });
-      console.log('[MobileInventory] alerts normalized OK, count:', list.length);
+      // Backend now returns flat primitives — just ensure safety
+      const list = raw.map((item, i) => ({
+        _id: String(item._id || i),
+        productId: String(item.productId || ''),
+        productName: String(item.productName || 'Producto'),
+        productSku: String(item.productSku || '—'),
+        availableQuantity: Number(item.availableQuantity ?? 0),
+        minimumStock: Number(item.minimumStock ?? 5),
+      }));
       setAlerts(list);
       setAlertCount(list.length);
       loadedTabs.current.alerts = true;
-    } catch (err) {
-      console.error('[MobileInventory] loadAlerts error:', err);
+    } catch {
       toast.error('Error al cargar alertas');
     } finally {
       setLoadingAlerts(false);
@@ -541,7 +502,7 @@ function MobileInventoryPageInner() {
       <div className="flex-1 overflow-y-auto mobile-scroll">
         {/* ── Products mode ─────────────────────────────────────────────── */}
         {mode === 'products' && (
-          <div className="px-4 pt-4"><p className="text-sm text-muted-foreground">{'Catalogo desactivado para debug'}</p></div>
+          <MobileProductCatalog onCreateProduct={() => setCreating(true)} />
         )}
 
         {/* ── Operations mode ───────────────────────────────────────────── */}
@@ -674,10 +635,52 @@ function MobileInventoryPageInner() {
 
         {/* ── Alerts tab ────────────────────────────────────────────────── */}
         {activeTab === 'alerts' && (
-          <div className="px-4 pb-24 pt-4">
-            <p className="text-sm text-muted-foreground text-center py-8">
-              {'Alertas: ' + alerts.length + ' items cargados'}
-            </p>
+          <div className="px-4 pb-24">
+            {loadingAlerts ? (
+              <MobileListSkeleton count={4} height="h-20" className="pt-4" />
+            ) : alerts.length === 0 ? (
+              <MobileEmptyState
+                icon={AlertTriangle}
+                title="Sin alertas"
+                description="Todo el inventario esta al dia"
+              />
+            ) : (
+              <div className="space-y-2 pt-4">
+                {alerts.map((item) => (
+                  <div
+                    key={item._id}
+                    className="bg-card border border-border rounded-[var(--mobile-radius-lg)] p-4"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate">{item.productName}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{item.productSku}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-sm font-bold text-destructive tabular-nums">{item.availableQuantity}</span>
+                        <p className="text-[10px] text-muted-foreground">{'min: ' + item.minimumStock}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAlertRestock(item)}
+                        className="flex-1 flex items-center justify-center gap-1 py-2.5 text-xs font-medium rounded-[var(--mobile-radius-md)] bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 no-tap-highlight"
+                      >
+                        <Plus size={14} /> Reabastecer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAlertCreatePO(item)}
+                        className="flex-1 flex items-center justify-center gap-1 py-2.5 text-xs font-medium rounded-[var(--mobile-radius-md)] bg-blue-500/10 text-blue-500 border border-blue-500/20 no-tap-highlight"
+                      >
+                        <ShoppingCart size={14} /> Crear pedido
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -763,14 +766,6 @@ function MobileInventoryPageInner() {
         />
       )}
     </div>
-  );
-}
-
-export default function MobileInventoryPage() {
-  return (
-    <InventoryErrorBoundary>
-      <MobileInventoryPageInner />
-    </InventoryErrorBoundary>
   );
 }
 
