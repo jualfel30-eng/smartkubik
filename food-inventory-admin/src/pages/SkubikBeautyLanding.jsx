@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 
 // ════════════════════════════════════════════════════════
 // DATA
@@ -498,7 +499,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-price-feats { display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .s-price-feat { font-size: 13px; color: var(--s-muted); padding-left: 18px; position: relative; line-height: 1.5; }
 .s-price-feat::before { content: '\\2192'; position: absolute; left: 0; color: var(--s-accent); }
-.s-price-cta { padding: 12px; background: transparent; border: 1px solid var(--s-line); color: var(--s-fg); border-radius: 99px; cursor: none; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+.s-price-cta { padding: 12px; background: transparent; border: 1px solid var(--s-line); color: var(--s-fg); border-radius: 99px; cursor: none; font-size: 13px; font-weight: 600; transition: all 0.2s; text-decoration: none; display: block; text-align: center; }
 .s-price-cta:hover { background: var(--s-fg); color: var(--s-bg); border-color: var(--s-fg); }
 .s-price-card.featured .s-price-cta { background: var(--s-accent); border-color: var(--s-accent); color: #fff; }
 .s-price-card.featured .s-price-cta:hover { background: #fff; color: var(--s-accent); }
@@ -817,11 +818,13 @@ function SHero({ D }) {
           <HeroHeadline title={h.title} />
           <p className="s-hero-sub">{h.subtitle}</p>
           <div className="s-hero-cta">
-            <a className="s-btn s-btn-primary" href={D.brand.waMsg('Quiero probar.')} target="_blank" rel="noreferrer">
+            <Link to="/register/beauty" state={{ source: 'skubik-landing', category: 'barbershop-salon' }} className="s-btn s-btn-primary">
+              Prueba gratis 14 días →
+            </Link>
+            <a className="s-btn s-btn-ghost" href={D.brand.waMsg('Quiero probar.')} target="_blank" rel="noreferrer">
               {WA_ICON}
               {D.hero.primaryCTA}
             </a>
-            <a className="s-btn s-btn-ghost" href="#dolor">↓ Ver cómo funciona</a>
           </div>
           <div className="s-hero-micro">{D.hero.microcopy}</div>
         </div>
@@ -922,6 +925,12 @@ function SPain({ D }) {
         </div>
         <div className="s-voice-list">
           {D.pain.items.map((item, i) => <VoiceNote key={i} item={item} i={i} />)}
+        </div>
+        <div style={{ textAlign: 'center', marginTop: 48 }}>
+          <p style={{ fontSize: 18, color: 'var(--s-fg)', marginBottom: 16, fontFamily: 'Fraunces, serif' }}>¿Lista para resolverlos?</p>
+          <Link to="/register/beauty" state={{ source: 'skubik-landing' }} className="s-btn s-btn-primary" style={{ display: 'inline-flex' }}>
+            Prueba gratis 14 días →
+          </Link>
         </div>
       </div>
     </section>
@@ -1340,7 +1349,11 @@ function SPricing({ D }) {
               <div className="s-price-feats">
                 {p.features.map(f => <div key={f} className="s-price-feat">{f}</div>)}
               </div>
-              <button className="s-price-cta" onClick={() => window.open(D.brand.waMsg(`Plan ${p.name}.`), '_blank')}>{p.cta}</button>
+              {p.name === 'Multi' ? (
+                <button className="s-price-cta" onClick={() => window.open(D.brand.waMsg(`Plan ${p.name}.`), '_blank')}>{p.cta}</button>
+              ) : (
+                <Link to="/register/beauty" state={{ source: 'skubik-pricing', plan: p.name.toLowerCase() }} className="s-price-cta">{p.cta}</Link>
+              )}
             </div>
           ))}
         </div>
@@ -1385,10 +1398,15 @@ function SClose({ D }) {
       <div className="s-container">
         <h2>Tu sábado<br/>empieza a las <em>8am.</em></h2>
         <p>Que tu agenda ya esté lista. En media hora tienes tu salón online.</p>
-        <a className="s-btn s-btn-primary" href={D.brand.waMsg('Vamos.')} target="_blank" rel="noreferrer">
-          {WA_ICON}
-          {D.closure.cta}
-        </a>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Link to="/register/beauty" state={{ source: 'skubik-landing' }} className="s-btn s-btn-primary">
+            Prueba gratis 14 días →
+          </Link>
+          <a className="s-btn s-btn-ghost" href={D.brand.waMsg('Vamos.')} target="_blank" rel="noreferrer">
+            {WA_ICON}
+            {D.closure.cta}
+          </a>
+        </div>
       </div>
     </section>
   );

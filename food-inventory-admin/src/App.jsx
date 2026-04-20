@@ -88,6 +88,7 @@ const ShiftManagement = lazy(() => import('@/components/ShiftManagement.jsx'));
 const Login = lazy(() => import('./pages/Login'));
 const LoginV2 = lazy(() => import('./pages/LoginV2'));
 const Register = lazy(() => import('./pages/Register'));
+const MobileRegisterBeauty = lazy(() => import('./pages/MobileRegisterBeauty'));
 const ConfirmAccount = lazy(() => import('./pages/ConfirmAccount'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -1117,6 +1118,7 @@ function AppContent() {
           </Route>
           <Route path="/login" element={<LoginV2 />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/register/beauty" element={<MobileRegisterBeauty />} />
           <Route path="/confirm-account" element={<ConfirmAccount />} />
           <Route path="/trial-expired" element={<TrialExpired />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
