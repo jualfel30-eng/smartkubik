@@ -71,12 +71,18 @@ export class StorefrontService {
       );
     }
 
-    // Crear la configuración
-    const configData = {
+    // Crear la configuración — fill contactInfo from tenant if not provided
+    const configData: any = {
       ...createDto,
       tenantId: user.tenantId,
       isActive: createDto.isActive ?? false,
     };
+    if (!configData.contactInfo) {
+      configData.contactInfo = {
+        email: tenant.contactInfo?.email || user.email || '',
+        phone: tenant.contactInfo?.phone || '',
+      };
+    }
 
     const createdConfig = new this.storefrontConfigModel(configData);
     const savedConfig = await createdConfig.save();

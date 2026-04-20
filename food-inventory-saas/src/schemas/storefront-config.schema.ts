@@ -156,8 +156,8 @@ export class StorefrontConfig {
   @Prop({ type: SocialMediaConfigSchema })
   socialMedia?: SocialMediaConfig;
 
-  @Prop({ type: ContactInfoConfigSchema, required: true })
-  contactInfo: ContactInfoConfig;
+  @Prop({ type: ContactInfoConfigSchema, required: false })
+  contactInfo?: ContactInfoConfig;
 
   @Prop({ type: WhatsAppIntegrationConfigSchema })
   whatsappIntegration?: WhatsAppIntegrationConfig;
