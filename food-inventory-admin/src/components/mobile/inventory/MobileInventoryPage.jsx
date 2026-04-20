@@ -259,8 +259,8 @@ export default function MobileInventoryPage() {
       setLoadingAlerts(true);
       const res = await fetchApi('/inventory/alerts/low-stock');
       const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-      // Backend now returns flat primitives — just ensure safety
-      const list = raw.map((item, i) => ({
+      // Only take first 50 to avoid performance issues with 360+ items
+      const list = raw.slice(0, 50).map((item, i) => ({
         _id: String(item._id || i),
         productId: String(item.productId || ''),
         productName: String(item.productName || 'Producto'),
@@ -269,10 +269,10 @@ export default function MobileInventoryPage() {
         minimumStock: Number(item.minimumStock ?? 5),
       }));
       setAlerts(list);
-      setAlertCount(list.length);
+      setAlertCount(raw.length);
       loadedTabs.current.alerts = true;
     } catch {
-      toast.error('Error al cargar alertas');
+      // Silently fail — don't toast to avoid potential render issues
     } finally {
       setLoadingAlerts(false);
     }
@@ -502,7 +502,7 @@ export default function MobileInventoryPage() {
       <div className="flex-1 overflow-y-auto mobile-scroll">
         {/* ── Products mode ─────────────────────────────────────────────── */}
         {mode === 'products' && (
-          <MobileProductCatalog onCreateProduct={() => setCreating(true)} />
+          <div className="px-4 pt-4"><p className="text-sm text-muted-foreground">{'Catalogo temp desactivado'}</p></div>
         )}
 
         {/* ── Operations mode ───────────────────────────────────────────── */}
