@@ -18,6 +18,7 @@ import MobileAdjustStock from './MobileAdjustStock.jsx';
 import MobileCreateProduct from './MobileCreateProduct.jsx';
 import MobileCreatePO from './MobileCreatePO.jsx';
 import MobileProductCatalog from './MobileProductCatalog.jsx';
+import MobileAddInventory from './MobileAddInventory.jsx';
 
 // ─── Pull-to-refresh hook (duplicated from MobileAppointmentsPage) ──────────
 function usePullToRefresh(onRefresh) {
@@ -214,6 +215,7 @@ export default function MobileInventoryPage() {
   const [creating, setCreating] = useState(false);
   const [creatingPO, setCreatingPO] = useState(false);
   const [poPreselect, setPoPreselect] = useState(null);
+  const [addingInventory, setAddingInventory] = useState(false);
 
   // ─── Data loaders ───────────────────────────────────────────────────────
   const loadStock = useCallback(async () => {
@@ -314,7 +316,7 @@ export default function MobileInventoryPage() {
       setContextAction({
         icon: Package,
         label: 'Agregar inventario',
-        action: () => setCreating(true),
+        action: () => setAddingInventory(true),
       });
     } else if (activeTab === 'orders') {
       setContextAction({
@@ -551,14 +553,14 @@ export default function MobileInventoryPage() {
                 <MobileEmptyState
                   icon={Package}
                   title={search || activeFilterCount > 0 ? 'Sin resultados' : 'Sin productos en inventario'}
-                  description={search ? 'Intenta con otro término' : 'Crea tu primer producto para comenzar'}
+                  description={search ? 'Intenta con otro término' : 'Agrega inventario a tus productos desde aqui'}
                   action={!search && activeFilterCount === 0 && (
                     <button
                       type="button"
-                      onClick={() => setCreating(true)}
+                      onClick={() => setAddingInventory(true)}
                       className="px-4 py-2.5 rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground text-sm font-semibold no-tap-highlight"
                     >
-                      + Nuevo producto
+                      + Agregar inventario
                     </button>
                   )}
                 />
@@ -756,6 +758,20 @@ export default function MobileInventoryPage() {
           open={creatingPO}
           onClose={handlePOClose}
           preselectedProduct={poPreselect}
+        />
+      )}
+
+      {addingInventory && (
+        <MobileAddInventory
+          open={addingInventory}
+          onClose={(saved) => {
+            setAddingInventory(false);
+            if (saved) {
+              loadStock();
+              loadedTabs.current.movements = false;
+              loadedTabs.current.alerts = false;
+            }
+          }}
         />
       )}
     </div>
