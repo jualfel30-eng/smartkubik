@@ -165,8 +165,23 @@ export class StorefrontConfig {
   @Prop({ type: String })
   googlePlaceId?: string;
 
-  @Prop({ type: [String], default: [] })
-  gallery?: string[];
+  @Prop({
+    type: [{
+      url: { type: String, required: true },
+      type: { type: String, enum: ['single', 'before', 'after'], default: 'single' },
+      pairId: { type: String },
+      label: { type: String },
+      createdAt: { type: Date, default: Date.now },
+    }],
+    default: [],
+  })
+  gallery?: Array<{
+    url: string;
+    type: 'single' | 'before' | 'after';
+    pairId?: string;
+    label?: string;
+    createdAt?: Date;
+  }>;
 
   @Prop({ type: Object })
   beautyConfig?: {

@@ -682,30 +682,40 @@ export class StorefrontService {
   async uploadGalleryImage(
     file: Express.Multer.File,
     tenantId: string,
-  ): Promise<{ imageUrl: string; gallery: string[] }> {
+  ): Promise<{ image: any; gallery: any[] }> {
     this.logger.log(`Uploading gallery image for tenant: ${tenantId}`);
 
     try {
       const uploadDir = path.join(process.cwd(), "uploads", "storefront", "gallery");
       await fs.mkdir(uploadDir, { recursive: true });
 
-      const ext = file.originalname.split(".").pop() || "jpg";
-      const filename = `gallery-${tenantId}-${Date.now()}.${ext}`;
+      // Optimize and convert to WebP
+      const filename = `gallery-${tenantId}-${Date.now()}.webp`;
       const filepath = path.join(uploadDir, filename);
-      await fs.writeFile(filepath, file.buffer);
+
+      await sharp(file.buffer)
+        .resize(1920, 1920, { fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toFile(filepath);
 
       const baseUrl =
         process.env.API_BASE_URL ||
         `http://localhost:${process.env.PORT || 3000}`;
       const imageUrl = `${baseUrl}/uploads/storefront/gallery/${filename}`;
 
+      const galleryItem = {
+        url: imageUrl,
+        type: "single" as const,
+        createdAt: new Date(),
+      };
+
       const config = await this.storefrontConfigModel.findOneAndUpdate(
         { tenantId },
-        { $push: { gallery: imageUrl } },
+        { $push: { gallery: galleryItem } },
         { new: true },
       );
 
-      return { imageUrl, gallery: config?.gallery || [imageUrl] };
+      return { image: galleryItem, gallery: config?.gallery || [galleryItem] };
     } catch (error) {
       this.logger.error(`Error uploading gallery image: ${error.message}`);
       throw new BadRequestException("Error al subir la imagen");
@@ -715,10 +725,28 @@ export class StorefrontService {
   async removeGalleryImage(
     imageUrl: string,
     tenantId: string,
-  ): Promise<{ gallery: string[] }> {
+  ): Promise<{ gallery: any[] }> {
     const config = await this.storefrontConfigModel.findOneAndUpdate(
       { tenantId },
-      { $pull: { gallery: imageUrl } },
+      { $pull: { gallery: { url: imageUrl } } },
+      { new: true },
+    );
+    return { gallery: config?.gallery || [] };
+  }
+
+  async updateGalleryItem(
+    imageUrl: string,
+    tenantId: string,
+    update: { type?: string; pairId?: string; label?: string },
+  ): Promise<{ gallery: any[] }> {
+    const setFields: any = {};
+    if (update.type !== undefined) setFields["gallery.$.type"] = update.type;
+    if (update.pairId !== undefined) setFields["gallery.$.pairId"] = update.pairId;
+    if (update.label !== undefined) setFields["gallery.$.label"] = update.label;
+
+    const config = await this.storefrontConfigModel.findOneAndUpdate(
+      { tenantId, "gallery.url": imageUrl },
+      { $set: setFields },
       { new: true },
     );
     return { gallery: config?.gallery || [] };

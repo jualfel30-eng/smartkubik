@@ -305,7 +305,9 @@ export default function MobileStorefrontConfig() {
         <SettingCard
           icon={Camera}
           label="Portafolio"
-          value={config.gallery?.length ? `${config.gallery.length} foto(s)` : 'Sin fotos'}
+          value={config.gallery?.length
+            ? `${config.gallery.length} foto${config.gallery.length > 1 ? 's' : ''}`
+            : 'Sin fotos'}
           onTap={() => openSheet('gallery')}
         />
 
@@ -478,62 +480,10 @@ export default function MobileStorefrontConfig() {
         onClose={closeSheet}
         title="Portafolio"
       >
-        <div className="px-4 py-4 space-y-4">
-          <p className="text-xs text-muted-foreground">
-            Sube fotos de tu trabajo para mostrar en tu sitio web.
-          </p>
-
-          {/* Gallery grid */}
-          {config.gallery?.length > 0 && (
-            <div className="grid grid-cols-3 gap-2">
-              {config.gallery.map((url, i) => (
-                <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-border group">
-                  <img src={url} alt={`Portafolio ${i + 1}`} className="w-full h-full object-cover" />
-                  <button
-                    onClick={async () => {
-                      try {
-                        const res = await fetchApi(`/storefront/gallery/${encodeURIComponent(url)}`, { method: 'DELETE' });
-                        const data = res?.data ?? res;
-                        setConfig((c) => ({ ...c, gallery: data.gallery }));
-                        haptics.tap();
-                        toast.success('Foto eliminada');
-                      } catch { toast.error('Error al eliminar'); }
-                    }}
-                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Upload button */}
-          <label className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 transition-colors">
-            <ImagePlus size={28} className="text-muted-foreground mb-2" />
-            <span className="text-sm font-medium text-muted-foreground">
-              {uploading === 'gallery' ? 'Subiendo...' : 'Agregar foto'}
-            </span>
-            <span className="text-xs text-muted-foreground/60 mt-1">JPG, PNG, WebP — Máx 5MB</span>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              disabled={uploading === 'gallery'}
-              onChange={async (e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const result = await uploadFile('/admin/storefront/upload-gallery', file, 'gallery');
-                if (result?.gallery) {
-                  setConfig((c) => ({ ...c, gallery: result.gallery }));
-                } else if (result?.imageUrl) {
-                  setConfig((c) => ({ ...c, gallery: [...(c.gallery || []), result.imageUrl] }));
-                }
-                e.target.value = '';
-              }}
-            />
-          </label>
-        </div>
+        <GalleryPanel
+          gallery={config.gallery || []}
+          onUpdate={(gallery) => setConfig((c) => ({ ...c, gallery }))}
+        />
       </MobileActionSheet>
 
       {/* ── SEO Sheet ───────────────────────────────────────────────────── */}
@@ -900,6 +850,258 @@ function CreateStorefrontPrompt({ onCreated }) {
         {creating && <Loader2 size={16} className="animate-spin" />}
         Crear Storefront
       </button>
+    </div>
+  );
+}
+
+// ─── Gallery Panel (with progress + before/after) ──────────────────────────
+function GalleryPanel({ gallery, onUpdate }) {
+  const [uploadProgress, setUploadProgress] = useState(null); // null | 0-100
+  const [configMode, setConfigMode] = useState(false);
+  const [selectedPair, setSelectedPair] = useState([]); // [url1, url2] for pairing
+
+  const uploadWithProgress = (file) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('file', file);
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          setUploadProgress(Math.round((e.loaded / e.total) * 90)); // 90% = upload, last 10% = server processing
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        setUploadProgress(100);
+        try {
+          const res = JSON.parse(xhr.responseText);
+          setTimeout(() => {
+            setUploadProgress(null);
+            resolve(res?.data || res);
+          }, 400);
+        } catch { setUploadProgress(null); reject(new Error('Error parsing response')); }
+      });
+
+      xhr.addEventListener('error', () => { setUploadProgress(null); reject(new Error('Upload failed')); });
+
+      const token = localStorage.getItem('accessToken');
+      const base = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://api.smartkubik.com');
+      const apiPath = base.endsWith('/api/v1') ? '' : '/api/v1';
+      xhr.open('POST', `${base}${apiPath}/admin/storefront/upload-gallery`);
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.send(formData);
+    });
+  };
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    setUploadProgress(0);
+    try {
+      const result = await uploadWithProgress(file);
+      if (result?.gallery) onUpdate(result.gallery);
+      haptics.success();
+      toast.success('Foto agregada');
+    } catch {
+      toast.error('Error al subir la foto');
+    }
+  };
+
+  const handleDelete = async (url) => {
+    try {
+      const res = await fetchApi(`/admin/storefront/gallery/${encodeURIComponent(url)}`, { method: 'DELETE' });
+      const data = res?.data ?? res;
+      onUpdate(data.gallery || []);
+      haptics.tap();
+      toast.success('Foto eliminada');
+    } catch { toast.error('Error al eliminar'); }
+  };
+
+  const handleUpdateItem = async (url, update) => {
+    try {
+      const res = await fetchApi(`/admin/storefront/gallery/${encodeURIComponent(url)}`, {
+        method: 'PATCH',
+        body: JSON.stringify(update),
+      });
+      const data = res?.data ?? res;
+      onUpdate(data.gallery || []);
+      haptics.select();
+    } catch { toast.error('Error al actualizar'); }
+  };
+
+  const handlePairToggle = (item) => {
+    if (!configMode) return;
+    const url = item.url;
+    setSelectedPair((prev) => {
+      if (prev.includes(url)) return prev.filter((u) => u !== url);
+      const next = [...prev, url];
+      if (next.length === 2) {
+        // Create pair
+        const pairId = `pair-${Date.now()}`;
+        handleUpdateItem(next[0], { type: 'before', pairId });
+        handleUpdateItem(next[1], { type: 'after', pairId });
+        toast.success('Par Antes/Después creado');
+        setTimeout(() => setSelectedPair([]), 200);
+        return [];
+      }
+      return next;
+    });
+  };
+
+  const handleUnpair = (item) => {
+    if (item.pairId) {
+      const paired = gallery.filter((g) => g.pairId === item.pairId);
+      paired.forEach((g) => handleUpdateItem(g.url, { type: 'single', pairId: '' }));
+      toast.success('Par deshecho');
+    }
+  };
+
+  // Group gallery: pairs first, then singles
+  const pairs = [];
+  const singles = [];
+  const pairedIds = new Set();
+
+  gallery.forEach((item) => {
+    if (item.pairId && !pairedIds.has(item.pairId)) {
+      const before = gallery.find((g) => g.pairId === item.pairId && g.type === 'before');
+      const after = gallery.find((g) => g.pairId === item.pairId && g.type === 'after');
+      if (before && after) {
+        pairs.push({ pairId: item.pairId, before, after });
+        pairedIds.add(item.pairId);
+      }
+    }
+  });
+  gallery.forEach((item) => {
+    if (!item.pairId || !pairedIds.has(item.pairId)) singles.push(item);
+  });
+
+  return (
+    <div className="px-4 py-4 space-y-4">
+      {/* Mode toggle */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          {configMode
+            ? selectedPair.length === 1
+              ? 'Selecciona la segunda foto del par'
+              : 'Toca 2 fotos para crear un par Antes/Después'
+            : 'Sube fotos de tu trabajo'}
+        </p>
+        <button
+          onClick={() => { setConfigMode(!configMode); setSelectedPair([]); haptics.tap(); }}
+          className={cn(
+            'text-xs font-medium px-3 py-1.5 rounded-full transition-colors',
+            configMode ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+          )}
+        >
+          {configMode ? 'Listo' : 'Antes/Después'}
+        </button>
+      </div>
+
+      {/* Before/After pairs */}
+      {pairs.map(({ pairId, before, after }) => (
+        <div key={pairId} className="rounded-xl border border-border overflow-hidden">
+          <div className="flex">
+            <div className="flex-1 relative">
+              <img src={before.url} alt="Antes" className="w-full aspect-square object-cover" />
+              <span className="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded-full bg-black/70 text-[10px] font-bold text-white uppercase">Antes</span>
+            </div>
+            <div className="w-px bg-border" />
+            <div className="flex-1 relative">
+              <img src={after.url} alt="Después" className="w-full aspect-square object-cover" />
+              <span className="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded-full bg-primary/90 text-[10px] font-bold text-white uppercase">Después</span>
+            </div>
+          </div>
+          {configMode && (
+            <button
+              onClick={() => handleUnpair(before)}
+              className="w-full py-2 text-xs text-destructive font-medium bg-muted/50 hover:bg-destructive/10 transition-colors"
+            >
+              Deshacer par
+            </button>
+          )}
+        </div>
+      ))}
+
+      {/* Single photos grid */}
+      {singles.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          {singles.map((item, i) => {
+            const url = typeof item === 'string' ? item : item.url;
+            const isSelected = selectedPair.includes(url);
+            return (
+              <div
+                key={i}
+                className={cn(
+                  'relative aspect-square rounded-xl overflow-hidden border transition-all',
+                  configMode && isSelected ? 'border-primary border-2 scale-95' : 'border-border',
+                )}
+                onClick={() => configMode && handlePairToggle(item)}
+              >
+                <img src={url} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                {configMode && isSelected && (
+                  <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                      <Check size={14} className="text-white" />
+                    </div>
+                  </div>
+                )}
+                {!configMode && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(url); }}
+                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center text-xs"
+                  >
+                    ×
+                  </button>
+                )}
+                {item.label && (
+                  <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-white truncate max-w-[90%]">
+                    {item.label}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Upload progress */}
+      {uploadProgress !== null && (
+        <div className="rounded-xl border border-border p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              {uploadProgress < 90 ? 'Subiendo...' : 'Optimizando...'}
+            </span>
+            <span className="text-xs font-bold tabular-nums">{uploadProgress}%</span>
+          </div>
+          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-primary rounded-full"
+              initial={{ width: 0 }}
+              animate={{ width: `${uploadProgress}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Upload button */}
+      {uploadProgress === null && (
+        <label className="flex flex-col items-center justify-center py-8 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-primary/50 transition-colors active:scale-[0.98]">
+          <ImagePlus size={28} className="text-muted-foreground mb-2" />
+          <span className="text-sm font-medium text-muted-foreground">Agregar foto</span>
+          <span className="text-xs text-muted-foreground/60 mt-1">JPG, PNG, WebP, HEIC — Máx 10MB</span>
+          <span className="text-[10px] text-muted-foreground/40 mt-0.5">Se optimiza automáticamente a WebP</span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/heic,image/heif"
+            className="hidden"
+            onChange={handleUpload}
+          />
+        </label>
+      )}
     </div>
   );
 }

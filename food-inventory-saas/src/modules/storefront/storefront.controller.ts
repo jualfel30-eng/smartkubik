@@ -448,9 +448,9 @@ export class StorefrontController {
     @UploadedFile(
       new ParseFilePipe({
         validators: [
-          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB — optimized to WebP server-side
           new FileTypeValidator({
-            fileType: /image\/(png|jpeg|jpg|gif|webp)/,
+            fileType: /image\/(png|jpeg|jpg|gif|webp|heic|heif)/,
             skipMagicNumbersValidation: true,
           }),
         ],
@@ -481,6 +481,22 @@ export class StorefrontController {
     const result = await this.storefrontService.removeGalleryImage(
       decodeURIComponent(imageUrl),
       req.user.tenantId,
+    );
+    return { success: true, data: result };
+  }
+
+  @Patch("gallery/:imageUrl")
+  @Permissions("storefront_update")
+  @ApiOperation({ summary: "Actualizar metadatos de imagen del portafolio (tipo, pairId, label)" })
+  async updateGalleryItem(
+    @Param("imageUrl") imageUrl: string,
+    @Body() body: { type?: string; pairId?: string; label?: string },
+    @Request() req,
+  ) {
+    const result = await this.storefrontService.updateGalleryItem(
+      decodeURIComponent(imageUrl),
+      req.user.tenantId,
+      body,
     );
     return { success: true, data: result };
   }
