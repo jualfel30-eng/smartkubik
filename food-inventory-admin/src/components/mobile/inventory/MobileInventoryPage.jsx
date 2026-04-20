@@ -325,7 +325,8 @@ function MobileInventoryPageInner() {
   // Lazy load on tab switch
   useEffect(() => {
     if (activeTab === 'movements' && !loadedTabs.current.movements) loadMovements();
-    if (activeTab === 'alerts' && !loadedTabs.current.alerts) loadAlerts();
+    // ALERTS DISABLED FOR DEBUG — if this fixes #300, the issue is in loadAlerts
+    // if (activeTab === 'alerts' && !loadedTabs.current.alerts) loadAlerts();
     if (activeTab === 'orders' && !loadedTabs.current.orders) loadOrders();
   }, [activeTab, loadMovements, loadAlerts, loadOrders]);
 
