@@ -272,10 +272,12 @@ export default function MobileInventoryPage() {
           minimumStock: Number(prod.inventoryConfig?.minimumStock ?? item.minimumStock ?? item.minStock ?? 5),
         };
       });
+      console.log('[MobileInventory] alerts normalized:', JSON.stringify(list.slice(0, 2)));
       setAlerts(list);
       setAlertCount(list.length);
       loadedTabs.current.alerts = true;
-    } catch {
+    } catch (err) {
+      console.error('[MobileInventory] loadAlerts error:', err);
       toast.error('Error al cargar alertas');
     } finally {
       setLoadingAlerts(false);
@@ -646,19 +648,13 @@ export default function MobileInventoryPage() {
               <MobileEmptyState
                 icon={AlertTriangle}
                 title="Sin alertas"
-                description="Todo el inventario está al día"
+                description="Todo el inventario esta al dia"
               />
             ) : (
-              <motion.div
-                className="space-y-2 pt-4"
-                variants={STAGGER(0.03)}
-                initial="initial"
-                animate="animate"
-              >
-                {alerts.map((item) => (
-                  <motion.div
-                    key={item._id}
-                    variants={listItem}
+              <div className="space-y-2 pt-4">
+                {alerts.map((item, idx) => (
+                  <div
+                    key={String(item._id || idx)}
                     className="bg-card border border-border rounded-[var(--mobile-radius-lg)] p-4"
                   >
                     <div className="flex items-start justify-between mb-2">
@@ -675,7 +671,7 @@ export default function MobileInventoryPage() {
                           {item.availableQuantity}
                         </span>
                         <p className="text-[10px] text-muted-foreground">
-                          min: {item.minimumStock}
+                          {'min: ' + item.minimumStock}
                         </p>
                       </div>
                     </div>
@@ -699,9 +695,9 @@ export default function MobileInventoryPage() {
                         <ShoppingCart size={14} /> Crear pedido
                       </button>
                     </div>
-                  </motion.div>
+                  </div>
                 ))}
-              </motion.div>
+              </div>
             )}
           </div>
         )}
