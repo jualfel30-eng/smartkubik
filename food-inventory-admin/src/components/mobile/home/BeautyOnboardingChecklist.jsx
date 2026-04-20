@@ -12,7 +12,7 @@ const CHECKLIST_ITEMS = [
   { key: 'professionals', label: 'Agregar profesionales', path: '/professionals', auto: true },
   { key: 'services', label: 'Configurar servicios', path: '/beauty-services', auto: true },
   { key: 'photos', label: 'Agregar fotos de tu trabajo', path: '/beauty-services' },
-  { key: 'deposits', label: 'Configurar anticipos', path: '/settings' },
+  { key: 'deposits', label: 'Configurar anticipos', path: '/settings?tab=payments' },
   { key: 'team', label: 'Invitar a tu equipo', path: '/settings' },
   { key: 'firstBooking', label: 'Crear tu primera cita', path: '/appointments' },
 ];

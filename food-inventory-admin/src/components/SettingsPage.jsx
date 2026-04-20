@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useConfirm } from '@/hooks/use-confirm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -118,6 +119,8 @@ const BASE_VERTICAL_LABELS = {
 };
 
 const SettingsPage = () => {
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'general';
   const [ConfirmDialog, confirm] = useConfirm();
   const [settings, setSettings] = useState(initialSettings);
   const [loading, setLoading] = useState(true);
@@ -365,7 +368,7 @@ const SettingsPage = () => {
     <div className="container mx-auto p-4 space-y-6">
       <h1 className="text-3xl font-bold">Configuración</h1>
 
-      <Tabs defaultValue="general" className="w-full">
+      <Tabs defaultValue={initialTab} className="w-full">
         <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-8">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="delivery">Delivery</TabsTrigger>
