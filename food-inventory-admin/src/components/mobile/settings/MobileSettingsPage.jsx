@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Store, Clock, DollarSign, Scissors, Package, Bell, MessageCircle,
   Link as LinkIcon, Users, ChevronRight, ShieldAlert,
@@ -68,7 +68,11 @@ const slideIn = {
 
 export default function MobileSettingsPage() {
   const navigate = useNavigate();
-  const [selectedSection, setSelectedSection] = useState(null);
+  const [searchParams] = useSearchParams();
+  const initialSection = searchParams.get('tab') || searchParams.get('section') || null;
+  const [selectedSection, setSelectedSection] = useState(() =>
+    initialSection && SECTION_COMPONENTS[initialSection] ? initialSection : null
+  );
 
   const handleItemTap = (item) => {
     haptics.tap();

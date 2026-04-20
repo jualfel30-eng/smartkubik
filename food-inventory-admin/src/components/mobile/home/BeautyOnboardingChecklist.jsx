@@ -9,11 +9,11 @@ const STORAGE_KEY = 'beauty-onboarding-checklist-dismissed';
 
 const CHECKLIST_ITEMS = [
   { key: 'booking', label: 'Crear página de reservas', path: '/storefront', auto: true },
-  { key: 'professionals', label: 'Agregar profesionales', path: '/professionals', auto: true },
+  { key: 'professionals', label: 'Agregar profesionales', path: '/crm', auto: true },
   { key: 'services', label: 'Configurar servicios', path: '/beauty-services', auto: true },
-  { key: 'photos', label: 'Agregar fotos de tu trabajo', path: '/beauty-services' },
+  { key: 'photos', label: 'Agregar fotos de tu trabajo', path: '/storefront' },
   { key: 'deposits', label: 'Configurar anticipos', path: '/settings?tab=payments' },
-  { key: 'team', label: 'Invitar a tu equipo', path: '/settings' },
+  { key: 'team', label: 'Invitar a tu equipo', path: '/settings?tab=users' },
   { key: 'firstBooking', label: 'Crear tu primera cita', path: '/appointments' },
 ];
 

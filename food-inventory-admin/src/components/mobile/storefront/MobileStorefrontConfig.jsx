@@ -6,6 +6,7 @@ import {
   CreditCard, ImagePlus, MapPin, ExternalLink, Camera, Plus, Eye, EyeOff,
 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import haptics from '@/lib/haptics';
 import toast from '@/lib/toast';
@@ -756,24 +757,40 @@ export default function MobileStorefrontConfig() {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function CreateStorefrontPrompt({ onCreated }) {
-  const [domain, setDomain] = useState('');
+  const { tenant, user } = useAuth();
+  const defaultDomain = (tenant?.slug || tenant?.name || '')
+    .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').slice(0, 40);
+  const [domain, setDomain] = useState(defaultDomain);
   const [creating, setCreating] = useState(false);
 
   const handleCreate = async () => {
     if (!domain.trim()) return;
     setCreating(true);
     try {
+      const contactEmail = tenant?.contactInfo?.email || user?.email || '';
+      const contactPhone = tenant?.contactInfo?.phone || '';
+
+      const payload = {
+        domain: domain.toLowerCase().replace(/[^a-z0-9-]/g, ''),
+        isActive: false,
+        templateType: 'beauty',
+        theme: { primaryColor: '#3B82F6', secondaryColor: '#10B981' },
+        seo: { title: tenant?.name || 'Mi Negocio', description: `Reserva tu cita en ${tenant?.name || 'nuestro salón'}`, keywords: [] },
+        socialMedia: {},
+      };
+
+      // Only include contactInfo if we have valid data
+      if (contactEmail) {
+        payload.contactInfo = {
+          email: contactEmail,
+          phone: contactPhone || '+580000000000',
+        };
+      }
+
       const response = await fetchApi('/storefront', {
         method: 'POST',
-        body: JSON.stringify({
-          domain: domain.toLowerCase().replace(/[^a-z0-9-]/g, ''),
-          isActive: false,
-          templateType: 'beauty',
-          theme: { primaryColor: '#3B82F6', secondaryColor: '#10B981' },
-          seo: { title: 'Mi Negocio', description: 'Bienvenido a mi negocio', keywords: [] },
-          socialMedia: {},
-          contactInfo: { email: '', phone: '' },
-        }),
+        body: JSON.stringify(payload),
       });
       const data = response?.data ?? response;
       onCreated(data);

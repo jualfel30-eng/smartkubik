@@ -323,13 +323,14 @@ export class CreateStorefrontConfigDto {
   @Type(() => SocialMediaConfigDto)
   socialMedia?: SocialMediaConfigDto;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: "Información de contacto",
     type: ContactInfoConfigDto,
   })
+  @IsOptional()
   @ValidateNested()
   @Type(() => ContactInfoConfigDto)
-  contactInfo: ContactInfoConfigDto;
+  contactInfo?: ContactInfoConfigDto;
 
   @ApiPropertyOptional({
     description: "Configuración de integración con WhatsApp",
