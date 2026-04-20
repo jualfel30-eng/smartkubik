@@ -38,9 +38,6 @@ export function InventoryAddDialog({
   return (
     <>
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogTrigger asChild>
-          <Button id="add-inventory-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full sm:w-auto"><Plus className="h-5 w-5 mr-2" />Agregar Inventario</Button>
-        </DialogTrigger>
         <DialogContent className="max-w-5xl h-[95vh] md:h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Agregar Inventario</DialogTitle>

@@ -304,6 +304,7 @@ function InventoryManagement() {
           onRefresh={inv.loadData}
           loading={inv.loading}
           onOpenLabelWizard={() => inv.setIsLabelWizardOpen(true)}
+          onAddInventory={() => inv.setIsAddDialogOpen(true)}
           fileInputRef={inv.fileInputRef}
           onFileSelect={handleFileSelect}
           inventoryAttributeColumns={inv.inventoryAttributeColumns}

@@ -17,6 +17,7 @@ import {
   Upload,
   RefreshCw,
   Printer,
+  Plus,
 } from 'lucide-react';
 
 /**
@@ -46,6 +47,7 @@ export function InventoryToolbar({
   onRefresh,
   loading,
   onOpenLabelWizard,
+  onAddInventory,
   fileInputRef,
   onFileSelect,
   inventoryAttributeColumns,
@@ -94,6 +96,11 @@ export function InventoryToolbar({
           <Button variant="secondary" size="sm" onClick={onOpenLabelWizard} className="w-full sm:w-auto">
             <Printer className="h-4 w-4 mr-2" /> Imprimir Etiquetas
           </Button>
+          {onAddInventory && (
+            <Button size="sm" onClick={onAddInventory} className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full sm:w-auto">
+              <Plus className="h-4 w-4 mr-2" /> Agregar Inventario
+            </Button>
+          )}
         </div>
         <div className="space-y-4">
           {inventoryAttributeColumns.length > 0 && (
