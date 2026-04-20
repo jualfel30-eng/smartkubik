@@ -201,6 +201,7 @@ function MobileNewInventoryRecord({ open, product, onClose }) {
           productName: product.productName,
           productSku: product.productSku,
           totalQuantity: quantity,
+          averageCostPrice: 0,
           minimumStock: 5,
           reference: `MOBILE-INIT-${Date.now()}`,
         }),
@@ -245,7 +246,7 @@ function MobileNewInventoryRecord({ open, product, onClose }) {
 
         <div>
           <p className="text-xs font-medium text-muted-foreground mb-2">Cantidad inicial</p>
-          <div className="flex items-center justify-center gap-6">
+          <div className="flex items-center justify-center gap-4">
             <button
               type="button"
               onClick={() => handleStep(-1)}
@@ -253,15 +254,16 @@ function MobileNewInventoryRecord({ open, product, onClose }) {
             >
               −
             </button>
-            <motion.span
-              key={quantity}
-              initial={{ scale: 1.15, opacity: 0.7 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.1 }}
-              className="text-3xl font-bold tabular-nums w-16 text-center"
-            >
-              {quantity}
-            </motion.span>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={quantity}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                setQuantity(isNaN(val) ? 0 : Math.max(0, val));
+              }}
+              className="w-20 h-12 text-center text-2xl font-bold tabular-nums bg-transparent border border-border rounded-xl focus:ring-2 focus:ring-primary/30 outline-none"
+            />
             <button
               type="button"
               onClick={() => handleStep(1)}

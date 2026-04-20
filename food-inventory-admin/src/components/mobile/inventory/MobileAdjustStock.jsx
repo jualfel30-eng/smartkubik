@@ -87,7 +87,7 @@ export default function MobileAdjustStock({ product, mode = 'add', onClose, onSu
         <p className="text-sm font-medium">{productName}</p>
 
         {/* Stepper */}
-        <div className="flex items-center justify-center gap-6">
+        <div className="flex items-center justify-center gap-4">
           <button
             type="button"
             onClick={() => handleStep(-1)}
@@ -95,15 +95,16 @@ export default function MobileAdjustStock({ product, mode = 'add', onClose, onSu
           >
             −
           </button>
-          <motion.span
-            key={quantity}
-            initial={{ scale: 1.15, opacity: 0.7 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.1 }}
-            className="text-3xl font-bold tabular-nums w-16 text-center"
-          >
-            {quantity}
-          </motion.span>
+          <input
+            type="number"
+            inputMode="numeric"
+            value={quantity}
+            onChange={(e) => {
+              const val = parseInt(e.target.value);
+              setQuantity(isNaN(val) ? 0 : Math.max(1, val));
+            }}
+            className="w-20 h-12 text-center text-2xl font-bold tabular-nums bg-transparent border border-border rounded-xl focus:ring-2 focus:ring-primary/30 outline-none"
+          />
           <button
             type="button"
             onClick={() => handleStep(1)}
