@@ -641,64 +641,10 @@ export default function MobileInventoryPage() {
 
         {/* ── Alerts tab ────────────────────────────────────────────────── */}
         {activeTab === 'alerts' && (
-          <div className="px-4 pb-24">
-            {loadingAlerts ? (
-              <MobileListSkeleton count={4} height="h-20" className="pt-4" />
-            ) : alerts.length === 0 ? (
-              <MobileEmptyState
-                icon={AlertTriangle}
-                title="Sin alertas"
-                description="Todo el inventario esta al dia"
-              />
-            ) : (
-              <div className="space-y-2 pt-4">
-                {alerts.map((item, idx) => (
-                  <div
-                    key={String(item._id || idx)}
-                    className="bg-card border border-border rounded-[var(--mobile-radius-lg)] p-4"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">
-                          {item.productName}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {item.productSku}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-sm font-bold text-destructive tabular-nums">
-                          {item.availableQuantity}
-                        </span>
-                        <p className="text-[10px] text-muted-foreground">
-                          {'min: ' + item.minimumStock}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleAlertRestock(item)}
-                        className="flex-1 flex items-center justify-center gap-1 py-2.5 text-xs font-medium
-                                   rounded-[var(--mobile-radius-md)] bg-emerald-500/10 text-emerald-600
-                                   border border-emerald-500/20 no-tap-highlight"
-                      >
-                        <Plus size={14} /> Reabastecer
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleAlertCreatePO(item)}
-                        className="flex-1 flex items-center justify-center gap-1 py-2.5 text-xs font-medium
-                                   rounded-[var(--mobile-radius-md)] bg-blue-500/10 text-blue-500
-                                   border border-blue-500/20 no-tap-highlight"
-                      >
-                        <ShoppingCart size={14} /> Crear pedido
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="px-4 pb-24 pt-4">
+            <p className="text-sm text-muted-foreground text-center py-8">
+              {'Alertas: ' + alerts.length + ' items cargados'}
+            </p>
           </div>
         )}
 
