@@ -19,19 +19,9 @@ import { Customer, CustomerDocument } from "../schemas/customer.schema";
 import { ChatGateway } from "./chat.gateway";
 import { ConfigService } from "@nestjs/config";
 import { SuperAdminService } from "../modules/super-admin/super-admin.service";
-import {
-  Configuration,
-  UsersApi,
-  ChannelApi,
-  MessagesApi,
-  SendMessageTextRequest,
-  EventTypeEnum,
-  SendMessageInteractiveRequest,
-  SendMessageImageRequest,
-  SendMessageDocumentRequest,
-} from "../lib/whapi-sdk/whapi-sdk-typescript-fetch";
 import { AssistantService } from "../modules/assistant/assistant.service";
 import { WhapiService } from "../modules/whapi/whapi.service";
+import { WhapiPartnerService } from "../modules/whapi/whapi-partner.service";
 import {
   AssistantMessageQueueService,
   AssistantMessageJobData,
@@ -55,101 +45,53 @@ export class ChatService {
     private readonly superAdminService: SuperAdminService,
     private readonly assistantService: AssistantService,
     private readonly whapiService: WhapiService,
+    private readonly whapiPartnerService: WhapiPartnerService,
     private readonly assistantQueueService: AssistantMessageQueueService,
     private readonly usersService: UsersService,
   ) { }
 
-  async generateQrCode(tenantId: string): Promise<{ qrCode: string }> {
+  async generateQrCode(tenantId: string): Promise<{ qrCode: string; channelId?: string; status?: string }> {
     this.logger.log(`Generating QR code for tenant: ${tenantId}`);
 
-    const masterTokenSetting =
-      await this.superAdminService.getSetting("WHAPI_MASTER_TOKEN");
-    const centralApiToken = masterTokenSetting?.value;
+    // Check if tenant already has a channel
+    const existingChannel =
+      await this.whapiPartnerService.getActiveChannel(tenantId);
 
-    if (!centralApiToken) {
-      this.logger.error(
-        "Central WHAPI_MASTER_TOKEN is not configured in Super Admin settings.",
-      );
-      throw new InternalServerErrorException("Chat service is not configured.");
+    if (existingChannel && existingChannel.status === "connected") {
+      // Already connected — return status info
+      return {
+        qrCode: "",
+        channelId: existingChannel.channelId,
+        status: "connected",
+      };
     }
 
-    try {
-      const config = new Configuration({ accessToken: centralApiToken });
-      const usersApi = new UsersApi(config);
-
-      const response = await usersApi.loginUser();
-
-      if (!response.base64) {
-        throw new InternalServerErrorException(
-          "Whapi did not return a QR code.",
-        );
-      }
-
-      // TODO: The logic for obtaining and saving a new channel token was flawed.
-      // The loginUser method only returns a QR code for linking, not a new token.
-      // The token management strategy needs to be revisited. For now, we are only returning the QR code.
-      this.logger.warn(
-        `Token acquisition logic in generateQrCode needs review. Only returning QR code.`,
-      );
-
-      return { qrCode: response.base64 };
-    } catch (error) {
-      this.logger.error(
-        `Failed to generate QR code from Whapi: ${error.message}`,
-        error.stack,
-      );
-      throw new InternalServerErrorException(
-        "Error communicating with WhatsApp provider.",
-      );
+    if (existingChannel && ["pending", "awaiting_scan", "disconnected"].includes(existingChannel.status)) {
+      // Channel exists but not connected — refresh QR
+      const result = await this.whapiPartnerService.refreshQrCode(tenantId);
+      return {
+        qrCode: result.qrCode,
+        channelId: result.channelId,
+        status: "awaiting_scan",
+      };
     }
+
+    // No channel exists — create one via Partner API
+    const result =
+      await this.whapiPartnerService.createChannelForTenant(tenantId);
+
+    return {
+      qrCode: result.qrCode,
+      channelId: result.channel.channelId,
+      status: result.channel.status,
+    };
   }
 
   async configureWebhook(tenantId: string): Promise<{ success: boolean }> {
     this.logger.log(`Configuring webhook for tenant: ${tenantId}`);
-
-    const tenant = await this.tenantModel.findById(tenantId).exec();
-    if (!tenant) {
-      throw new NotFoundException(
-        "Tenant not found or WhatsApp token is missing.",
-      );
-    }
-
-    const baseUrl = this.configService.get<string>("API_BASE_URL");
-    if (!baseUrl) {
-      this.logger.error("API_BASE_URL is not configured.");
-      throw new InternalServerErrorException(
-        "Server base URL is not configured.",
-      );
-    }
-
-    const webhookUrl = `${baseUrl}/chat/whapi-webhook?tenantId=${tenantId}`;
-    const accessToken = await this.whapiService.resolveWhapiToken(tenant);
-
-    try {
-      const config = new Configuration({ accessToken });
-      const channelApi = new ChannelApi(config);
-
-      await channelApi.updateChannelSettings({
-        settings: {
-          webhooks: [
-            { url: webhookUrl, events: [{ type: EventTypeEnum.Messages }] },
-          ],
-        },
-      });
-
-      this.logger.log(
-        `Successfully configured webhook for tenant ${tenantId} to: ${webhookUrl}`,
-      );
-      return { success: true };
-    } catch (error) {
-      this.logger.error(
-        `Failed to configure webhook with Whapi: ${error.message}`,
-        error.stack,
-      );
-      throw new InternalServerErrorException(
-        "Error communicating with WhatsApp provider.",
-      );
-    }
+    const result =
+      await this.whapiPartnerService.configureChannelWebhook(tenantId);
+    return { success: result.success };
   }
 
   async getConversations(tenantId: string): Promise<ConversationDocument[]> {
