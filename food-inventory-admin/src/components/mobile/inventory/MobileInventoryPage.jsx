@@ -377,13 +377,14 @@ export default function MobileInventoryPage() {
   }, [inventory, search, filters]);
 
   // ─── Computed alert count (fallback from client data if API count failed) ─
-  const displayAlertCount = alertCount || useMemo(() =>
+  const computedAlertCount = useMemo(() =>
     inventory.filter((p) => {
       const stock = Number(p.availableQuantity ?? p.totalQuantity ?? p.currentStock ?? 0);
       const min = Number(p.minStock ?? p.minimumStock ?? 5);
       return stock <= min;
     }).length,
   [inventory]);
+  const displayAlertCount = alertCount || computedAlertCount;
 
   const activeFilterCount = (filters.stock !== 'all' ? 1 : 0) + (filters.sortBy !== 'name' ? 1 : 0);
 
@@ -502,7 +503,7 @@ export default function MobileInventoryPage() {
       <div className="flex-1 overflow-y-auto mobile-scroll">
         {/* ── Products mode ─────────────────────────────────────────────── */}
         {mode === 'products' && (
-          <div className="px-4 pt-4"><p className="text-sm text-muted-foreground">{'Catalogo temp desactivado'}</p></div>
+          <MobileProductCatalog onCreateProduct={() => setCreating(true)} />
         )}
 
         {/* ── Operations mode ───────────────────────────────────────────── */}
