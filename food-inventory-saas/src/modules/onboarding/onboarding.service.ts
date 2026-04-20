@@ -183,6 +183,9 @@ export class OnboardingService {
             key: verticalProfileKey,
             overrides: {},
           },
+          onboardingCompleted: false,
+          onboardingStep: 0,
+          onboardingStepsCompleted: [],
           ...(isTrial && {
             trialStartDate,
             trialEndDate,
@@ -336,6 +339,9 @@ export class OnboardingService {
           verticalProfile: tenantDoc.verticalProfile,
           trialStartDate: tenantDoc.trialStartDate,
           trialEndDate: tenantDoc.trialEndDate,
+          onboardingCompleted: tenantDoc.onboardingCompleted ?? false,
+          onboardingStep: tenantDoc.onboardingStep ?? 0,
+          onboardingStepsCompleted: tenantDoc.onboardingStepsCompleted ?? [],
         },
         memberships,
         ...tokens,
@@ -493,7 +499,13 @@ export class OnboardingService {
         tenant: {
           id: tenant._id,
           name: tenant.name,
+          businessType: tenant.businessType,
+          vertical: tenant.vertical,
+          enabledModules: tenant.enabledModules,
+          subscriptionPlan: tenant.subscriptionPlan,
           isConfirmed: tenant.isConfirmed,
+          verticalProfile: tenant.verticalProfile,
+          onboardingCompleted: tenant.onboardingCompleted ?? false,
         },
       } as const;
     }
@@ -549,6 +561,22 @@ export class OnboardingService {
     const tokens = await this.tokenService.generateTokens(user, tenant);
     await user.save();
 
+    // Build memberships array for proper auth context
+    const memberships: MembershipSummary[] = [];
+    try {
+      const membership = await this.userTenantMembershipModel
+        .findOne({ userId: user._id, tenantId: tenant._id })
+        .populate({ path: "roleId", populate: { path: "permissions", select: "name" } })
+        .exec();
+      if (membership) {
+        const membershipSummary =
+          await this.membershipsService.buildMembershipSummary(membership);
+        memberships.push(membershipSummary);
+      }
+    } catch (e) {
+      this.logger.warn(`Could not build membership summary during confirm: ${e}`);
+    }
+
     return {
       success: true,
       message: "Cuenta confirmada exitosamente.",
@@ -562,8 +590,19 @@ export class OnboardingService {
       tenant: {
         id: tenant._id,
         name: tenant.name,
+        businessType: tenant.businessType,
+        vertical: tenant.vertical,
+        enabledModules: tenant.enabledModules,
+        subscriptionPlan: tenant.subscriptionPlan,
         isConfirmed: tenant.isConfirmed,
+        verticalProfile: tenant.verticalProfile,
+        trialStartDate: tenant.trialStartDate,
+        trialEndDate: tenant.trialEndDate,
+        onboardingCompleted: tenant.onboardingCompleted ?? false,
+        onboardingStep: tenant.onboardingStep ?? 0,
+        onboardingStepsCompleted: tenant.onboardingStepsCompleted ?? [],
       },
+      memberships,
       ...tokens,
     } as const;
   }
