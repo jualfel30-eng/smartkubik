@@ -11,22 +11,27 @@ import { fetchApi } from '@/lib/api';
  *
  * Polling: every 60 seconds (configurable).
  */
-export function useSidebarBadges(enabled = true, intervalMs = 60_000) {
+export function useSidebarBadges(tenant, intervalMs = 60_000) {
+  const enabled = !!tenant;
   const [badges, setBadges] = useState({});
+
+  const hasAppointments = ['SERVICES', 'HOSPITALITY'].includes(tenant?.vertical);
 
   const fetchCounts = useCallback(async () => {
     if (!enabled) return;
 
     const counts = {};
 
-    try {
-      // Appointments today — pending or confirmed
-      const aptRes = await fetchApi('/appointments/count-today');
-      if (aptRes?.data?.count > 0) {
-        counts.appointments = aptRes.data.count;
+    if (hasAppointments) {
+      try {
+        // Appointments today — pending or confirmed
+        const aptRes = await fetchApi('/appointments/count-today');
+        if (aptRes?.data?.count > 0) {
+          counts.appointments = aptRes.data.count;
+        }
+      } catch {
+        // Endpoint may not exist — silently skip
       }
-    } catch {
-      // Endpoint may not exist — silently skip
     }
 
     try {
@@ -40,7 +45,7 @@ export function useSidebarBadges(enabled = true, intervalMs = 60_000) {
     }
 
     setBadges(counts);
-  }, [enabled]);
+  }, [enabled, hasAppointments]);
 
   useEffect(() => {
     fetchCounts();

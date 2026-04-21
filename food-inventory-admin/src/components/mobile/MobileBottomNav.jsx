@@ -103,7 +103,7 @@ export default function MobileBottomNav() {
 
   // Aggregate badge for "Más" tab
   const { tenant } = useAuth();
-  const sidebarBadges = useSidebarBadges(!!tenant);
+  const sidebarBadges = useSidebarBadges(tenant);
   const { unreadCount } = useNotification();
   const masBadgeCount = Object.entries(sidebarBadges)
     .filter(([key]) => !BOTTOM_NAV_HREFS.has(key))

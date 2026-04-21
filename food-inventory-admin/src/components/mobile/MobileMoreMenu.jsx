@@ -73,7 +73,7 @@ function NavRow({ item, displayName, badge, badgeColor, gradient, onNavigate }) 
 export default function MobileMoreMenu() {
   const { tenant, user, hasPermission, memberships } = useAuth();
   const { isFeatureEnabled } = useFeatureFlags();
-  const sidebarBadges = useSidebarBadges(!!tenant);
+  const sidebarBadges = useSidebarBadges(tenant);
   const { unreadCount } = useNotification();
   const tipsLabels = useTipsLabels();
   const navigate = useNavigate();

@@ -228,7 +228,7 @@ function TenantLayout() {
   } = useAuth();
   const { theme } = useTheme();
   const { isClockedIn, clockIn, clockOut, isLoading: isShiftLoading } = useShift();
-  const sidebarBadges = useSidebarBadges(!!tenant);
+  const sidebarBadges = useSidebarBadges(tenant);
   const { celebrating, stop: stopCelebrating } = useCelebration();
   const [showOnboarding, setShowOnboarding] = useState(false);
 
