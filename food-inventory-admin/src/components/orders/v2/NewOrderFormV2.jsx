@@ -2445,27 +2445,28 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
             )}
           </div>
 
-          {/* ── Sticky bottom cart bar (above bottom nav) ── */}
+          {/* ── Sticky bottom cart bar (above bottom nav: 64px + safe area) ── */}
           {newOrder.items.length > 0 && activeTab !== 'order' && (
             <div
-              className="fixed left-0 right-0 z-50 bg-card/95 backdrop-blur-sm border-t border-border px-3 py-2"
-              style={{ bottom: 'calc(var(--mobile-bottomnav-h, 64px) + var(--safe-bottom, 0px))' }}
+              className="fixed left-0 right-0 px-3 py-2"
+              style={{ bottom: 72, zIndex: 55 }}
             >
               <button
                 type="button"
                 onClick={() => setActiveTab('order')}
-                className="w-full flex items-center justify-between bg-emerald-600 text-white rounded-xl px-4 py-3 active:scale-[0.98] transition-transform shadow-lg"
+                className="w-full flex items-center justify-between bg-emerald-600 text-white rounded-xl px-4 py-3.5 active:scale-[0.98] transition-transform"
+                style={{ boxShadow: '0 -2px 20px rgba(0,0,0,0.4)' }}
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <ShoppingCart className="h-5 w-5" />
-                    <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] rounded-full bg-white text-emerald-700 text-[10px] font-bold flex items-center justify-center px-1">
+                    <span className="absolute -top-2 -right-2.5 min-w-5 h-5 rounded-full bg-white text-emerald-700 text-[11px] font-bold flex items-center justify-center px-1">
                       {newOrder.items.reduce((sum, i) => sum + (i.quantity || 1), 0)}
                     </span>
                   </div>
                   <span className="font-semibold text-sm">Ver pedido</span>
                 </div>
-                <span className="font-bold text-base tabular-nums">${totals.total.toFixed(2)}</span>
+                <span className="font-bold text-lg tabular-nums">${totals.total.toFixed(2)}</span>
               </button>
             </div>
           )}
