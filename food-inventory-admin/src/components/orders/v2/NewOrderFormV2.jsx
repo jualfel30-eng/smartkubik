@@ -2303,6 +2303,167 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
     );
   };
 
+  // ─── Mobile item cards (replaces table in mobile order sheet) ──────────────
+  const renderMobileItemCards = () => {
+    if (newOrder.items.length === 0) {
+      return (
+        <div className="text-sm text-muted-foreground text-center py-8">
+          No hay productos agregados
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2.5">
+        {newOrder.items.map((item, index) => {
+          const unitPrice = getItemFinalUnitPrice(item);
+          const qty = getItemQuantityValue(item);
+          const lineTotal = unitPrice * qty;
+
+          return (
+            <div
+              key={item._id || `${item.productId}-${index}`}
+              className="border rounded-xl p-3 bg-card space-y-2.5"
+            >
+              {/* Row 1: Name + delete */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm leading-tight">{item.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{item.sku}</p>
+                  {item.modifiers && item.modifiers.length > 0 && (
+                    <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                      {item.modifiers.map((mod, mi) => {
+                        const adj = (Number(mod.priceAdjustment) || 0) * (mod.quantity || 1);
+                        return (
+                          <span key={mi} className="block">
+                            • {mod.name}{mod.quantity > 1 ? ` x${mod.quantity}` : ''}
+                            {adj !== 0 && ` (${adj > 0 ? '+' : ''}$${adj.toFixed(2)})`}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {item.removedIngredients && item.removedIngredients.length > 0 && (
+                    <p className="text-xs text-destructive mt-1 font-medium">
+                      Sin: {item.removedIngredients.length} ingrediente(s)
+                    </p>
+                  )}
+                  {item.specialInstructions && (
+                    <p className="text-xs text-warning italic mt-1">{item.specialInstructions}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeProductFromOrder(item.productId)}
+                  className="shrink-0 h-7 w-7 rounded-full bg-destructive/10 flex items-center justify-center"
+                >
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                </button>
+              </div>
+
+              {/* Row 2: Quantity controls + unit price + line total */}
+              <div className="flex items-center gap-3">
+                {/* Quantity */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newQty = Math.max(0, qty - 1);
+                      if (newQty === 0) removeProductFromOrder(item.productId);
+                      else handleItemQuantityChange(item.productId, String(newQty), item.isSoldByWeight);
+                    }}
+                    className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-base font-bold active:scale-95"
+                  >
+                    −
+                  </button>
+                  <Input
+                    type="text"
+                    inputMode={item.isSoldByWeight || item.hasMultipleSellingUnits ? "decimal" : "numeric"}
+                    value={item.quantity}
+                    onChange={(e) => handleItemQuantityChange(item.productId, e.target.value, item.isSoldByWeight || item.hasMultipleSellingUnits)}
+                    className="w-14 h-8 text-center text-sm font-semibold"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleItemQuantityChange(item.productId, String(qty + 1), item.isSoldByWeight)}
+                    className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-base font-bold active:scale-95"
+                  >
+                    +
+                  </button>
+                  {item.hasMultipleSellingUnits && item.sellingUnits && (
+                    <Select
+                      value={item.selectedUnit}
+                      onValueChange={(value) => handleUnitChange(item.productId, value)}
+                    >
+                      <SelectTrigger className="h-8 w-20 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {item.sellingUnits.filter(u => u.isActive !== false).map((unit) => (
+                          <SelectItem key={unit.abbreviation} value={unit.abbreviation}>
+                            {unit.abbreviation}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                {/* Unit price × qty = total */}
+                <div className="flex-1 text-right">
+                  <p className="text-sm font-bold tabular-nums">${lineTotal.toFixed(2)}</p>
+                  {qty > 1 && (
+                    <p className="text-[11px] text-muted-foreground tabular-nums">
+                      ${unitPrice.toFixed(2)} c/u
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Row 3: Discount + wholesale (conditional) */}
+              {(canApplyDiscounts || item.discountPercentage > 0 || item.wholesaleAvailable) && (
+                <div className="flex items-center gap-2 pt-1 border-t border-border/50">
+                  {canApplyDiscounts && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleOpenItemDiscount(item)}
+                      className="h-7 px-2 text-xs gap-1"
+                    >
+                      <Percent className="h-3 w-3 text-blue-500" />
+                      {item.discountPercentage > 0 ? `-${item.discountPercentage}%` : 'Descuento'}
+                    </Button>
+                  )}
+                  {!canApplyDiscounts && item.discountPercentage > 0 && (
+                    <span className="text-xs text-success font-semibold">-{item.discountPercentage}%</span>
+                  )}
+                  {item.wholesaleAvailable && (
+                    <Badge
+                      variant={item.useWholesalePrice ? "default" : "secondary"}
+                      className="text-[10px] cursor-pointer h-6"
+                      onClick={() => toggleWholesalePrice(index)}
+                    >
+                      <Tag className="h-3 w-3 mr-1" />
+                      {item.useWholesalePrice ? `Mayor: $${item.wholesalePrice}` : 'Precio mayor'}
+                    </Badge>
+                  )}
+                </div>
+              )}
+
+              {/* Promotion info */}
+              {item.promotionInfo && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="line-through text-muted-foreground">${item.promotionInfo.originalPrice.toFixed(2)}</span>
+                  <span className="text-success font-semibold">-{item.promotionInfo.discountPercentage}%</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // Helper function to render delivery content for sidebar
   const renderDeliveryContent = () => {
     if (newOrder.deliveryMethod === 'pickup') {
@@ -2449,7 +2610,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           {newOrder.items.length > 0 && activeTab !== 'order' && (
             <div
               className="fixed left-0 right-0 px-4"
-              style={{ bottom: 80, zIndex: 55 }}
+              style={{ bottom: 100, zIndex: 55 }}
             >
               <button
                 type="button"
@@ -2603,7 +2764,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     </div>
                   </div>
 
-                  {/* Order Sidebar (items + summary + checkout) */}
+                  {/* Order Sidebar (items as cards on mobile + summary + checkout) */}
                   <OrderSidebar
                     customerName={newOrder.customerName}
                     customerRif={`${newOrder.taxType}-${newOrder.customerRif}`}
@@ -2612,7 +2773,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     customerAddress={newOrder.customerAddress}
                     items={newOrder.items}
                     itemsTableContent={renderItemsTable()}
-                    fullItemsTable={renderFullItemsTable()}
+                    fullItemsTable={renderMobileItemCards()}
                     deliveryMethod={newOrder.deliveryMethod}
                     deliveryContent={renderDeliveryContent()}
                     totals={totals}
