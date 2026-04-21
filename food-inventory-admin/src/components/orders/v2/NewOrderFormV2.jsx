@@ -2445,28 +2445,36 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
             )}
           </div>
 
-          {/* ── Sticky bottom cart bar (above bottom nav: 64px + safe area) ── */}
+          {/* ── Sticky cart bar — sits above bottom nav ── */}
           {newOrder.items.length > 0 && activeTab !== 'order' && (
             <div
-              className="fixed left-0 right-0 px-3 py-2"
-              style={{ bottom: 72, zIndex: 55 }}
+              className="fixed left-0 right-0 px-4"
+              style={{ bottom: 80, zIndex: 55 }}
             >
               <button
                 type="button"
                 onClick={() => setActiveTab('order')}
-                className="w-full flex items-center justify-between bg-emerald-600 text-white rounded-xl px-4 py-3.5 active:scale-[0.98] transition-transform"
-                style={{ boxShadow: '0 -2px 20px rgba(0,0,0,0.4)' }}
+                className="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl px-5 py-4 active:scale-[0.97] transition-all"
+                style={{ boxShadow: '0 4px 24px rgba(16, 185, 129, 0.4), 0 2px 8px rgba(0,0,0,0.3)' }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <ShoppingCart className="h-5 w-5" />
-                    <span className="absolute -top-2 -right-2.5 min-w-5 h-5 rounded-full bg-white text-emerald-700 text-[11px] font-bold flex items-center justify-center px-1">
+                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center relative">
+                    <ShoppingCart className="h-4.5 w-4.5" />
+                    <span className="absolute -top-1 -right-1 min-w-5 h-5 rounded-full bg-white text-emerald-700 text-[11px] font-bold flex items-center justify-center px-1 shadow">
                       {newOrder.items.reduce((sum, i) => sum + (i.quantity || 1), 0)}
                     </span>
                   </div>
-                  <span className="font-semibold text-sm">Ver pedido</span>
+                  <div className="text-left">
+                    <span className="font-semibold text-sm block leading-tight">Ver pedido</span>
+                    <span className="text-[11px] text-emerald-100 leading-tight">
+                      {newOrder.items.length} producto{newOrder.items.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
                 </div>
-                <span className="font-bold text-lg tabular-nums">${totals.total.toFixed(2)}</span>
+                <div className="text-right">
+                  <span className="font-bold text-lg tabular-nums block leading-tight">${totals.total.toFixed(2)}</span>
+                  <ChevronUp className="h-3.5 w-3.5 ml-auto text-emerald-200" />
+                </div>
               </button>
             </div>
           )}
