@@ -9,7 +9,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth, AuthProvider } from './hooks/use-auth.jsx';
 import { useShift, ShiftProvider } from './context/ShiftContext.jsx';
 import { useTheme } from '@/components/ThemeProvider';
-import { useTipsLabels } from '@/hooks/useTipsLabels';
 import { ThemeProvider as MuiThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import SmartKubikLogoLight from '@/assets/logo-smartkubik-light.png';
@@ -19,9 +18,7 @@ import {
   PlayCircle,
   StopCircle,
   Building2,
-  PanelLeft,
   Building,
-  ChevronRight,
   Sparkles,
   MapPin,
   ChevronDown,
@@ -43,9 +40,9 @@ import { CrmProvider } from './context/CrmContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
 import { NotificationProvider, useNotification } from './context/NotificationContext.jsx';
 import { useFeatureFlags } from './hooks/use-feature-flags.jsx';
-import { getSidebarWhitelist } from './config/sidebarProfiles.js';
 import { getNavLinks } from './config/navLinks.js';
-import { isNavItemVisible, getDisplayName as getNavDisplayName } from './lib/nav-utils.js';
+import SidebarNavigation from '@/components/sidebar/SidebarNavigation';
+import SidebarFooterContent from '@/components/sidebar/SidebarFooterContent';
 import { CashRegisterProvider } from './contexts/CashRegisterContext.jsx';
 import { FabProvider } from './contexts/FabContext.jsx';
 import { BusinessLocationProvider } from './context/BusinessLocationContext.jsx';
@@ -62,19 +59,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar.jsx';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible.jsx';
 
 // Lazy load the components
 const CRMManagement = lazy(() => import('@/components/CRMManagement.jsx'));
@@ -369,299 +358,7 @@ function TenantLayout() {
 
   const navLinks = getNavLinks(tenant);
 
-  const SidebarNavigation = () => {
-    const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
-    const { unreadCount } = useNotification();
-    const tipsLabels = useTipsLabels();
-    const { isFeatureEnabled } = useFeatureFlags();
-
-    const sidebarWhitelist = useMemo(
-      () => getSidebarWhitelist(tenant?.verticalProfile?.key),
-      [tenant?.verticalProfile?.key]
-    );
-
-    const currentBasePath = activeTab.split('?')[0];
-
-    // Display name helper — delegates to shared nav-utils
-    const getDisplayName = (item) => getNavDisplayName(item, tenant?.verticalProfile?.key, tipsLabels);
-
-    // Función optimizada para verificar si una ruta está activa
-    const isRouteActive = useCallback((itemHref) => {
-      if (!itemHref) return false;
-      if (activeTab === itemHref) return true;
-
-      const itemBasePath = itemHref.split('?')[0];
-      return itemBasePath === currentBasePath;
-    }, [currentBasePath]);
-
-    // Función helper para verificar si un item tiene hijos activos (sin recursión innecesaria)
-    const hasActiveChild = useCallback((item) => {
-      if (!item.children) return false;
-
-      return item.children.some(child => {
-        const childBasePath = child.href.split('?')[0];
-        if (childBasePath === currentBasePath) return true;
-
-        // Solo verificar nietos si el child tiene children
-        if (child.children) {
-          return child.children.some(grandchild => {
-            return grandchild.href.split('?')[0] === currentBasePath;
-          });
-        }
-        return false;
-      });
-    }, [currentBasePath]);
-
-    // Inicializar openMenus - solo calcular una vez al montar
-    const [openMenus, setOpenMenus] = useState(() => {
-      const initial = {};
-      const basePath = activeTab.split('?')[0];
-
-      navLinks.forEach(item => {
-        if (item.children && item.children.length > 0) {
-          const parentBasePath = item.href.split('?')[0];
-          const isActive = parentBasePath === basePath ||
-            item.children.some(child => {
-              const childBasePath = child.href.split('?')[0];
-              if (childBasePath === basePath) return true;
-              if (child.children) {
-                return child.children.some(gc => gc.href.split('?')[0] === basePath);
-              }
-              return false;
-            });
-          initial[item.href] = isActive;
-
-          // Para children con hijos también
-          if (isActive) {
-            item.children.forEach(child => {
-              if (child.children) {
-                const childBasePath = child.href.split('?')[0];
-                const childActive = childBasePath === basePath ||
-                  child.children.some(gc => gc.href.split('?')[0] === basePath);
-                initial[child.href] = childActive;
-              }
-            });
-          }
-        }
-      });
-      return initial;
-    });
-
-    // Auto-expandir cuando cambia el activeTab - OPTIMIZADO
-    useEffect(() => {
-      setOpenMenus(prev => {
-        const menusToOpen = {};
-        let hasChanges = false;
-
-        navLinks.forEach(item => {
-          if (item.children && item.children.length > 0) {
-            const parentBasePath = item.href.split('?')[0];
-            const shouldBeOpen = parentBasePath === currentBasePath ||
-              item.children.some(child => {
-                const childBasePath = child.href.split('?')[0];
-                if (childBasePath === currentBasePath) return true;
-                if (child.children) {
-                  return child.children.some(gc => gc.href.split('?')[0] === currentBasePath);
-                }
-                return false;
-              });
-
-            if (shouldBeOpen && prev[item.href] !== true) {
-              menusToOpen[item.href] = true;
-              hasChanges = true;
-            }
-
-            // Para children con sub-items
-            if (shouldBeOpen && item.children) {
-              item.children.forEach(child => {
-                if (child.children) {
-                  const childBasePath = child.href.split('?')[0];
-                  const childShouldOpen = childBasePath === currentBasePath ||
-                    child.children.some(gc => gc.href.split('?')[0] === currentBasePath);
-                  if (childShouldOpen && prev[child.href] !== true) {
-                    menusToOpen[child.href] = true;
-                    hasChanges = true;
-                  }
-                }
-              });
-            }
-          }
-        });
-
-        // Solo actualizar si hay cambios
-        return hasChanges ? { ...prev, ...menusToOpen } : prev;
-      });
-    }, [currentBasePath]);
-
-    const handleNavigationClick = (href) => {
-      if (!href) return;
-
-      if (!isMobile && state === 'collapsed') {
-        setOpen(true);
-      }
-
-      handleTabChange(href);
-
-      if (isMobile) {
-        setOpenMobile(false);
-      }
-    };
-
-    const toggleMenu = useCallback((href, requestedState) => {
-      setOpenMenus(prev => {
-        // Toggle simple
-        if (requestedState === undefined) {
-          return { ...prev, [href]: !prev[href] };
-        }
-
-        // Aplicar el estado solicitado (permitir cierre manual)
-        return { ...prev, [href]: requestedState };
-      });
-    }, []);
-
-    // Función recursiva para renderizar items con múltiples niveles de anidación
-    const renderMenuItem = (item, level = 0) => {
-      // Shared visibility check (permissions, modules, vertical, whitelist, etc.)
-      if (!isNavItemVisible(item, {
-        tenant, hasPermission, memberships, isFeatureEnabled,
-        sidebarWhitelist, restaurantModuleEnabled, level,
-      })) return null;
-
-      const hasChildren = item.children && item.children.length > 0;
-
-      // Usar funciones memoizadas para determinar si está activo - OPTIMIZADO
-      const isItemActive = isRouteActive(item.href) || (hasChildren && hasActiveChild(item));
-
-      if (hasChildren) {
-        // Si tiene hijos, renderizar como collapsible
-        if (level === 0) {
-          // Nivel 1: Menu principal
-          return (
-            <Collapsible
-              key={item.href}
-              open={openMenus[item.href]}
-              onOpenChange={(open) => toggleMenu(item.href, open)}
-              asChild
-            >
-              <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton
-                    tooltip={getDisplayName(item)}
-                    isActive={isItemActive}
-                    className="justify-start"
-                    aria-label={getDisplayName(item)}
-                    onClick={() => {
-                      if (state === 'collapsed') {
-                        setOpen(true);
-                      }
-                    }}
-                  >
-                    <item.icon strokeWidth={1.25} />
-                    <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{getDisplayName(item)}</span>
-                    {sidebarBadges[item.href] > 0 && !openMenus[item.href] && (
-                      <Badge variant="secondary" className="rounded-full px-1.5 py-0.5 text-[10px] h-5 min-w-5 flex items-center justify-center group-data-[collapsible=icon]:hidden">
-                        {sidebarBadges[item.href]}
-                      </Badge>
-                    )}
-                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[collapsible=icon]:hidden"
-                      style={{ transform: openMenus[item.href] ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                    />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    {item.children.map(child => renderMenuItem(child, level + 1))}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
-          );
-        } else {
-          // Nivel 2+: Sub-menu con collapsible anidado
-          return (
-            <Collapsible
-              key={item.href}
-              open={openMenus[item.href]}
-              onOpenChange={(open) => toggleMenu(item.href, open)}
-              asChild
-            >
-              <SidebarMenuSubItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuSubButton
-                    isActive={isItemActive}
-                    className="w-full"
-                  >
-                    <item.icon strokeWidth={1.25} />
-                    <span>{item.name}</span>
-                    <ChevronRight className="ml-auto transition-transform duration-200"
-                      style={{ transform: openMenus[item.href] ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                    />
-                  </SidebarMenuSubButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub className="ml-3">
-                    {item.children.map(child => renderMenuItem(child, level + 1))}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuSubItem>
-            </Collapsible>
-          );
-        }
-      }
-
-      // Si no tiene hijos, renderizar como item simple
-      if (level === 0) {
-        return (
-          <SidebarMenuItem key={item.href}>
-            <SidebarMenuButton
-              tooltip={getDisplayName(item)}
-              isActive={activeTab === item.href}
-              className=""
-              aria-label={getDisplayName(item)}
-              onClick={() => handleNavigationClick(item.href)}
-            >
-              <item.icon strokeWidth={1.25} />
-              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden flex-1">{getDisplayName(item)}</span>
-              {/* Badge: WhatsApp unread OR sidebar badge counts */}
-              {item.href === 'whatsapp' && unreadCount > 0 && (
-                <Badge variant="destructive" className="ml-auto rounded-full px-1.5 py-0.5 text-[10px] h-5 min-w-5 flex items-center justify-center group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:shadow-md">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </Badge>
-              )}
-              {item.href !== 'whatsapp' && sidebarBadges[item.href] > 0 && (
-                <Badge variant="secondary" className="ml-auto rounded-full px-1.5 py-0.5 text-[10px] h-5 min-w-5 flex items-center justify-center animate-in fade-in-0 zoom-in-75 duration-300 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0 group-data-[collapsible=icon]:right-0 group-data-[collapsible=icon]:shadow-md">
-                  {sidebarBadges[item.href] > 99 ? '99+' : sidebarBadges[item.href]}
-                </Badge>
-              )}
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        );
-      } else {
-        return (
-          <SidebarMenuSubItem key={item.href}>
-            <SidebarMenuSubButton
-              asChild
-              isActive={activeTab === item.href}
-            >
-              <button
-                onClick={() => handleNavigationClick(item.href)}
-                className="w-full"
-              >
-                <item.icon strokeWidth={1.25} />
-                <span>{item.name}</span>
-              </button>
-            </SidebarMenuSubButton>
-          </SidebarMenuSubItem>
-        );
-      }
-    };
-
-    return (
-      <SidebarMenu>
-        {navLinks.map(link => renderMenuItem(link))}
-      </SidebarMenu>
-    );
-  };
+  // SidebarNavigation extracted to @/components/sidebar/SidebarNavigation.jsx
 
   const SidebarHeaderContent = () => {
     const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
@@ -714,44 +411,7 @@ function TenantLayout() {
     );
   };
 
-  const SidebarFooterContent = () => {
-    const { toggleSidebar } = useSidebar();
-
-    return (
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            tooltip="Colapsar menú"
-            className="justify-start"
-            onClick={toggleSidebar}
-          >
-            <PanelLeft strokeWidth={1.25} />
-            <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Colapsar menú</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            tooltip="Configuración"
-            className="justify-start"
-            onClick={() => navigate('/settings')}
-          >
-            <Settings strokeWidth={1.25} />
-            <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Configuración</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            tooltip="Cerrar Sesión"
-            className="justify-start"
-            onClick={handleLogout}
-          >
-            <LogOut strokeWidth={1.25} />
-            <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Cerrar Sesión</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    );
-  };
+  // SidebarFooterContent extracted to @/components/sidebar/SidebarFooterContent.jsx
 
   return (
     <SidebarProvider defaultOpen={false}>
@@ -762,10 +422,24 @@ function TenantLayout() {
           <SidebarHeaderContent />
         </SidebarHeader>
         <SidebarContent className="px-2 py-4">
-          <SidebarNavigation />
+          <SidebarNavigation
+            navLinks={navLinks}
+            activeTab={activeTab}
+            sidebarBadges={sidebarBadges}
+            handleTabChange={handleTabChange}
+            tenant={tenant}
+            hasPermission={hasPermission}
+            memberships={memberships}
+            restaurantModuleEnabled={restaurantModuleEnabled}
+          />
         </SidebarContent>
         <SidebarFooter className="border-t border-border px-2 py-3">
-          <SidebarFooterContent />
+          <SidebarFooterContent
+            user={user}
+            tenant={tenant}
+            handleLogout={handleLogout}
+            onNavigate={navigate}
+          />
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
