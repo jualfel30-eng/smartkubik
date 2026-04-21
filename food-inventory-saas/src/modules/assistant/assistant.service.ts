@@ -48,7 +48,7 @@ interface AssistantQuestionParams {
     timestamp?: Date;
   }>;
   user?: UserDocument | null;
-  mode?: "tenant" | "super-admin";
+  mode?: "tenant" | "super-admin" | "owner";
 }
 
 interface ContextHit {
@@ -302,6 +302,7 @@ export class AssistantService {
     }
 
     const isSuperAdmin = mode === "super-admin";
+    const isOwner = mode === "owner";
 
     const capabilities: AssistantCapabilities = {
       ...DEFAULT_CAPABILITIES,
@@ -341,7 +342,9 @@ export class AssistantService {
     // ─── Tool Definitions ────────────────────────────────────────────
     const toolDefinitions = isSuperAdmin
       ? this.buildSuperAdminToolDefinitions()
-      : this.buildToolDefinitions(capabilities, user);
+      : isOwner
+        ? this.buildOwnerToolDefinitions(capabilities)
+        : this.buildToolDefinitions(capabilities, user);
     const hasTools = toolDefinitions.length > 0;
 
     const bootstrapSections: string[] = [];
@@ -399,6 +402,8 @@ export class AssistantService {
     let systemPrompt: string;
     if (isSuperAdmin) {
       systemPrompt = this.buildSuperAdminSystemPrompt();
+    } else if (isOwner) {
+      systemPrompt = this.buildOwnerSystemPrompt(user);
     } else {
       const tenantSettings = await this.tenantModel.findById(tenantIdStr).select('settings.paymentMethods').lean();
       systemPrompt = this.buildSystemPrompt(capabilities, tenantSettings?.settings?.paymentMethods, user);
@@ -420,7 +425,7 @@ export class AssistantService {
       preferredModel: aiSettings?.model,
       conversationHistory,
       user,
-      maxTokens: isSuperAdmin ? 1200 : 600,
+      maxTokens: isSuperAdmin ? 1200 : isOwner ? 1000 : 600,
     });
 
     const answer = agentResult.answer?.trim();
@@ -1113,6 +1118,404 @@ export class AssistantService {
     }
 
     return tools;
+  }
+
+  // ─── Owner System Prompt ──────────────────────────────────────────
+  private buildOwnerSystemPrompt(user?: UserDocument | null): string {
+    const ownerName = user ? `${user.firstName}` : 'jefe';
+    const instructions: string[] = [
+      `Eres el ASISTENTE OPERATIVO PERSONAL de ${ownerName}, dueno/administrador de este negocio en SmartKubik.`,
+      "Tu objetivo es ser la mano derecha del dueno: ejecutar cualquier operacion que necesite, dar reportes, crear registros, y sugerir mejoras — todo via WhatsApp, en espanol, con tuteo.",
+      "",
+      "CAPACIDADES:",
+      "1. CONSULTAR: inventario, productos, proveedores, clientes, ordenes, recetas, transferencias, KPIs del negocio.",
+      "2. CREAR: productos, proveedores, recetas, ordenes de compra, ajustes de inventario.",
+      "3. MODIFICAR: actualizar productos, proveedores, inventario.",
+      "4. ANALIZAR: propuestas de compra estrategicas, alertas de stock, patrones de venta, rendimiento de proveedores.",
+      "",
+      "PROTOCOLO DE ESCRITURA (OBLIGATORIO):",
+      "- Para CUALQUIER operacion que modifique datos (crear, editar, eliminar), SIEMPRE:",
+      "  1. Resume la accion que vas a ejecutar con todos los datos",
+      "  2. Indica que el usuario debe CONFIRMAR antes de ejecutar",
+      "  3. NO ejecutes la herramienta directamente — usa el prefijo 'CONFIRMACION_REQUERIDA:' en tu respuesta",
+      "  4. Incluye un resumen claro: que se va a crear/modificar, con que datos",
+      "",
+      "PROTOCOLO DE LECTURA:",
+      "- Para consultas (listar, buscar, ver detalles), ejecuta directamente sin pedir confirmacion.",
+      "",
+      "TONO:",
+      "- Directo, eficiente, sin rodeos. Nada de lenguaje de ventas.",
+      "- Muestra TODOS los datos relevantes: costos, margenes, cantidades exactas, precios.",
+      "- Si algo falta o hay un error, dilo claramente.",
+      "- Sugiere mejoras cuando veas oportunidades (stock bajo, proveedores lentos, productos sin rotacion).",
+      "",
+      "HERRAMIENTAS DISPONIBLES:",
+      "- `get_inventory_status`: Buscar productos y ver stock, precios, costos.",
+      "- `list_active_promotions`: Ver promociones activas.",
+      "- `get_business_kpis`: Metricas del negocio (ventas, ordenes, tendencias, top productos).",
+      "- `list_inventory`: Listado rapido de inventario.",
+      "- `create_supplier`: Crear un proveedor nuevo.",
+      "- `get_suppliers`: Listar/buscar proveedores.",
+      "- `create_product`: Crear un producto nuevo.",
+      "- `get_products_list`: Listar/buscar productos.",
+      "- `update_product`: Actualizar datos de un producto.",
+      "- `add_inventory`: Agregar stock a un producto.",
+      "- `adjust_inventory`: Ajustar cantidad de inventario.",
+      "- `bulk_add_inventory`: Agregar inventario masivo (multiples productos).",
+      "- `get_inventory_alerts`: Ver alertas de inventario (stock bajo, por vencer).",
+      "- `create_purchase_order`: Crear orden de compra a proveedor.",
+      "- `get_purchase_orders`: Listar ordenes de compra.",
+      "- `generate_purchase_proposal`: Generar propuesta de compra estrategica basada en consumo y stock.",
+      "- `create_recipe`: Crear receta / ficha tecnica.",
+      "- `get_recipes`: Listar recetas.",
+      "- `get_customers`: Listar/buscar clientes.",
+      "- `get_orders_list`: Listar ordenes de venta.",
+      "- `get_transfer_orders`: Listar ordenes de transferencia.",
+      "- `get_daily_summary`: Resumen del dia (ventas, ordenes, alertas).",
+      "- `create_order`: Crear una orden de venta.",
+      "- `check_service_availability`: Verificar disponibilidad de servicios.",
+      "- `create_service_booking`: Crear cita/reserva.",
+      "",
+      "FORMATO: Responde de forma estructurada. Usa listas y numeros para que sea facil de leer en WhatsApp. Maximo 1000 caracteres por mensaje a menos que se pida detalle.",
+    ];
+    return instructions.join("\n");
+  }
+
+  // ─── Owner Tool Definitions ───────────────────────────────────────
+  private buildOwnerToolDefinitions(capabilities: AssistantCapabilities): ChatCompletionTool[] {
+    // Owner gets ALL tenant tools plus CRUD tools
+    const tools = this.buildToolDefinitions(capabilities, { firstName: 'Owner' } as any);
+
+    // --- CRUD Tools for Owner ---
+    tools.push(
+      {
+        type: "function",
+        function: {
+          name: "create_supplier",
+          description: "Crea un nuevo proveedor en el sistema. Requiere confirmacion del usuario.",
+          parameters: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Nombre del proveedor" },
+              rif: { type: "string", description: "RIF o cedula del proveedor (ej: J-12345678, V-12345678)" },
+              contactName: { type: "string", description: "Nombre de la persona de contacto" },
+              contactPhone: { type: "string", description: "Telefono de contacto" },
+              contactEmail: { type: "string", description: "Email de contacto" },
+              categories: { type: "array", items: { type: "string" }, description: "Categorias de productos que suministra" },
+            },
+            required: ["name"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_suppliers",
+          description: "Lista o busca proveedores del negocio.",
+          parameters: {
+            type: "object",
+            properties: {
+              search: { type: "string", description: "Texto para buscar por nombre, RIF, o categoria" },
+              limit: { type: "integer", description: "Maximo de resultados (1-20)", minimum: 1, maximum: 20 },
+            },
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "create_product",
+          description: "Crea un nuevo producto en el catalogo. Requiere confirmacion del usuario.",
+          parameters: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Nombre del producto" },
+              sku: { type: "string", description: "SKU (se genera automaticamente si no se provee)" },
+              price: { type: "number", description: "Precio de venta (USD)" },
+              cost: { type: "number", description: "Costo del producto (USD)" },
+              category: { type: "string", description: "Categoria del producto" },
+              unit: { type: "string", description: "Unidad de medida (ej: kg, unidad, litro)" },
+              brand: { type: "string", description: "Marca del producto" },
+            },
+            required: ["name", "price"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_products_list",
+          description: "Lista o busca productos del catalogo con precios, costos y stock.",
+          parameters: {
+            type: "object",
+            properties: {
+              search: { type: "string", description: "Texto para buscar por nombre, SKU, marca o categoria" },
+              category: { type: "string", description: "Filtrar por categoria" },
+              limit: { type: "integer", description: "Maximo de resultados (1-30)", minimum: 1, maximum: 30 },
+            },
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "update_product",
+          description: "Actualiza datos de un producto existente. Requiere confirmacion del usuario.",
+          parameters: {
+            type: "object",
+            properties: {
+              productName: { type: "string", description: "Nombre o SKU del producto a actualizar" },
+              newPrice: { type: "number", description: "Nuevo precio de venta (USD)" },
+              newCost: { type: "number", description: "Nuevo costo (USD)" },
+              newName: { type: "string", description: "Nuevo nombre" },
+              newCategory: { type: "string", description: "Nueva categoria" },
+            },
+            required: ["productName"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "add_inventory",
+          description: "Agrega stock de un producto al inventario. Requiere confirmacion del usuario.",
+          parameters: {
+            type: "object",
+            properties: {
+              productName: { type: "string", description: "Nombre o SKU del producto" },
+              quantity: { type: "number", description: "Cantidad a agregar" },
+              cost: { type: "number", description: "Costo unitario (USD)" },
+              lotNumber: { type: "string", description: "Numero de lote (opcional)" },
+              expirationDate: { type: "string", description: "Fecha de vencimiento ISO 8601 (opcional)" },
+            },
+            required: ["productName", "quantity"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "adjust_inventory",
+          description: "Ajusta la cantidad de inventario de un producto (correccion, merma, conteo). Requiere confirmacion.",
+          parameters: {
+            type: "object",
+            properties: {
+              productName: { type: "string", description: "Nombre o SKU del producto" },
+              newQuantity: { type: "number", description: "Nueva cantidad total" },
+              reason: { type: "string", description: "Razon del ajuste (merma, conteo fisico, correccion, etc.)" },
+            },
+            required: ["productName", "newQuantity", "reason"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "bulk_add_inventory",
+          description: "Agrega inventario de multiples productos a la vez. Requiere confirmacion.",
+          parameters: {
+            type: "object",
+            properties: {
+              items: {
+                type: "array",
+                description: "Lista de productos con cantidad y costo a agregar",
+                items: {
+                  type: "object",
+                  properties: {
+                    productName: { type: "string", description: "Nombre o SKU" },
+                    quantity: { type: "number", description: "Cantidad" },
+                    cost: { type: "number", description: "Costo unitario USD" },
+                  },
+                  required: ["productName", "quantity"],
+                },
+              },
+            },
+            required: ["items"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_inventory_alerts",
+          description: "Obtiene alertas de inventario: productos con stock bajo, por vencer, vencidos, o sin movimiento.",
+          parameters: { type: "object", properties: {} },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "create_purchase_order",
+          description: "Crea una orden de compra a un proveedor. Requiere confirmacion.",
+          parameters: {
+            type: "object",
+            properties: {
+              supplierName: { type: "string", description: "Nombre del proveedor" },
+              items: {
+                type: "array",
+                description: "Productos a comprar",
+                items: {
+                  type: "object",
+                  properties: {
+                    productName: { type: "string", description: "Nombre o SKU del producto" },
+                    quantity: { type: "number", description: "Cantidad a comprar" },
+                    costPrice: { type: "number", description: "Precio de compra unitario (USD)" },
+                  },
+                  required: ["productName", "quantity"],
+                },
+              },
+              notes: { type: "string", description: "Notas para la orden de compra" },
+            },
+            required: ["supplierName", "items"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_purchase_orders",
+          description: "Lista ordenes de compra con filtros de estado.",
+          parameters: {
+            type: "object",
+            properties: {
+              status: { type: "string", description: "Filtrar por estado: pending, approved, received, all", enum: ["pending", "approved", "received", "all"] },
+              limit: { type: "integer", description: "Maximo de resultados", minimum: 1, maximum: 20 },
+            },
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "generate_purchase_proposal",
+          description: "Analiza stock actual, tasa de consumo (30 dias) y lead times de proveedores para generar una propuesta de compra estrategica. Agrupa por proveedor.",
+          parameters: { type: "object", properties: {} },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "create_recipe",
+          description: "Crea una receta / ficha tecnica para un producto. Requiere confirmacion.",
+          parameters: {
+            type: "object",
+            properties: {
+              productName: { type: "string", description: "Producto para el que se crea la receta" },
+              name: { type: "string", description: "Nombre de la receta" },
+              components: {
+                type: "array",
+                description: "Ingredientes de la receta",
+                items: {
+                  type: "object",
+                  properties: {
+                    ingredientName: { type: "string", description: "Nombre del ingrediente (debe existir como producto)" },
+                    quantity: { type: "number", description: "Cantidad necesaria" },
+                    unit: { type: "string", description: "Unidad de medida" },
+                  },
+                  required: ["ingredientName", "quantity"],
+                },
+              },
+              yield: { type: "number", description: "Rendimiento de la receta (cuantas porciones/unidades produce)" },
+            },
+            required: ["productName", "components"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_recipes",
+          description: "Lista las recetas / fichas tecnicas del negocio.",
+          parameters: {
+            type: "object",
+            properties: {
+              search: { type: "string", description: "Buscar por nombre de receta o producto" },
+              limit: { type: "integer", description: "Maximo de resultados", minimum: 1, maximum: 20 },
+            },
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_customers",
+          description: "Lista o busca clientes del negocio.",
+          parameters: {
+            type: "object",
+            properties: {
+              search: { type: "string", description: "Buscar por nombre, telefono, email o RIF" },
+              limit: { type: "integer", description: "Maximo de resultados", minimum: 1, maximum: 20 },
+            },
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_orders_list",
+          description: "Lista ordenes de venta recientes con totales y estado.",
+          parameters: {
+            type: "object",
+            properties: {
+              status: { type: "string", description: "Filtrar por estado" },
+              dateFrom: { type: "string", description: "Fecha inicio ISO 8601" },
+              dateTo: { type: "string", description: "Fecha fin ISO 8601" },
+              limit: { type: "integer", description: "Maximo de resultados", minimum: 1, maximum: 30 },
+            },
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_transfer_orders",
+          description: "Lista ordenes de transferencia entre almacenes/sucursales.",
+          parameters: {
+            type: "object",
+            properties: {
+              status: { type: "string", description: "Filtrar por estado" },
+              limit: { type: "integer", description: "Maximo de resultados", minimum: 1, maximum: 20 },
+            },
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_daily_summary",
+          description: "Resumen operativo del dia: ventas, ordenes, productos top, alertas de inventario, ordenes de compra pendientes.",
+          parameters: { type: "object", properties: {} },
+        },
+      },
+    );
+
+    return tools;
+  }
+
+  // ─── Execute Confirmed Action (called from ChatService after button press) ─
+  async executeConfirmedAction(
+    tenantId: string,
+    actionType: string,
+    payload: Record<string, any>,
+    userId?: string,
+  ): Promise<{ message: string; data?: any }> {
+    this.logger.log(`Executing confirmed action: ${actionType} for tenant ${tenantId}`);
+    const user = userId ? { _id: userId, tenantId } as any : undefined;
+
+    try {
+      const result = await this.assistantToolsService.executeTool(
+        tenantId,
+        actionType,
+        payload,
+        user,
+      );
+      return {
+        message: result?.summary || result?.message || '✅ Accion completada exitosamente.',
+        data: result,
+      };
+    } catch (error) {
+      throw new Error(`Error ejecutando ${actionType}: ${(error as Error).message}`);
+    }
   }
 
   private async bootstrapInventoryContext(

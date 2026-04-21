@@ -25,8 +25,18 @@ import { WhapiPartnerService } from "../modules/whapi/whapi-partner.service";
 import {
   AssistantMessageQueueService,
   AssistantMessageJobData,
+  UserRole,
 } from "./queues/assistant-message.queue.service";
 import { UsersService } from "../modules/users/users.service";
+import {
+  UserTenantMembership,
+  UserTenantMembershipDocument,
+} from "../schemas/user-tenant-membership.schema";
+import { Role, RoleDocument } from "../schemas/role.schema";
+import {
+  PendingAction,
+  PendingActionDocument,
+} from "./schemas/pending-action.schema";
 
 @Injectable()
 export class ChatService {
@@ -39,6 +49,10 @@ export class ChatService {
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     @InjectModel(Customer.name)
     private customerModel: Model<CustomerDocument>,
+    @InjectModel(UserTenantMembership.name)
+    private membershipModel: Model<UserTenantMembershipDocument>,
+    @InjectModel(PendingAction.name)
+    private pendingActionModel: Model<PendingActionDocument>,
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway: ChatGateway,
     private readonly configService: ConfigService,
@@ -272,13 +286,20 @@ export class ChatService {
           continue;
         }
 
+        // --- Handle interactive button responses (confirmation flow) ---
+        if (msg.type === 'interactive' && msg.interactive?.button_reply && msg.from) {
+          const buttonId = msg.interactive.button_reply.id;
+          await this.handleConfirmationButtonResponse(tenantId, msg.from, buttonId);
+          continue;
+        }
+
         if (msg.from && msg.text) {
           const customerPhoneNumber = msg.from;
           const content = msg.text.body;
           const fromName = msg.from_name || msg.fromName;
           const chatId = msg.chat_id || msg.chatId || msg.from;
 
-          // --- PHASE 1: Employee Identification Check ---
+          // --- Employee & Owner Identification ---
           this.logger.log(`[DEBUG] Checking employee status for phone: "${customerPhoneNumber}"`);
           const employee = await this.usersService.findByPhone(
             customerPhoneNumber,
@@ -287,12 +308,40 @@ export class ChatService {
           this.logger.log(`[DEBUG] Employee lookup result: ${employee ? employee._id : "null"}`);
 
           let authorizedUserId: string | undefined;
+          let userRole: UserRole = 'customer';
 
           if (employee) {
-            this.logger.log(
-              `👮‍♂️ Authorized Employee Detected: ${employee.firstName} ${employee.lastName} (${customerPhoneNumber})`,
-            );
             authorizedUserId = employee._id.toString();
+
+            // Determine if this employee is an owner/admin
+            try {
+              const membership = await this.membershipModel
+                .findOne({
+                  userId: employee._id,
+                  tenantId: new Types.ObjectId(tenantId),
+                  status: 'active',
+                })
+                .populate('roleId')
+                .lean();
+
+              const roleName = (membership?.roleId as any)?.name?.toLowerCase();
+              if (roleName === 'admin' || roleName === 'owner' || roleName === 'super_admin') {
+                userRole = 'owner';
+                this.logger.log(
+                  `👑 Owner/Admin Detected: ${employee.firstName} ${employee.lastName} (${customerPhoneNumber}) — role: ${roleName}`,
+                );
+              } else {
+                userRole = 'employee';
+                this.logger.log(
+                  `👮‍♂️ Employee Detected: ${employee.firstName} ${employee.lastName} (${customerPhoneNumber}) — role: ${roleName || 'unknown'}`,
+                );
+              }
+            } catch (roleErr) {
+              userRole = 'employee';
+              this.logger.warn(
+                `Failed to resolve role for employee ${employee._id}: ${(roleErr as Error).message}`,
+              );
+            }
           }
           // ----------------------------------------------
 
@@ -328,7 +377,7 @@ export class ChatService {
           this.chatGateway.emitNewMessage(tenantId, savedMessage);
 
           // Encolar procesamiento del asistente (o ejecutar inline si no hay BullMQ)
-          await this.scheduleAssistantJob(tenant, conversation, savedMessage, authorizedUserId);
+          await this.scheduleAssistantJob(tenant, conversation, savedMessage, authorizedUserId, userRole);
         }
 
         // Handle location sharing
@@ -401,6 +450,7 @@ export class ChatService {
     conversation: ConversationDocument,
     message: MessageDocument,
     userId?: string,
+    userRole?: UserRole,
   ): Promise<void> {
     if (!tenant.aiAssistant?.autoReplyEnabled) {
       return;
@@ -413,6 +463,7 @@ export class ChatService {
       messageId: message._id.toString(),
       content: message.content,
       userId,
+      userRole: userRole || 'customer',
     };
 
     try {
@@ -501,6 +552,7 @@ export class ChatService {
         content,
         messageId,
         userId,
+        data.userRole,
       );
 
       this.chatGateway.emitAssistantStatus(tenantId, {
@@ -532,6 +584,7 @@ export class ChatService {
     customerMessage: string,
     customerMessageId?: string,
     userId?: string,
+    userRole?: UserRole,
   ): Promise<{ assistantMessage?: MessageDocument; note?: string }> {
     if (!tenant.aiAssistant?.autoReplyEnabled) {
       return { note: "auto_reply_disabled" };
@@ -607,6 +660,9 @@ export class ChatService {
         }
       }
 
+      // Determine assistant mode based on user role
+      const assistantMode = userRole === 'owner' ? 'owner' : undefined;
+
       const assistantResponse = await this.assistantService.answerQuestion({
         tenantId: tenant.id,
         question: customerMessage,
@@ -618,6 +674,7 @@ export class ChatService {
           capabilities: capabilities,
         },
         user: userContext,
+        mode: assistantMode,
       });
 
       const answer = assistantResponse?.answer?.trim();
@@ -746,6 +803,84 @@ export class ChatService {
       `Saved new message from ${sender} to conversation ${conversation._id}`,
     );
     return savedMessage;
+  }
+
+  // ─── Confirmation Flow: Handle interactive button responses ─────
+  private async handleConfirmationButtonResponse(
+    tenantId: string,
+    phoneNumber: string,
+    buttonId: string,
+  ): Promise<void> {
+    try {
+      const isConfirm = buttonId.startsWith('confirm_');
+      const isCancel = buttonId.startsWith('cancel_');
+
+      if (!isConfirm && !isCancel) {
+        this.logger.debug(`Ignoring non-confirmation button: ${buttonId}`);
+        return;
+      }
+
+      const actionId = buttonId.replace(/^(confirm_|cancel_)/, '');
+
+      const pendingAction = await this.pendingActionModel.findOne({
+        _id: actionId,
+        tenantId: new Types.ObjectId(tenantId),
+        status: 'pending',
+      });
+
+      if (!pendingAction) {
+        await this.whapiService.sendWhatsAppMessage(
+          tenantId,
+          phoneNumber,
+          'Esta accion ya no esta disponible o ha expirado.',
+        );
+        return;
+      }
+
+      if (isCancel) {
+        pendingAction.status = 'cancelled';
+        await pendingAction.save();
+        await this.whapiService.sendWhatsAppMessage(
+          tenantId,
+          phoneNumber,
+          '❌ Accion cancelada.',
+        );
+        return;
+      }
+
+      // Execute the confirmed action
+      pendingAction.status = 'confirmed';
+      await pendingAction.save();
+
+      try {
+        const result = await this.assistantService.executeConfirmedAction(
+          tenantId,
+          pendingAction.actionType,
+          pendingAction.payload,
+          pendingAction.userId,
+        );
+
+        await this.whapiService.sendWhatsAppMessage(
+          tenantId,
+          phoneNumber,
+          result.message || '✅ Accion completada exitosamente.',
+        );
+      } catch (execError) {
+        this.logger.error(
+          `Failed to execute confirmed action ${actionId}: ${(execError as Error).message}`,
+        );
+        await this.whapiService.sendWhatsAppMessage(
+          tenantId,
+          phoneNumber,
+          `❌ Error al ejecutar la accion: ${(execError as Error).message}`,
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle confirmation button: ${(error as Error).message}`,
+        (error as Error).stack,
+      );
+    }
   }
 }
 

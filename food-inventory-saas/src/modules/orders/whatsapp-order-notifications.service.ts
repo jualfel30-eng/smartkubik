@@ -327,7 +327,8 @@ export class WhatsAppOrderNotificationsService {
     const storefrontUrl = await this.generateStorefrontLink(tenantId);
     const businessPhone =
       storefrontConfig.whatsappIntegration.businessPhone ||
-      storefrontConfig.contactInfo.phone;
+      storefrontConfig.contactInfo?.phone ||
+      '';
 
     const message =
       customMessage ||

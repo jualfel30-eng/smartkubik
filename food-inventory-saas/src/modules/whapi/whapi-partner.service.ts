@@ -382,10 +382,10 @@ export class WhapiPartnerService {
       // Capture phone number if now connected
       if (
         newStatus === "connected" &&
-        health?.status?.phoneNumber &&
+        (health?.status as any)?.phoneNumber &&
         !channel.phoneNumber
       ) {
-        channel.phoneNumber = health.status.phoneNumber;
+        channel.phoneNumber = (health.status as any).phoneNumber;
         channel.connectedAt = new Date();
 
         // Auto-configure webhook on first connection

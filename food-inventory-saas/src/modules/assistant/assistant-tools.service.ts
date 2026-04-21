@@ -121,6 +121,14 @@ interface AssistantTenantContext {
 }
 
 import { AnalyticsService } from "../analytics/analytics.service";
+import { SupplierToolsService } from "./tools/supplier-tools.service";
+import { ProductToolsService } from "./tools/product-tools.service";
+import { InventoryToolsService } from "./tools/inventory-tools.service";
+import { PurchaseToolsService } from "./tools/purchase-tools.service";
+import { RecipeToolsService } from "./tools/recipe-tools.service";
+import { ReadToolsService } from "./tools/read-tools.service";
+import { IntelligenceService } from "../intelligence/intelligence.service";
+import { TenantEventService } from "../tenant-events/tenant-event.service";
 
 @Injectable()
 export class AssistantToolsService {
@@ -145,6 +153,15 @@ export class AssistantToolsService {
     private readonly analyticsService: AnalyticsService,
     @Inject(forwardRef(() => SuperAdminService))
     private readonly superAdminService: SuperAdminService,
+    // ─── New CRUD Tool Services ─────────────────────────
+    private readonly supplierTools: SupplierToolsService,
+    private readonly productTools: ProductToolsService,
+    private readonly inventoryTools: InventoryToolsService,
+    private readonly purchaseTools: PurchaseToolsService,
+    private readonly recipeTools: RecipeToolsService,
+    private readonly readTools: ReadToolsService,
+    private readonly intelligenceService: IntelligenceService,
+    private readonly tenantEventService: TenantEventService,
   ) { }
 
   async executeTool(
@@ -202,6 +219,59 @@ export class AssistantToolsService {
           return await this.getSuperAdminTenantHealthScores(rawArgs);
         case "get_platform_metrics":
           return await this.getSuperAdminPlatformMetrics();
+
+        // ─── Owner CRUD Tools ─────────────────────────────────────
+        case "create_supplier":
+          return await this.executeWithEventLog(tenantId, toolName, "supplier",
+            () => this.supplierTools.createSupplier(tenantId, rawArgs as any, user));
+        case "get_suppliers":
+          return await this.supplierTools.getSuppliers(tenantId, rawArgs as any);
+        case "get_supplier_details":
+          return await this.supplierTools.getSupplierDetails(tenantId, rawArgs as any);
+        case "create_product":
+          return await this.executeWithEventLog(tenantId, toolName, "product",
+            () => this.productTools.createProduct(tenantId, rawArgs as any, user));
+        case "get_products_list":
+          return await this.productTools.getProductsList(tenantId, rawArgs as any);
+        case "update_product":
+          return await this.executeWithEventLog(tenantId, toolName, "product",
+            () => this.productTools.updateProduct(tenantId, rawArgs as any, user));
+        case "get_product_details":
+          return await this.productTools.getProductDetails(tenantId, rawArgs as any);
+        case "add_inventory":
+          return await this.executeWithEventLog(tenantId, toolName, "inventory",
+            () => this.inventoryTools.addInventory(tenantId, rawArgs as any, user));
+        case "adjust_inventory":
+          return await this.executeWithEventLog(tenantId, toolName, "inventory",
+            () => this.inventoryTools.adjustInventory(tenantId, rawArgs as any, user));
+        case "bulk_add_inventory":
+          return await this.executeWithEventLog(tenantId, toolName, "inventory",
+            () => this.inventoryTools.bulkAddInventory(tenantId, rawArgs as any, user));
+        case "get_inventory_alerts":
+          return await this.inventoryTools.getInventoryAlerts(tenantId);
+        case "create_purchase_order":
+          return await this.executeWithEventLog(tenantId, toolName, "purchase",
+            () => this.purchaseTools.createPurchaseOrder(tenantId, rawArgs as any, user));
+        case "get_purchase_orders":
+          return await this.purchaseTools.getPurchaseOrders(tenantId, rawArgs as any);
+        case "generate_purchase_proposal":
+          return await this.purchaseTools.generatePurchaseProposal(tenantId);
+        case "create_recipe":
+          return await this.executeWithEventLog(tenantId, toolName, "recipe",
+            () => this.recipeTools.createRecipe(tenantId, rawArgs as any, user));
+        case "get_recipes":
+          return await this.recipeTools.getRecipes(tenantId, rawArgs as any);
+        case "get_customers":
+          return await this.readTools.getCustomers(tenantId, rawArgs as any);
+        case "get_orders_list":
+          return await this.readTools.getOrdersList(tenantId, rawArgs as any);
+        case "get_transfer_orders":
+          return await this.readTools.getTransferOrders(tenantId, rawArgs as any);
+        case "get_daily_summary":
+          return await this.readTools.getDailySummary(tenantId);
+        case "get_ai_intelligence_summary":
+          return await this.intelligenceService.getIntelligenceSummary(tenantId);
+
         default:
           this.logger.warn(`Tool "${toolName}" is not implemented.`);
           return {
@@ -2200,5 +2270,29 @@ export class AssistantToolsService {
         message: "Error al obtener métricas de la plataforma.",
       };
     }
+  }
+
+  // ─── Event Logging Wrapper for Write Operations ───────────────────
+  private async executeWithEventLog(
+    tenantId: string,
+    toolName: string,
+    entityType: string,
+    fn: () => Promise<Record<string, any>>,
+  ): Promise<Record<string, any>> {
+    const result = await fn();
+
+    // Log the event (fire-and-forget) only on success
+    if (result?.ok) {
+      this.tenantEventService.emit({
+        tenantId,
+        eventType: `${entityType}.${toolName}`,
+        entityType,
+        entityId: result?.supplierId || result?.productId || result?.poNumber || '',
+        data: result,
+        source: 'whatsapp_ai',
+      });
+    }
+
+    return result;
   }
 }

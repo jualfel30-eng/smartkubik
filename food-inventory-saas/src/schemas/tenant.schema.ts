@@ -436,18 +436,33 @@ export class Tenant {
       autoReplyEnabled: { type: Boolean, default: false },
       knowledgeBaseTenantId: { type: String, default: "" },
       model: { type: String, default: "gpt-4o-mini" },
+      ownerPhone: { type: String, default: "" },
       capabilities: {
         type: {
           knowledgeBaseEnabled: { type: Boolean, default: true },
           inventoryLookup: { type: Boolean, default: false },
           schedulingLookup: { type: Boolean, default: false },
           orderLookup: { type: Boolean, default: false },
+          promotionLookup: { type: Boolean, default: true },
+          supplierManagement: { type: Boolean, default: false },
+          productManagement: { type: Boolean, default: false },
+          inventoryManagement: { type: Boolean, default: false },
+          purchaseManagement: { type: Boolean, default: false },
+          recipeManagement: { type: Boolean, default: false },
+          fullCrudAccess: { type: Boolean, default: false },
         },
         default: {
           knowledgeBaseEnabled: true,
           inventoryLookup: false,
           schedulingLookup: false,
           orderLookup: false,
+          promotionLookup: true,
+          supplierManagement: false,
+          productManagement: false,
+          inventoryManagement: false,
+          purchaseManagement: false,
+          recipeManagement: false,
+          fullCrudAccess: false,
         },
       },
     },
@@ -455,11 +470,19 @@ export class Tenant {
       autoReplyEnabled: false,
       knowledgeBaseTenantId: "",
       model: "gpt-4o-mini",
+      ownerPhone: "",
       capabilities: {
         knowledgeBaseEnabled: true,
         inventoryLookup: false,
         schedulingLookup: false,
         orderLookup: false,
+        promotionLookup: true,
+        supplierManagement: false,
+        productManagement: false,
+        inventoryManagement: false,
+        purchaseManagement: false,
+        recipeManagement: false,
+        fullCrudAccess: false,
       },
     },
   })
@@ -467,11 +490,19 @@ export class Tenant {
     autoReplyEnabled: boolean;
     knowledgeBaseTenantId?: string;
     model?: string;
+    ownerPhone?: string;
     capabilities?: {
       knowledgeBaseEnabled: boolean;
       inventoryLookup: boolean;
       schedulingLookup: boolean;
       orderLookup: boolean;
+      promotionLookup: boolean;
+      supplierManagement: boolean;
+      productManagement: boolean;
+      inventoryManagement: boolean;
+      purchaseManagement: boolean;
+      recipeManagement: boolean;
+      fullCrudAccess: boolean;
     };
   };
 

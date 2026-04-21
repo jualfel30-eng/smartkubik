@@ -53,6 +53,8 @@ import { ModifierGroupsModule } from "./modules/modifier-groups/modifier-groups.
 import { BillSplitsModule } from "./modules/bill-splits/bill-splits.module";
 import { KitchenDisplayModule } from "./modules/kitchen-display/kitchen-display.module";
 import { ChatModule } from "./chat/chat.module";
+import { TenantEventModule } from "./modules/tenant-events/tenant-event.module";
+import { IntelligenceModule } from "./modules/intelligence/intelligence.module";
 import { OpenaiModule } from "./modules/openai/openai.module";
 import { VectorDbModule } from "./modules/vector-db/vector-db.module";
 import { KnowledgeBaseModule } from "./modules/knowledge-base/knowledge-base.module";
@@ -568,6 +570,9 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     ProductDedupModule,
     BeautyModule,
     RestaurantStorefrontModule,
+    // ─── AI Business Intelligence ────────────────────────
+    TenantEventModule,
+    IntelligenceModule,
   ],
   controllers: [AppController, TenantController],
   providers: [

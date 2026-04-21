@@ -6,6 +6,8 @@ import {
   ASSISTANT_PROCESS_MESSAGE_JOB,
 } from "./assistant.queue.constants";
 
+export type UserRole = 'owner' | 'employee' | 'customer';
+
 export interface AssistantMessageJobData {
   tenantId: string;
   conversationId: string;
@@ -13,6 +15,7 @@ export interface AssistantMessageJobData {
   messageId: string;
   content: string;
   userId?: string; // ID of the authorized employee (if any)
+  userRole?: UserRole; // Role of the message sender
 }
 
 @Injectable()
