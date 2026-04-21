@@ -177,9 +177,7 @@ export default function MobileChargeFlow({ onClose }) {
 
   const handlePaid = () => {
     haptics.success();
-    const paidApt = selectedApt;
     setSelectedApt(null);
-    setShowSuccess(paidApt);
     emitBadgeUpdate({ type: 'payment' });
     // Reload list after short delay for animation
     setTimeout(load, 500);
