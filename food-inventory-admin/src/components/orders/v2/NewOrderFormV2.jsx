@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip.jsx';
 import { Combobox } from '@/components/ui/combobox.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
-import { Plus, Trash2, Percent, Scan, ShoppingCart, List, RotateCcw, Tag } from 'lucide-react';
+import { Plus, Trash2, Percent, Scan, ShoppingCart, List, RotateCcw, Tag, X, ChevronUp } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { fetchApi } from '@/lib/api.js';
@@ -2374,217 +2374,256 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       )}
 
       {shouldRenderMobileLayout ? (
-        /* MOBILE / EMBEDDED LAYOUT (Single Column with Tabs) */
-        <div className="h-full flex flex-col">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-            <div className="px-4 pt-2">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="products" className="gap-2">
-                  <List className="h-4 w-4" />
-                  Productos
-                </TabsTrigger>
-                <TabsTrigger value="order" className="gap-2">
-                  <ShoppingCart className="h-4 w-4" />
-                  Orden ({newOrder.items.length})
-                </TabsTrigger>
-              </TabsList>
+        /* ═══ MOBILE / EMBEDDED LAYOUT ═══
+           Product-first full-screen with floating cart FAB.
+           Tapping the FAB opens a bottom sheet with order details + checkout. */
+        <div className="flex flex-col h-[calc(100vh-5rem)]">
+          {/* ── Products area (full screen) ── */}
+          <div className="flex-1 overflow-y-auto px-3 pt-2 pb-24 space-y-3">
+            {/* View switcher + barcode row */}
+            <div className="flex items-center gap-2">
+              <ViewSwitcher
+                currentView={preferences.productViewType}
+                onViewChange={setViewType}
+              />
+              <div className="flex items-center gap-1 ml-auto">
+                <Input
+                  value={barcodeSearch}
+                  onChange={(e) => setBarcodeSearch(e.target.value)}
+                  placeholder="Código..."
+                  className="w-24 h-8 text-xs"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setIsBarcodeScannerOpen(true)}
+                >
+                  <Scan className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleBarcodeLookup()}
+                  disabled={!barcodeSearch.trim()}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
 
-            <TabsContent value="products" className="flex-1 overflow-y-auto p-4 space-y-4 data-[state=inactive]:hidden">
-              {/* Products View embedded content */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Búsqueda</Label>
-                  <ViewSwitcher
-                    currentView={preferences.productViewType}
-                    onViewChange={setViewType}
-                  />
+            {/* Product views */}
+            {preferences.productViewType === 'search' ? (
+              <ProductSearchView
+                products={products}
+                onProductSelect={handleProductSelection}
+                isLoading={loadingProducts}
+                searchInput={productSearchInput}
+                onSearchInputChange={(value) => setProductSearchInput(value)}
+                inventoryMap={inventoryMap}
+              />
+            ) : preferences.productViewType === 'list' ? (
+              <ProductListView
+                products={products}
+                onProductSelect={handleProductSelection}
+                inventoryMap={inventoryMap}
+              />
+            ) : (
+              <ProductGridView
+                products={products}
+                onProductSelect={handleProductSelection}
+                gridColumns={2}
+                showImages={preferences.showProductImages}
+                showDescription={false}
+                enableCategoryFilter={preferences.enableCategoryFilter}
+                inventoryMap={inventoryMap}
+              />
+            )}
+          </div>
+
+          {/* ── Floating Cart FAB ── */}
+          {newOrder.items.length > 0 && activeTab !== 'order' && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('order')}
+              className="fixed bottom-20 right-4 z-40 flex items-center gap-2.5 bg-primary text-primary-foreground rounded-full pl-4 pr-5 py-3 shadow-xl active:scale-95 transition-transform"
+              style={{ boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              <span className="font-bold text-sm">{newOrder.items.length}</span>
+              <span className="text-xs opacity-90">· ${totals.total.toFixed(2)}</span>
+            </button>
+          )}
+
+          {/* Empty cart hint when no items */}
+          {newOrder.items.length === 0 && (
+            <div className="fixed bottom-20 left-0 right-0 z-30 flex justify-center pointer-events-none">
+              <div className="bg-muted/80 backdrop-blur text-muted-foreground text-xs font-medium px-4 py-2 rounded-full">
+                Toca un producto para agregar
+              </div>
+            </div>
+          )}
+
+          {/* ── Order Sheet (slides up from bottom) ── */}
+          {activeTab === 'order' && (
+            <div className="fixed inset-0 z-50 flex flex-col">
+              {/* Backdrop */}
+              <div
+                className="absolute inset-0 bg-black/50"
+                onClick={() => setActiveTab('products')}
+              />
+
+              {/* Sheet */}
+              <div className="relative mt-12 flex-1 bg-background rounded-t-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300">
+                {/* Handle + header */}
+                <div className="sticky top-0 bg-background border-b z-10">
+                  <div className="flex justify-center pt-2 pb-1">
+                    <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+                  </div>
+                  <div className="flex items-center justify-between px-4 pb-3">
+                    <div>
+                      <h3 className="font-bold text-base">Orden</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {newOrder.items.length} producto{newOrder.items.length !== 1 ? 's' : ''} · ${totals.total.toFixed(2)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('products')}
+                      className="h-8 w-8 rounded-full bg-muted flex items-center justify-center"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
 
-                {preferences.productViewType === 'search' ? (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex-grow min-w-0">
-                      <ProductSearchView
-                        products={products}
-                        onProductSelect={handleProductSelection}
-                        isLoading={loadingProducts}
-                        searchInput={productSearchInput}
-                        onSearchInputChange={(value) => setProductSearchInput(value)}
-                        inventoryMap={inventoryMap}
-                      />
-                    </div>
-                    <div className="flex w-full flex-col gap-2">
-                      <Label className="text-xs text-muted-foreground">Escanear</Label>
-                      <div className="flex items-center gap-2">
+                {/* Scrollable content */}
+                <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 pb-8">
+                  {/* Customer Data Section */}
+                  <div className="space-y-3 border rounded-lg p-3 bg-card/50">
+                    <Label className="text-sm font-semibold">Cliente</Label>
+                    <div className="space-y-2.5">
+                      {/* Tax Type + RIF + Name */}
+                      <div className="flex gap-1.5">
+                        <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
+                          <SelectTrigger className="w-[55px] h-9 text-xs px-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="V">V</SelectItem>
+                            <SelectItem value="E">E</SelectItem>
+                            <SelectItem value="J">J</SelectItem>
+                            <SelectItem value="G">G</SelectItem>
+                            <SelectItem value="P">P</SelectItem>
+                            <SelectItem value="N">N</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <div className="flex-1 min-w-0">
+                          <SearchableSelect
+                            options={rifOptions}
+                            onSelection={handleCustomerRifSelection}
+                            onInputChange={handleCustomerRifInputChange}
+                            inputValue={customerRifInput}
+                            value={getCustomerRifValue()}
+                            placeholder="RIF..."
+                            isLoading={isSearchingCustomers}
+                            customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <SearchableSelect
+                            options={customerOptions}
+                            onSelection={handleCustomerNameSelection}
+                            onInputChange={handleCustomerNameInputChange}
+                            inputValue={customerNameInput}
+                            value={getCustomerNameValue()}
+                            placeholder="Nombre..."
+                            isLoading={isSearchingCustomers}
+                            customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Phone + Email */}
+                      <div className="grid grid-cols-2 gap-1.5">
                         <Input
-                          value={barcodeSearch}
-                          onChange={(e) => setBarcodeSearch(e.target.value)}
-                          placeholder="Código..."
-                          className="flex-1 h-9 text-sm"
+                          value={newOrder.customerPhone || ''}
+                          onChange={(e) => handleFieldChange('customerPhone', e.target.value)}
+                          placeholder="Teléfono"
+                          className="h-9 text-sm"
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="h-9 w-9"
-                          onClick={() => setIsBarcodeScannerOpen(true)}
-                        >
-                          <Scan className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          className="h-9"
-                          onClick={() => handleBarcodeLookup()}
-                          disabled={!barcodeSearch.trim()}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                        <Input
+                          type="email"
+                          value={newOrder.customerEmail || ''}
+                          onChange={(e) => handleFieldChange('customerEmail', e.target.value)}
+                          placeholder="Email"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                      <SearchableSelect
+                        options={addressOptions}
+                        onSelection={handleCustomerAddressSelection}
+                        value={getCustomerAddressValue()}
+                        placeholder="Dirección..."
+                        isCreatable={true}
+                        onInputChange={(val) => {
+                          if (val && val !== newOrder.customerAddress) {
+                            handleFieldChange('customerAddress', val);
+                          }
+                        }}
+                        customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors"
+                      />
+                      {/* Special Taxpayer */}
+                      <div className="flex items-center justify-between rounded-md border p-2">
+                        <div className="flex items-center gap-1.5">
+                          <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+                          <span className="text-xs font-medium">Contribuyente Especial</span>
+                        </div>
+                        <Switch
+                          checked={newOrder.customerIsSpecialTaxpayer || false}
+                          onCheckedChange={(checked) => handleFieldChange('customerIsSpecialTaxpayer', checked)}
+                          className="scale-90"
+                        />
                       </div>
                     </div>
                   </div>
-                ) : preferences.productViewType === 'list' ? (
-                  <ProductListView
-                    products={products}
-                    onProductSelect={handleProductSelection}
-                    inventoryMap={inventoryMap}
-                  />
-                ) : (
-                  <ProductGridView
-                    products={products}
-                    onProductSelect={handleProductSelection}
-                    gridColumns={2} // Force 2 cols for narrow view
-                    showImages={preferences.showProductImages}
-                    showDescription={false} // Hide description to save space
-                    enableCategoryFilter={preferences.enableCategoryFilter}
-                    inventoryMap={inventoryMap}
-                  />
-                )}
-              </div>
-            </TabsContent>
 
-            <TabsContent value="order" className="flex-1 overflow-y-auto p-4 space-y-4 data-[state=inactive]:hidden">
-              {/* Customer Data Section */}
-              <div className="space-y-4 border rounded-lg p-3 bg-card/50">
-                <Label className="text-sm font-semibold">Cliente</Label>
-                <div className="space-y-3">
-                  {/* Tax Type + RIF + Customer Name in same row */}
-                  <div className="flex gap-2">
-                    <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
-                      <SelectTrigger className="w-[65px] h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="V">V</SelectItem>
-                        <SelectItem value="E">E</SelectItem>
-                        <SelectItem value="J">J</SelectItem>
-                        <SelectItem value="G">G</SelectItem>
-                        <SelectItem value="P">P</SelectItem>
-                        <SelectItem value="N">N</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <div className="flex-1 min-w-0">
-                      <SearchableSelect
-                        options={rifOptions}
-                        onSelection={handleCustomerRifSelection}
-                        onInputChange={handleCustomerRifInputChange}
-                        inputValue={customerRifInput}
-                        value={getCustomerRifValue()}
-                        placeholder="RIF..."
-                        isLoading={isSearchingCustomers}
-                        customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <SearchableSelect
-                        options={customerOptions}
-                        onSelection={handleCustomerNameSelection}
-                        onInputChange={handleCustomerNameInputChange}
-                        inputValue={customerNameInput}
-                        value={getCustomerNameValue()}
-                        placeholder="Nombre..."
-                        isLoading={isSearchingCustomers}
-                        customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  {/* NUEVOS CAMPOS DE CONTACTO PARA MÓVIL/EMBEDDED */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      value={newOrder.customerPhone || ''}
-                      onChange={(e) => handleFieldChange('customerPhone', e.target.value)}
-                      placeholder="Teléfono"
-                      className="h-9 text-sm"
-                    />
-                    <Input
-                      type="email"
-                      value={newOrder.customerEmail || ''}
-                      onChange={(e) => handleFieldChange('customerEmail', e.target.value)}
-                      placeholder="Email"
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <SearchableSelect
-                    options={addressOptions}
-                    onSelection={handleCustomerAddressSelection}
-                    value={getCustomerAddressValue()}
-                    placeholder="Dirección..."
-                    isCreatable={true}
-                    onInputChange={(val) => {
-                      if (val && val !== newOrder.customerAddress) {
-                        handleFieldChange('customerAddress', val);
-                      }
-                    }}
-                    customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
+                  {/* Order Sidebar (items + summary + checkout) */}
+                  <OrderSidebar
+                    customerName={newOrder.customerName}
+                    customerRif={`${newOrder.taxType}-${newOrder.customerRif}`}
+                    taxType={newOrder.taxType}
+                    customerPhone={newOrder.customerPhone}
+                    customerAddress={newOrder.customerAddress}
+                    items={newOrder.items}
+                    itemsTableContent={renderItemsTable()}
+                    fullItemsTable={renderFullItemsTable()}
+                    deliveryMethod={newOrder.deliveryMethod}
+                    deliveryContent={renderDeliveryContent()}
+                    totals={totals}
+                    shippingCost={shippingCost}
+                    calculatingShipping={calculatingShipping}
+                    bcvRate={bcvRate}
+                    loadingRate={loadingRate}
+                    onCreateOrder={handlePayOrder}
+                    isCreateDisabled={isCreateDisabled}
+                    notes={newOrder.notes}
+                    onNotesChange={(value) => handleFieldChange('notes', value)}
+                    handleFieldChange={handleFieldChange}
+                    generalDiscountPercentage={newOrder.generalDiscountPercentage}
+                    onOpenGeneralDiscount={canApplyDiscounts ? handleOpenGeneralDiscount : undefined}
+                    canApplyDiscounts={canApplyDiscounts}
+                    isEmbedded={true}
+                    onSendToKitchen={tenant?.vertical === 'FOOD_SERVICE' ? handleSendToKitchen : undefined}
+                    isEditMode={isEditMode}
                   />
-                  {/* Contribuyente Especial - Mobile */}
-                  <div className="flex items-center justify-between rounded-md border p-2">
-                    <div className="flex items-center gap-1.5">
-                      <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
-                      <span className="text-xs font-medium">Contribuyente Especial</span>
-                    </div>
-                    <Switch
-                      checked={newOrder.customerIsSpecialTaxpayer || false}
-                      onCheckedChange={(checked) => handleFieldChange('customerIsSpecialTaxpayer', checked)}
-                      className="scale-90"
-                    />
-                  </div>
                 </div>
               </div>
-
-              {/* Order Items Summary */}
-              <OrderSidebar
-                customerName={newOrder.customerName}
-                customerRif={`${newOrder.taxType}-${newOrder.customerRif}`}
-                taxType={newOrder.taxType}
-                customerPhone={newOrder.customerPhone}
-                customerAddress={newOrder.customerAddress}
-                items={newOrder.items}
-                itemsTableContent={renderItemsTable()}
-                fullItemsTable={renderFullItemsTable()}
-                deliveryMethod={newOrder.deliveryMethod}
-                deliveryContent={renderDeliveryContent()}
-                totals={totals}
-                shippingCost={shippingCost}
-                calculatingShipping={calculatingShipping}
-                bcvRate={bcvRate}
-                loadingRate={loadingRate}
-                onCreateOrder={handlePayOrder}
-                isCreateDisabled={isCreateDisabled}
-                notes={newOrder.notes}
-                onNotesChange={(value) => handleFieldChange('notes', value)}
-                handleFieldChange={handleFieldChange}
-                generalDiscountPercentage={newOrder.generalDiscountPercentage}
-                onOpenGeneralDiscount={canApplyDiscounts ? handleOpenGeneralDiscount : undefined}
-                canApplyDiscounts={canApplyDiscounts}
-                isEmbedded={true}
-                onSendToKitchen={tenant?.vertical === 'FOOD_SERVICE' ? handleSendToKitchen : undefined}
-                isEditMode={isEditMode}
-              />
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
         </div>
       ) : (
         /* DESKTOP / FULLSCREEN LAYOUT (Flexible 2 Columns) */

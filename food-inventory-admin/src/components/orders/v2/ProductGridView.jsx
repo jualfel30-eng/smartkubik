@@ -91,11 +91,11 @@ const ProductGridView = ({
   };
 
   const gridColsClass = {
-    2: 'grid-cols-1 md:grid-cols-2',
-    3: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
+    2: 'grid-cols-2 md:grid-cols-2',
+    3: 'grid-cols-2 md:grid-cols-2 lg:grid-cols-3',
     4: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
-    6: 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6',
-  }[gridColumns] || 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+    6: 'grid-cols-3 md:grid-cols-4 lg:grid-cols-6',
+  }[gridColumns] || 'grid-cols-2 md:grid-cols-2 lg:grid-cols-3';
 
   return (
     <div>
@@ -149,7 +149,7 @@ const ProductGridView = ({
           )}
         </div>
       ) : (
-        <div className={`grid gap-4 ${gridColsClass}`}>
+        <div className={`grid gap-2 md:gap-4 ${gridColsClass}`}>
           {filteredProducts.map((product) => {
             const imageUrl = getProductImage(product);
             const price = getProductPrice(product);
@@ -164,9 +164,9 @@ const ProductGridView = ({
                 }`}
                 onClick={() => inStock && onProductSelect({ product })}
               >
-                {/* Imagen del producto - 70% sin borde superior */}
+                {/* Imagen del producto */}
                 {showImages && (
-                  <div className="relative aspect-[4/3] bg-muted flex items-center justify-center overflow-hidden rounded-t-lg border-b">
+                  <div className="relative aspect-square bg-muted flex items-center justify-center overflow-hidden rounded-t-lg border-b">
                     {imageUrl ? (
                       <img
                         src={imageUrl}
@@ -182,7 +182,7 @@ const ProductGridView = ({
                         }}
                       />
                     ) : (
-                      <span className="text-6xl">📦</span>
+                      <span className="text-4xl md:text-6xl">📦</span>
                     )}
                     {!inStock && (
                       <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
