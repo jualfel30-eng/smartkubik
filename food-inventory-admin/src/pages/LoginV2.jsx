@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Boxes } from '@/components/ui/background-boxes.tsx';
+import { getApiBaseUrl } from '@/lib/api.js';
 import logoSmartKubik from '../assets/logo-smartkubik.png';
 import logoSmartKubikLight from '../assets/logo-smartkubik-light.png';
 import SalesContactModal from '@/components/SalesContactModal.jsx';
@@ -219,7 +220,7 @@ function LoginV2() {
                     </span>
                   </div>
                 </div>
-                <Button variant="outline" className="w-full bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-white hover:bg-gray-50 hover:dark:bg-slate-700 transition-colors" onClick={() => window.location.href = 'http://localhost:3000/api/v1/auth/google'}>
+                <Button variant="outline" className="w-full bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 text-gray-700 dark:text-white hover:bg-gray-50 hover:dark:bg-slate-700 transition-colors" onClick={() => { let base = getApiBaseUrl(); if (base.endsWith('/api/v1')) base = base.slice(0, -7); window.location.href = `${base}/api/v1/auth/google`; }}>
                   <img src="/assets/Google__G__logo.svg (1).png" alt="Google logo" className="mr-2 h-4 w-4" />
                   Google
                 </Button>
