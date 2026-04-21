@@ -54,10 +54,10 @@ const D = {
     title: '¿Para quién es esto?',
     subtitle: 'Si conoces gente en el mundo de la belleza, esto es para ti.',
     items: [
-      { icon: '✂️', title: 'Estilistas que ya usan Skubik', desc: 'Recomiéndalo a colegas. Ya sabes que funciona — ahora gana por compartirlo.' },
-      { icon: '📦', title: 'Proveedoras de productos de belleza', desc: 'Ya visitas salones cada semana. Agrega Skubik a tu portafolio de soluciones.' },
-      { icon: '📊', title: 'Consultoras de negocios', desc: 'Ayudas salones a crecer. Skubik es la herramienta que complementa tu asesoría.' },
-      { icon: '📱', title: 'Influencers de belleza', desc: 'Tu audiencia confía en ti. Recomienda algo que de verdad les cambia el negocio.' },
+      { iconKey: 'scissors', title: 'Estilistas que ya usan Skubik', desc: 'Recomiéndalo a colegas. Ya sabes que funciona — ahora gana por compartirlo.', gradient: ['#c084fc', '#a855f7'] },
+      { iconKey: 'package', title: 'Proveedoras de productos de belleza', desc: 'Ya visitas salones cada semana. Agrega Skubik a tu portafolio de soluciones.', gradient: ['#fb923c', '#f97316'] },
+      { iconKey: 'chart', title: 'Consultoras de negocios', desc: 'Ayudas salones a crecer. Skubik es la herramienta que complementa tu asesoría.', gradient: ['#4ade80', '#22c55e'] },
+      { iconKey: 'sparkles', title: 'Influencers de belleza', desc: 'Tu audiencia confía en ti. Recomienda algo que de verdad les cambia el negocio.', gradient: ['#f472b6', '#ec4899'] },
     ],
   },
 
@@ -220,7 +220,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 @media (max-width: 700px) { .sa-personas-grid { grid-template-columns: 1fr; } }
 .sa-persona-card { background: var(--s-bg2); border: 1px solid var(--s-line); border-radius: 20px; padding: 28px 24px; transition: all 0.3s; }
 .sa-persona-card:hover { border-color: var(--s-muted); transform: translateY(-3px); }
-.sa-persona-icon { font-size: 32px; margin-bottom: 16px; }
+.sa-persona-icon { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
 .sa-persona-card h3 { font-size: 20px; margin-bottom: 8px; }
 .sa-persona-card p { color: var(--s-muted); font-size: 14px; line-height: 1.55; }
 
@@ -484,6 +484,40 @@ function ACalculator() {
   );
 }
 
+// ---- Persona Icons (lucide-style SVGs) ----
+const PERSONA_ICONS = {
+  scissors: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/>
+    </svg>
+  ),
+  package: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.29 7 12 12 20.71 7"/><line x1="12" y1="22" x2="12" y2="12"/>
+    </svg>
+  ),
+  chart: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
+    </svg>
+  ),
+  sparkles: (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>
+    </svg>
+  ),
+};
+
+function PersonaIcon({ iconKey, gradient }) {
+  const bg = `linear-gradient(135deg, ${gradient[0]}30, ${gradient[1]}20)`;
+  const shadow = `0 2px 8px ${gradient[0]}40`;
+  return (
+    <div className="sa-persona-icon" style={{ background: bg, color: gradient[0], boxShadow: shadow }}>
+      {PERSONA_ICONS[iconKey]}
+    </div>
+  );
+}
+
 // ---- Personas ----
 function APersonas() {
   const ref = useReveal();
@@ -498,7 +532,7 @@ function APersonas() {
         <div className="sa-personas-grid">
           {D.personas.items.map((p, i) => (
             <div key={i} className="sa-persona-card">
-              <div className="sa-persona-icon">{p.icon}</div>
+              <PersonaIcon iconKey={p.iconKey} gradient={p.gradient} />
               <h3>{p.title}</h3>
               <p>{p.desc}</p>
             </div>
