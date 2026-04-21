@@ -86,7 +86,7 @@ const CalendarManagement = lazy(() => import('@/components/CalendarManagement.js
 const CalendarModule = lazy(() => import('@/components/CalendarModule.jsx').then(module => ({ default: module.CalendarModule })));
 const ShiftManagement = lazy(() => import('@/components/ShiftManagement.jsx'));
 const Login = lazy(() => import('./pages/Login'));
-const LoginV2 = lazy(() => import('./pages/LoginV2'));
+const LoginRouteGate = lazy(() => import('./pages/LoginRouteGate'));
 const Register = lazy(() => import('./pages/Register'));
 const MobileRegisterBeauty = lazy(() => import('./pages/MobileRegisterBeauty'));
 const ConfirmAccount = lazy(() => import('./pages/ConfirmAccount'));
@@ -123,6 +123,8 @@ const LinksPage = lazy(() => import('./pages/LinksPage'));
 const SmartKubikLanding = lazy(() => import('./pages/SmartKubikLanding'));
 const SmartKubikLandingV2 = lazy(() => import('./pages/SmartKubikLandingV2'));
 const SkubikBeautyLanding = lazy(() => import('./pages/SkubikBeautyLanding'));
+const SkubikAffiliateLanding = lazy(() => import('./pages/SkubikAffiliateLanding'));
+const SkubikAffiliatePanel = lazy(() => import('./pages/SkubikAffiliatePanel'));
 const WebVentasSectionDemo = lazy(() => import('./pages/WebVentasSectionDemo'));
 const BlogIndex = lazy(() => import('./pages/BlogIndex.jsx'));
 const BlogPost = lazy(() => import('./pages/BlogPost.jsx'));
@@ -1098,6 +1100,8 @@ function AppContent() {
       <Suspense fallback={<LoadingFallback />}>
 
         <Routes>
+          <Route path="/skubik/afiliados" element={<SkubikAffiliateLanding />} />
+          <Route path="/skubik/panel" element={<SkubikAffiliatePanel />} />
           <Route path="/skubik" element={<SkubikBeautyLanding />} />
           <Route path="/v2" element={<SmartKubikLandingV2 />} />
           <Route path="/fundadores" element={<FoundersPage />} />
@@ -1116,7 +1120,7 @@ function AppContent() {
             <Route path="active" element={<DriverDashboard />} />
             <Route index element={<Navigate to="pool" replace />} />
           </Route>
-          <Route path="/login" element={<LoginV2 />} />
+          <Route path="/login" element={<LoginRouteGate />} />
           <Route path="/register" element={<Register />} />
           <Route path="/register/beauty" element={<MobileRegisterBeauty />} />
           <Route path="/confirm-account" element={<ConfirmAccount />} />

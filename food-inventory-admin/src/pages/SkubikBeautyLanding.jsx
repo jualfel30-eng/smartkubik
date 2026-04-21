@@ -1417,7 +1417,7 @@ function SFoot({ D }) {
   return (
     <footer className="s-foot">
       <div className="s-container s-foot-inner">
-        <span>SmartKubik · /belleza</span>
+        <span>SmartKubik · /belleza · <a href="/skubik/afiliados" style={{ color: 'var(--s-accent2)', textDecoration: 'none' }}>Programa de Afiliados</a></span>
         <span>© 2026 · Caracas · {D.brand.whatsappDisplay}</span>
       </div>
     </footer>
