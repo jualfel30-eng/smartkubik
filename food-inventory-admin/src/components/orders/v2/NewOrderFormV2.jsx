@@ -2375,11 +2375,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
       {shouldRenderMobileLayout ? (
         /* ═══ MOBILE / EMBEDDED LAYOUT ═══
-           Product-first full-screen with floating cart FAB.
-           Tapping the FAB opens a bottom sheet with order details + checkout. */
+           Product-first full-screen. Sticky bottom bar shows cart summary.
+           Tapping "Ver pedido" opens a bottom sheet with details + checkout. */
         <div className="flex flex-col h-[calc(100vh-5rem)]">
           {/* ── Products area (full screen) ── */}
-          <div className="flex-1 overflow-y-auto px-3 pt-2 pb-24 space-y-3">
+          <div className="flex-1 overflow-y-auto px-3 pt-2 pb-20 space-y-3">
             {/* View switcher + barcode row */}
             <div className="flex items-center gap-2">
               <ViewSwitcher
@@ -2440,30 +2440,30 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 showDescription={false}
                 enableCategoryFilter={preferences.enableCategoryFilter}
                 inventoryMap={inventoryMap}
+                cartItems={newOrder.items}
               />
             )}
           </div>
 
-          {/* ── Floating Cart FAB ── */}
+          {/* ── Sticky bottom cart bar ── */}
           {newOrder.items.length > 0 && activeTab !== 'order' && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('order')}
-              className="fixed bottom-20 right-4 z-40 flex items-center gap-2.5 bg-primary text-primary-foreground rounded-full pl-4 pr-5 py-3 shadow-xl active:scale-95 transition-transform"
-              style={{ boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}
-            >
-              <ShoppingCart className="h-5 w-5" />
-              <span className="font-bold text-sm">{newOrder.items.length}</span>
-              <span className="text-xs opacity-90">· ${totals.total.toFixed(2)}</span>
-            </button>
-          )}
-
-          {/* Empty cart hint when no items */}
-          {newOrder.items.length === 0 && (
-            <div className="fixed bottom-20 left-0 right-0 z-30 flex justify-center pointer-events-none">
-              <div className="bg-muted/80 backdrop-blur text-muted-foreground text-xs font-medium px-4 py-2 rounded-full">
-                Toca un producto para agregar
-              </div>
+            <div className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-border px-4 py-3" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
+              <button
+                type="button"
+                onClick={() => setActiveTab('order')}
+                className="w-full flex items-center justify-between bg-primary text-primary-foreground rounded-xl px-4 py-3.5 active:scale-[0.98] transition-transform"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <ShoppingCart className="h-5 w-5" />
+                    <span className="absolute -top-1.5 -right-2 min-w-4 h-4 rounded-full bg-primary-foreground text-primary text-[10px] font-bold flex items-center justify-center px-1">
+                      {newOrder.items.reduce((sum, i) => sum + (i.quantity || 1), 0)}
+                    </span>
+                  </div>
+                  <span className="font-semibold text-sm">Ver pedido</span>
+                </div>
+                <span className="font-bold text-base tabular-nums">${totals.total.toFixed(2)}</span>
+              </button>
             </div>
           )}
 
@@ -2720,6 +2720,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                   showDescription={preferences.showProductDescription}
                   enableCategoryFilter={preferences.enableCategoryFilter}
                   inventoryMap={inventoryMap}
+                  cartItems={newOrder.items}
                 />
               )}
             </div>
