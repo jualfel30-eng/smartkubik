@@ -9,6 +9,7 @@ import MobileSettingsLayout from './MobileSettingsLayout';
 import MobileSettingsSkeleton from './MobileSettingsSkeleton';
 import MobileToggleRow from './MobileToggleRow';
 import { useDirtyState } from '@/hooks/use-dirty-state';
+import { emitBadgeUpdate } from '@/lib/badge-events';
 
 const INITIAL = {
   methods: [],
@@ -129,6 +130,7 @@ export default function MobileSettingsPayments({ onBack }) {
 
       haptics.success();
       toast.success('Metodos de pago guardados');
+      emitBadgeUpdate({ type: 'settings_saved' });
       resetDirty();
     } catch (err) {
       toast.error('Error al guardar', { description: err?.message || 'Intenta de nuevo' });

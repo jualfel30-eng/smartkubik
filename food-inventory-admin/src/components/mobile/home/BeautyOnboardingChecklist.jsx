@@ -60,6 +60,7 @@ async function fetchCompletionStatus() {
       const list = toArray(res);
       if (list.length > 0) {
         completed.add('services');
+        // Per-service deposit check
         if (list.some((s) => s.requiresDeposit)) completed.add('deposits');
         if (!completed.has('photos') && list.some((s) => s.images?.length > 0)) {
           completed.add('photos');
@@ -67,13 +68,20 @@ async function fetchCompletionStatus() {
       }
     }),
 
-    // 4. Team (>1 user)?
+    // 4. Tenant settings — global deposit policy
+    fetchApi('/tenant/settings').then((res) => {
+      const tenant = res?.data || res;
+      const policies = tenant?.settings?.hospitalityPolicies;
+      if (policies?.depositRequired) completed.add('deposits');
+    }),
+
+    // 5. Team (>1 user)?
     fetchApi('/tenant/users').then((res) => {
       const list = toArray(res);
       if (list.length > 1) completed.add('team');
     }),
 
-    // 5. At least one booking?
+    // 6. At least one booking?
     fetchApi('/beauty-bookings?limit=1').then((res) => {
       const list = toArray(res);
       if (list.length > 0) completed.add('firstBooking');
