@@ -38,10 +38,13 @@ async function fetchCompletionStatus() {
   const completed = new Set();
 
   await Promise.allSettled([
-    // 1. Storefront enabled?
-    fetchApi('/restaurant-storefront/config').then((res) => {
+    // 1. Storefront exists and is active?
+    fetchApi('/storefront').then((res) => {
       const cfg = res?.data || res;
-      if (cfg?.restaurantConfig?.enabled) completed.add('booking');
+      // Check both storefront formats: general (isActive) and restaurant (restaurantConfig.enabled)
+      if (cfg?.isActive || cfg?.restaurantConfig?.enabled) completed.add('booking');
+    }).catch(() => {
+      // 404 = storefront not created yet — not completed
     }),
 
     // 2. Professionals?
