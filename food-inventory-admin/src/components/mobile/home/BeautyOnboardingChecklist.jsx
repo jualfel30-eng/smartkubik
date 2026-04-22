@@ -14,64 +14,68 @@ const CHECKLIST_ITEMS = [
   { key: 'booking', label: 'Crear página de reservas', path: '/storefront' },
   { key: 'professionals', label: 'Agregar profesionales', path: '/resources' },
   { key: 'services', label: 'Configurar servicios', path: '/services' },
-  { key: 'photos', label: 'Agregar fotos de tu trabajo', path: '/storefront' },
-  { key: 'deposits', label: 'Configurar anticipos', path: '/settings' },
-  { key: 'team', label: 'Invitar a tu equipo', path: '/settings' },
+  { key: 'photos', label: 'Agregar fotos de tu trabajo', path: '/services' },
+  { key: 'deposits', label: 'Configurar anticipos', path: '/settings?section=payments' },
+  { key: 'team', label: 'Invitar a tu equipo', path: '/settings?section=users' },
   { key: 'firstBooking', label: 'Crear tu primera cita', path: '/appointments' },
 ];
 
 /**
+ * Normalizes API response to an array.
+ * Handles: plain array, { data: [...] }, { data: { data: [...] } }
+ */
+function toArray(res) {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  return [];
+}
+
+/**
  * Fetches real data to determine which checklist items are completed.
- * Each check is independent — a failed request won't block others.
  */
 async function fetchCompletionStatus() {
   const completed = new Set();
 
-  const results = await Promise.allSettled([
-    // 1. Storefront config enabled?
+  await Promise.allSettled([
+    // 1. Storefront enabled?
     fetchApi('/restaurant-storefront/config').then((res) => {
       const cfg = res?.data || res;
       if (cfg?.restaurantConfig?.enabled) completed.add('booking');
     }),
 
-    // 2. Has professionals?
+    // 2. Professionals?
     fetchApi('/professionals').then((res) => {
-      const list = res?.data || res || [];
-      if (Array.isArray(list) && list.length > 0) {
+      const list = toArray(res);
+      if (list.length > 0) {
         completed.add('professionals');
-        // Check if any professional has images (photos)
         if (list.some((p) => p.images?.length > 0 || p.avatar)) {
           completed.add('photos');
         }
       }
     }),
 
-    // 3. Has beauty services?
+    // 3. Beauty services?
     fetchApi('/beauty-services').then((res) => {
-      const list = res?.data || res || [];
-      if (Array.isArray(list) && list.length > 0) {
+      const list = toArray(res);
+      if (list.length > 0) {
         completed.add('services');
-        // Check if any service has deposit configured
-        if (list.some((s) => s.requiresDeposit)) {
-          completed.add('deposits');
-        }
-        // Check if any service has images (photos fallback)
+        if (list.some((s) => s.requiresDeposit)) completed.add('deposits');
         if (!completed.has('photos') && list.some((s) => s.images?.length > 0)) {
           completed.add('photos');
         }
       }
     }),
 
-    // 4. Has team members (more than 1 user)?
+    // 4. Team (>1 user)?
     fetchApi('/tenant/users').then((res) => {
-      const list = res?.data || res || [];
-      if (Array.isArray(list) && list.length > 1) completed.add('team');
+      const list = toArray(res);
+      if (list.length > 1) completed.add('team');
     }),
 
-    // 5. Has at least one booking?
+    // 5. At least one booking?
     fetchApi('/beauty-bookings?limit=1').then((res) => {
-      const list = res?.data || res || [];
-      if (Array.isArray(list) && list.length > 0) completed.add('firstBooking');
+      const list = toArray(res);
+      if (list.length > 0) completed.add('firstBooking');
     }),
   ]);
 
@@ -84,59 +88,53 @@ export default function BeautyOnboardingChecklist({ tenant }) {
     localStorage.getItem(STORAGE_KEY) === 'true'
   );
   const [completedKeys, setCompletedKeys] = useState(() => {
-    // Load cached state for instant render, then refresh from API
     try {
       const cached = JSON.parse(localStorage.getItem(COMPLETED_CACHE_KEY) || '[]');
       return new Set(cached);
     } catch { return new Set(); }
   });
-  const [loading, setLoading] = useState(true);
   const [newlyCompleted, setNewlyCompleted] = useState(new Set());
   const [allDone, setAllDone] = useState(false);
-  const prevCompletedRef = useRef(completedKeys);
+  const prevCompletedRef = useRef(new Set());
+  const didInitRef = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
       const result = await fetchCompletionStatus();
-      const prevKeys = prevCompletedRef.current;
+      const prev = prevCompletedRef.current;
 
-      // Detect newly completed items (for animation)
-      const justDone = new Set();
-      for (const key of result) {
-        if (!prevKeys.has(key)) justDone.add(key);
+      // Detect newly completed (skip on first load)
+      if (didInitRef.current) {
+        const justDone = new Set();
+        for (const key of result) {
+          if (!prev.has(key)) justDone.add(key);
+        }
+        if (justDone.size > 0) {
+          setNewlyCompleted(justDone);
+          haptics.success();
+          setTimeout(() => setNewlyCompleted(new Set()), 1500);
+        }
       }
+      didInitRef.current = true;
 
-      if (justDone.size > 0) {
-        setNewlyCompleted(justDone);
-        haptics.success();
-        // Clear "newly completed" state after animation
-        setTimeout(() => setNewlyCompleted(new Set()), 1500);
-      }
-
-      setCompletedKeys(result);
       prevCompletedRef.current = result;
-
-      // Cache for next render
+      setCompletedKeys(result);
       localStorage.setItem(COMPLETED_CACHE_KEY, JSON.stringify([...result]));
 
-      // All done?
       if (result.size >= CHECKLIST_ITEMS.length) {
         setAllDone(true);
         haptics.success();
         triggerCelebration();
       }
     } catch { /* silent */ }
-    setLoading(false);
   }, []);
 
-  // Initial load + refresh when page becomes visible
+  // Refresh on mount + when user returns to tab
   useEffect(() => {
     refresh();
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') refresh();
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [refresh]);
 
   if (dismissed) return null;
@@ -151,7 +149,7 @@ export default function BeautyOnboardingChecklist({ tenant }) {
     setDismissed(true);
   };
 
-  // All done state — show celebration card briefly
+  // All done — celebration card
   if (allDone) {
     return (
       <motion.div
@@ -159,10 +157,7 @@ export default function BeautyOnboardingChecklist({ tenant }) {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4, ease: EASE.out }}
         className="bg-card p-5 mb-1 text-center"
-        style={{
-          borderRadius: 'var(--mobile-radius-xl)',
-          boxShadow: 'var(--elevation-raised)',
-        }}
+        style={{ borderRadius: 'var(--mobile-radius-xl)', boxShadow: 'var(--elevation-raised)' }}
       >
         <motion.div
           initial={{ scale: 0 }}
@@ -173,16 +168,9 @@ export default function BeautyOnboardingChecklist({ tenant }) {
         >
           <PartyPopper size={22} strokeWidth={1.5} className="text-emerald-400" />
         </motion.div>
-        <p className="text-[15px] font-bold text-foreground mb-1">
-          Tu salón está 100% configurado
-        </p>
-        <p className="text-[13px] text-muted-foreground/60 mb-4">
-          Todo listo para recibir clientes
-        </p>
-        <button
-          onClick={handleDismiss}
-          className="text-[13px] text-primary/70 font-medium hover:text-primary transition-colors"
-        >
+        <p className="text-[15px] font-bold text-foreground mb-1">Tu salón está 100% configurado</p>
+        <p className="text-[13px] text-muted-foreground/60 mb-4">Todo listo para recibir clientes</p>
+        <button onClick={handleDismiss} className="text-[13px] text-primary/70 font-medium hover:text-primary transition-colors">
           Cerrar
         </button>
       </motion.div>
@@ -196,23 +184,14 @@ export default function BeautyOnboardingChecklist({ tenant }) {
         animate: { opacity: 1, y: 0, transition: { duration: DUR.base, ease: EASE.out } },
       }}
       className="bg-card p-5 mb-1"
-      style={{
-        borderRadius: 'var(--mobile-radius-xl)',
-        boxShadow: 'var(--elevation-raised)',
-      }}
+      style={{ borderRadius: 'var(--mobile-radius-xl)', boxShadow: 'var(--elevation-raised)' }}
     >
       <div className="flex items-center justify-between mb-3">
         <p className="text-[14px] font-bold">
           Configura tu salón
-          <span className="text-muted-foreground/50 font-medium ml-1.5">
-            {completedCount}/{totalCount}
-          </span>
+          <span className="text-muted-foreground/50 font-medium ml-1.5">{completedCount}/{totalCount}</span>
         </p>
-        <button
-          onClick={handleDismiss}
-          className="text-muted-foreground/30 hover:text-muted-foreground transition-colors p-1 -mr-1"
-          aria-label="Cerrar"
-        >
+        <button onClick={handleDismiss} className="text-muted-foreground/30 hover:text-muted-foreground transition-colors p-1 -mr-1" aria-label="Cerrar">
           <X size={14} strokeWidth={1.5} />
         </button>
       </div>
@@ -237,16 +216,10 @@ export default function BeautyOnboardingChecklist({ tenant }) {
           return (
             <button
               key={item.key}
-              onClick={() => {
-                if (!done) {
-                  haptics.tap();
-                  navigate(item.path);
-                }
-              }}
+              onClick={() => { if (!done) { haptics.tap(); navigate(item.path); } }}
               disabled={done}
               className="w-full flex items-center gap-3 py-2 text-left rounded-xl transition-all duration-200"
             >
-              {/* Checkbox */}
               <div className="relative w-5 h-5 flex-shrink-0">
                 <AnimatePresence mode="wait">
                   {done ? (
@@ -264,21 +237,11 @@ export default function BeautyOnboardingChecklist({ tenant }) {
                       <Check size={10} strokeWidth={3} className="text-white" />
                     </motion.div>
                   ) : (
-                    <div
-                      key="pending"
-                      className="w-5 h-5 rounded-full"
-                      style={{ boxShadow: 'inset 0 0 0 1.5px var(--border)' }}
-                    />
+                    <div key="pending" className="w-5 h-5 rounded-full" style={{ boxShadow: 'inset 0 0 0 1.5px var(--border)' }} />
                   )}
                 </AnimatePresence>
               </div>
-
-              {/* Label */}
-              <span className={`text-[14px] transition-all duration-300 ${
-                done
-                  ? 'text-muted-foreground/40 line-through'
-                  : 'text-foreground/80'
-              }`}>
+              <span className={`text-[14px] transition-all duration-300 ${done ? 'text-muted-foreground/40 line-through' : 'text-foreground/80'}`}>
                 {item.label}
               </span>
             </button>
