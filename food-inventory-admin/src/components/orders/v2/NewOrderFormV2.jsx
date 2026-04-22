@@ -2608,7 +2608,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
           {/* ── Sticky cart bar — fixed above bottom nav ── */}
           {newOrder.items.length > 0 && activeTab !== 'order' && (
-            <div className="fixed left-0 right-0 bottom-[80px] z-[51]">
+            <div className="fixed left-0 right-0 bottom-[64px] z-[49]">
               <button
                 type="button"
                 onClick={() => setActiveTab('order')}
