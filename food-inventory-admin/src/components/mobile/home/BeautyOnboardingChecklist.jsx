@@ -1,44 +1,149 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
-import { listItem } from '@/lib/motion';
+import { X, Check, PartyPopper } from 'lucide-react';
+import { SPRING, EASE, DUR } from '@/lib/motion';
 import haptics from '@/lib/haptics';
+import { fetchApi } from '@/lib/api';
+import { triggerCelebration } from '@/hooks/use-celebration';
 
-const STORAGE_KEY = 'beauty-onboarding-checklist-dismissed';
+const STORAGE_KEY = 'beauty-checklist-dismissed';
+const COMPLETED_CACHE_KEY = 'beauty-checklist-completed';
 
 const CHECKLIST_ITEMS = [
-  { key: 'booking', label: 'Crear página de reservas', path: '/storefront', auto: true },
-  { key: 'professionals', label: 'Agregar profesionales', path: '/crm', auto: true },
-  { key: 'services', label: 'Configurar servicios', path: '/beauty-services', auto: true },
+  { key: 'booking', label: 'Crear página de reservas', path: '/storefront' },
+  { key: 'professionals', label: 'Agregar profesionales', path: '/resources' },
+  { key: 'services', label: 'Configurar servicios', path: '/services' },
   { key: 'photos', label: 'Agregar fotos de tu trabajo', path: '/storefront' },
-  { key: 'deposits', label: 'Configurar anticipos', path: '/settings?tab=payments' },
-  { key: 'team', label: 'Invitar a tu equipo', path: '/settings?tab=users' },
+  { key: 'deposits', label: 'Configurar anticipos', path: '/settings' },
+  { key: 'team', label: 'Invitar a tu equipo', path: '/settings' },
   { key: 'firstBooking', label: 'Crear tu primera cita', path: '/appointments' },
 ];
+
+/**
+ * Fetches real data to determine which checklist items are completed.
+ * Each check is independent — a failed request won't block others.
+ */
+async function fetchCompletionStatus() {
+  const completed = new Set();
+
+  const results = await Promise.allSettled([
+    // 1. Storefront config enabled?
+    fetchApi('/restaurant-storefront/config').then((res) => {
+      const cfg = res?.data || res;
+      if (cfg?.restaurantConfig?.enabled) completed.add('booking');
+    }),
+
+    // 2. Has professionals?
+    fetchApi('/professionals').then((res) => {
+      const list = res?.data || res || [];
+      if (Array.isArray(list) && list.length > 0) {
+        completed.add('professionals');
+        // Check if any professional has images (photos)
+        if (list.some((p) => p.images?.length > 0 || p.avatar)) {
+          completed.add('photos');
+        }
+      }
+    }),
+
+    // 3. Has beauty services?
+    fetchApi('/beauty-services').then((res) => {
+      const list = res?.data || res || [];
+      if (Array.isArray(list) && list.length > 0) {
+        completed.add('services');
+        // Check if any service has deposit configured
+        if (list.some((s) => s.requiresDeposit)) {
+          completed.add('deposits');
+        }
+        // Check if any service has images (photos fallback)
+        if (!completed.has('photos') && list.some((s) => s.images?.length > 0)) {
+          completed.add('photos');
+        }
+      }
+    }),
+
+    // 4. Has team members (more than 1 user)?
+    fetchApi('/tenant/users').then((res) => {
+      const list = res?.data || res || [];
+      if (Array.isArray(list) && list.length > 1) completed.add('team');
+    }),
+
+    // 5. Has at least one booking?
+    fetchApi('/beauty-bookings?limit=1').then((res) => {
+      const list = res?.data || res || [];
+      if (Array.isArray(list) && list.length > 0) completed.add('firstBooking');
+    }),
+  ]);
+
+  return completed;
+}
 
 export default function BeautyOnboardingChecklist({ tenant }) {
   const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(() =>
     localStorage.getItem(STORAGE_KEY) === 'true'
   );
+  const [completedKeys, setCompletedKeys] = useState(() => {
+    // Load cached state for instant render, then refresh from API
+    try {
+      const cached = JSON.parse(localStorage.getItem(COMPLETED_CACHE_KEY) || '[]');
+      return new Set(cached);
+    } catch { return new Set(); }
+  });
+  const [loading, setLoading] = useState(true);
+  const [newlyCompleted, setNewlyCompleted] = useState(new Set());
+  const [allDone, setAllDone] = useState(false);
+  const prevCompletedRef = useRef(completedKeys);
+
+  const refresh = useCallback(async () => {
+    try {
+      const result = await fetchCompletionStatus();
+      const prevKeys = prevCompletedRef.current;
+
+      // Detect newly completed items (for animation)
+      const justDone = new Set();
+      for (const key of result) {
+        if (!prevKeys.has(key)) justDone.add(key);
+      }
+
+      if (justDone.size > 0) {
+        setNewlyCompleted(justDone);
+        haptics.success();
+        // Clear "newly completed" state after animation
+        setTimeout(() => setNewlyCompleted(new Set()), 1500);
+      }
+
+      setCompletedKeys(result);
+      prevCompletedRef.current = result;
+
+      // Cache for next render
+      localStorage.setItem(COMPLETED_CACHE_KEY, JSON.stringify([...result]));
+
+      // All done?
+      if (result.size >= CHECKLIST_ITEMS.length) {
+        setAllDone(true);
+        haptics.success();
+        triggerCelebration();
+      }
+    } catch { /* silent */ }
+    setLoading(false);
+  }, []);
+
+  // Initial load + refresh when page becomes visible
+  useEffect(() => {
+    refresh();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [refresh]);
 
   if (dismissed) return null;
-
-  // Auto-completed items (done during onboarding)
-  const completedKeys = new Set();
-  if (tenant?.onboardingCompleted) {
-    completedKeys.add('booking');
-    completedKeys.add('professionals');
-    completedKeys.add('services');
-  }
 
   const completedCount = completedKeys.size;
   const totalCount = CHECKLIST_ITEMS.length;
   const progress = (completedCount / totalCount) * 100;
-
-  // All done
-  if (completedCount >= totalCount) return null;
 
   const handleDismiss = () => {
     haptics.tap();
@@ -46,42 +151,89 @@ export default function BeautyOnboardingChecklist({ tenant }) {
     setDismissed(true);
   };
 
+  // All done state — show celebration card briefly
+  if (allDone) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4, ease: EASE.out }}
+        className="bg-card p-5 mb-1 text-center"
+        style={{
+          borderRadius: 'var(--mobile-radius-xl)',
+          boxShadow: 'var(--elevation-raised)',
+        }}
+      >
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ ...SPRING.bouncy, delay: 0.1 }}
+          className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center"
+          style={{ background: 'linear-gradient(135deg, rgba(74,222,128,0.15), rgba(34,197,94,0.08))' }}
+        >
+          <PartyPopper size={22} strokeWidth={1.5} className="text-emerald-400" />
+        </motion.div>
+        <p className="text-[15px] font-bold text-foreground mb-1">
+          Tu salón está 100% configurado
+        </p>
+        <p className="text-[13px] text-muted-foreground/60 mb-4">
+          Todo listo para recibir clientes
+        </p>
+        <button
+          onClick={handleDismiss}
+          className="text-[13px] text-primary/70 font-medium hover:text-primary transition-colors"
+        >
+          Cerrar
+        </button>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
-      variants={listItem}
-      className="bg-card border border-border p-4 mb-1"
+      variants={{
+        initial: { opacity: 0, y: 8 },
+        animate: { opacity: 1, y: 0, transition: { duration: DUR.base, ease: EASE.out } },
+      }}
+      className="bg-card p-5 mb-1"
       style={{
-        borderRadius: 'var(--mobile-radius-lg)',
+        borderRadius: 'var(--mobile-radius-xl)',
         boxShadow: 'var(--elevation-raised)',
       }}
     >
       <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-semibold">
-          Configura tu salón ({completedCount}/{totalCount})
+        <p className="text-[14px] font-bold">
+          Configura tu salón
+          <span className="text-muted-foreground/50 font-medium ml-1.5">
+            {completedCount}/{totalCount}
+          </span>
         </p>
         <button
           onClick={handleDismiss}
-          className="text-muted-foreground hover:text-foreground p-1 -mr-1"
+          className="text-muted-foreground/30 hover:text-muted-foreground transition-colors p-1 -mr-1"
           aria-label="Cerrar"
         >
-          <X size={14} />
+          <X size={14} strokeWidth={1.5} />
         </button>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full h-1.5 bg-muted rounded-full mb-3 overflow-hidden">
+      <div className="w-full h-1.5 rounded-full mb-4 overflow-hidden" style={{ background: 'var(--glass-subtle)' }}>
         <motion.div
-          className="h-full bg-primary rounded-full"
+          className="h-full rounded-full"
+          style={{ background: 'var(--gradient-primary)' }}
           initial={{ width: 0 }}
           animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.5, delay: 0.2 }}
+          transition={{ duration: 0.5, ease: EASE.out }}
         />
       </div>
 
       {/* Items */}
-      <div className="space-y-1.5">
+      <div className="space-y-1">
         {CHECKLIST_ITEMS.map((item) => {
           const done = completedKeys.has(item.key);
+          const justDone = newlyCompleted.has(item.key);
+
           return (
             <button
               key={item.key}
@@ -92,21 +244,43 @@ export default function BeautyOnboardingChecklist({ tenant }) {
                 }
               }}
               disabled={done}
-              className={`
-                w-full flex items-center gap-2.5 py-1.5 text-left text-sm rounded-lg transition-colors
-                ${done ? 'text-muted-foreground' : 'text-foreground hover:text-primary'}
-              `}
+              className="w-full flex items-center gap-3 py-2 text-left rounded-xl transition-all duration-200"
             >
-              {done ? (
-                <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                  <svg width="8" height="8" viewBox="0 0 12 12" fill="none">
-                    <path d="M2.5 6L5 8.5L9.5 4" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-              ) : (
-                <div className="w-4 h-4 rounded-full border-2 border-border flex-shrink-0" />
-              )}
-              <span className={done ? 'line-through' : ''}>{item.label}</span>
+              {/* Checkbox */}
+              <div className="relative w-5 h-5 flex-shrink-0">
+                <AnimatePresence mode="wait">
+                  {done ? (
+                    <motion.div
+                      key="done"
+                      initial={justDone ? { scale: 0 } : false}
+                      animate={{ scale: 1 }}
+                      transition={justDone ? SPRING.bouncy : { duration: 0 }}
+                      className="w-5 h-5 rounded-full flex items-center justify-center"
+                      style={{
+                        background: 'linear-gradient(135deg, #4ade80, #22c55e)',
+                        boxShadow: justDone ? '0 0 12px rgba(74,222,128,0.4)' : 'none',
+                      }}
+                    >
+                      <Check size={10} strokeWidth={3} className="text-white" />
+                    </motion.div>
+                  ) : (
+                    <div
+                      key="pending"
+                      className="w-5 h-5 rounded-full"
+                      style={{ boxShadow: 'inset 0 0 0 1.5px var(--border)' }}
+                    />
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Label */}
+              <span className={`text-[14px] transition-all duration-300 ${
+                done
+                  ? 'text-muted-foreground/40 line-through'
+                  : 'text-foreground/80'
+              }`}>
+                {item.label}
+              </span>
             </button>
           );
         })}
