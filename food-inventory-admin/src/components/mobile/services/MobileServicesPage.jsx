@@ -12,6 +12,7 @@ import MobileListSkeleton from '../primitives/MobileListSkeleton.jsx';
 import MobileEmptyState from '../primitives/MobileEmptyState.jsx';
 import MobileSearchBar from '../primitives/MobileSearchBar.jsx';
 import { trackEvent } from '@/lib/analytics';
+import { emitBadgeUpdate } from '@/lib/badge-events';
 
 // ─── Inline-editable field ────────────────────────────────────────────────────
 function Field({ label, value, editing, type = 'text', onChange, prefix, suffix }) {
@@ -226,6 +227,7 @@ function CreateServiceSheet({ onClose, onCreated }) {
         body: JSON.stringify({ ...form, duration: Number(form.duration), price: Number(form.price), isActive: true }),
       });
       trackEvent('service_created', { serviceId: created._id || created.id });
+      emitBadgeUpdate({ type: 'service_created' });
       toast.success('Servicio creado');
       onCreated?.(created);
     } catch {

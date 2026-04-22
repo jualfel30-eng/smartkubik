@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Check, PartyPopper } from 'lucide-react';
 import { SPRING, EASE, DUR } from '@/lib/motion';
 import haptics from '@/lib/haptics';
 import { fetchApi } from '@/lib/api';
 import { triggerCelebration } from '@/hooks/use-celebration';
+import { onBadgeUpdate } from '@/lib/badge-events';
 
 const STORAGE_KEY = 'beauty-checklist-dismissed';
 const COMPLETED_CACHE_KEY = 'beauty-checklist-completed';
@@ -129,9 +130,28 @@ export default function BeautyOnboardingChecklist({ tenant }) {
     } catch { /* silent */ }
   }, []);
 
-  // Refresh on mount + when user returns to tab
+  const location = useLocation();
+
+  // Refresh on mount + when user returns to dashboard + on badge events + on tab focus
   useEffect(() => {
     refresh();
+  }, [refresh]);
+
+  // Re-fetch when navigating back to dashboard (SPA navigation)
+  useEffect(() => {
+    if (location.pathname === '/dashboard' || location.pathname === '/') {
+      refresh();
+    }
+  }, [location.pathname, refresh]);
+
+  // Re-fetch when any badge event fires (appointment created, payment made, etc.)
+  useEffect(() => {
+    const unsub = onBadgeUpdate(() => refresh());
+    return unsub;
+  }, [refresh]);
+
+  // Re-fetch when browser tab becomes visible
+  useEffect(() => {
     const onVisible = () => { if (document.visibilityState === 'visible') refresh(); };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);

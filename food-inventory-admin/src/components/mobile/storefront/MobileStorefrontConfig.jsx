@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
+import { emitBadgeUpdate } from '@/lib/badge-events';
 import { cn } from '@/lib/utils';
 import haptics from '@/lib/haptics';
 import toast from '@/lib/toast';
@@ -66,6 +67,7 @@ export default function MobileStorefrontConfig() {
       });
       const data = response?.data ?? response ?? null;
       setConfig(data);
+      emitBadgeUpdate({ type: 'storefront_saved' });
       toast.success('Guardado');
       return true;
     } catch (err) {
