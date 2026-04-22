@@ -2538,9 +2538,9 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         /* ═══ MOBILE / EMBEDDED LAYOUT ═══
            Product-first full-screen. Sticky bottom bar shows cart summary.
            Tapping "Ver pedido" opens a bottom sheet with details + checkout. */
-        <div className="flex flex-col h-[calc(100vh-5rem)]">
+        <div className="flex flex-col" style={{ height: 'calc(100vh - 5rem - var(--mobile-bottomnav-h, 64px) - env(safe-area-inset-bottom, 0px))' }}>
           {/* ── Products area (full screen) ── */}
-          <div className="flex-1 overflow-y-auto px-3 pt-2 pb-36 space-y-3">
+          <div className="flex-1 overflow-y-auto px-3 pt-2 pb-4 space-y-3">
             {/* View switcher + barcode row */}
             <div className="flex items-center gap-2">
               <ViewSwitcher
@@ -2606,31 +2606,29 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
             )}
           </div>
 
-          {/* ── Cart tab — peeks above bottom nav like Spotify mini-player ── */}
+          {/* ── Cart bar — normal flex child, NO fixed positioning ── */}
           {newOrder.items.length > 0 && activeTab !== 'order' && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('order')}
-              className="fixed left-0 right-0 flex items-center justify-between bg-emerald-600 text-white px-4 py-2.5 active:bg-emerald-500 transition-colors"
-              style={{
-                bottom: 'calc(var(--mobile-bottomnav-h, 64px) + env(safe-area-inset-bottom, 0px))',
-                zIndex: 51,
-              }}
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="relative">
-                  <ShoppingCart className="h-5 w-5" />
-                  <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] rounded-full bg-white text-emerald-700 text-[10px] font-bold flex items-center justify-center px-1">
-                    {newOrder.items.reduce((sum, i) => sum + (i.quantity || 1), 0)}
-                  </span>
+            <div className="shrink-0 border-t border-emerald-700 bg-emerald-600">
+              <button
+                type="button"
+                onClick={() => setActiveTab('order')}
+                className="w-full flex items-center justify-between text-white px-4 py-3 active:bg-emerald-500 transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="relative">
+                    <ShoppingCart className="h-5 w-5" />
+                    <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] rounded-full bg-white text-emerald-700 text-[10px] font-bold flex items-center justify-center px-1">
+                      {newOrder.items.reduce((sum, i) => sum + (i.quantity || 1), 0)}
+                    </span>
+                  </div>
+                  <span className="font-semibold text-sm">Ver pedido</span>
                 </div>
-                <span className="font-semibold text-sm">Ver pedido</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-base tabular-nums">${totals.total.toFixed(2)}</span>
-                <ChevronUp className="h-4 w-4 text-emerald-200" />
-              </div>
-            </button>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-base tabular-nums">${totals.total.toFixed(2)}</span>
+                  <ChevronUp className="h-4 w-4 text-emerald-200" />
+                </div>
+              </button>
+            </div>
           )}
 
           {/* ── Order Sheet (slides up from bottom) ── */}
