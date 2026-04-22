@@ -2538,7 +2538,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         /* ═══ MOBILE / EMBEDDED LAYOUT ═══
            Product-first full-screen. Sticky bottom bar shows cart summary.
            Tapping "Ver pedido" opens a bottom sheet with details + checkout. */
-        <div className="flex flex-col" style={{ height: 'calc(100vh - 5rem - var(--mobile-bottomnav-h, 64px) - env(safe-area-inset-bottom, 0px))' }}>
+        <div className="flex flex-col h-[calc(100dvh-10rem)]">
           {/* ── Products area (full screen) ── */}
           <div className="flex-1 overflow-y-auto px-3 pt-2 pb-4 space-y-3">
             {/* View switcher + barcode row */}
