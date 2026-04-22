@@ -109,7 +109,7 @@ export default function MobileSettingsPayments({ onBack }) {
             id: m.id,
             name: m.name,
             enabled: m.enabled,
-            igtfApplicable: m.igtfApplicable,
+            igtfApplicable: m.igtfApplicable ?? false,
             instructions: m.instructions || '',
             details: m.details,
           })),
@@ -131,7 +131,7 @@ export default function MobileSettingsPayments({ onBack }) {
       toast.success('Metodos de pago guardados');
       resetDirty();
     } catch (err) {
-      toast.error('Error al guardar metodos de pago');
+      toast.error('Error al guardar', { description: err?.message || 'Intenta de nuevo' });
     } finally {
       setSaving(false);
     }

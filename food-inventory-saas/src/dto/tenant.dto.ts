@@ -529,8 +529,9 @@ export class PaymentMethodSettingDto {
   enabled: boolean;
 
   @ApiProperty({ example: false })
+  @IsOptional()
   @IsBoolean()
-  igtfApplicable: boolean;
+  igtfApplicable?: boolean;
 
   @ApiProperty({ example: "Enviar pago al correo: ejemplo@mail.com", required: false })
   @IsOptional()
