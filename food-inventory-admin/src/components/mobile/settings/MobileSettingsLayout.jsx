@@ -1,7 +1,6 @@
-import { ChevronLeft, Loader2 } from 'lucide-react';
-import { createPortal } from 'react-dom';
+import { ChevronLeft, Loader2, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SPRING, fadeUp } from '@/lib/motion';
+import { SPRING } from '@/lib/motion';
 import haptics from '@/lib/haptics';
 
 export default function MobileSettingsLayout({
@@ -25,48 +24,45 @@ export default function MobileSettingsLayout({
           <ChevronLeft size={20} />
         </button>
         <h1 className="text-lg font-bold flex-1">{title}</h1>
-        {headerRight}
+
+        {/* Save button in header — always visible when dirty */}
+        <AnimatePresence>
+          {isDirty && onSave && (
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={SPRING.snappy}
+              whileTap={{ scale: 0.95 }}
+              disabled={isSaving}
+              onClick={onSave}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[13px] font-bold text-white disabled:opacity-60 transition-opacity"
+              style={{
+                background: 'var(--gradient-primary)',
+                boxShadow: '0 2px 12px oklch(0.62 0.22 268 / 0.3)',
+              }}
+            >
+              {isSaving ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Save size={14} strokeWidth={2} />
+              )}
+              {isSaving ? 'Guardando' : 'Guardar'}
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        {!isDirty && headerRight}
       </div>
 
       {/* Scrollable content */}
       <div
         className="flex-1 overflow-y-auto mobile-scroll px-4 py-4 space-y-5"
-        style={{ paddingBottom: isDirty ? 'calc(80px + env(safe-area-inset-bottom, 0px))' : '6rem' }}
+        style={{ paddingBottom: '6rem' }}
       >
         {children}
       </div>
-
-      {/* Sticky save footer — portaled to body to escape transform containment */}
-      <AnimatePresence>
-        {isDirty && onSave && createPortal(
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={SPRING.snappy}
-            className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t border-border px-4 py-3 safe-bottom"
-            style={{ zIndex: 9998 }}
-          >
-            <motion.button
-              type="button"
-              whileTap={{ scale: 0.97 }}
-              disabled={isSaving}
-              onClick={onSave}
-              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold rounded-xl py-3.5 disabled:opacity-60 transition-opacity"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Guardando...
-                </>
-              ) : (
-                'Guardar cambios'
-              )}
-            </motion.button>
-          </motion.div>,
-          document.body,
-        )}
-      </AnimatePresence>
     </div>
   );
 }
