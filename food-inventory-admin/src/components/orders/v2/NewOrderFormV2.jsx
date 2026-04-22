@@ -2538,7 +2538,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         /* ═══ MOBILE / EMBEDDED LAYOUT ═══
            Product-first full-screen. Sticky bottom bar shows cart summary.
            Tapping "Ver pedido" opens a bottom sheet with details + checkout. */
-        <div className="flex flex-col h-[calc(100dvh-10rem)]">
+        <div className="flex flex-col h-[calc(100dvh-5rem)]">
           {/* ── Products area (full screen) ── */}
           <div className="flex-1 overflow-y-auto px-3 pt-2 pb-4 space-y-3">
             {/* View switcher + barcode row */}
@@ -2606,13 +2606,13 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
             )}
           </div>
 
-          {/* ── Cart bar — normal flex child, NO fixed positioning ── */}
+          {/* ── Sticky cart bar — fixed above bottom nav ── */}
           {newOrder.items.length > 0 && activeTab !== 'order' && (
-            <div className="shrink-0 border-t border-emerald-700 bg-emerald-600">
+            <div className="fixed left-0 right-0 bottom-[64px] z-[51] safe-bottom">
               <button
                 type="button"
                 onClick={() => setActiveTab('order')}
-                className="w-full flex items-center justify-between text-white px-4 py-3 active:bg-emerald-500 transition-colors"
+                className="w-full flex items-center justify-between bg-emerald-600 text-white px-4 py-3.5 active:bg-emerald-500 transition-colors border-t border-emerald-500"
               >
                 <div className="flex items-center gap-2.5">
                   <div className="relative">

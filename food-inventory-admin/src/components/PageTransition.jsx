@@ -235,7 +235,7 @@ export default function PageTransition({ children }) {
       default:
         return {
           opacity: 1,
-          transform: 'translate(0, 0)',
+          transform: 'none',
           transition: `opacity ${DURATION}ms ${EASE}, transform ${DURATION}ms ${EASE}`,
           willChange: 'auto',
         };
