@@ -326,12 +326,13 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-card { flex-shrink: 0; width: auto; aspect-ratio: 9/16; height: 90%; max-height: 680px; position: relative; border-radius: 28px; cursor: none; perspective: 900px; will-change: transform, filter; transform-style: preserve-3d; }
 @media (max-width: 600px) { .s-pain-card { height: 88%; max-height: 600px; } }
 
-/* Glow — warm tones (orange/amber), white-hot at edges */
-.s-pain-glow { position: absolute; inset: -1px; border-radius: 29px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1; overflow: hidden; }
+/* Glow — border-only, orange→white at edge, minimal interior fill */
+.s-pain-glow { position: absolute; inset: -2px; border-radius: 30px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1; }
 .s-pain-card:hover .s-pain-glow { opacity: 1; }
-.s-pain-glow-spot { position: absolute; width: var(--glow-size, 560px); height: var(--glow-size, 560px); transform: translate(-50%, -50%); left: var(--glow-x, 50%); top: var(--glow-y, 50%); border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,var(--glow-white, 0)) 0%, rgba(255,90,44,var(--glow-color-a, 0.4)) 18%, rgba(255,160,60,var(--glow-color-a, 0.3)) 38%, transparent 60%); filter: blur(176px); pointer-events: none; }
-/* Border line — warm conic gradient */
-.s-pain-glow-border { position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from var(--glow-angle, 0deg) at var(--glow-x, 50%) var(--glow-y, 50%), rgba(255,90,44,var(--glow-border-a, 0)), rgba(255,160,60,var(--glow-border-a, 0)), rgba(255,200,100,var(--glow-border-a, 0)), transparent 40%, transparent 60%, rgba(255,90,44,var(--glow-border-a, 0))); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; -webkit-mask-composite: xor; padding: 1.5px; filter: blur(32px); }
+/* Border glow — conic, transitions to white at high edge proximity */
+.s-pain-glow-border { position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from var(--glow-angle, 0deg) at var(--glow-x, 50%) var(--glow-y, 50%), rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), var(--glow-border-a, 0)), transparent 30%, transparent 70%, rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), var(--glow-border-a, 0))); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; -webkit-mask-composite: xor; padding: 2px; filter: blur(var(--glow-blur, 4px)); }
+/* Subtle outer halo — only visible near edges */
+.s-pain-glow-spot { position: absolute; width: 200px; height: 200px; transform: translate(-50%, -50%); left: var(--glow-x, 50%); top: var(--glow-y, 50%); border-radius: 50%; background: radial-gradient(circle, rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), var(--glow-spot-a, 0)) 0%, transparent 70%); filter: blur(30px); pointer-events: none; }
 
 /* Flip inner */
 .s-pain-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; z-index: 2; }
@@ -905,25 +906,32 @@ function PainCard({ item, i }) {
     const cy = e.clientY - rect.top - rect.height / 2;
     const angle = Math.atan2(cy, cx) * (180 / Math.PI) + 90;
 
-    // Edge proximity: how close to nearest edge (0=center, 1=at edge)
-    const edgeX = Math.max(1 - px * 2, px * 2 - 1, 0); // 0 center, 1 edge
+    // Edge proximity: 0 at center, 1 at edge
+    const edgeX = Math.max(1 - px * 2, px * 2 - 1, 0);
     const edgeY = Math.max(1 - py * 2, py * 2 - 1, 0);
     const edge = Math.max(edgeX, edgeY);
-    const edgeCubed = edge * edge * edge; // cubic ramp — gentle at center, explosive at edge
+    const eq = edge * edge; // quadratic ramp
 
-    // Glow spot: tight near edges, vanishes toward center
-    const spotSize = 560 + edge * 480; // 560px center → 1040px at edge
-    const whiteIntensity = Math.min(edgeCubed * 3.5, 1); // white-hot at border
-    const colorIntensity = Math.min(0.4 + edgeCubed * 3.2, 1); // blazing
-    const borderIntensity = Math.min(edgeCubed * 3.2, 1);
+    // Color: orange(255,90,44) → amber(255,180,80) → white(255,255,255)
+    const r = 255;
+    const g = Math.round(90 + edge * 165);  // 90 → 255
+    const b = Math.round(44 + edge * 211);  // 44 → 255
+
+    // Border: invisible at center, bright at edge, blur increases
+    const borderA = Math.min(eq * 1.8, 1);  // 0 → 1
+    const blurPx = 2 + edge * 14;           // 2px → 16px (more diffuse at edge)
+    // Interior spot: very subtle, only near edges
+    const spotA = Math.min(eq * 0.25, 0.2); // barely visible, max 0.2
 
     glow.style.setProperty('--glow-x', `${xPct}%`);
     glow.style.setProperty('--glow-y', `${yPct}%`);
     glow.style.setProperty('--glow-angle', `${angle}deg`);
-    glow.style.setProperty('--glow-size', `${spotSize}px`);
-    glow.style.setProperty('--glow-white', `${whiteIntensity}`);
-    glow.style.setProperty('--glow-color-a', `${colorIntensity}`);
-    glow.style.setProperty('--glow-border-a', `${borderIntensity}`);
+    glow.style.setProperty('--glow-r', r);
+    glow.style.setProperty('--glow-g', g);
+    glow.style.setProperty('--glow-b', b);
+    glow.style.setProperty('--glow-border-a', `${borderA}`);
+    glow.style.setProperty('--glow-blur', `${blurPx}px`);
+    glow.style.setProperty('--glow-spot-a', `${spotA}`);
   };
 
   return (
@@ -942,11 +950,13 @@ function PainCard({ item, i }) {
       )}
       <div className="s-pain-card-inner">
         <div className={`s-pain-face s-pain-front ${item.video ? 'has-video' : ''}`}>
-          <div className="s-pain-front-num" style={{ marginBottom: 'auto' }}>0{i + 1}</div>
-          <div className="s-pain-front-tag">{item.tag}</div>
-          <div className="s-pain-front-q">{item.q}</div>
-          <div className="s-pain-front-cta">
-            Ver solución <span className="s-pain-front-cta-arrow">→</span>
+          <div className="s-pain-front-num">0{i + 1}</div>
+          <div style={{ marginTop: 'auto' }}>
+            <div className="s-pain-front-tag">{item.tag}</div>
+            <div className="s-pain-front-q">{item.q}</div>
+            <div className="s-pain-front-cta">
+              Ver solución <span className="s-pain-front-cta-arrow">→</span>
+            </div>
           </div>
         </div>
         <div className="s-pain-face s-pain-back">
