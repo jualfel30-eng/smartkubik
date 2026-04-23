@@ -323,7 +323,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 @media (max-width: 600px) { .s-pain-track { gap: 18px; padding: 0 calc(50vw - 140px); } }
 
 /* Card — aspect-ratio 9:16, height fills available space */
-.s-pain-card { flex-shrink: 0; width: auto; aspect-ratio: 9/16; height: 90%; max-height: 680px; position: relative; border-radius: 28px; cursor: none; perspective: 900px; will-change: transform, filter; transform-style: preserve-3d; }
+.s-pain-card { flex-shrink: 0; width: auto; aspect-ratio: 9/16; height: 90%; max-height: 680px; position: relative; border-radius: 28px; cursor: default; perspective: 900px; will-change: transform, filter; transform-style: preserve-3d; }
 @media (max-width: 600px) { .s-pain-card { height: 88%; max-height: 600px; } }
 
 /* Glow — border-only, follows cursor position, covers 3/4 perimeter */
@@ -352,7 +352,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-front.has-video .s-pain-front-tag,
 .s-pain-front.has-video .s-pain-front-q,
 .s-pain-front.has-video .s-pain-front-cta { position: relative; z-index: 2; text-shadow: 0 2px 12px rgba(0,0,0,0.8); }
-.s-pain-front-num { font-family: 'Fraunces', serif; font-size: 80px; font-style: italic; color: rgba(255,90,44,0.12); line-height: 1; pointer-events: none; margin-bottom: auto; }
+.s-pain-front-num { font-family: 'Fraunces', serif; font-size: 80px; font-style: italic; color: rgba(255,90,44,0.25); line-height: 1; pointer-events: none; margin-bottom: auto; }
 @media (max-width: 600px) { .s-pain-front-num { font-size: 64px; } }
 .s-pain-front-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-accent); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
 .s-pain-front-tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--s-accent); }
@@ -930,6 +930,8 @@ function PainCard({ item, i }) {
       className={`s-pain-card ${flipped ? 'flipped' : ''}`}
       onClick={() => setFlipped(f => !f)}
       onPointerMove={handlePointerMove}
+      onPointerEnter={() => { document.querySelectorAll('.s-cursor,.s-cursor-ring').forEach(el => el.style.opacity = '0'); }}
+      onPointerLeave={() => { document.querySelectorAll('.s-cursor,.s-cursor-ring').forEach(el => el.style.opacity = ''); }}
     >
       <div className="s-pain-glow" ref={glowRef}>
         <div className="s-pain-glow-spot" />
