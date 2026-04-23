@@ -33,7 +33,7 @@ const BEAUTY_DATA = {
     subtitle: 'Toca cualquier tarjeta para ver cómo Skubik lo resuelve.',
     items: [
       { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'Agenda', video: '/videos/late-night-scroll.webm' },
-      { q: 'Me confié de mi memoria y le di cita a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'Conflictos' },
+      { q: 'Me confié de mi memoria y le di cita a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'Conflictos', video: '/videos/double-booking.webm' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'Embarques' },
       { q: 'Pago nómina pero nunca me entero de cuánto produjo cada estilista. Pago igual a quién trabaja el doble y a quién me llega tarde tres veces por semana.', a: 'Comisiones automáticas por profesional. Sabes exactamente quién produce qué.', tag: 'Comisiones' },
       { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'Datos' },
@@ -329,8 +329,8 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 /* Glow — border-only, follows cursor position, covers 3/4 perimeter */
 .s-pain-glow { position: absolute; inset: -3px; border-radius: 31px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1; }
 .s-pain-card:hover .s-pain-glow { opacity: 1; }
-/* Outer soft halo */
-.s-pain-glow-spot { position: absolute; inset: -8px; border-radius: 36px; background: conic-gradient(from var(--glow-angle, 0deg) at var(--glow-x, 50%) var(--glow-y, 50%), rgba(255,200,100,var(--glow-outer-a, 0)) 0deg, rgba(255,120,50,calc(var(--glow-outer-a, 0)*0.6)) 60deg, transparent 135deg, transparent 225deg, rgba(255,120,50,calc(var(--glow-outer-a, 0)*0.6)) 300deg, rgba(255,200,100,var(--glow-outer-a, 0)) 360deg); filter: blur(20px); }
+/* Outer soft halo — behind the border, no interior light */
+.s-pain-glow-spot { display: none; }
 /* Border line — white at cursor, orange/amber spreading 3/4 around */
 .s-pain-glow-border { position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from var(--glow-angle, 0deg) at var(--glow-x, 50%) var(--glow-y, 50%), rgba(255,255,255,var(--glow-border-a, 0)) 0deg, rgba(255,200,120,calc(var(--glow-border-a, 0)*0.7)) 45deg, rgba(255,130,50,calc(var(--glow-border-a, 0)*0.4)) 90deg, rgba(255,90,44,calc(var(--glow-border-a, 0)*0.15)) 135deg, transparent 160deg, transparent 200deg, rgba(255,90,44,calc(var(--glow-border-a, 0)*0.15)) 225deg, rgba(255,130,50,calc(var(--glow-border-a, 0)*0.4)) 270deg, rgba(255,200,120,calc(var(--glow-border-a, 0)*0.7)) 315deg, rgba(255,255,255,var(--glow-border-a, 0)) 360deg); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; -webkit-mask-composite: xor; padding: 2px; }
 
@@ -352,7 +352,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-front.has-video .s-pain-front-tag,
 .s-pain-front.has-video .s-pain-front-q,
 .s-pain-front.has-video .s-pain-front-cta { position: relative; z-index: 2; text-shadow: 0 2px 12px rgba(0,0,0,0.8); }
-.s-pain-front-num { font-family: 'Fraunces', serif; font-size: 80px; font-style: italic; color: rgba(255,90,44,0.25); line-height: 1; pointer-events: none; margin-bottom: auto; }
+.s-pain-front-num { font-family: 'Fraunces', serif; font-size: 80px; font-style: italic; color: rgba(255,90,44,0.50); line-height: 1; pointer-events: none; margin-bottom: auto; }
 @media (max-width: 600px) { .s-pain-front-num { font-size: 64px; } }
 .s-pain-front-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-accent); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
 .s-pain-front-tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--s-accent); }
