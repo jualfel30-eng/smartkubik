@@ -331,15 +331,15 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-card:hover .s-pain-glow { opacity: 1; }
 /* Border glow — conic, transitions to white at high edge proximity */
 .s-pain-glow-border { position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from var(--glow-angle, 0deg) at var(--glow-x, 50%) var(--glow-y, 50%), rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), var(--glow-border-a, 0)), transparent 30%, transparent 70%, rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), var(--glow-border-a, 0))); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; -webkit-mask-composite: xor; padding: 2px; filter: blur(var(--glow-blur, 4px)); }
-/* Subtle outer halo — only visible near edges */
-.s-pain-glow-spot { position: absolute; width: 200px; height: 200px; transform: translate(-50%, -50%); left: var(--glow-x, 50%); top: var(--glow-y, 50%); border-radius: 50%; background: radial-gradient(circle, rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), var(--glow-spot-a, 0)) 0%, transparent 70%); filter: blur(30px); pointer-events: none; }
+/* Interior glow — large radial from cursor position, fades across 75% of card */
+.s-pain-glow-spot { position: absolute; width: var(--glow-spot-size, 100%); height: var(--glow-spot-size, 100%); transform: translate(-50%, -50%); left: var(--glow-x, 50%); top: var(--glow-y, 50%); border-radius: 50%; background: radial-gradient(circle, rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), var(--glow-spot-a, 0)) 0%, rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), calc(var(--glow-spot-a, 0) * 0.4)) 35%, transparent 75%); filter: blur(40px); pointer-events: none; }
 
 /* Flip inner */
 .s-pain-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; z-index: 2; }
 .s-pain-card.flipped .s-pain-card-inner { transform: rotateY(180deg); }
 
-/* Shared face */
-.s-pain-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 28px; padding: 36px 28px; display: flex; flex-direction: column; border: 1px solid var(--s-line); overflow: hidden; }
+/* Shared face — explicit w/h to fix preserve-3d sizing */
+.s-pain-face { position: absolute; top: 0; left: 0; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 28px; padding: 36px 28px; display: flex; flex-direction: column; border: 1px solid var(--s-line); overflow: hidden; }
 @media (max-width: 600px) { .s-pain-face { padding: 28px 22px; } }
 
 /* Front */
@@ -917,11 +917,12 @@ function PainCard({ item, i }) {
     const g = Math.round(90 + edge * 165);  // 90 → 255
     const b = Math.round(44 + edge * 211);  // 44 → 255
 
-    // Border: invisible at center, bright at edge, blur increases
-    const borderA = Math.min(eq * 1.8, 1);  // 0 → 1
-    const blurPx = 2 + edge * 14;           // 2px → 16px (more diffuse at edge)
-    // Interior spot: very subtle, only near edges
-    const spotA = Math.min(eq * 0.25, 0.2); // barely visible, max 0.2
+    // Border: invisible at center, bright white at edge
+    const borderA = Math.min(eq * 1.8, 1);
+    const blurPx = 2 + edge * 14;
+    // Interior spot: grows with edge proximity, covers ~75% of card
+    const spotA = Math.min(eq * 0.6, 0.35);
+    const spotSize = 60 + edge * 90; // 60% → 150% of card
 
     glow.style.setProperty('--glow-x', `${xPct}%`);
     glow.style.setProperty('--glow-y', `${yPct}%`);
@@ -932,6 +933,7 @@ function PainCard({ item, i }) {
     glow.style.setProperty('--glow-border-a', `${borderA}`);
     glow.style.setProperty('--glow-blur', `${blurPx}px`);
     glow.style.setProperty('--glow-spot-a', `${spotA}`);
+    glow.style.setProperty('--glow-spot-size', `${spotSize}%`);
   };
 
   return (
