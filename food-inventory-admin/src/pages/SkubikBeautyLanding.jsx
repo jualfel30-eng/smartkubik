@@ -310,20 +310,21 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 
 /* === PAIN / SCROLL-HIJACK DOCK CAROUSEL === */
 .s-pain-wrap { position: relative; }
-.s-pain-sticky { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
-.s-pain-head { margin-bottom: 32px; max-width: 780px; padding: 0 32px; }
-@media (max-width: 480px) { .s-pain-head { padding: 0 20px; margin-bottom: 24px; } }
-.s-pain-head h2 { font-size: clamp(36px, 5vw, 64px); margin: 16px 0; }
+.s-pain-sticky { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+.s-pain-head { flex-shrink: 0; padding: 80px 32px 24px; max-width: 780px; }
+@media (max-width: 600px) { .s-pain-head { padding: 60px 20px 16px; } }
+.s-pain-head h2 { font-size: clamp(32px, 5vw, 64px); margin: 14px 0; }
 .s-pain-head h2 em { font-style: italic; color: var(--s-accent); }
-.s-pain-head p { color: var(--s-muted); font-size: 16px; max-width: 520px; line-height: 1.6; margin-top: 8px; }
+.s-pain-head p { color: var(--s-muted); font-size: 15px; max-width: 520px; line-height: 1.5; margin-top: 6px; }
 
-/* Carousel track — horizontal, positioned by JS */
-.s-pain-track { display: flex; gap: 28px; padding: 0 calc(50vw - 190px); align-items: center; will-change: transform; }
-@media (max-width: 600px) { .s-pain-track { gap: 18px; padding: 0 calc(50vw - 150px); } }
+/* Carousel track — fills remaining height, cards sized to fit */
+.s-pain-track-wrap { flex: 1; display: flex; align-items: center; min-height: 0; }
+.s-pain-track { display: flex; gap: 28px; padding: 0 calc(50vw - 170px); align-items: center; will-change: transform; height: 100%; }
+@media (max-width: 600px) { .s-pain-track { gap: 18px; padding: 0 calc(50vw - 140px); } }
 
-/* Card */
-.s-pain-card { flex: 0 0 380px; height: 560px; position: relative; border-radius: 28px; cursor: none; perspective: 900px; will-change: transform, filter; transform-style: preserve-3d; }
-@media (max-width: 600px) { .s-pain-card { flex: 0 0 300px; height: calc(100svh - 220px); min-height: 440px; max-height: 620px; } }
+/* Card — aspect-ratio 9:16, height fills available space */
+.s-pain-card { flex-shrink: 0; width: auto; aspect-ratio: 9/16; height: 90%; max-height: 680px; position: relative; border-radius: 28px; cursor: none; perspective: 900px; will-change: transform, filter; transform-style: preserve-3d; }
+@media (max-width: 600px) { .s-pain-card { height: 88%; max-height: 600px; } }
 
 /* Glow — tight, localized, white-hot at edges */
 .s-pain-glow { position: absolute; inset: -1px; border-radius: 29px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1; overflow: hidden; }
@@ -368,7 +369,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-back-hint { margin-top: auto; padding-top: 20px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--s-dim); text-transform: uppercase; letter-spacing: 0.1em; }
 
 /* Progress dots */
-.s-pain-dots { display: flex; justify-content: center; gap: 6px; margin-top: 20px; }
+.s-pain-dots { flex-shrink: 0; display: flex; justify-content: center; gap: 6px; padding: 12px 0 20px; }
 .s-pain-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--s-dim); transition: all 0.3s; }
 .s-pain-dot.active { background: var(--s-accent); width: 20px; border-radius: 3px; }
 
@@ -1074,10 +1075,12 @@ function SPain({ D }) {
           <h2>Ocho problemas que<br/><em>Skubik elimina.</em></h2>
           <p>{D.pain.subtitle}</p>
         </div>
-        <div className="s-pain-track" ref={trackRef} style={{ perspective: '1200px' }}>
-          {D.pain.items.map((item, i) => (
-            <PainCard key={i} item={item} i={i} />
-          ))}
+        <div className="s-pain-track-wrap">
+          <div className="s-pain-track" ref={trackRef} style={{ perspective: '1200px' }}>
+            {D.pain.items.map((item, i) => (
+              <PainCard key={i} item={item} i={i} />
+            ))}
+          </div>
         </div>
         <div className="s-pain-dots">
           {D.pain.items.map((_, i) => (
