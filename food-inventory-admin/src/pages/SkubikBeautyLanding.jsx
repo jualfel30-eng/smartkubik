@@ -326,13 +326,13 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-card { flex-shrink: 0; width: auto; aspect-ratio: 9/16; height: 90%; max-height: 680px; position: relative; border-radius: 28px; cursor: none; perspective: 900px; will-change: transform, filter; transform-style: preserve-3d; }
 @media (max-width: 600px) { .s-pain-card { height: 88%; max-height: 600px; } }
 
-/* Glow — border-only, orange→white at edge, minimal interior fill */
-.s-pain-glow { position: absolute; inset: -2px; border-radius: 30px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1; }
+/* Glow — border-only, edge proximity drives brightness */
+.s-pain-glow { position: absolute; inset: -3px; border-radius: 31px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1; }
 .s-pain-card:hover .s-pain-glow { opacity: 1; }
-/* Border glow — conic, transitions to white at high edge proximity */
-.s-pain-glow-border { position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from var(--glow-angle, 0deg) at var(--glow-x, 50%) var(--glow-y, 50%), rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), var(--glow-border-a, 0)), transparent 30%, transparent 70%, rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), var(--glow-border-a, 0))); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; -webkit-mask-composite: xor; padding: 2px; filter: blur(var(--glow-blur, 4px)); }
-/* Interior glow — large radial from cursor position, fades across 75% of card */
-.s-pain-glow-spot { position: absolute; width: var(--glow-spot-size, 100%); height: var(--glow-spot-size, 100%); transform: translate(-50%, -50%); left: var(--glow-x, 50%); top: var(--glow-y, 50%); border-radius: 50%; background: radial-gradient(circle, rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), var(--glow-spot-a, 0)) 0%, rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), calc(var(--glow-spot-a, 0) * 0.4)) 35%, transparent 75%); filter: blur(40px); pointer-events: none; }
+/* Outer soft halo behind the border — gives depth */
+.s-pain-glow-spot { position: absolute; inset: -6px; border-radius: 34px; background: conic-gradient(from var(--glow-angle, 0deg) at 50% 50%, rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), var(--glow-outer-a, 0)) 0deg, transparent 60deg, transparent 300deg, rgba(var(--glow-r, 255), var(--glow-g, 90), var(--glow-b, 44), var(--glow-outer-a, 0)) 360deg); filter: blur(16px); }
+/* Sharp border line — white-hot at cursor edge */
+.s-pain-glow-border { position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from var(--glow-angle, 0deg) at 50% 50%, rgba(var(--glow-r, 255), var(--glow-g, 255), var(--glow-b, 255), var(--glow-border-a, 0)) 0deg, rgba(var(--glow-r, 255), var(--glow-g, 160), var(--glow-b, 60), calc(var(--glow-border-a, 0) * 0.5)) 30deg, transparent 80deg, transparent 280deg, rgba(var(--glow-r, 255), var(--glow-g, 160), var(--glow-b, 60), calc(var(--glow-border-a, 0) * 0.5)) 330deg, rgba(var(--glow-r, 255), var(--glow-g, 255), var(--glow-b, 255), var(--glow-border-a, 0)) 360deg); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; -webkit-mask-composite: xor; padding: 2px; }
 
 /* Flip inner */
 .s-pain-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; z-index: 2; }
@@ -910,30 +910,23 @@ function PainCard({ item, i }) {
     const edgeX = Math.max(1 - px * 2, px * 2 - 1, 0);
     const edgeY = Math.max(1 - py * 2, py * 2 - 1, 0);
     const edge = Math.max(edgeX, edgeY);
-    const eq = edge * edge; // quadratic ramp
+    const eq = edge * edge;
 
-    // Color: orange(255,90,44) → amber(255,180,80) → white(255,255,255)
+    // Border brightness: 0 at center → 1 at edge
+    const borderA = Math.min(eq * 2.2, 1);
+    // Outer halo: softer, follows border
+    const outerA = Math.min(eq * 1.2, 0.5);
+    // Color shifts orange→white based on edge proximity
     const r = 255;
-    const g = Math.round(90 + edge * 165);  // 90 → 255
-    const b = Math.round(44 + edge * 211);  // 44 → 255
+    const g = Math.round(90 + edge * 165);  // 90→255
+    const b = Math.round(44 + edge * 211);  // 44→255
 
-    // Border: invisible at center, bright white at edge
-    const borderA = Math.min(eq * 1.8, 1);
-    const blurPx = 2 + edge * 14;
-    // Interior spot: grows with edge proximity, covers ~75% of card
-    const spotA = Math.min(eq * 0.6, 0.35);
-    const spotSize = 60 + edge * 90; // 60% → 150% of card
-
-    glow.style.setProperty('--glow-x', `${xPct}%`);
-    glow.style.setProperty('--glow-y', `${yPct}%`);
     glow.style.setProperty('--glow-angle', `${angle}deg`);
     glow.style.setProperty('--glow-r', r);
     glow.style.setProperty('--glow-g', g);
     glow.style.setProperty('--glow-b', b);
     glow.style.setProperty('--glow-border-a', `${borderA}`);
-    glow.style.setProperty('--glow-blur', `${blurPx}px`);
-    glow.style.setProperty('--glow-spot-a', `${spotA}`);
-    glow.style.setProperty('--glow-spot-size', `${spotSize}%`);
+    glow.style.setProperty('--glow-outer-a', `${outerA}`);
   };
 
   return (
