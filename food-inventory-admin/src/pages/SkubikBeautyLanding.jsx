@@ -343,12 +343,14 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 
 /* Front */
 .s-pain-front { background: var(--s-bg2); position: relative; }
-.s-pain-front-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.35; pointer-events: none; z-index: 0; }
+/* Video bg — lives OUTSIDE the 3D flip context, directly on .s-pain-card */
+.s-pain-card-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.35; pointer-events: none; z-index: 1; transition: opacity 0.65s; }
+.s-pain-card.flipped .s-pain-card-video { opacity: 0; }
 .s-pain-front.has-video { background: transparent; }
 .s-pain-front.has-video .s-pain-front-num,
 .s-pain-front.has-video .s-pain-front-tag,
 .s-pain-front.has-video .s-pain-front-q,
-.s-pain-front.has-video .s-pain-front-cta { position: relative; z-index: 2; text-shadow: 0 1px 8px rgba(0,0,0,0.7); }
+.s-pain-front.has-video .s-pain-front-cta { position: relative; z-index: 2; text-shadow: 0 2px 12px rgba(0,0,0,0.8); }
 .s-pain-front-num { font-family: 'Fraunces', serif; font-size: 80px; font-style: italic; color: rgba(255,90,44,0.1); line-height: 1; pointer-events: none; }
 @media (max-width: 600px) { .s-pain-front-num { font-size: 64px; } }
 .s-pain-front-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-accent); margin-top: auto; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
@@ -935,11 +937,11 @@ function PainCard({ item, i }) {
         <div className="s-pain-glow-spot" />
         <div className="s-pain-glow-border" />
       </div>
+      {item.video && (
+        <video className="s-pain-card-video" src={item.video} autoPlay loop muted playsInline />
+      )}
       <div className="s-pain-card-inner">
         <div className={`s-pain-face s-pain-front ${item.video ? 'has-video' : ''}`}>
-          {item.video && (
-            <video className="s-pain-front-video" src={item.video} autoPlay loop muted playsInline />
-          )}
           <div className="s-pain-front-num">0{i + 1}</div>
           <div className="s-pain-front-tag">{item.tag}</div>
           <div className="s-pain-front-q">{item.q}</div>
