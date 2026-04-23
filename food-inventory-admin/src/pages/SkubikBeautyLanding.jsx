@@ -942,7 +942,7 @@ function PainCard({ item, i }) {
       )}
       <div className="s-pain-card-inner">
         <div className={`s-pain-face s-pain-front ${item.video ? 'has-video' : ''}`}>
-          <div className="s-pain-front-num">0{i + 1}</div>
+          <div className="s-pain-front-num" style={{ marginBottom: 'auto' }}>0{i + 1}</div>
           <div className="s-pain-front-tag">{item.tag}</div>
           <div className="s-pain-front-q">{item.q}</div>
           <div className="s-pain-front-cta">
