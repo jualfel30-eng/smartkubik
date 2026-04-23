@@ -15,44 +15,31 @@ const BEAUTY_DATA = {
   },
 
   hero: {
-    headlineVariants: [
-      {
-        eyebrow: 'Software de agendamiento para belleza',
-        title: 'Tu salón, abierto siempre. Aunque tú estés dormida.',
-        subtitle: 'Agenda 24/7, anticipos que no se pierden, y cero mensajes de WhatsApp a las 11pm. Para salones, barberías, spas y nail studios en Venezuela y LATAM.',
-      },
-      {
-        eyebrow: 'Agenda sin caos',
-        title: 'Menos "¿tenés hueco pa\' mañana?". Más tijera en mano.',
-        subtitle: 'Tus clientas reservan solas. Tú cobras anticipo antes. Y el domingo lo tienes libre, de verdad.',
-      },
-      {
-        eyebrow: 'SmartKubik · Belleza',
-        title: 'La agenda que tu salón se merecía desde hace años.',
-        subtitle: 'Reservas online, pagos anticipados y un panel que entiende cómo trabajas. Sin comisiones por cita, sin amarres.',
-      },
-    ],
+    eyebrow: 'Skubik · Software para negocios de belleza',
+    title: 'Tu talento está en tus manos, no pegado a un teclado.',
+    subtitle: 'Basta de ser recepcionista de tu propio negocio. Valora tu tiempo y el de tu equipo. Skubik agenda, minimiza el "embarque" confirmando tus citas, y saca las cuentas de tu negocio sin que tengas que mover un dedo. Dedícate a cobrar y crear.',
     stats: [
       { value: '24/7', label: 'Agenda abierta' },
       { value: '–38%', label: 'Cancelaciones sin aviso' },
       { value: '+2h', label: 'Ahorradas al día' },
     ],
-    primaryCTA: 'Hablar por WhatsApp',
-    secondaryCTA: 'Ver demo de 60s',
+    primaryCTA: 'Compruébalo gratis 14 días',
+    secondaryCTA: '¿Dudas? Hablemos por WhatsApp',
     microcopy: 'Sin tarjeta · 14 días · Migramos tu agenda gratis',
   },
 
   pain: {
-    title: '¿Te suena alguno de estos?',
-    subtitle: 'Llevamos 3 años hablando con dueñas de salón. Siempre salen los mismos siete.',
+    title: '¿Te suena?',
+    subtitle: 'Toca cualquier tarjeta para ver cómo Skubik lo resuelve.',
     items: [
-      { q: '"Son las 10:47pm y tengo 14 WhatsApps sin responder."', a: 'Tu cliente reserva sola, sin escribirte.' },
-      { q: '"Me dejó plantada. Otra vez. Y hoy rechacé dos clientas por ese hueco."', a: 'Anticipo del 30% antes de reservar. No viene = no pierdes.' },
-      { q: '"Mi cuaderno se me mojó y con él, tres meses de citas."', a: 'Todo en la nube. Sincronizado con tu equipo.' },
-      { q: '"No sé cuánto vendí el mes pasado. Ni quién es mi mejor clienta."', a: 'Dashboard con ingresos, frecuencia y ticket promedio.' },
-      { q: '"Mi recepcionista renunció y toda la información se fue con ella."', a: 'Tus datos son tuyos. Exporta cuando quieras, sin permisos.' },
-      { q: '"Contraté a una chica nueva y no sé dónde meter su agenda."', a: 'Múltiples calendarios, cada uno con sus servicios y precios.' },
-      { q: '"Cobro en efectivo, Zelle, Pago Móvil, Binance... y el Excel me odia."', a: 'Caja unificada. Cierre de día en 30 segundos.' },
+      { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'Agenda' },
+      { q: 'Me confié de mi memoria y le di cita a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'Conflictos' },
+      { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'Embarques' },
+      { q: 'Pago nómina pero nunca me entero de cuánto produjo cada estilista. Pago igual a quién trabaja el doble y a quién me llega tarde tres veces por semana.', a: 'Comisiones automáticas por profesional. Sabes exactamente quién produce qué.', tag: 'Comisiones' },
+      { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'Datos' },
+      { q: 'Quieres reactivar a clientes que no vienen hace 2 meses, pero no tienes forma de saber quiénes son.', a: 'Skubik detecta clientas inactivas automáticamente y te avisa para reactivarlas.', tag: 'Retención' },
+      { q: 'Tienes las fotos de antes/después regadas en 3 teléfonos distintos.', a: 'Portafolio digital por clienta y servicio. Organizado, accesible, listo para Instagram.', tag: 'Portafolio' },
+      { q: 'No sé cuánto vendí el mes pasado. Ni quién es mi mejor clienta.', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Reportes' },
     ],
   },
 
@@ -321,38 +308,73 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-marquee-track span::after { content: '\\2726'; color: var(--s-accent); }
 @keyframes s-scroll { to { transform: translateX(-50%); } }
 
-/* === PAIN / VOICE NOTES === */
-.s-pain { padding: 120px 0 80px; position: relative; }
-.s-pain-head { margin-bottom: 80px; max-width: 780px; }
-.s-pain-head h2 { font-size: clamp(40px, 5.5vw, 72px); margin: 20px 0; }
+/* === PAIN / SCROLL-HIJACK DOCK CAROUSEL === */
+.s-pain-wrap { position: relative; }
+.s-pain-sticky { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.s-pain-head { margin-bottom: 32px; max-width: 780px; padding: 0 32px; }
+@media (max-width: 480px) { .s-pain-head { padding: 0 20px; margin-bottom: 24px; } }
+.s-pain-head h2 { font-size: clamp(36px, 5vw, 64px); margin: 16px 0; }
 .s-pain-head h2 em { font-style: italic; color: var(--s-accent); }
-.s-pain-head p { color: var(--s-muted); font-size: 17px; max-width: 520px; line-height: 1.6; margin-top: 10px; }
-.s-voice-list { display: flex; flex-direction: column; gap: 16px; max-width: 680px; margin: 0 auto; }
-.s-voice { display: flex; gap: 14px; align-items: flex-end; opacity: 0; transform: translateY(30px); transition: all 0.6s cubic-bezier(0.2,0.8,0.2,1); }
-.s-voice.in { opacity: 1; transform: none; }
-.s-voice.reverse { flex-direction: row-reverse; align-items: flex-start; }
-.s-voice-avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, #c25a3a, #8a3e25); display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-size: 16px; font-weight: 500; color: #fff; }
-.s-voice.reverse .s-voice-avatar { background: linear-gradient(135deg, #25d366, #128c7e); }
-.s-voice-bubble { flex: 1; max-width: 500px; background: #1f2c33; border-radius: 14px 14px 14px 4px; padding: 12px 14px; position: relative; }
-.s-voice.reverse .s-voice-bubble { background: #005c4b; border-radius: 14px 14px 4px 14px; }
-.s-voice-row { display: flex; align-items: center; gap: 10px; }
-.s-voice-play { width: 34px; height: 34px; border-radius: 50%; background: var(--s-fg); color: var(--s-bg); border: none; display: flex; align-items: center; justify-content: center; cursor: none; flex-shrink: 0; }
-.s-voice-play svg { width: 14px; height: 14px; }
-.s-voice-wave { flex: 1; height: 28px; display: flex; align-items: center; gap: 2px; }
-.s-voice-wave span { flex: 1; background: rgba(245,239,227,0.35); border-radius: 2px; transition: height 0.2s, background 0.2s; }
-.s-voice-wave.playing span { background: var(--s-accent2); }
-.s-voice-time { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: rgba(245,239,227,0.5); }
-.s-voice-transcript { font-size: 14px; line-height: 1.55; padding: 8px 4px 4px; color: rgba(245,239,227,0.9); font-style: italic; }
-.s-voice-meta { display: flex; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(245,239,227,0.45); }
+.s-pain-head p { color: var(--s-muted); font-size: 16px; max-width: 520px; line-height: 1.6; margin-top: 8px; }
+
+/* Carousel track — horizontal, positioned by JS */
+.s-pain-track { display: flex; gap: 28px; padding: 0 calc(50vw - 190px); align-items: center; will-change: transform; }
+@media (max-width: 600px) { .s-pain-track { gap: 18px; padding: 0 calc(50vw - 150px); } }
+
+/* Card */
+.s-pain-card { flex: 0 0 380px; height: 560px; position: relative; border-radius: 28px; cursor: none; perspective: 900px; will-change: transform, filter; transform-style: preserve-3d; }
+@media (max-width: 600px) { .s-pain-card { flex: 0 0 300px; height: calc(100svh - 220px); min-height: 440px; max-height: 620px; } }
+
+/* Glow — tight, localized, white-hot at edges */
+.s-pain-glow { position: absolute; inset: -1px; border-radius: 29px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1; overflow: hidden; }
+.s-pain-card:hover .s-pain-glow { opacity: 1; }
+.s-pain-glow-spot { position: absolute; width: var(--glow-size, 560px); height: var(--glow-size, 560px); transform: translate(-50%, -50%); left: var(--glow-x, 50%); top: var(--glow-y, 50%); border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,var(--glow-white, 0)) 0%, rgba(192,132,252,var(--glow-color-a, 0.4)) 18%, rgba(244,114,182,var(--glow-color-a, 0.3)) 38%, transparent 60%); filter: blur(176px); pointer-events: none; }
+/* Border line that glows near cursor */
+.s-pain-glow-border { position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from var(--glow-angle, 0deg) at var(--glow-x, 50%) var(--glow-y, 50%), rgba(192,132,252,var(--glow-border-a, 0)), rgba(244,114,182,var(--glow-border-a, 0)), rgba(56,189,248,var(--glow-border-a, 0)), transparent 40%, transparent 60%, rgba(192,132,252,var(--glow-border-a, 0))); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; -webkit-mask-composite: xor; padding: 1.5px; filter: blur(32px); }
+
+/* Flip inner */
+.s-pain-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; z-index: 2; }
+.s-pain-card.flipped .s-pain-card-inner { transform: rotateY(180deg); }
+
+/* Shared face */
+.s-pain-face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 28px; padding: 36px 28px; display: flex; flex-direction: column; border: 1px solid var(--s-line); overflow: hidden; }
+@media (max-width: 600px) { .s-pain-face { padding: 28px 22px; } }
+
+/* Front */
+.s-pain-front { background: var(--s-bg2); }
+.s-pain-front-num { font-family: 'Fraunces', serif; font-size: 80px; font-style: italic; color: rgba(255,90,44,0.1); line-height: 1; pointer-events: none; }
+@media (max-width: 600px) { .s-pain-front-num { font-size: 64px; } }
+.s-pain-front-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-accent); margin-top: auto; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
+.s-pain-front-tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--s-accent); }
+.s-pain-front-q { font-family: 'Fraunces', serif; font-size: 20px; line-height: 1.4; color: var(--s-fg); font-style: italic; }
+@media (max-width: 600px) { .s-pain-front-q { font-size: 18px; } }
+.s-pain-front-cta { margin-top: 24px; display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--s-accent); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.s-pain-front-cta-arrow { display: inline-block; transition: transform 0.3s cubic-bezier(0.22,1,0.36,1); }
+.s-pain-card:hover .s-pain-front-cta { color: #c084fc; }
+.s-pain-card:hover .s-pain-front-cta-arrow { transform: translateX(6px); }
+
+/* Back */
+.s-pain-back { background: linear-gradient(160deg, rgba(208,255,58,0.12), var(--s-bg2) 55%); border-color: rgba(208,255,58,0.3); transform: rotateY(180deg); justify-content: center; }
+.s-pain-back-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-accent2); margin-bottom: 20px; display: flex; align-items: center; gap: 6px; }
+.s-pain-back-label::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--s-accent2); }
+.s-pain-back-a { font-size: 22px; line-height: 1.5; color: var(--s-fg); font-weight: 500; }
+@media (max-width: 600px) { .s-pain-back-a { font-size: 19px; } }
+.s-pain-back-hint { margin-top: auto; padding-top: 20px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--s-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+
+/* Progress dots */
+.s-pain-dots { display: flex; justify-content: center; gap: 6px; margin-top: 20px; }
+.s-pain-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--s-dim); transition: all 0.3s; }
+.s-pain-dot.active { background: var(--s-accent); width: 20px; border-radius: 3px; }
 
 /* === BENEFITS STICKY === */
-.s-benefits { padding: 120px 0 0; position: relative; }
-.s-ben-head { text-align: center; margin-bottom: 60px; }
-.s-ben-head h2 { font-size: clamp(40px, 5.5vw, 72px); margin: 20px 0; }
+.s-benefits { position: relative; }
+.s-ben-stage { position: relative; height: 600vh; }
+.s-ben-sticky { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 24px 32px 0; overflow: hidden; }
+.s-ben-head { text-align: center; margin-bottom: 20px; }
+.s-ben-head h2 { font-size: clamp(36px, 5vw, 64px); margin: 16px 0; }
 .s-ben-head h2 em { font-style: italic; color: var(--s-accent); }
-.s-ben-stage { position: relative; height: 180vh; }
-.s-ben-sticky { position: sticky; top: 60px; height: calc(100vh - 60px); display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; padding: 0 32px; max-width: 1280px; margin: 0 auto; }
-@media (max-width: 900px) { .s-ben-stage { height: auto; } .s-ben-sticky { position: relative; top: 0; height: auto; padding: 40px 32px; grid-template-columns: 1fr; gap: 24px; } }
+.s-ben-content { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; max-width: 1280px; width: 100%; }
+@media (max-width: 900px) { .s-ben-stage { height: 650vh; } .s-ben-content { grid-template-columns: 1fr; gap: 24px; } }
 .s-ben-text h3 { font-size: clamp(32px, 4.5vw, 56px); margin: 16px 0; }
 .s-ben-text h3 em { color: var(--s-accent); font-style: italic; }
 .s-ben-kicker { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--s-accent2); }
@@ -793,10 +815,11 @@ function HeroHeadline({ title }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { const t = setTimeout(() => setMounted(true), 50); return () => clearTimeout(t); }, []);
   const words = title.split(' ');
+  const emphWords = ['manos,', 'teclado.'];
   return (
     <h1>
       {words.map((w, i) => {
-        const em = w.includes('merecía') || w.includes('años');
+        const em = emphWords.some(e => w.includes(e));
         return (
           <span className={`s-hero-word ${mounted ? 'in' : ''}`} key={i} style={{ transitionDelay: `${0.08 + i*0.05}s` }}>
             {em ? <em>{w}&nbsp;</em> : <>{w}&nbsp;</>}
@@ -808,7 +831,7 @@ function HeroHeadline({ title }) {
 }
 
 function SHero({ D }) {
-  const h = D.hero.headlineVariants[2];
+  const h = D.hero;
   return (
     <section className="s-hero" data-screen-label="01 Hero">
       <div className="s-hero-grid-bg"></div>
@@ -819,14 +842,14 @@ function SHero({ D }) {
           <p className="s-hero-sub">{h.subtitle}</p>
           <div className="s-hero-cta">
             <Link to="/register/beauty" state={{ source: 'skubik-landing', category: 'barbershop-salon' }} className="s-btn s-btn-primary">
-              Prueba gratis 14 días →
+              {h.primaryCTA} →
             </Link>
-            <a className="s-btn s-btn-ghost" href={D.brand.waMsg('Quiero probar.')} target="_blank" rel="noreferrer">
+            <a className="s-btn s-btn-ghost" href={D.brand.waMsg('Hola, tengo dudas sobre Skubik.')} target="_blank" rel="noreferrer">
               {WA_ICON}
-              {D.hero.primaryCTA}
+              {h.secondaryCTA}
             </a>
           </div>
-          <div className="s-hero-micro">{D.hero.microcopy}</div>
+          <div className="s-hero-micro">{h.microcopy}</div>
         </div>
         <div className="s-hero-right">
           <HeroCalendar />
@@ -854,86 +877,206 @@ function SMarquee() {
   );
 }
 
-// ---- Pain / Voice Notes ----
-function VoiceBar({ playing, delay }) {
-  const bars = 32;
+// ---- Pain / Scroll-Hijack Dock Carousel ----
+function PainCard({ item, i }) {
+  const [flipped, setFlipped] = useState(false);
+  const cardRef = useRef(null);
+  const glowRef = useRef(null);
+
+  const handlePointerMove = (e) => {
+    const glow = glowRef.current;
+    const el = cardRef.current;
+    if (!glow || !el) return;
+    const rect = el.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width; // 0-1
+    const py = (e.clientY - rect.top) / rect.height;  // 0-1
+    const xPct = px * 100;
+    const yPct = py * 100;
+    const cx = e.clientX - rect.left - rect.width / 2;
+    const cy = e.clientY - rect.top - rect.height / 2;
+    const angle = Math.atan2(cy, cx) * (180 / Math.PI) + 90;
+
+    // Edge proximity: how close to nearest edge (0=center, 1=at edge)
+    const edgeX = Math.max(1 - px * 2, px * 2 - 1, 0); // 0 center, 1 edge
+    const edgeY = Math.max(1 - py * 2, py * 2 - 1, 0);
+    const edge = Math.max(edgeX, edgeY);
+    const edgeCubed = edge * edge * edge; // cubic ramp — gentle at center, explosive at edge
+
+    // Glow spot: tight near edges, vanishes toward center
+    const spotSize = 560 + edge * 480; // 560px center → 1040px at edge
+    const whiteIntensity = Math.min(edgeCubed * 3.5, 1); // white-hot at border
+    const colorIntensity = Math.min(0.4 + edgeCubed * 3.2, 1); // blazing
+    const borderIntensity = Math.min(edgeCubed * 3.2, 1);
+
+    glow.style.setProperty('--glow-x', `${xPct}%`);
+    glow.style.setProperty('--glow-y', `${yPct}%`);
+    glow.style.setProperty('--glow-angle', `${angle}deg`);
+    glow.style.setProperty('--glow-size', `${spotSize}px`);
+    glow.style.setProperty('--glow-white', `${whiteIntensity}`);
+    glow.style.setProperty('--glow-color-a', `${colorIntensity}`);
+    glow.style.setProperty('--glow-border-a', `${borderIntensity}`);
+  };
+
   return (
-    <div className={`s-voice-wave ${playing ? 'playing' : ''}`}>
-      {Array.from({ length: bars }).map((_, i) => {
-        const h = Math.sin(i * 0.6 + delay) * 8 + Math.cos(i * 0.3) * 6 + 14;
-        return <span key={i} style={{ height: `${Math.max(3, h)}px` }} />;
-      })}
-    </div>
-  );
-}
-
-function VoiceNote({ item, i }) {
-  const ref = useRef(null);
-  const [playing, setPlaying] = useState(false);
-  const [entered, setEntered] = useState(false);
-  useEffect(() => {
-    if (!ref.current) return;
-    const io = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting && !entered) {
-        setEntered(true);
-        ref.current?.classList.add('in');
-        setTimeout(() => setPlaying(true), 300);
-        setTimeout(() => setPlaying(false), 2800);
-      }
-    }, { threshold: 0.4 });
-    io.observe(ref.current);
-    return () => io.disconnect();
-  }, [entered]);
-
-  const names = ['Jennifer · Caracas', 'Vanessa · Valencia', 'Paola · Maracaibo', 'Isabel · Barquisimeto', 'Moraima · Margarita', 'Greta · Mérida', 'Daniela · Caracas'];
-  const times = ['hace 3 min', 'hace 8 min', 'hace 14 min', 'hace 22 min', 'hace 31 min', 'hace 48 min', 'hace 1 h'];
-  const duration = ['0:18', '0:24', '0:11', '0:32', '0:09', '0:21', '0:27'];
-
-  return (
-    <div className="s-voice" ref={ref}>
-      <div className="s-voice-avatar">{names[i][0]}</div>
-      <div className="s-voice-bubble">
-        <div className="s-voice-row">
-          <button className="s-voice-play" onClick={() => { setPlaying(true); setTimeout(() => setPlaying(false), 2500); }}>
-            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-          </button>
-          <VoiceBar playing={playing} delay={i} />
-          <span className="s-voice-time">{duration[i]}</span>
+    <div
+      ref={cardRef}
+      className={`s-pain-card ${flipped ? 'flipped' : ''}`}
+      onClick={() => setFlipped(f => !f)}
+      onPointerMove={handlePointerMove}
+    >
+      <div className="s-pain-glow" ref={glowRef}>
+        <div className="s-pain-glow-spot" />
+        <div className="s-pain-glow-border" />
+      </div>
+      <div className="s-pain-card-inner">
+        <div className="s-pain-face s-pain-front">
+          <div className="s-pain-front-num">0{i + 1}</div>
+          <div className="s-pain-front-tag">{item.tag}</div>
+          <div className="s-pain-front-q">{item.q}</div>
+          <div className="s-pain-front-cta">
+            Ver solución <span className="s-pain-front-cta-arrow">→</span>
+          </div>
         </div>
-        <div className="s-voice-transcript">{item.q}</div>
-        <div className="s-voice-meta">
-          <span>{names[i]} · {times[i]}</span>
-        </div>
-        <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(245,239,227,0.75)', padding: '8px 10px', background: 'rgba(255,90,44,0.12)', borderLeft: '2px solid var(--s-accent)', borderRadius: '4px 8px 8px 4px' }}>
-          <strong style={{ color: 'var(--s-accent)', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Respuesta de SmartKubik →</strong>
-          <div style={{ marginTop: 4 }}>{item.a}</div>
+        <div className="s-pain-face s-pain-back">
+          <div className="s-pain-back-label">Skubik lo resuelve</div>
+          <div className="s-pain-back-a">{item.a}</div>
+          <div className="s-pain-back-hint">← Toca para volver</div>
         </div>
       </div>
     </div>
   );
+}
+
+function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const rafRef = useRef(null);
+  const progressRef = useRef(0);
+  const isLockedRef = useRef(false);
+
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    const track = trackRef.current;
+    const sticky = stickyRef.current;
+    if (!wrap || !track || !sticky) return;
+
+    const getMetrics = () => {
+      const cards = track.querySelectorAll('.s-pain-card');
+      if (!cards.length) return null;
+      const cardWidth = cards[0].offsetWidth;
+      const gap = 28;
+      const padLeft = parseFloat(getComputedStyle(track).paddingLeft);
+      const firstCenter = padLeft + cardWidth / 2;
+      const lastCenter = padLeft + (cardWidth + gap) * (count - 1) + cardWidth / 2;
+      return { cards, cardWidth, gap, maxOffset: lastCenter - firstCenter };
+    };
+
+    const applyProgress = (p) => {
+      const m = getMetrics();
+      if (!m) return;
+      progressRef.current = p;
+
+      track.style.transform = `translateX(${-p * m.maxOffset}px)`;
+
+      const vCenter = window.innerWidth / 2;
+      let closest = 0;
+      let closestDist = Infinity;
+      m.cards.forEach((card, idx) => {
+        const rect = card.getBoundingClientRect();
+        const cardCenter = rect.left + rect.width / 2;
+        const dist = Math.abs(cardCenter - vCenter);
+        const maxDist = window.innerWidth * 0.6;
+        const norm = Math.min(dist / maxDist, 1);
+
+        const scale = 1 - norm * 0.2;
+        const z = -norm * 140;
+        const blur = norm * 6;
+        const brightness = 1 - norm * 0.4;
+        const zIdx = Math.round((1 - norm) * 100);
+
+        card.style.transform = `translateZ(${z}px) scale(${scale})`;
+        card.style.filter = `blur(${blur}px) brightness(${brightness})`;
+        card.style.zIndex = zIdx;
+        card.style.transition = 'none';
+
+        if (dist < closestDist) { closestDist = dist; closest = idx; }
+      });
+      setActiveIdx(closest);
+    };
+
+    // Vertical scroll drives progress
+    const onScroll = () => {
+      const wrapRect = wrap.getBoundingClientRect();
+      const wrapTop = window.scrollY + wrapRect.top;
+      const scrollableHeight = wrap.offsetHeight - window.innerHeight;
+      const scrolled = window.scrollY - wrapTop;
+      const p = Math.max(0, Math.min(1, scrolled / scrollableHeight));
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => applyProgress(p));
+    };
+
+    // Convert horizontal scroll (deltaX) into vertical scroll within the section
+    // Vertical scroll (deltaY) flows naturally — it already drives the carousel
+    const onWheel = (e) => {
+      // Only act on horizontal scroll
+      if (Math.abs(e.deltaX) < 2) return;
+      // Only while sticky is pinned
+      const stickyRect = sticky.getBoundingClientRect();
+      const wrapRect = wrap.getBoundingClientRect();
+      const isInSection = stickyRect.top <= 1 && wrapRect.bottom > window.innerHeight;
+      if (!isInSection) return;
+
+      const p = progressRef.current;
+      // At boundaries, release
+      if ((p <= 0 && e.deltaX < 0) || (p >= 1 && e.deltaX > 0)) return;
+
+      e.preventDefault();
+      window.scrollBy({ top: e.deltaX * 2 });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    window.addEventListener('wheel', onWheel, { passive: false });
+    onScroll();
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      window.removeEventListener('wheel', onWheel);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [wrapRef, trackRef, stickyRef, count]);
+
+  return activeIdx;
 }
 
 function SPain({ D }) {
-  const ref = useReveal();
+  const wrapRef = useRef(null);
+  const trackRef = useRef(null);
+  const stickyRef = useRef(null);
+  const n = D.pain.items.length;
+  const scrollHeight = n * 70;
+  const activeIdx = useScrollHijackCarousel(wrapRef, trackRef, stickyRef, n);
+
   return (
-    <section className="s-pain s-reveal" ref={ref} id="dolor" data-screen-label="02 Pain">
-      <div className="s-container-narrow">
+    <div className="s-pain-wrap" ref={wrapRef} id="dolor" style={{ height: `${scrollHeight}vh` }}>
+      <div className="s-pain-sticky" ref={stickyRef}>
         <div className="s-pain-head">
-          <span className="s-eyebrow">Dossier · Dolor real</span>
-          <h2>Siete notas de voz<br/>que <em>recibimos todas las semanas.</em></h2>
-          <p>Reproduce. Escucha. ¿Te suena? Al final de cada una, lo que SmartKubik hace al respecto.</p>
+          <span className="s-eyebrow" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'var(--s-accent)', display: 'inline-flex', alignItems: 'center', gap: 10 }}>Dolor real</span>
+          <h2>Ocho problemas que<br/><em>Skubik elimina.</em></h2>
+          <p>{D.pain.subtitle}</p>
         </div>
-        <div className="s-voice-list">
-          {D.pain.items.map((item, i) => <VoiceNote key={i} item={item} i={i} />)}
+        <div className="s-pain-track" ref={trackRef} style={{ perspective: '1200px' }}>
+          {D.pain.items.map((item, i) => (
+            <PainCard key={i} item={item} i={i} />
+          ))}
         </div>
-        <div style={{ textAlign: 'center', marginTop: 48 }}>
-          <p style={{ fontSize: 18, color: 'var(--s-fg)', marginBottom: 16, fontFamily: 'Fraunces, serif' }}>¿Lista para resolverlos?</p>
-          <Link to="/register/beauty" state={{ source: 'skubik-landing' }} className="s-btn s-btn-primary" style={{ display: 'inline-flex' }}>
-            Prueba gratis 14 días →
-          </Link>
+        <div className="s-pain-dots">
+          {D.pain.items.map((_, i) => (
+            <div key={i} className={`s-pain-dot ${i === activeIdx ? 'active' : ''}`} />
+          ))}
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -1063,34 +1206,36 @@ function BenefitVisual({ idx, progress }) {
 function SBenefits({ D }) {
   const stageRef = useRef(null);
   const progress = useSectionProgress(stageRef);
-  const currentIdx = Math.min(2, Math.floor(progress * 3.2));
-  const localP = Math.max(0, Math.min(1, (progress * 3.2) - currentIdx));
+  // Acts complete at 75% scroll, last 25% holds act 3 with full animation
+  const p = Math.min(progress / 0.75, 1); // remap 0-0.75 → 0-1
+  const currentIdx = Math.min(2, Math.floor(p * 3));
+  const localP = Math.max(0, Math.min(1, (p * 3) - currentIdx));
   const ben = D.benefits.items[currentIdx];
 
   return (
     <section className="s-benefits" id="beneficios" data-screen-label="03 Benefits">
-      <div className="s-container">
-        <div className="s-ben-head">
-          <span className="s-eyebrow">Tres actos</span>
-          <h2>Lo que <em>cambia</em> el día que migras.</h2>
-        </div>
-      </div>
       <div className="s-ben-stage" ref={stageRef}>
         <div className="s-ben-sticky">
-          <div className="s-ben-text" key={currentIdx}>
-            <div className="s-ben-kicker">Acto {ben.num} · {ben.kicker}</div>
-            <h3 dangerouslySetInnerHTML={{ __html: ben.title.replace(/\b(duermes|plantones|tuyas)\b/g, '<em>$1</em>') }} />
-            <p className="s-ben-body">{ben.body}</p>
-            <div className="s-ben-outcome">
-              <span className="s-ben-outcome-v">{ben.outcome}</span>
-              <span className="s-ben-outcome-l">{ben.outcomeLabel}</span>
-            </div>
+          <div className="s-ben-head">
+            <span className="s-eyebrow">Tres actos</span>
+            <h2>Lo que <em>cambia</em> el día que migras.</h2>
           </div>
-          <div className="s-ben-visual">
-            <div className="s-ben-indicator">
-              {[0,1,2].map(i => <div key={i} className={`s-ben-indicator-dot ${i === currentIdx ? 'active' : ''}`}></div>)}
+          <div className="s-ben-content">
+            <div className="s-ben-text" key={currentIdx}>
+              <div className="s-ben-kicker">Acto {ben.num} · {ben.kicker}</div>
+              <h3 dangerouslySetInnerHTML={{ __html: ben.title.replace(/\b(duermes|plantones|tuyas)\b/g, '<em>$1</em>') }} />
+              <p className="s-ben-body">{ben.body}</p>
+              <div className="s-ben-outcome">
+                <span className="s-ben-outcome-v">{ben.outcome}</span>
+                <span className="s-ben-outcome-l">{ben.outcomeLabel}</span>
+              </div>
             </div>
-            <BenefitVisual idx={currentIdx} progress={localP} />
+            <div className="s-ben-visual">
+              <div className="s-ben-indicator">
+                {[0,1,2].map(i => <div key={i} className={`s-ben-indicator-dot ${i === currentIdx ? 'active' : ''}`}></div>)}
+              </div>
+              <BenefitVisual idx={currentIdx} progress={localP} />
+            </div>
           </div>
         </div>
       </div>
