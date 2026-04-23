@@ -343,7 +343,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 
 /* Front */
 .s-pain-front { background: var(--s-bg2); position: relative; }
-.s-pain-front-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.35; pointer-events: none; }
+.s-pain-front-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.35; pointer-events: none; z-index: 0; }
 .s-pain-front.has-video { background: transparent; }
 .s-pain-front.has-video .s-pain-front-num,
 .s-pain-front.has-video .s-pain-front-tag,
