@@ -32,7 +32,7 @@ const BEAUTY_DATA = {
     title: '¿Te suena?',
     subtitle: 'Toca cualquier tarjeta para ver cómo Skubik lo resuelve.',
     items: [
-      { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'Agenda' },
+      { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'Agenda', video: '/videos/late-night-scroll.webm' },
       { q: 'Me confié de mi memoria y le di cita a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'Conflictos' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'Embarques' },
       { q: 'Pago nómina pero nunca me entero de cuánto produjo cada estilista. Pago igual a quién trabaja el doble y a quién me llega tarde tres veces por semana.', a: 'Comisiones automáticas por profesional. Sabes exactamente quién produce qué.', tag: 'Comisiones' },
@@ -341,7 +341,13 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 @media (max-width: 600px) { .s-pain-face { padding: 28px 22px; } }
 
 /* Front */
-.s-pain-front { background: var(--s-bg2); }
+.s-pain-front { background: var(--s-bg2); position: relative; }
+.s-pain-front-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.35; pointer-events: none; }
+.s-pain-front.has-video { background: transparent; }
+.s-pain-front.has-video .s-pain-front-num,
+.s-pain-front.has-video .s-pain-front-tag,
+.s-pain-front.has-video .s-pain-front-q,
+.s-pain-front.has-video .s-pain-front-cta { position: relative; z-index: 2; text-shadow: 0 1px 8px rgba(0,0,0,0.7); }
 .s-pain-front-num { font-family: 'Fraunces', serif; font-size: 80px; font-style: italic; color: rgba(255,90,44,0.1); line-height: 1; pointer-events: none; }
 @media (max-width: 600px) { .s-pain-front-num { font-size: 64px; } }
 .s-pain-front-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-accent); margin-top: auto; margin-bottom: 16px; display: flex; align-items: center; gap: 6px; }
@@ -374,7 +380,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-ben-head h2 { font-size: clamp(36px, 5vw, 64px); margin: 16px 0; }
 .s-ben-head h2 em { font-style: italic; color: var(--s-accent); }
 .s-ben-content { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; max-width: 1280px; width: 100%; }
-@media (max-width: 900px) { .s-ben-stage { height: 650vh; } .s-ben-content { grid-template-columns: 1fr; gap: 24px; } }
+@media (max-width: 900px) { .s-ben-stage { height: 650vh; } .s-ben-sticky { padding: 12px 20px 0; } .s-ben-head { margin-bottom: 10px; } .s-ben-head h2 { font-size: 28px; margin: 8px 0; } .s-ben-content { grid-template-columns: 1fr; gap: 12px; } .s-ben-kicker { font-size: 9px; } .s-ben-text h3 { font-size: 22px; margin: 8px 0; } .s-ben-body { font-size: 14px; margin: 8px 0 12px; } .s-ben-outcome { padding: 10px 16px; } .s-ben-outcome-v { font-size: 22px; } .s-ben-outcome-l { font-size: 10px; } .s-ben-visual { height: 380px; padding: 16px; } }
 .s-ben-text h3 { font-size: clamp(32px, 4.5vw, 56px); margin: 16px 0; }
 .s-ben-text h3 em { color: var(--s-accent); font-style: italic; }
 .s-ben-kicker { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--s-accent2); }
@@ -929,7 +935,10 @@ function PainCard({ item, i }) {
         <div className="s-pain-glow-border" />
       </div>
       <div className="s-pain-card-inner">
-        <div className="s-pain-face s-pain-front">
+        <div className={`s-pain-face s-pain-front ${item.video ? 'has-video' : ''}`}>
+          {item.video && (
+            <video className="s-pain-front-video" src={item.video} autoPlay loop muted playsInline />
+          )}
           <div className="s-pain-front-num">0{i + 1}</div>
           <div className="s-pain-front-tag">{item.tag}</div>
           <div className="s-pain-front-q">{item.q}</div>
