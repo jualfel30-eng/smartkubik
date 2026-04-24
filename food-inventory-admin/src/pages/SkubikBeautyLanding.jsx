@@ -1009,25 +1009,34 @@ function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
       const vCenter = window.innerWidth / 2;
       let closest = 0;
       let closestDist = Infinity;
+
+      // First pass: find closest
+      m.cards.forEach((card, idx) => {
+        const rect = card.getBoundingClientRect();
+        const dist = Math.abs(rect.left + rect.width / 2 - vCenter);
+        if (dist < closestDist) { closestDist = dist; closest = idx; }
+      });
+
+      // Second pass: apply transforms with neighbor awareness
       m.cards.forEach((card, idx) => {
         const rect = card.getBoundingClientRect();
         const cardCenter = rect.left + rect.width / 2;
         const dist = Math.abs(cardCenter - vCenter);
         const maxDist = window.innerWidth * 0.6;
         const norm = Math.min(dist / maxDist, 1);
+        const isNeighbor = Math.abs(idx - closest) === 1;
 
         const scale = 1 - norm * 0.2;
         const z = -norm * 140;
-        const blur = norm * 6;
-        const brightness = 1 - norm * 0.4;
+        // Neighbors get 60% less blur than distant cards
+        const blur = isNeighbor ? norm * 2.4 : norm * 6;
+        const brightness = isNeighbor ? 1 - norm * 0.2 : 1 - norm * 0.4;
         const zIdx = Math.round((1 - norm) * 100);
 
         card.style.transform = `translateZ(${z}px) scale(${scale})`;
         card.style.filter = `blur(${blur}px) brightness(${brightness})`;
         card.style.zIndex = zIdx;
         card.style.transition = 'none';
-
-        if (dist < closestDist) { closestDist = dist; closest = idx; }
       });
       setActiveIdx(closest);
     };
