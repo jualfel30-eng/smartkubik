@@ -351,7 +351,8 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-card-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.3; pointer-events: none; z-index: 1; transition: opacity 0.5s cubic-bezier(0.22,1,0.36,1); }
 .s-pain-card:hover .s-pain-card-video { opacity: 0.85; }
 .s-pain-card.flipped .s-pain-card-video { opacity: 0; }
-.s-pain-front.has-video { background: var(--s-bg); }
+.s-pain-front.has-video { background: transparent; }
+.s-pain-card.flipped .s-pain-front { background: var(--s-bg2); }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
