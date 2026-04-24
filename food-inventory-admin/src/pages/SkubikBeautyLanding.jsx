@@ -232,7 +232,8 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-progress-bar { height: 100%; background: var(--s-accent); width: 0%; transition: width 0.08s linear; }
 
 /* Nav */
-.s-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 60; padding: 18px 32px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(14px); background: rgba(11,10,9,0.6); border-bottom: 1px solid var(--s-line); }
+.s-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 60; padding: 18px 32px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(14px); background: rgba(11,10,9,0.6); border-bottom: 1px solid var(--s-line); transition: transform 0.35s cubic-bezier(0.22,1,0.36,1); }
+.s-nav.hidden { transform: translateY(-100%); }
 .s-nav-logo { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
 .s-nav-logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--s-accent); animation: s-pulse 2s ease-in-out infinite; }
 @keyframes s-pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.6; } }
@@ -723,8 +724,21 @@ function Progress() {
 
 // ---- Nav ----
 function SNav({ D }) {
+  const [hidden, setHidden] = useState(false);
+  const lastY = useRef(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      const down = y > lastY.current && y > 80;
+      setHidden(down);
+      lastY.current = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
-    <nav className="s-nav">
+    <nav className={`s-nav ${hidden ? 'hidden' : ''}`}>
       <div className="s-nav-logo">
         <span className="s-nav-logo-dot"></span>
         SmartKubik
