@@ -36,7 +36,7 @@ const BEAUTY_DATA = {
       { q: 'Me confié de mi memoria y le di cita a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'Conflictos', video: '/videos/double-booking.webm' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'Embarques', video: '/videos/no-show.webm' },
       { q: 'Pago nómina pero nunca me entero de cuánto produjo cada estilista. Pago igual a quién trabaja el doble y a quién me llega tarde tres veces por semana.', a: 'Comisiones automáticas por profesional. Sabes exactamente quién produce qué.', tag: 'Comisiones', video: '/videos/commissions.webm' },
-      { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'Datos' },
+      { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'Datos', video: '/videos/data-loss.webm' },
       { q: 'Quieres reactivar a clientes que no vienen hace 2 meses, pero no tienes forma de saber quiénes son.', a: 'Skubik detecta clientas inactivas automáticamente y te avisa para reactivarlas.', tag: 'Retención' },
       { q: 'Tienes las fotos de antes/después regadas en 3 teléfonos distintos.', a: 'Portafolio digital por clienta y servicio. Organizado, accesible, listo para Instagram.', tag: 'Portafolio' },
       { q: 'No sé cuánto vendí el mes pasado. Ni quién es mi mejor clienta.', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Reportes' },
@@ -1024,13 +1024,14 @@ function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
         const dist = Math.abs(cardCenter - vCenter);
         const maxDist = window.innerWidth * 0.6;
         const norm = Math.min(dist / maxDist, 1);
-        const isNeighbor = Math.abs(idx - closest) === 1;
+        const cardDist = Math.abs(idx - closest); // 0=focused, 1=neighbor, 2+=far
 
         const scale = 1 - norm * 0.2;
         const z = -norm * 140;
-        // Neighbors get 60% less blur than distant cards
-        const blur = isNeighbor ? norm * 2.4 : norm * 6;
-        const brightness = isNeighbor ? 1 - norm * 0.2 : 1 - norm * 0.4;
+        // Blur scales with distance from focused card: 0→0, 1→2, 2→4, 3+→6
+        const maxBlur = cardDist <= 0 ? 0 : cardDist === 1 ? 2 : cardDist === 2 ? 4 : 6;
+        const blur = norm * maxBlur;
+        const brightness = 1 - norm * (cardDist <= 1 ? 0.2 : 0.4);
         const zIdx = Math.round((1 - norm) * 100);
 
         card.style.transform = `translateZ(${z}px) scale(${scale})`;
