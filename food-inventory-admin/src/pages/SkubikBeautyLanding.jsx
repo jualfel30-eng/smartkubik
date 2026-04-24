@@ -334,9 +334,11 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 /* Border line — white at cursor, orange/amber spreading 3/4 around */
 .s-pain-glow-border { position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from var(--glow-angle, 0deg) at var(--glow-x, 50%) var(--glow-y, 50%), rgba(255,255,255,var(--glow-border-a, 0)) 0deg, rgba(255,200,120,calc(var(--glow-border-a, 0)*0.7)) 45deg, rgba(255,130,50,calc(var(--glow-border-a, 0)*0.4)) 90deg, rgba(255,90,44,calc(var(--glow-border-a, 0)*0.15)) 135deg, transparent 160deg, transparent 200deg, rgba(255,90,44,calc(var(--glow-border-a, 0)*0.15)) 225deg, rgba(255,130,50,calc(var(--glow-border-a, 0)*0.4)) 270deg, rgba(255,200,120,calc(var(--glow-border-a, 0)*0.7)) 315deg, rgba(255,255,255,var(--glow-border-a, 0)) 360deg); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; -webkit-mask-composite: xor; padding: 2px; }
 
-/* Flip inner */
-.s-pain-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; z-index: 2; }
-.s-pain-card.flipped .s-pain-card-inner { transform: rotateY(180deg); }
+/* Flip + zoom inner */
+.s-pain-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; z-index: 2; }
+.s-pain-card.flipped .s-pain-card-inner { transform: rotateY(180deg) scale(1.15); }
+.s-pain-card.flipped { z-index: 200 !important; filter: none !important; }
+@media (max-width: 600px) { .s-pain-card.flipped .s-pain-card-inner { transform: rotateY(180deg) scale(1.08); } }
 
 /* Shared face — explicit w/h to fix preserve-3d sizing */
 .s-pain-face { position: absolute; top: 0; left: 0; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 28px; padding: 36px 28px; display: flex; flex-direction: column; border: 1px solid var(--s-line); overflow: hidden; }
@@ -345,19 +347,20 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 /* Front */
 .s-pain-front { background: var(--s-bg2); position: relative; }
 /* Video bg — lives OUTSIDE the 3D flip context, directly on .s-pain-card */
-.s-pain-card-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.35; pointer-events: none; z-index: 1; transition: opacity 0.65s; }
+.s-pain-card-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.3; pointer-events: none; z-index: 1; transition: opacity 0.5s cubic-bezier(0.22,1,0.36,1); }
+.s-pain-card:hover .s-pain-card-video { opacity: 1; }
 .s-pain-card.flipped .s-pain-card-video { opacity: 0; }
 .s-pain-front.has-video { background: transparent; }
 .s-pain-front.has-video .s-pain-front-num,
 .s-pain-front.has-video .s-pain-front-tag,
 .s-pain-front.has-video .s-pain-front-q,
-.s-pain-front.has-video .s-pain-front-cta { position: relative; z-index: 2; text-shadow: 0 2px 12px rgba(0,0,0,0.8); }
-.s-pain-front-num { font-family: 'Fraunces', serif; font-size: 80px; font-style: italic; color: rgba(255,90,44,0.50); line-height: 1; pointer-events: none; margin-bottom: auto; }
+.s-pain-front.has-video .s-pain-front-cta { position: relative; z-index: 2; text-shadow: 0 2px 16px rgba(0,0,0,0.9), 0 0 40px rgba(0,0,0,0.6); }
+.s-pain-front-num { font-family: 'Fraunces', serif; font-size: 80px; font-style: italic; color: var(--s-accent); line-height: 1; pointer-events: none; margin-bottom: auto; }
 @media (max-width: 600px) { .s-pain-front-num { font-size: 64px; } }
 .s-pain-front-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-accent); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
 .s-pain-front-tag::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--s-accent); }
-.s-pain-front-q { font-family: 'Fraunces', serif; font-size: 20px; line-height: 1.4; color: var(--s-fg); font-style: italic; }
-@media (max-width: 600px) { .s-pain-front-q { font-size: 18px; } }
+.s-pain-front-q { font-family: 'Inter Tight', system-ui, sans-serif; font-size: 18px; line-height: 1.5; color: var(--s-fg); font-weight: 500; }
+@media (max-width: 600px) { .s-pain-front-q { font-size: 16px; } }
 .s-pain-front-cta { margin-top: 24px; display: flex; align-items: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--s-accent); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
 .s-pain-front-cta-arrow { display: inline-block; transition: transform 0.3s cubic-bezier(0.22,1,0.36,1); }
 .s-pain-card:hover .s-pain-front-cta { color: #ffa03c; }
@@ -367,7 +370,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-back { background: linear-gradient(160deg, rgba(208,255,58,0.12), var(--s-bg2) 55%); border-color: rgba(208,255,58,0.3); transform: rotateY(180deg); justify-content: center; }
 .s-pain-back-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-accent2); margin-bottom: 20px; display: flex; align-items: center; gap: 6px; }
 .s-pain-back-label::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--s-accent2); }
-.s-pain-back-a { font-size: 22px; line-height: 1.5; color: var(--s-fg); font-weight: 500; }
+.s-pain-back-a { font-family: 'Inter Tight', system-ui, sans-serif; font-size: 20px; line-height: 1.55; color: var(--s-fg); font-weight: 500; }
 @media (max-width: 600px) { .s-pain-back-a { font-size: 19px; } }
 .s-pain-back-hint { margin-top: auto; padding-top: 20px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--s-dim); text-transform: uppercase; letter-spacing: 0.1em; }
 
