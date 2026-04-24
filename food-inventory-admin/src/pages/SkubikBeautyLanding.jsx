@@ -347,12 +347,10 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 
 /* Front — must have opaque bg for Safari backface to work */
 .s-pain-front { background: var(--s-bg2); position: relative; }
-/* Video bg — lives OUTSIDE the 3D flip context, directly on .s-pain-card */
-.s-pain-card-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.3; pointer-events: none; z-index: 1; transition: opacity 0.5s cubic-bezier(0.22,1,0.36,1); }
+/* Video bg — INSIDE the 3D flip context, rotates with the card */
+.s-pain-card-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.3; pointer-events: none; z-index: 3; backface-visibility: hidden; -webkit-backface-visibility: hidden; transition: opacity 0.4s; }
 .s-pain-card:hover .s-pain-card-video { opacity: 0.85; }
-.s-pain-card.flipped .s-pain-card-video { opacity: 0; }
 .s-pain-front.has-video { background: transparent; }
-.s-pain-card.flipped .s-pain-front { background: var(--s-bg2); }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
@@ -967,10 +965,10 @@ function PainCard({ item, i, activeIdx }) {
         <div className="s-pain-glow-spot" />
         <div className="s-pain-glow-border" />
       </div>
-      {item.video && (
-        <video ref={videoRef} className="s-pain-card-video" src={item.video} loop muted playsInline preload="none" />
-      )}
       <div className="s-pain-card-inner">
+        {item.video && (
+          <video ref={videoRef} className="s-pain-card-video" src={item.video} loop muted playsInline preload="none" />
+        )}
         <div className={`s-pain-face s-pain-front ${item.video ? 'has-video' : ''}`}>
           <div className="s-pain-front-num">0{i + 1}</div>
           <div style={{ marginTop: 'auto' }}>
