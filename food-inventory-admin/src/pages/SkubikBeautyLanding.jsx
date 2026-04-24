@@ -348,13 +348,15 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-front { background: var(--s-bg2); position: relative; }
 /* Video bg — lives OUTSIDE the 3D flip context, directly on .s-pain-card */
 .s-pain-card-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.3; pointer-events: none; z-index: 1; transition: opacity 0.5s cubic-bezier(0.22,1,0.36,1); }
-.s-pain-card:hover .s-pain-card-video { opacity: 1; }
+.s-pain-card:hover .s-pain-card-video { opacity: 0.85; }
 .s-pain-card.flipped .s-pain-card-video { opacity: 0; }
 .s-pain-front.has-video { background: transparent; }
+/* Bottom gradient overlay for text legibility */
+.s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
 .s-pain-front.has-video .s-pain-front-tag,
 .s-pain-front.has-video .s-pain-front-q,
-.s-pain-front.has-video .s-pain-front-cta { position: relative; z-index: 2; text-shadow: 0 2px 16px rgba(0,0,0,0.9), 0 0 40px rgba(0,0,0,0.6); }
+.s-pain-front.has-video .s-pain-front-cta { position: relative; z-index: 2; text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
 .s-pain-front-num { font-family: 'Fraunces', serif; font-size: 80px; font-style: italic; color: var(--s-accent); line-height: 1; pointer-events: none; margin-bottom: auto; }
 @media (max-width: 600px) { .s-pain-front-num { font-size: 64px; } }
 .s-pain-front-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-accent); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
@@ -891,33 +893,43 @@ function SMarquee() {
 }
 
 // ---- Pain / Scroll-Hijack Dock Carousel ----
-function PainCard({ item, i }) {
+function PainCard({ item, i, activeIdx }) {
   const [flipped, setFlipped] = useState(false);
   const cardRef = useRef(null);
   const glowRef = useRef(null);
+  const videoRef = useRef(null);
+
+  // Only play videos on focused card ± 1 neighbor
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    const shouldPlay = Math.abs(i - activeIdx) <= 1;
+    if (shouldPlay) {
+      vid.play().catch(() => {});
+    } else {
+      vid.pause();
+    }
+  }, [activeIdx, i]);
 
   const handlePointerMove = (e) => {
     const glow = glowRef.current;
     const el = cardRef.current;
     if (!glow || !el) return;
     const rect = el.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width; // 0-1
-    const py = (e.clientY - rect.top) / rect.height;  // 0-1
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
     const xPct = px * 100;
     const yPct = py * 100;
     const cx = e.clientX - rect.left - rect.width / 2;
     const cy = e.clientY - rect.top - rect.height / 2;
     const angle = Math.atan2(cy, cx) * (180 / Math.PI) + 90;
 
-    // Edge proximity: 0 at center, 1 at edge
     const edgeX = Math.max(1 - px * 2, px * 2 - 1, 0);
     const edgeY = Math.max(1 - py * 2, py * 2 - 1, 0);
     const edge = Math.max(edgeX, edgeY);
     const eq = edge * edge;
 
-    // Border brightness: 0 at center → 1 at edge
     const borderA = Math.min(eq * 2.2, 1);
-    // Outer halo: softer
     const outerA = Math.min(eq * 1.4, 0.5);
 
     glow.style.setProperty('--glow-x', `${xPct}%`);
@@ -941,7 +953,7 @@ function PainCard({ item, i }) {
         <div className="s-pain-glow-border" />
       </div>
       {item.video && (
-        <video className="s-pain-card-video" src={item.video} autoPlay loop muted playsInline />
+        <video ref={videoRef} className="s-pain-card-video" src={item.video} loop muted playsInline preload="none" />
       )}
       <div className="s-pain-card-inner">
         <div className={`s-pain-face s-pain-front ${item.video ? 'has-video' : ''}`}>
@@ -1085,7 +1097,7 @@ function SPain({ D }) {
         <div className="s-pain-track-wrap">
           <div className="s-pain-track" ref={trackRef} style={{ perspective: '1200px' }}>
             {D.pain.items.map((item, i) => (
-              <PainCard key={i} item={item} i={i} />
+              <PainCard key={i} item={item} i={i} activeIdx={activeIdx} />
             ))}
           </div>
         </div>
