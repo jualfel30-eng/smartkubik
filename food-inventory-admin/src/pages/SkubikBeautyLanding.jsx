@@ -30,7 +30,7 @@ const BEAUTY_DATA = {
 
   pain: {
     title: '¿Te suena?',
-    subtitle: 'Toca cualquier tarjeta para ver cómo Skubik lo resuelve.',
+    subtitle: 'Cada tarjeta tiene un final diferente. Tócala.',
     items: [
       { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'Agenda', video: '/videos/late-night-scroll.webm' },
       { q: 'Me confié de mi memoria y le di cita a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'Conflictos', video: '/videos/double-booking.webm' },
@@ -336,22 +336,22 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-glow-border { position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from var(--glow-angle, 0deg) at var(--glow-x, 50%) var(--glow-y, 50%), rgba(255,255,255,var(--glow-border-a, 0)) 0deg, rgba(255,200,120,calc(var(--glow-border-a, 0)*0.7)) 45deg, rgba(255,130,50,calc(var(--glow-border-a, 0)*0.4)) 90deg, rgba(255,90,44,calc(var(--glow-border-a, 0)*0.15)) 135deg, transparent 160deg, transparent 200deg, rgba(255,90,44,calc(var(--glow-border-a, 0)*0.15)) 225deg, rgba(255,130,50,calc(var(--glow-border-a, 0)*0.4)) 270deg, rgba(255,200,120,calc(var(--glow-border-a, 0)*0.7)) 315deg, rgba(255,255,255,var(--glow-border-a, 0)) 360deg); mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; -webkit-mask-composite: xor; padding: 2px; }
 
 /* Flip + zoom inner */
-.s-pain-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; z-index: 2; }
+.s-pain-card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; -webkit-transform-style: preserve-3d; z-index: 2; }
 .s-pain-card.flipped .s-pain-card-inner { transform: rotateY(180deg) scale(1.15); }
 .s-pain-card.flipped { z-index: 200 !important; filter: none !important; }
 @media (max-width: 600px) { .s-pain-card.flipped .s-pain-card-inner { transform: rotateY(180deg) scale(1.08); } }
 
-/* Shared face — explicit w/h to fix preserve-3d sizing */
+/* Shared face — opaque background required for Safari backface-visibility */
 .s-pain-face { position: absolute; top: 0; left: 0; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 28px; padding: 36px 28px; display: flex; flex-direction: column; border: 1px solid var(--s-line); overflow: hidden; }
 @media (max-width: 600px) { .s-pain-face { padding: 28px 22px; } }
 
-/* Front */
+/* Front — must have opaque bg for Safari backface to work */
 .s-pain-front { background: var(--s-bg2); position: relative; }
 /* Video bg — lives OUTSIDE the 3D flip context, directly on .s-pain-card */
 .s-pain-card-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.3; pointer-events: none; z-index: 1; transition: opacity 0.5s cubic-bezier(0.22,1,0.36,1); }
 .s-pain-card:hover .s-pain-card-video { opacity: 0.85; }
 .s-pain-card.flipped .s-pain-card-video { opacity: 0; }
-.s-pain-front.has-video { background: transparent; }
+.s-pain-front.has-video { background: var(--s-bg); }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
@@ -370,7 +370,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-card:hover .s-pain-front-cta-arrow { transform: translateX(6px); }
 
 /* Back */
-.s-pain-back { background: linear-gradient(160deg, rgba(208,255,58,0.12), var(--s-bg2) 55%); border-color: rgba(208,255,58,0.3); transform: rotateY(180deg); justify-content: center; }
+.s-pain-back { background: linear-gradient(160deg, #1d1f12, var(--s-bg2) 55%); border-color: rgba(208,255,58,0.3); transform: rotateY(180deg); justify-content: center; }
 .s-pain-back-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-accent2); margin-bottom: 20px; display: flex; align-items: center; gap: 6px; }
 .s-pain-back-label::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--s-accent2); }
 .s-pain-back-a { font-family: 'Inter Tight', system-ui, sans-serif; font-size: 20px; line-height: 1.55; color: var(--s-fg); font-weight: 500; }
@@ -1115,7 +1115,7 @@ function SPain({ D }) {
       <div className="s-pain-sticky" ref={stickyRef}>
         <div className="s-pain-head">
           <span className="s-eyebrow" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'var(--s-accent)', display: 'inline-flex', alignItems: 'center', gap: 10 }}>Dolor real</span>
-          <h2>Ocho problemas que<br/><em>Skubik elimina.</em></h2>
+          <h2>¿Has protagonizado alguna<br/>de estas <em>películas?</em></h2>
           <p>{D.pain.subtitle}</p>
         </div>
         <div className="s-pain-track-wrap">
