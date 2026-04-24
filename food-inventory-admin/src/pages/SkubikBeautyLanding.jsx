@@ -39,7 +39,7 @@ const BEAUTY_DATA = {
       { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'Datos', video: '/videos/data-loss.webm' },
       { q: 'Quieres reactivar a clientes que no vienen hace 2 meses, pero no tienes forma de saber quiénes son.', a: 'Skubik detecta clientas inactivas automáticamente y te avisa para reactivarlas.', tag: 'Retención', video: '/videos/retention.webm' },
       { q: 'Tienes las fotos de antes/después regadas en 3 teléfonos distintos.', a: 'Portafolio digital por clienta y servicio. Organizado, accesible, listo para Instagram.', tag: 'Portafolio', video: '/videos/portfolio.webm' },
-      { q: 'No sé cuánto vendí el mes pasado. Ni quién es mi mejor clienta.', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Reportes' },
+      { q: 'No sé cuánto vendí el mes pasado. Ni quién es mi mejor clienta.', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Reportes', video: '/videos/reports.webm' },
     ],
   },
 
