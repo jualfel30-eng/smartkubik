@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import {
@@ -38,7 +39,9 @@ export default function BookingPage() {
   const [availableSlots, setAvailableSlots] = useState<AvailabilitySlot[]>([]);
 
   const [step, setStep] = useState(1);
+  const [stepDirection, setStepDirection] = useState(1); // 1 = forward, -1 = backward
   const [loading, setLoading] = useState(true);
+  const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
@@ -53,6 +56,10 @@ export default function BookingPage() {
   const [selectedProfessional, setSelectedProfessional] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  });
   const [clientName, setClientName] = useState('');
   const [clientPhone, setClientPhone] = useState('');
   const [notes, setNotes] = useState('');
@@ -132,6 +139,7 @@ export default function BookingPage() {
         return;
       }
 
+      setLoadingSlots(true);
       try {
         const serviceIds = selectedServices.map((s) => s.serviceId);
         const result = await getAvailability({
@@ -144,6 +152,8 @@ export default function BookingPage() {
       } catch (err) {
         console.error('Error loading availability:', err);
         setAvailableSlots([]);
+      } finally {
+        setLoadingSlots(false);
       }
     }
 
@@ -235,9 +245,19 @@ export default function BookingPage() {
         packageId: selectedPackageId || undefined,
       });
 
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
       router.push(`/${domain}/beauty/reserva/${booking.bookingNumber}`);
     } catch (err: any) {
-      setError(err.message || 'Error al crear la reserva');
+      const msg = err.message || 'Error al crear la reserva';
+      // Handle slot-taken conflict
+      if (err.status === 409 || msg.toLowerCase().includes('no disponible') || msg.toLowerCase().includes('already taken')) {
+        setError('Ese horario acaba de ser reservado por alguien más. Por favor elige otro.');
+        setSelectedTime('');
+        setStepDirection(-1);
+        setStep(3);
+      } else {
+        setError(msg);
+      }
       setSubmitting(false);
     }
   };
@@ -276,12 +296,43 @@ export default function BookingPage() {
     return false;
   };
 
+  // Persist booking state to sessionStorage
+  const STORAGE_KEY = `beauty-booking-${domain}`;
+  useEffect(() => {
+    if (loading) return; // Don't persist before initial load
+    const state = {
+      step, selectedServices, selectedPackageId, selectedProfessional,
+      selectedDate, selectedTime, clientName, clientPhone, notes,
+    };
+    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+  }, [step, selectedServices, selectedPackageId, selectedProfessional, selectedDate, selectedTime, clientName, clientPhone, notes, loading]);
+
+  // Restore from sessionStorage on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const state = JSON.parse(saved);
+      if (state.selectedServices?.length > 0) setSelectedServices(state.selectedServices);
+      if (state.selectedPackageId) setSelectedPackageId(state.selectedPackageId);
+      if (state.selectedProfessional) setSelectedProfessional(state.selectedProfessional);
+      if (state.selectedDate) setSelectedDate(state.selectedDate);
+      if (state.selectedTime) setSelectedTime(state.selectedTime);
+      if (state.clientName) setClientName(state.clientName);
+      if (state.clientPhone) setClientPhone(state.clientPhone);
+      if (state.notes) setNotes(state.notes);
+      if (state.step > 1 && state.selectedServices?.length > 0) setStep(state.step);
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const nextStep = async () => {
     if (step === 4 && clientPhone) {
       // Check no-show policy before proceeding to confirmation
       await checkClientStatus(clientPhone);
     }
     if (canGoToStep(step + 1)) {
+      setStepDirection(1);
       setStep(step + 1);
       setError(null);
     }
@@ -289,6 +340,7 @@ export default function BookingPage() {
 
   const prevStep = () => {
     if (step > 1) {
+      setStepDirection(-1);
       setStep(step - 1);
       setError(null);
     }
@@ -334,7 +386,8 @@ export default function BookingPage() {
           <span className="font-bold tracking-tight" style={{ color: primaryColor }}>{config.name}</span>
           <button
             onClick={toggleDarkMode}
-            className={`p-2 rounded-full transition ${
+            aria-label={darkMode ? 'Modo claro' : 'Modo oscuro'}
+            className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full transition ${
               darkMode ? 'bg-neutral-800 text-amber-400 hover:bg-neutral-700' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
             }`}
           >
@@ -391,7 +444,7 @@ export default function BookingPage() {
                       num
                     )}
                   </div>
-                  <span className={`text-xs mt-2 font-medium text-center hidden sm:block ${
+                  <span className={`text-[10px] sm:text-xs mt-2 font-medium text-center ${
                     isActive ? '' : colors.textLight
                   }`} style={isActive ? { color: primaryColor } : {}}>
                     {label}
@@ -413,10 +466,18 @@ export default function BookingPage() {
 
         {/* Step content */}
         <div className={`${colors.card} rounded-2xl shadow-xl p-6 md:p-8 mb-6 border ${colors.border} transition-colors duration-300`}>
+          <AnimatePresence mode="wait" initial={false}>
           {/* Step 1: Services */}
           {step === 1 && (
-            <div>
-              <h2 className={`text-2xl font-bold tracking-tight mb-6 ${colors.text}`}>Selecciona tus Servicios</h2>
+            <motion.div
+              key="step-1"
+              initial={{ x: stepDirection > 0 ? 30 : -30, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: stepDirection > 0 ? -30 : 30, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              <h2 className={`text-2xl font-bold tracking-tight mb-2 ${colors.text}`}>Selecciona tus Servicios</h2>
+              <p className={`text-sm mb-6 ${colors.textMuted}`}>Puedes seleccionar uno o varios servicios</p>
 
               {/* Packages section */}
               {packages.length > 0 && (
@@ -611,12 +672,18 @@ export default function BookingPage() {
                   );
                 })}
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* Step 2: Professional */}
           {step === 2 && (
-            <div>
+            <motion.div
+              key="step-2"
+              initial={{ x: stepDirection > 0 ? 30 : -30, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: stepDirection > 0 ? -30 : 30, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
               <h2 className={`text-2xl font-bold tracking-tight mb-6 ${colors.text}`}>Elige tu Profesional</h2>
               <p className={`mb-6 ${colors.textMuted}`}>Opcional — puedes dejarlo al azar</p>
               <div className="space-y-4">
@@ -721,53 +788,179 @@ export default function BookingPage() {
                   );
                 })}
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* Step 3: Date & Time */}
-          {step === 3 && (
-            <div>
+          {step === 3 && (() => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayStr = today.toISOString().split('T')[0];
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+            const { year: calYear, month: calMonth } = calendarMonth;
+            const firstDay = new Date(calYear, calMonth - 1, 1).getDay(); // 0=Sun
+            const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+            const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+            const dayNames = ['Do','Lu','Ma','Mi','Ju','Vi','Sa'];
+
+            const changeMonth = (delta: number) => {
+              const d = new Date(calYear, calMonth - 1 + delta, 1);
+              setCalendarMonth({ year: d.getFullYear(), month: d.getMonth() + 1 });
+            };
+
+            const selectDay = (day: number) => {
+              const dateStr = `${calYear}-${String(calMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+              if (dateStr < todayStr) return;
+              setSelectedDate(dateStr);
+              setSelectedTime('');
+            };
+
+            return (
+            <motion.div
+              key="step-3"
+              initial={{ x: stepDirection > 0 ? 30 : -30, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: stepDirection > 0 ? -30 : 30, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
               <h2 className={`text-2xl font-bold tracking-tight mb-6 ${colors.text}`}>Fecha y Hora</h2>
 
-              <div className="mb-8">
-                <label className={`block font-semibold mb-2 ${colors.text}`}>Fecha</label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value);
-                    setSelectedTime('');
-                  }}
-                  min={new Date().toISOString().split('T')[0]}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-colors appearance-none ${colors.card} ${colors.text} ${colors.border}`}
+              {/* Quick date buttons */}
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => { setSelectedDate(todayStr); setSelectedTime(''); }}
+                  className={`px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    selectedDate === todayStr ? 'text-white shadow-md' : `${colors.border} ${colors.text} hover:shadow-md`
+                  }`}
                   style={{
-                    borderColor: selectedDate ? primaryColor : undefined,
-                    WebkitAppearance: 'none',
-                    MozAppearance: 'none',
-                    appearance: 'none',
-                    maxWidth: '100%',
-                    minWidth: '0',
-                    width: '100%',
-                    boxSizing: 'border-box',
-                    display: 'block',
+                    borderColor: selectedDate === todayStr ? primaryColor : undefined,
+                    backgroundColor: selectedDate === todayStr ? primaryColor : undefined,
                   }}
-                />
+                >
+                  Hoy
+                </button>
+                <button
+                  onClick={() => { setSelectedDate(tomorrowStr); setSelectedTime(''); }}
+                  className={`px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+                    selectedDate === tomorrowStr ? 'text-white shadow-md' : `${colors.border} ${colors.text} hover:shadow-md`
+                  }`}
+                  style={{
+                    borderColor: selectedDate === tomorrowStr ? primaryColor : undefined,
+                    backgroundColor: selectedDate === tomorrowStr ? primaryColor : undefined,
+                  }}
+                >
+                  Mañana
+                </button>
               </div>
 
+              {/* Inline Calendar */}
+              <div className={`mb-8 border-2 rounded-2xl p-4 ${colors.border} ${colors.card}`}>
+                {/* Month navigation */}
+                <div className="flex items-center justify-between mb-4">
+                  <button
+                    onClick={() => changeMonth(-1)}
+                    className={`p-2 rounded-full transition hover:opacity-70 ${colors.text}`}
+                    aria-label="Mes anterior"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <span className={`font-bold text-lg ${colors.text}`}>
+                    {monthNames[calMonth - 1]} {calYear}
+                  </span>
+                  <button
+                    onClick={() => changeMonth(1)}
+                    className={`p-2 rounded-full transition hover:opacity-70 ${colors.text}`}
+                    aria-label="Mes siguiente"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Day names */}
+                <div className="grid grid-cols-7 gap-1 mb-2">
+                  {dayNames.map((d) => (
+                    <div key={d} className={`text-center text-xs font-semibold py-1 ${colors.textLight}`}>{d}</div>
+                  ))}
+                </div>
+
+                {/* Day grid */}
+                <div className="grid grid-cols-7 gap-1">
+                  {/* Empty cells for offset */}
+                  {Array.from({ length: firstDay }).map((_, i) => (
+                    <div key={`empty-${i}`} />
+                  ))}
+                  {Array.from({ length: daysInMonth }).map((_, i) => {
+                    const day = i + 1;
+                    const dateStr = `${calYear}-${String(calMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                    const isPast = dateStr < todayStr;
+                    const isSelected = dateStr === selectedDate;
+                    const isToday = dateStr === todayStr;
+                    return (
+                      <button
+                        key={day}
+                        onClick={() => selectDay(day)}
+                        disabled={isPast}
+                        className={`aspect-square rounded-xl flex items-center justify-center text-sm font-medium transition-all ${
+                          isPast
+                            ? `opacity-30 cursor-not-allowed ${colors.textLight}`
+                            : isSelected
+                            ? 'text-white shadow-lg'
+                            : isToday
+                            ? `font-bold ${colors.text}`
+                            : `${colors.text} hover:opacity-70`
+                        }`}
+                        style={{
+                          backgroundColor: isSelected ? primaryColor : undefined,
+                          ...(isToday && !isSelected ? { boxShadow: `inset 0 0 0 2px ${primaryColor}40` } : {}),
+                        }}
+                      >
+                        {day}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Time slots */}
               {selectedDate && (
                 <div>
                   <label className={`block font-semibold mb-3 ${colors.text}`}>Horarios Disponibles</label>
-                  {availableSlots.length === 0 ? (
+                  {loadingSlots ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={`h-12 rounded-xl animate-pulse ${darkMode ? 'bg-neutral-700' : 'bg-gray-200'}`}
+                        />
+                      ))}
+                    </div>
+                  ) : availableSlots.length === 0 ? (
                     <div className={`text-center py-10 ${colors.textLight}`}>
-                      No hay horarios disponibles para esta fecha. Intenta otro día.
+                      <p>No hay horarios disponibles para esta fecha.</p>
+                      <button
+                        onClick={() => { setSelectedDate(tomorrowStr); setSelectedTime(''); }}
+                        className="mt-3 text-sm font-semibold underline transition hover:opacity-70"
+                        style={{ color: primaryColor }}
+                      >
+                        Probar mañana
+                      </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                       {availableSlots.map((slot) => (
-                        <button
+                        <motion.button
                           key={slot.time}
+                          whileTap={{ scale: 0.95 }}
                           onClick={() => setSelectedTime(slot.time)}
-                          className={`px-3 py-2.5 rounded-xl border-2 font-medium text-sm transition-all ${
+                          aria-label={`Reservar a las ${slot.time}`}
+                          className={`px-4 py-3.5 rounded-xl border-2 font-medium text-sm transition-all ${
                             selectedTime === slot.time
                               ? 'text-white shadow-lg'
                               : `${colors.border} ${colors.text} hover:shadow-md`
@@ -778,19 +971,32 @@ export default function BookingPage() {
                           }}
                         >
                           {slot.time}
-                        </button>
+                        </motion.button>
                       ))}
                     </div>
                   )}
                 </div>
               )}
-            </div>
-          )}
+            </motion.div>
+            );
+          })()}
 
           {/* Step 4: Client Info */}
           {step === 4 && (
-            <div>
-              <h2 className={`text-2xl font-bold tracking-tight mb-6 ${colors.text}`}>Tus Datos</h2>
+            <motion.div
+              key="step-4"
+              initial={{ x: stepDirection > 0 ? 30 : -30, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: stepDirection > 0 ? -30 : 30, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              <h2 className={`text-2xl font-bold tracking-tight mb-2 ${colors.text}`}>Tus Datos</h2>
+              <p className={`text-sm mb-6 flex items-center gap-1.5 ${colors.textMuted}`}>
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Sin registro. Solo necesitamos tu nombre y teléfono.
+              </p>
               <div className="space-y-5">
                 <div>
                   <label className={`block font-semibold mb-2 ${colors.text}`}>Nombre Completo *</label>
@@ -840,12 +1046,18 @@ export default function BookingPage() {
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* Step 5: Confirm */}
           {step === 5 && (
-            <div>
+            <motion.div
+              key="step-5"
+              initial={{ x: stepDirection > 0 ? 30 : -30, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: stepDirection > 0 ? -30 : 30, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
               <h2 className={`text-2xl font-bold tracking-tight mb-6 ${colors.text}`}>Confirmar Reserva</h2>
 
               <div className="space-y-6">
@@ -948,8 +1160,9 @@ export default function BookingPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
         </div>
 
         {/* Sticky bottom nav bar — always visible */}
@@ -969,16 +1182,14 @@ export default function BookingPage() {
 
               {/* Summary (shown when services selected and not on confirmation step) */}
               <div className="flex-1 min-w-0">
-                {selectedServices.length > 0 ? (
-                  <div className="min-w-0">
-                    <p className={`text-sm font-semibold ${colors.text} truncate`}>
-                      {selectedServices.length} servicio{selectedServices.length > 1 ? 's' : ''} · {totalDuration} min
-                    </p>
-                    <p className="text-sm font-bold" style={{ color: primaryColor }}>${totalPrice.toFixed(2)}</p>
-                  </div>
-                ) : (
-                  <div />
-                )}
+                <div className="min-w-0">
+                  <p className={`text-sm font-semibold ${colors.text} truncate`}>
+                    {selectedServices.length > 0
+                      ? `${selectedServices.length} servicio${selectedServices.length > 1 ? 's' : ''} · ${totalDuration} min`
+                      : '0 servicios'}
+                  </p>
+                  <p className="text-sm font-bold" style={{ color: primaryColor }}>${totalPrice.toFixed(2)}</p>
+                </div>
               </div>
 
               {/* Siguiente / Confirmar */}
@@ -992,14 +1203,20 @@ export default function BookingPage() {
                   Siguiente →
                 </button>
               ) : (
-                <button
+                <motion.button
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="flex-shrink-0 px-6 py-2.5 rounded-xl font-semibold text-sm tracking-wide text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:scale-[1.02]"
+                  whileTap={!submitting ? { scale: 0.95 } : undefined}
+                  className="flex-shrink-0 px-6 py-2.5 rounded-xl font-semibold text-sm tracking-wide text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg hover:scale-[1.02] flex items-center gap-2"
                   style={{ background: !submitting ? `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` : '#9CA3AF' }}
                 >
-                  {submitting ? 'Procesando...' : 'Confirmar ✓'}
-                </button>
+                  {submitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Reservando...
+                    </>
+                  ) : 'Reservar mi cita ✓'}
+                </motion.button>
               )}
             </div>
           </div>

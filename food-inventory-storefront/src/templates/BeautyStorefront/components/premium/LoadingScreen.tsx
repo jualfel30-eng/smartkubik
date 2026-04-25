@@ -7,7 +7,7 @@ export default function LoadingScreen({ logoUrl, primaryColor }: { logoUrl?: str
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1500);
+    const timer = setTimeout(() => setIsLoading(false), 400);
     return () => clearTimeout(timer);
   }, []);
 
@@ -17,7 +17,7 @@ export default function LoadingScreen({ logoUrl, primaryColor }: { logoUrl?: str
         <motion.div
           className="fixed inset-0 bg-luxury-black-900 z-[9999] flex items-center justify-center"
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.8, ease: 'easeInOut' }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
         >
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
