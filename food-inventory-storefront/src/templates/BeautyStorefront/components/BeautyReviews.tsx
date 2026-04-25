@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import SectionReveal from './premium/SectionReveal';
 import type { ColorScheme } from '../BeautyStorefront';
 
@@ -167,11 +168,12 @@ export default function BeautyReviews({ reviews, colors, primaryColor, googlePla
                 <div className={`${colors.card} rounded-xl p-5 shadow-lg`}>
                   <div className="flex items-center gap-3 mb-3">
                     {review.profile_photo_url ? (
-                      <img
+                      <Image
                         src={review.profile_photo_url}
                         alt={review.author_name}
+                        width={40}
+                        height={40}
                         className="w-10 h-10 rounded-full object-cover"
-                        loading="lazy"
                       />
                     ) : (
                       <div

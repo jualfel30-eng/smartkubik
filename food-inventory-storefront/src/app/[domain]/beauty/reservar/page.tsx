@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
@@ -521,11 +522,15 @@ export default function BookingPage() {
 
                           {/* Package image */}
                           {pkg.image && (
-                            <img
-                              src={pkg.image}
-                              alt={pkg.name}
-                              className="w-full h-28 object-cover rounded-xl mb-4"
-                            />
+                            <div className="relative w-full h-28 mb-4">
+                              <Image
+                                src={pkg.image}
+                                alt={pkg.name}
+                                fill
+                                sizes="(max-width: 640px) 100vw, 50vw"
+                                className="object-cover rounded-xl"
+                              />
+                            </div>
                           )}
 
                           <h3 className={`font-bold text-lg pr-16 ${colors.text}`}>{pkg.name}</h3>
@@ -737,9 +742,11 @@ export default function BookingPage() {
                       <div className="flex justify-between items-start">
                         <div className="flex gap-4">
                           {(professional.images?.[0] || professional.avatar) ? (
-                            <img
-                              src={professional.images?.[0] || professional.avatar}
+                            <Image
+                              src={(professional.images?.[0] || professional.avatar) as string}
                               alt={professional.name}
+                              width={64}
+                              height={64}
                               className="w-16 h-16 rounded-xl object-cover"
                             />
                           ) : (

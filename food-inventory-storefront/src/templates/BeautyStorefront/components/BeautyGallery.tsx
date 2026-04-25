@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import BeforeAfterSlider from './BeforeAfterSlider';
 import type { ColorScheme } from '../BeautyStorefront';
 
@@ -64,22 +65,24 @@ export default function BeautyGallery({ gallery, colors }: BeautyGalleryProps) {
               <div className="w-full h-full relative">
                 {/* Left half: before */}
                 <div className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
-                  <img
+                  <Image
                     src={item.beforeImage}
                     alt="Antes"
-                    loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    style={{ width: '200%' }}
+                    fill
+                    sizes="25vw"
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    style={{ width: '200%', maxWidth: 'none' }}
                   />
                 </div>
                 {/* Right half: after */}
                 <div className="absolute inset-0 overflow-hidden" style={{ left: '50%', width: '50%' }}>
-                  <img
+                  <Image
                     src={item.image}
                     alt="Después"
-                    loading="lazy"
-                    className="absolute top-0 right-0 h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    style={{ width: '200%', right: 0, left: 'auto' }}
+                    fill
+                    sizes="25vw"
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    style={{ width: '200%', maxWidth: 'none', right: 0, left: 'auto' }}
                   />
                 </div>
                 {/* Divider */}
@@ -135,11 +138,15 @@ export default function BeautyGallery({ gallery, colors }: BeautyGalleryProps) {
                 alt={selectedItem.caption}
               />
             ) : (
-              <img
-                src={selectedItem.image}
-                alt={selectedItem.caption ?? 'Foto'}
-                className="w-full rounded-xl shadow-2xl"
-              />
+              <div className="relative w-full aspect-square">
+                <Image
+                  src={selectedItem.image}
+                  alt={selectedItem.caption ?? 'Foto'}
+                  fill
+                  sizes="(max-width: 512px) 100vw, 512px"
+                  className="object-contain rounded-xl shadow-2xl"
+                />
+              </div>
             )}
 
             {(selectedItem.caption || selectedItem.category || selectedItem.tags?.length > 0) && (

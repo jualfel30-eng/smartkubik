@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { m, AnimatePresence } from 'framer-motion';
 
 export default function LoadingScreen({ logoUrl, primaryColor }: { logoUrl?: string; primaryColor: string }) {
@@ -26,7 +27,7 @@ export default function LoadingScreen({ logoUrl, primaryColor }: { logoUrl?: str
             transition={{ duration: 0.6 }}
           >
             {logoUrl ? (
-              <img src={logoUrl} alt="Logo" className="w-32 h-32 object-contain" />
+              <Image src={logoUrl} alt="Logo" width={128} height={128} className="w-32 h-32 object-contain" priority />
             ) : (
               <div
                 className="w-20 h-20 border-4 border-t-transparent rounded-full animate-spin"

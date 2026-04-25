@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import Image from 'next/image';
 
 interface BeforeAfterSliderProps {
   beforeImage: string;
@@ -70,21 +71,23 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, alt }: Befo
       style={{ touchAction: 'pan-y' }}
     >
       {/* After image — full size, fixed, always behind */}
-      <img
+      <Image
         src={afterImage}
         alt={alt ? `${alt} — después` : 'Después'}
-        loading="lazy"
-        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        fill
+        sizes="(max-width: 512px) 100vw, 512px"
+        className="object-cover pointer-events-none"
         draggable={false}
       />
 
       {/* Before image — full size, fixed, revealed left of the divider via clip-path mask.
           clip-path: inset(0 X% 0 0) trims X% from the right, keeping the image pixel-perfect. */}
-      <img
+      <Image
         src={beforeImage}
         alt={alt ? `${alt} — antes` : 'Antes'}
-        loading="lazy"
-        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        fill
+        sizes="(max-width: 512px) 100vw, 512px"
+        className="object-cover pointer-events-none"
         style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
         draggable={false}
       />
