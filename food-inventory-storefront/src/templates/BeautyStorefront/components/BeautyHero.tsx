@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import type { ColorScheme } from '../BeautyStorefront';
 
 interface BeautyHeroProps {
@@ -75,25 +75,25 @@ export default function BeautyHero({
 
       <div className="container mx-auto px-4 relative z-30">
         <div className="max-w-3xl mx-auto text-center">
-          <motion.h1
+          <m.h1
             className="font-serif text-6xl md:text-display font-bold mb-6 tracking-tight"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
           >
             {config.name}
-          </motion.h1>
-          <motion.p
+          </m.h1>
+          <m.p
             className="text-xl md:text-2xl mb-8 text-white/90 font-sans"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
             {config.description}
-          </motion.p>
+          </m.p>
           {/* Social proof bar */}
           {(googleRating || (reviewCount && reviewCount > 0)) && (
-            <motion.div
+            <m.div
               className="flex items-center justify-center gap-3 mb-6 text-white/90 text-sm"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -116,16 +116,16 @@ export default function BeautyHero({
               {!googleRating && reviewCount && reviewCount > 0 && (
                 <span>{reviewCount} reseñas</span>
               )}
-            </motion.div>
+            </m.div>
           )}
 
-          <motion.div
+          <m.div
             className="flex gap-4 justify-center flex-wrap"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6 }}
           >
-            <motion.a
+            <m.a
               href={`/${domain}/beauty/reservar`}
               className="px-8 py-4 bg-white text-gray-900 rounded-full font-bold text-lg shadow-xl"
               whileHover={{ scale: 1.05, y: -2 }}
@@ -133,8 +133,8 @@ export default function BeautyHero({
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             >
               Reservar Ahora
-            </motion.a>
-            <motion.a
+            </m.a>
+            <m.a
               href="#servicios"
               className="px-8 py-4 bg-white/20 backdrop-blur-sm text-white rounded-full font-bold text-lg border-2 border-white"
               whileHover={{ scale: 1.05, y: -2, backgroundColor: 'rgba(255, 255, 255, 0.3)' }}
@@ -142,8 +142,8 @@ export default function BeautyHero({
               transition={{ type: 'spring', stiffness: 300, damping: 20 }}
             >
               Ver Servicios
-            </motion.a>
-          </motion.div>
+            </m.a>
+          </m.div>
         </div>
       </div>
     </section>

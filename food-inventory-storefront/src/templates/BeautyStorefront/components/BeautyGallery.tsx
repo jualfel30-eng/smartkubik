@@ -67,6 +67,7 @@ export default function BeautyGallery({ gallery, colors }: BeautyGalleryProps) {
                   <img
                     src={item.beforeImage}
                     alt="Antes"
+                    loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     style={{ width: '200%' }}
                   />
@@ -76,6 +77,7 @@ export default function BeautyGallery({ gallery, colors }: BeautyGalleryProps) {
                   <img
                     src={item.image}
                     alt="Después"
+                    loading="lazy"
                     className="absolute top-0 right-0 h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     style={{ width: '200%', right: 0, left: 'auto' }}
                   />

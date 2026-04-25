@@ -73,6 +73,7 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, alt }: Befo
       <img
         src={afterImage}
         alt={alt ? `${alt} — después` : 'Después'}
+        loading="lazy"
         className="absolute inset-0 w-full h-full object-cover pointer-events-none"
         draggable={false}
       />
@@ -82,6 +83,7 @@ export default function BeforeAfterSlider({ beforeImage, afterImage, alt }: Befo
       <img
         src={beforeImage}
         alt={alt ? `${alt} — antes` : 'Antes'}
+        loading="lazy"
         className="absolute inset-0 w-full h-full object-cover pointer-events-none"
         style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
         draggable={false}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 
 export default function LoadingScreen({ logoUrl, primaryColor }: { logoUrl?: string; primaryColor: string }) {
   const [isLoading, setIsLoading] = useState(true);
@@ -14,12 +14,12 @@ export default function LoadingScreen({ logoUrl, primaryColor }: { logoUrl?: str
   return (
     <AnimatePresence>
       {isLoading && (
-        <motion.div
+        <m.div
           className="fixed inset-0 bg-luxury-black-900 z-[9999] flex items-center justify-center"
           exit={{ opacity: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
         >
-          <motion.div
+          <m.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 1.2, opacity: 0 }}
@@ -33,8 +33,8 @@ export default function LoadingScreen({ logoUrl, primaryColor }: { logoUrl?: str
                 style={{ borderColor: `${primaryColor} transparent transparent transparent` }}
               />
             )}
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

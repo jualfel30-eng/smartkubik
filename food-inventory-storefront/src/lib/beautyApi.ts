@@ -174,7 +174,7 @@ export async function getBeautyPackages(tenantId: string): Promise<BeautyPackage
       {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
+        next: { revalidate: 60 },
       }
     );
 
@@ -199,7 +199,7 @@ export async function getBeautyServices(tenantId: string): Promise<BeautyService
       {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
+        next: { revalidate: 60 },
       }
     );
 
@@ -224,7 +224,7 @@ export async function getProfessionals(tenantId: string): Promise<Professional[]
       {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
+        next: { revalidate: 60 },
       }
     );
 
@@ -304,7 +304,7 @@ export async function getBeautyGallery(tenantId: string): Promise<GalleryItem[]>
       {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
+        next: { revalidate: 60 },
       }
     );
 
@@ -329,7 +329,7 @@ export async function getBeautyReviews(tenantId: string): Promise<Review[]> {
       {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
+        next: { revalidate: 60 },
       }
     );
 
@@ -354,7 +354,7 @@ export async function getGooglePlacesData(placeId: string): Promise<GooglePlaces
       {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
+        next: { revalidate: 300 }, // Google data changes rarely, cache 5min
       }
     );
 

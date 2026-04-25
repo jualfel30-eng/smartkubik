@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 
 export default function FloatingCTA({
   domain,
@@ -26,7 +26,7 @@ export default function FloatingCTA({
   return (
     <AnimatePresence>
       {isVisible && (
-        <motion.a
+        <m.a
           href={`/${domain}/beauty/reservar`}
           className="hidden md:inline-flex fixed bottom-8 right-8 z-40 px-6 py-4 rounded-full text-white font-semibold text-sm tracking-super uppercase shadow-2xl"
           style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
@@ -38,7 +38,7 @@ export default function FloatingCTA({
           transition={{ type: 'spring', stiffness: 300, damping: 20 }}
         >
           Reservar Ahora
-        </motion.a>
+        </m.a>
       )}
     </AnimatePresence>
   );
