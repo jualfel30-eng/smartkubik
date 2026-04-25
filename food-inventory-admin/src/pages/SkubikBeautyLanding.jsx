@@ -32,7 +32,7 @@ const BEAUTY_DATA = {
     title: '¿Te suena?',
     subtitle: 'Cada tarjeta tiene un final diferente. Tócala.',
     items: [
-      { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'La Esclavitud', video: '/videos/late-night-scroll.webm' },
+      { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'La Esclavitud', video: '/videos/late-night-scroll.webm', backVideo: '/videos/late-night-back.webm' },
       { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'El Embarque', video: '/videos/no-show.webm' },
       { q: 'Pago nómina pero nunca me entero de cuánto produjo cada estilista. Pago igual a quién trabaja el doble y a quién me llega tarde tres veces por semana.', a: 'Comisiones automáticas por profesional. Sabes exactamente quién produce qué.', tag: '"Pero se pagó!"', video: '/videos/commissions.webm' },
@@ -351,6 +351,14 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-card-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.3; pointer-events: none; z-index: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; transition: opacity 0.4s; }
 .s-pain-card:hover .s-pain-card-video { opacity: 0.85; }
 .s-pain-front.has-video { background: transparent; }
+/* Back video — plays on flip */
+/* Back video — plays on flip */
+.s-pain-back-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 1; pointer-events: none; z-index: 0; }
+.s-pain-back.has-back-video { background: #000; }
+.s-pain-back.has-back-video::after { content: ''; position: absolute; inset: 0; border-radius: 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,0.2) 70%, transparent 100%); z-index: 1; pointer-events: none; }
+.s-pain-back.has-back-video .s-pain-back-label,
+.s-pain-back.has-back-video .s-pain-back-a,
+.s-pain-back.has-back-video .s-pain-back-hint { position: relative; z-index: 2; text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
@@ -911,8 +919,9 @@ function PainCard({ item, i, activeIdx }) {
   const cardRef = useRef(null);
   const glowRef = useRef(null);
   const videoRef = useRef(null);
+  const backVideoRef = useRef(null);
 
-  // Only play videos on focused card ± 1 neighbor
+  // Only play front videos on focused card ± 1 neighbor
   useEffect(() => {
     const vid = videoRef.current;
     if (!vid) return;
@@ -923,6 +932,18 @@ function PainCard({ item, i, activeIdx }) {
       vid.pause();
     }
   }, [activeIdx, i]);
+
+  // Play/pause back video based on flip state
+  useEffect(() => {
+    const vid = backVideoRef.current;
+    if (!vid) return;
+    if (flipped) {
+      vid.currentTime = 0;
+      vid.play().catch(() => {});
+    } else {
+      vid.pause();
+    }
+  }, [flipped]);
 
   const handlePointerMove = (e) => {
     const glow = glowRef.current;
@@ -979,7 +1000,10 @@ function PainCard({ item, i, activeIdx }) {
             </div>
           </div>
         </div>
-        <div className="s-pain-face s-pain-back">
+        <div className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : ''}`}>
+          {item.backVideo && (
+            <video ref={backVideoRef} className="s-pain-back-video" src={item.backVideo} loop muted playsInline preload="none" />
+          )}
           <div className="s-pain-back-label">Skubik lo resuelve</div>
           <div className="s-pain-back-a">{item.a}</div>
           <div className="s-pain-back-hint">← Toca para volver</div>
