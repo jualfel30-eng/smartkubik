@@ -33,7 +33,7 @@ const BEAUTY_DATA = {
     subtitle: 'Cada tarjeta tiene un final diferente. Tócala.',
     items: [
       { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'La Esclavitud', video: '/videos/late-night-scroll.webm' },
-      { q: 'Me confié de mi memoria y le di cita a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm' },
+      { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'El Embarque', video: '/videos/no-show.webm' },
       { q: 'Pago nómina pero nunca me entero de cuánto produjo cada estilista. Pago igual a quién trabaja el doble y a quién me llega tarde tres veces por semana.', a: 'Comisiones automáticas por profesional. Sabes exactamente quién produce qué.', tag: '"Pero se pagó!"', video: '/videos/commissions.webm' },
       { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'La Traición', video: '/videos/data-loss.webm' },
