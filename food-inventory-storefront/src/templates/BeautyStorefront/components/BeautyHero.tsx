@@ -52,21 +52,28 @@ export default function BeautyHero({
       }}
     >
       {/* Video Background */}
-      {config.videoUrl && (
-        <video
-          ref={videoRef}
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{ zIndex: 0 }}
-          // webkit-playsinline is needed for older iOS Safari
-          {...({ 'webkit-playsinline': 'true' } as any)}
-        >
-          <source src={config.videoUrl} type="video/mp4" />
-          <source src={config.videoUrl} type="video/quicktime" />
-        </video>
-      )}
+      {config.videoUrl && (() => {
+        // Determine MIME type from URL extension
+        const ext = config.videoUrl!.split('.').pop()?.toLowerCase();
+        const mimeType = ext === 'webm' ? 'video/webm'
+          : ext === 'ogg' ? 'video/ogg'
+          : 'video/mp4';
+
+        return (
+          <video
+            ref={videoRef}
+            loop
+            muted
+            playsInline
+            autoPlay
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ zIndex: 0 }}
+            {...({ 'webkit-playsinline': 'true' } as any)}
+          >
+            <source src={config.videoUrl} type={mimeType} />
+          </video>
+        );
+      })()}
 
       {/* Dark Overlay for video or image */}
       {(config.videoUrl || config.bannerUrl) && (
