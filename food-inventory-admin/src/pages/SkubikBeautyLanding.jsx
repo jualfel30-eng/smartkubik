@@ -32,7 +32,7 @@ const BEAUTY_DATA = {
     title: '¿Te suena?',
     subtitle: 'Cada tarjeta tiene un final diferente. Tócala.',
     items: [
-      { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'La Esclavitud', video: '/videos/late-night-scroll.webm', backVideo: '/videos/late-night-back.webm' },
+      { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'La Esclavitud', video: '/videos/late-night-scroll.webm', backVideo: '/videos/late-night-back.webm', backVideoBg: '#ef4444' },
       { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'El Embarque', video: '/videos/no-show.webm' },
       { q: 'Pago nómina pero nunca me entero de cuánto produjo cada estilista. Pago igual a quién trabaja el doble y a quién me llega tarde tres veces por semana.', a: 'Comisiones automáticas por profesional. Sabes exactamente quién produce qué.', tag: '"Pero se pagó!"', video: '/videos/commissions.webm' },
@@ -1026,7 +1026,7 @@ function PainCard({ item, i, activeIdx }) {
             </div>
           </div>
         </div>
-        <div className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : ''}`}>
+        <div className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : ''}`} style={item.backVideoBg ? { background: item.backVideoBg } : undefined}>
           {item.backVideo && (
             <>
               <video ref={backVideoRef} className="s-pain-back-video" src={item.backVideo} loop muted playsInline preload="metadata" />
@@ -1173,7 +1173,7 @@ function SPain({ D }) {
       <div className="s-pain-sticky" ref={stickyRef}>
         <div className="s-pain-head">
           <span className="s-eyebrow" style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'var(--s-accent)', display: 'inline-flex', alignItems: 'center', gap: 10 }}>Dolor real</span>
-          <h2>¿Has protagonizado alguna<br/>de estas <em>películas?</em></h2>
+          <h2>¿Protagonizas alguna<br/>de estas <em>películas?</em></h2>
           <p>{D.pain.subtitle}</p>
         </div>
         <div className="s-pain-track-wrap">
