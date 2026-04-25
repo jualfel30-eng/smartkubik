@@ -15,7 +15,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Search, Printer, CheckSquare, Square, ChevronRight, ChevronLeft, Loader2, Clock } from 'lucide-react';
+import { Search, Printer, CheckSquare, Square, ChevronRight, ChevronLeft, Loader2, Clock, X, Tag } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { fetchApi, getTenantSettings } from '../../lib/api';
 import { ShelfLabelSheet } from './ShelfLabelSheet';
 
@@ -52,6 +53,7 @@ export const ShelfLabelWizard = ({ isOpen, onClose, initialSelectedItems = [] })
     });
 
     const [isFilterOpen, setIsFilterOpen] = useState(false);
+    const [suPickerProductId, setSuPickerProductId] = useState(null); // Product ID with selling unit picker open
 
     // Config State
     const [config, setConfig] = useState({
@@ -241,63 +243,94 @@ export const ShelfLabelWizard = ({ isOpen, onClose, initialSelectedItems = [] })
     }, [searchTerm, page, itemsPerPage, filters, isOpen]); // Reload when page, search, itemsPerPage, filters or open state changes
 
 
-    // Expand a product into label items: one per selling unit (if multi-unit), otherwise one per product
-    const expandProductToLabelItems = (item) => {
-        const activeSellingUnits = (item.sellingUnits || []).filter(su => su.isActive !== false);
+    // Build a single label item from a selling unit
+    const buildSellingUnitItem = (product, su, idx) => ({
+        ...product,
+        _id: `${product._id}_su_${idx}`,
+        _productId: product._id,
+        productName: `${product.name} (${su.name})`,
+        sku: product.sku,
+        brand: product.brand || 'Generico',
+        price: su.pricePerUnit || 0,
+        sellingUnitName: su.name,
+        sellingUnitAbbr: su.abbreviation,
+        _isSellingUnit: true,
+        _suIndex: idx,
+    });
 
-        if (item.hasMultipleSellingUnits && activeSellingUnits.length > 0) {
-            // One label item per active selling unit
-            return activeSellingUnits.map((su, idx) => ({
-                ...item,
-                _id: `${item._id}_su_${idx}`, // Unique key per selling unit
-                _productId: item._id, // Keep original product ID for grouping
-                productName: `${item.name} (${su.name})`,
-                sku: item.sku,
-                brand: item.brand || 'Generico',
-                price: su.pricePerUnit || 0,
-                sellingUnitName: su.name,
-                sellingUnitAbbr: su.abbreviation,
-                _isSellingUnit: true,
-            }));
-        }
+    // Build a single label item for a product without selling units
+    const buildSimpleItem = (product) => ({
+        ...product,
+        _id: product._id,
+        _productId: product._id,
+        productName: product.name,
+        sku: product.sku,
+        brand: product.brand || 'Generico',
+        price: getPriceFromItem(product),
+    });
 
-        // No selling units — single label item (original behavior)
-        return [{
-            ...item,
-            _id: item._id,
-            _productId: item._id,
-            productName: item.name,
-            sku: item.sku,
-            brand: item.brand || 'Generico',
-            price: getPriceFromItem(item),
-        }];
-    };
+    // Check if product has active selling units
+    const getActiveSellingUnits = (item) =>
+        (item.hasMultipleSellingUnits && item.sellingUnits)
+            ? item.sellingUnits.filter(su => su.isActive !== false)
+            : [];
 
-    // Handlers
-    const handleToggleSelect = (item) => {
+    // Toggle a single selling unit on/off for a product
+    const handleToggleSellingUnit = (product, suIndex, checked) => {
         setSelectedItems(prev => {
-            // Check if any label item from this product is already selected
-            const productId = item._id;
-            const hasAny = prev.some(i => (i._productId || i._id) === productId);
-            if (hasAny) {
-                // Remove all label items for this product
-                return prev.filter(i => (i._productId || i._id) !== productId);
+            const suItemId = `${product._id}_su_${suIndex}`;
+            if (checked) {
+                const su = getActiveSellingUnits(product)[suIndex];
+                if (!su) return prev;
+                return [...prev, buildSellingUnitItem(product, su, suIndex)];
             } else {
-                const newItems = expandProductToLabelItems(item);
-                return [...prev, ...newItems];
+                const next = prev.filter(i => i._id !== suItemId);
+                // If no selling units remain for this product, close picker
+                const remaining = next.filter(i => i._productId === product._id);
+                if (remaining.length === 0) setSuPickerProductId(null);
+                return next;
             }
         });
     };
 
+    // Handlers
+    const handleToggleSelect = (item) => {
+        const activeSUs = getActiveSellingUnits(item);
+        const productId = item._id;
+        const hasAny = selectedItems.some(i => (i._productId || i._id) === productId);
+
+        if (activeSUs.length > 0) {
+            if (hasAny) {
+                // Deselect all selling units for this product
+                setSelectedItems(prev => prev.filter(i => (i._productId || i._id) !== productId));
+                setSuPickerProductId(null);
+            } else {
+                // Select all selling units and open picker so user can deselect
+                const newItems = activeSUs.map((su, idx) => buildSellingUnitItem(item, su, idx));
+                setSelectedItems(prev => [...prev, ...newItems]);
+                setSuPickerProductId(productId);
+            }
+        } else {
+            // Simple product — toggle directly
+            setSelectedItems(prev => {
+                if (hasAny) {
+                    return prev.filter(i => (i._productId || i._id) !== productId);
+                }
+                return [...prev, buildSimpleItem(item)];
+            });
+        }
+    };
+
     const handleSelectAllPage = () => {
-        // Selects all items currently visible, expanding selling units
         const allNewItems = products.flatMap(item => {
             const productId = item._id;
-            const alreadySelected = selectedItems.some(i => (i._productId || i._id) === productId);
-            if (alreadySelected) return [];
-            return expandProductToLabelItems(item);
+            if (selectedItems.some(i => (i._productId || i._id) === productId)) return [];
+            const activeSUs = getActiveSellingUnits(item);
+            if (activeSUs.length > 0) {
+                return activeSUs.map((su, idx) => buildSellingUnitItem(item, su, idx));
+            }
+            return [buildSimpleItem(item)];
         });
-
         setSelectedItems(prev => [...prev, ...allNewItems]);
     };
 
@@ -577,6 +610,12 @@ export const ShelfLabelWizard = ({ isOpen, onClose, initialSelectedItems = [] })
                                 ) : (
                                     products.map(item => {
                                         const isSelected = selectedItems.some(i => (i._productId || i._id) === item._id);
+                                        const activeSUs = getActiveSellingUnits(item);
+                                        const hasSellingUnits = activeSUs.length > 0;
+                                        const selectedSuCount = hasSellingUnits
+                                            ? selectedItems.filter(i => i._productId === item._id && i._isSellingUnit).length
+                                            : 0;
+
                                         return (
                                             <div
                                                 key={item._id}
@@ -586,13 +625,70 @@ export const ShelfLabelWizard = ({ isOpen, onClose, initialSelectedItems = [] })
                                                 <div className={`mt-1 h-5 w-5 rounded border flex items-center justify-center shrink-0 ${isSelected ? 'bg-primary border-primary text-white' : 'border-gray-300 dark:border-gray-600'}`}>
                                                     {isSelected && <CheckSquare className="h-3.5 w-3.5" />}
                                                 </div>
-                                                <div className="overflow-hidden">
+                                                <div className="overflow-hidden flex-1">
                                                     <p className="font-medium truncate text-foreground" title={item.name}>{item.name}</p>
                                                     <p className="text-sm text-muted-foreground">{item.sku}</p>
                                                     <p className="text-xs text-muted-foreground mt-1">{item.brand || '-'} · Stock: {item.availableQuantity}</p>
-                                                    {item.hasMultipleSellingUnits && (item.sellingUnits || []).filter(su => su.isActive !== false).length > 0 && (
+
+                                                    {/* Selling units picker */}
+                                                    {hasSellingUnits && isSelected && (
+                                                        <Popover
+                                                            open={suPickerProductId === item._id}
+                                                            onOpenChange={(open) => setSuPickerProductId(open ? item._id : null)}
+                                                        >
+                                                            <PopoverTrigger asChild>
+                                                                <button
+                                                                    className="mt-1.5 flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 font-medium transition-colors"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setSuPickerProductId(prev => prev === item._id ? null : item._id);
+                                                                    }}
+                                                                >
+                                                                    <Tag className="h-3 w-3" />
+                                                                    {selectedSuCount}/{activeSUs.length} unidades · Elegir
+                                                                </button>
+                                                            </PopoverTrigger>
+                                                            <PopoverContent
+                                                                className="w-64 p-0"
+                                                                align="start"
+                                                                side="bottom"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <div className="px-3 py-2 border-b dark:border-border">
+                                                                    <p className="text-xs font-semibold text-foreground">Unidades a imprimir</p>
+                                                                </div>
+                                                                <div className="p-1.5 space-y-0.5 max-h-48 overflow-y-auto">
+                                                                    {activeSUs.map((su, idx) => {
+                                                                        const suItemId = `${item._id}_su_${idx}`;
+                                                                        const isSuSelected = selectedItems.some(i => i._id === suItemId);
+                                                                        return (
+                                                                            <label
+                                                                                key={idx}
+                                                                                className={`flex items-center gap-2.5 px-2 py-1.5 rounded cursor-pointer transition-colors ${isSuSelected ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                                                                            >
+                                                                                <Checkbox
+                                                                                    checked={isSuSelected}
+                                                                                    onCheckedChange={(checked) => handleToggleSellingUnit(item, idx, checked)}
+                                                                                />
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <span className="text-sm font-medium text-foreground">{su.name}</span>
+                                                                                    <span className="text-xs text-muted-foreground ml-1">({su.abbreviation})</span>
+                                                                                </div>
+                                                                                <span className="text-xs font-semibold text-foreground tabular-nums">
+                                                                                    ${su.pricePerUnit?.toFixed(2) || '0.00'}
+                                                                                </span>
+                                                                            </label>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </PopoverContent>
+                                                        </Popover>
+                                                    )}
+
+                                                    {/* Badge preview when not selected yet */}
+                                                    {hasSellingUnits && !isSelected && (
                                                         <div className="flex flex-wrap gap-1 mt-1">
-                                                            {(item.sellingUnits || []).filter(su => su.isActive !== false).map((su, idx) => (
+                                                            {activeSUs.map((su, idx) => (
                                                                 <Badge key={idx} variant="outline" className="text-[10px] px-1.5 py-0">
                                                                     {su.abbreviation}: ${su.pricePerUnit?.toFixed(2) || '0.00'}
                                                                 </Badge>
