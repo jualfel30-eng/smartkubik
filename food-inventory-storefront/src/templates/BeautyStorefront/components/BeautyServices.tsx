@@ -39,6 +39,8 @@ export default function BeautyServices({
             className={`${colors.card} rounded-xl shadow-lg overflow-hidden hover:shadow-premium-lg transition-all duration-300 transform hover:-translate-y-1 group`}
           >
             <div
+              role="img"
+              aria-label={service.name}
               className={`h-48 bg-gradient-to-br ${colors.placeholderGradient} relative overflow-hidden filter grayscale group-hover:grayscale-0 transition-all duration-500`}
               style={{
                 background: service.images?.[0]
@@ -52,6 +54,7 @@ export default function BeautyServices({
                 style={{ color: primaryColor }}
               >
                 <span className="font-bold text-lg">${service.price.amount}</span>
+                <span className="block text-xs opacity-70">{service.duration} min</span>
               </div>
             </div>
 

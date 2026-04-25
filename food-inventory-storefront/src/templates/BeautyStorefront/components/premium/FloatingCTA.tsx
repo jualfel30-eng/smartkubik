@@ -28,7 +28,7 @@ export default function FloatingCTA({
       {isVisible && (
         <motion.a
           href={`/${domain}/beauty/reservar`}
-          className="fixed bottom-8 right-8 z-40 px-6 py-4 rounded-full text-white font-semibold text-sm tracking-super uppercase shadow-2xl"
+          className="hidden md:inline-flex fixed bottom-8 right-8 z-40 px-6 py-4 rounded-full text-white font-semibold text-sm tracking-super uppercase shadow-2xl"
           style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}

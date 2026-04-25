@@ -28,6 +28,8 @@ export default function BeautyTeam({ professionals, primaryColor, colors }: Beau
           <div className={`${colors.card} rounded-2xl shadow-lg overflow-hidden hover:shadow-premium transition-all duration-300 hover:scale-[1.02]`}>
           <div className="relative">
             <div
+              role="img"
+              aria-label={prof.name}
               className={`w-full h-64 bg-gradient-to-br ${colors.placeholderGradient} flex items-center justify-center`}
               style={{
                 background: (prof.images?.[0] || prof.avatar)

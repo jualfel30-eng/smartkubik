@@ -28,6 +28,7 @@ const config: Config = {
             DEFAULT: '#C9A96E',
             light: '#D4AF37',
             dark: '#B8935A',
+            text: '#9A7D4E', // WCAG AA 4.5:1 on cream #F5F5F0
           },
           brass: {
             DEFAULT: '#B8935A',

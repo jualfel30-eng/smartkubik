@@ -60,7 +60,7 @@ export const LIGHT: ColorScheme = {
   textMuted: 'text-gray-600',
   textLight: 'text-gray-500',
 
-  accent: 'text-luxury-gold',
+  accent: 'text-luxury-gold-text',
   accentMuted: 'text-luxury-brass',
 
   border: 'border-gray-200',
@@ -197,6 +197,7 @@ export default function BeautyStorefront({
   domain,
 }: BeautyStorefrontProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [serviceSearch, setServiceSearch] = useState('');
   const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
@@ -216,10 +217,11 @@ export default function BeautyStorefront({
 
   const categories = ['all', ...new Set(services.map((s) => s.category))];
 
-  const filteredServices =
-    selectedCategory === 'all'
-      ? services
-      : services.filter((s) => s.category === selectedCategory);
+  const filteredServices = services.filter((s) => {
+    const matchesCategory = selectedCategory === 'all' || s.category === selectedCategory;
+    const matchesSearch = !serviceSearch || s.name.toLowerCase().includes(serviceSearch.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   const averageRating =
     reviews.length > 0
@@ -263,7 +265,7 @@ export default function BeautyStorefront({
           <div className="flex items-center gap-3">
             <button
               onClick={toggleDarkMode}
-              className={`p-2 rounded-full transition ${
+              className={`p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full transition ${
                 darkMode ? 'bg-neutral-800 text-amber-400 hover:bg-neutral-700' : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
               }`}
               aria-label={darkMode ? 'Modo claro' : 'Modo oscuro'}
@@ -290,7 +292,16 @@ export default function BeautyStorefront({
         </nav>
       </header>
 
-      <BeautyHero config={config} primaryColor={primaryColor} secondaryColor={secondaryColor} domain={domain} colors={colors} />
+      <BeautyHero
+        config={config}
+        primaryColor={primaryColor}
+        secondaryColor={secondaryColor}
+        domain={domain}
+        colors={colors}
+        googleRating={googlePlacesData?.rating}
+        googleReviewCount={googlePlacesData?.user_ratings_total}
+        reviewCount={reviews.length}
+      />
 
       {/* Services */}
       <section id="servicios" className={`py-32 ${colors.bgAlt} transition-colors duration-300`}>
@@ -307,6 +318,25 @@ export default function BeautyStorefront({
               Ofrecemos una amplia gama de servicios con profesionales especializados
             </p>
           </div>
+
+          {/* Search */}
+          {services.length > 6 && (
+            <div className="max-w-md mx-auto mb-6">
+              <div className="relative">
+                <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  value={serviceSearch}
+                  onChange={(e) => setServiceSearch(e.target.value)}
+                  placeholder="Buscar servicio..."
+                  className={`w-full pl-11 pr-4 py-3 border-2 rounded-full focus:outline-none transition-colors text-sm ${colors.card} ${colors.text} ${colors.border}`}
+                  style={{ borderColor: serviceSearch ? primaryColor : undefined }}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-center gap-3 mb-10 flex-wrap">
             {categories.map((category) => (
