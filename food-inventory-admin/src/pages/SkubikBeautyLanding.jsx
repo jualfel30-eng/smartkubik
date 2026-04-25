@@ -313,10 +313,16 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-wrap { position: relative; }
 .s-pain-sticky { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 .s-pain-head { flex-shrink: 0; padding: 80px 32px 24px; max-width: 780px; }
-@media (max-width: 600px) { .s-pain-head { padding: 60px 20px 16px; } }
+@media (max-width: 600px) { .s-pain-head { padding: 16px 20px 10px; } }
 .s-pain-head h2 { font-size: clamp(32px, 5vw, 64px); margin: 14px 0; }
 .s-pain-head h2 em { font-style: italic; color: var(--s-accent); }
 .s-pain-head p { color: var(--s-muted); font-size: 15px; max-width: 520px; line-height: 1.5; margin-top: 6px; }
+@media (max-width: 600px) {
+  .s-pain-head h2 { font-size: 18px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .s-pain-head h2 br { display: none; }
+  .s-pain-head p { display: none; }
+  .s-pain-head .s-eyebrow { display: none; }
+}
 
 /* Carousel track — fills remaining height, cards sized to fit */
 .s-pain-track-wrap { flex: 1; display: flex; align-items: center; min-height: 0; }
