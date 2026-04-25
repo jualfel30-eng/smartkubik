@@ -241,39 +241,64 @@ export const ShelfLabelWizard = ({ isOpen, onClose, initialSelectedItems = [] })
     }, [searchTerm, page, itemsPerPage, filters, isOpen]); // Reload when page, search, itemsPerPage, filters or open state changes
 
 
+    // Expand a product into label items: one per selling unit (if multi-unit), otherwise one per product
+    const expandProductToLabelItems = (item) => {
+        const activeSellingUnits = (item.sellingUnits || []).filter(su => su.isActive !== false);
+
+        if (item.hasMultipleSellingUnits && activeSellingUnits.length > 0) {
+            // One label item per active selling unit
+            return activeSellingUnits.map((su, idx) => ({
+                ...item,
+                _id: `${item._id}_su_${idx}`, // Unique key per selling unit
+                _productId: item._id, // Keep original product ID for grouping
+                productName: `${item.name} (${su.name})`,
+                sku: item.sku,
+                brand: item.brand || 'Generico',
+                price: su.pricePerUnit || 0,
+                sellingUnitName: su.name,
+                sellingUnitAbbr: su.abbreviation,
+                _isSellingUnit: true,
+            }));
+        }
+
+        // No selling units — single label item (original behavior)
+        return [{
+            ...item,
+            _id: item._id,
+            _productId: item._id,
+            productName: item.name,
+            sku: item.sku,
+            brand: item.brand || 'Generico',
+            price: getPriceFromItem(item),
+        }];
+    };
+
     // Handlers
     const handleToggleSelect = (item) => {
         setSelectedItems(prev => {
-            const exists = prev.find(i => i._id === item._id);
-            if (exists) {
-                return prev.filter(i => i._id !== item._id);
+            // Check if any label item from this product is already selected
+            const productId = item._id;
+            const hasAny = prev.some(i => (i._productId || i._id) === productId);
+            if (hasAny) {
+                // Remove all label items for this product
+                return prev.filter(i => (i._productId || i._id) !== productId);
             } else {
-                // Normalize item for printing (Item is now a Product object)
-                const standardizedItem = {
-                    _id: item._id, // Product ID
-                    productName: item.name,
-                    sku: item.sku,
-                    brand: item.brand || 'Generico',
-                    price: getPriceFromItem(item), // Helper to extract price
-                    ...item
-                };
-                return [...prev, standardizedItem];
+                const newItems = expandProductToLabelItems(item);
+                return [...prev, ...newItems];
             }
         });
     };
 
     const handleSelectAllPage = () => {
-        // Selects all items currently visible
-        const newItems = products.map(item => ({
-            _id: item._id, // Product ID
-            productName: item.name,
-            sku: item.sku,
-            brand: item.brand || 'Generico',
-            price: getPriceFromItem(item),
-            ...item
-        })).filter(newItem => !selectedItems.some(existing => existing._id === newItem._id));
+        // Selects all items currently visible, expanding selling units
+        const allNewItems = products.flatMap(item => {
+            const productId = item._id;
+            const alreadySelected = selectedItems.some(i => (i._productId || i._id) === productId);
+            if (alreadySelected) return [];
+            return expandProductToLabelItems(item);
+        });
 
-        setSelectedItems(prev => [...prev, ...newItems]);
+        setSelectedItems(prev => [...prev, ...allNewItems]);
     };
 
     const handleDeselectAll = () => setSelectedItems([]);
@@ -482,7 +507,11 @@ export const ShelfLabelWizard = ({ isOpen, onClose, initialSelectedItems = [] })
                                 <div className="flex items-center gap-4">
                                     {selectedItems.length > 0 ? (
                                         <div className="font-medium text-blue-700 dark:text-blue-300">
-                                            {selectedItems.length} seleccionados
+                                            {selectedItems.length} etiqueta{selectedItems.length !== 1 ? 's' : ''}
+                                            {(() => {
+                                                const uniqueProducts = new Set(selectedItems.map(i => i._productId || i._id)).size;
+                                                return uniqueProducts !== selectedItems.length ? ` (${uniqueProducts} producto${uniqueProducts !== 1 ? 's' : ''})` : '';
+                                            })()}
                                         </div>
                                     ) : (
                                         <div className="text-muted-foreground">Ningún producto seleccionado</div>
@@ -547,7 +576,7 @@ export const ShelfLabelWizard = ({ isOpen, onClose, initialSelectedItems = [] })
                                     <div className="col-span-full py-10 flex justify-center"><Loader2 className="animate-spin" /></div>
                                 ) : (
                                     products.map(item => {
-                                        const isSelected = selectedItems.some(i => i._id === item._id);
+                                        const isSelected = selectedItems.some(i => (i._productId || i._id) === item._id);
                                         return (
                                             <div
                                                 key={item._id}
@@ -561,6 +590,15 @@ export const ShelfLabelWizard = ({ isOpen, onClose, initialSelectedItems = [] })
                                                     <p className="font-medium truncate text-foreground" title={item.name}>{item.name}</p>
                                                     <p className="text-sm text-muted-foreground">{item.sku}</p>
                                                     <p className="text-xs text-muted-foreground mt-1">{item.brand || '-'} · Stock: {item.availableQuantity}</p>
+                                                    {item.hasMultipleSellingUnits && (item.sellingUnits || []).filter(su => su.isActive !== false).length > 0 && (
+                                                        <div className="flex flex-wrap gap-1 mt-1">
+                                                            {(item.sellingUnits || []).filter(su => su.isActive !== false).map((su, idx) => (
+                                                                <Badge key={idx} variant="outline" className="text-[10px] px-1.5 py-0">
+                                                                    {su.abbreviation}: ${su.pricePerUnit?.toFixed(2) || '0.00'}
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         )

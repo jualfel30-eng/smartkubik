@@ -87,7 +87,10 @@ export const ShelfLabelSheet = ({ items, config }) => {
                             ? (item.price * exchangeRate)
                             : item.price;
 
-                        const currencySymbol = currency === 'VES' ? 'Bs.' : 'REF';
+                        const baseCurrencySymbol = currency === 'VES' ? 'Bs.' : 'REF';
+                        const currencySymbol = item.sellingUnitAbbr
+                            ? `${baseCurrencySymbol}/${item.sellingUnitAbbr}`
+                            : baseCurrencySymbol;
 
                         return (
                             <div
