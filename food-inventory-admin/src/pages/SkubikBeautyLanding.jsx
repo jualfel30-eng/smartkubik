@@ -1001,8 +1001,6 @@ function PainCard({ item, i, activeIdx }) {
       className={`s-pain-card ${flipped ? 'flipped' : ''}`}
       onClick={() => setFlipped(f => !f)}
       onPointerMove={handlePointerMove}
-      onPointerEnter={() => { document.querySelectorAll('.s-cursor,.s-cursor-ring').forEach(el => el.style.opacity = '0'); }}
-      onPointerLeave={() => { document.querySelectorAll('.s-cursor,.s-cursor-ring').forEach(el => el.style.opacity = ''); }}
     >
       <div className="s-pain-glow" ref={glowRef}>
         <div className="s-pain-glow-spot" />
