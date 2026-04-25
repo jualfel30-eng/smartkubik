@@ -355,6 +355,10 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 /* Back video — plays on flip */
 .s-pain-back-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 1; pointer-events: none; z-index: 0; }
 .s-pain-back.has-back-video { background: #000; }
+.s-pain-back-play { position: absolute; bottom: 28px; right: 28px; z-index: 3; width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; opacity: 1; }
+.s-pain-back-play:hover { background: rgba(0,0,0,0.65); border-color: rgba(255,255,255,0.4); transform: scale(1.08); }
+.s-pain-back-play.is-playing { opacity: 0; transition: opacity 1.5s 2s; }
+.s-pain-back-play.is-playing:hover { opacity: 1; transition: opacity 0.2s; }
 .s-pain-back.has-back-video .s-pain-back-label,
 .s-pain-back.has-back-video .s-pain-back-a,
 .s-pain-back.has-back-video .s-pain-back-hint { position: relative; z-index: 2; }
@@ -915,6 +919,7 @@ function SMarquee() {
 // ---- Pain / Scroll-Hijack Dock Carousel ----
 function PainCard({ item, i, activeIdx }) {
   const [flipped, setFlipped] = useState(false);
+  const [backPlaying, setBackPlaying] = useState(false);
   const cardRef = useRef(null);
   const glowRef = useRef(null);
   const videoRef = useRef(null);
@@ -932,17 +937,29 @@ function PainCard({ item, i, activeIdx }) {
     }
   }, [activeIdx, i]);
 
-  // Play/pause back video based on flip state
+  // Pause + reset back video when card flips back
   useEffect(() => {
     const vid = backVideoRef.current;
     if (!vid) return;
-    if (flipped) {
-      vid.currentTime = 0;
-      vid.play().catch(() => {});
-    } else {
+    if (!flipped) {
       vid.pause();
+      vid.currentTime = 0;
+      setBackPlaying(false);
     }
   }, [flipped]);
+
+  const toggleBackVideo = (e) => {
+    e.stopPropagation(); // Don't trigger card flip
+    const vid = backVideoRef.current;
+    if (!vid) return;
+    if (backPlaying) {
+      vid.pause();
+      setBackPlaying(false);
+    } else {
+      vid.play().catch(() => {});
+      setBackPlaying(true);
+    }
+  };
 
   const handlePointerMove = (e) => {
     const glow = glowRef.current;
@@ -1001,7 +1018,16 @@ function PainCard({ item, i, activeIdx }) {
         </div>
         <div className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : ''}`}>
           {item.backVideo && (
-            <video ref={backVideoRef} className="s-pain-back-video" src={item.backVideo} loop muted playsInline preload="none" />
+            <>
+              <video ref={backVideoRef} className="s-pain-back-video" src={item.backVideo} loop muted playsInline preload="metadata" />
+              <button className={`s-pain-back-play ${backPlaying ? 'is-playing' : ''}`} onClick={toggleBackVideo} aria-label={backPlaying ? 'Pausar' : 'Reproducir'}>
+                {backPlaying ? (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v14.72a1 1 0 001.5.86l11-7.36a1 1 0 000-1.72l-11-7.36A1 1 0 008 5.14z"/></svg>
+                )}
+              </button>
+            </>
           )}
           <div className="s-pain-back-label">Skubik lo resuelve</div>
           <div className="s-pain-back-a">{item.a}</div>
