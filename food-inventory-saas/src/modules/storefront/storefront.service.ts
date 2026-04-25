@@ -8,6 +8,7 @@ import {
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import * as sharp from "sharp";
+import * as ffmpeg from "fluent-ffmpeg";
 import * as fs from "fs/promises";
 import * as path from "path";
 import {
@@ -602,7 +603,7 @@ export class StorefrontService {
   }
 
   /**
-   * Subir imagen de banner (Hero)
+   * Subir imagen de banner (Hero) — optimized to WebP
    */
   async uploadBanner(
     file: Express.Multer.File,
@@ -614,12 +615,14 @@ export class StorefrontService {
       const uploadDir = path.join(process.cwd(), "uploads", "storefront", "banners");
       await fs.mkdir(uploadDir, { recursive: true });
 
-      const ext = file.originalname.split(".").pop() || "jpg";
-      const filename = `banner-${tenantId}-${Date.now()}.${ext}`;
+      const filename = `banner-${tenantId}-${Date.now()}.webp`;
       const filepath = path.join(uploadDir, filename);
 
-      // Guardar archivo en disco
-      await fs.writeFile(filepath, file.buffer);
+      // Optimize: resize to max 1920px wide, convert to WebP
+      await sharp(file.buffer)
+        .resize(1920, null, { withoutEnlargement: true, fit: "inside" })
+        .webp({ quality: 82 })
+        .toFile(filepath);
 
       const baseUrl =
         process.env.API_BASE_URL ||
@@ -632,7 +635,7 @@ export class StorefrontService {
         { tenantId } as any,
       );
 
-      this.logger.log(`Banner uploaded successfully for tenant: ${tenantId}`);
+      this.logger.log(`Banner uploaded and optimized to WebP for tenant: ${tenantId}`);
       return { bannerUrl };
     } catch (error) {
       this.logger.error(`Error uploading banner: ${error.message}`);
@@ -641,7 +644,7 @@ export class StorefrontService {
   }
 
   /**
-   * Subir video de fondo (Hero)
+   * Subir video de fondo (Hero) — optimized to WebM (VP9)
    */
   async uploadVideo(
     file: Express.Multer.File,
@@ -653,17 +656,39 @@ export class StorefrontService {
       const uploadDir = path.join(process.cwd(), "uploads", "storefront", "videos");
       await fs.mkdir(uploadDir, { recursive: true });
 
-      const ext = file.originalname.split(".").pop() || "mp4";
-      const filename = `video-${tenantId}-${Date.now()}.${ext}`;
-      const filepath = path.join(uploadDir, filename);
+      // Save original temporarily for ffmpeg input
+      const tempFilename = `temp-${tenantId}-${Date.now()}.${file.originalname.split(".").pop() || "mp4"}`;
+      const tempPath = path.join(uploadDir, tempFilename);
+      await fs.writeFile(tempPath, file.buffer);
 
-      // Guardar archivo en disco
-      await fs.writeFile(filepath, file.buffer);
+      const outFilename = `video-${tenantId}-${Date.now()}.webm`;
+      const outPath = path.join(uploadDir, outFilename);
+
+      // Transcode to WebM VP9 — optimized for web hero backgrounds
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(tempPath)
+          .outputOptions([
+            "-c:v libvpx-vp9",   // VP9 codec
+            "-crf 35",           // Quality (lower = better, 30-40 for bg video)
+            "-b:v 0",            // Let CRF control quality
+            "-vf scale='min(1920,iw)':-2", // Max 1920px wide, keep aspect
+            "-an",               // Strip audio (hero bg doesn't need it)
+            "-t 30",             // Max 30 seconds
+            "-threads 2",
+          ])
+          .output(outPath)
+          .on("end", () => resolve())
+          .on("error", (err) => reject(err))
+          .run();
+      });
+
+      // Clean up temp file
+      await fs.unlink(tempPath).catch(() => {});
 
       const baseUrl =
         process.env.API_BASE_URL ||
         `http://localhost:${process.env.PORT || 3000}`;
-      const videoUrl = `${baseUrl}/uploads/storefront/videos/${filename}`;
+      const videoUrl = `${baseUrl}/uploads/storefront/videos/${outFilename}`;
 
       // Actualizar configuración
       await this.updatePartial(
@@ -671,7 +696,7 @@ export class StorefrontService {
         { tenantId } as any,
       );
 
-      this.logger.log(`Video uploaded successfully for tenant: ${tenantId}`);
+      this.logger.log(`Video uploaded and optimized to WebM (VP9) for tenant: ${tenantId}`);
       return { videoUrl };
     } catch (error) {
       this.logger.error(`Error uploading video: ${error.message}`);

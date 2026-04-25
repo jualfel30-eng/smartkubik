@@ -14,8 +14,11 @@ import {
   Query,
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { diskStorage } from "multer";
-import { extname } from "path";
+import { memoryStorage, diskStorage } from "multer";
+import { extname, join } from "path";
+import * as sharp from "sharp";
+import * as ffmpeg from "fluent-ffmpeg";
+import * as fs from "fs/promises";
 import { StorefrontConfigService } from "./storefront-config.service";
 import {
   CreateStorefrontConfigDto,
@@ -240,21 +243,12 @@ export class StorefrontConfigController {
 
   /**
    * POST /api/v1/storefront/upload-banner
-   * Subir imagen de banner para la sección Hero
+   * Subir imagen de banner para la sección Hero — optimized to WebP
    */
   @Post("upload-banner")
   @UseInterceptors(
     FileInterceptor("file", {
-      storage: diskStorage({
-        destination: "./uploads/storefront/banners",
-        filename: (req, file, callback) => {
-          const uniqueSuffix =
-            Date.now() + "-" + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          const filename = `banner-${uniqueSuffix}${ext}`;
-          callback(null, filename);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, callback) => {
         if (!file.mimetype.match(/\/(jpg|jpeg|png|gif|webp)$/)) {
           return callback(
@@ -279,23 +273,38 @@ export class StorefrontConfigController {
       throw new BadRequestException("No se proporcionó ningún archivo");
     }
 
+    const uploadDir = join(process.cwd(), "uploads", "storefront", "banners");
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const filename = `banner-${uniqueSuffix}.webp`;
+    const filepath = join(uploadDir, filename);
+
+    // Optimize: resize to max 1920px wide, convert to WebP
+    await sharp(file.buffer)
+      .resize(1920, null, { withoutEnlargement: true, fit: "inside" })
+      .webp({ quality: 82 })
+      .toFile(filepath);
+
     const baseUrl =
       process.env.API_BASE_URL ||
       `http://localhost:${process.env.PORT || 3000}`;
-    const bannerUrl = `${baseUrl}/uploads/storefront/banners/${file.filename}`;
+    const bannerUrl = `${baseUrl}/uploads/storefront/banners/${filename}`;
 
     const updatedConfig = await this.storefrontConfigService.uploadBanner(
       req.user.tenantId,
       bannerUrl,
     );
 
+    const stats = await fs.stat(filepath);
     return {
       success: true,
       data: {
         bannerUrl: bannerUrl,
-        filename: file.filename,
+        filename: filename,
         originalName: file.originalname,
-        size: file.size,
+        originalSize: file.size,
+        optimizedSize: stats.size,
       },
       config: updatedConfig,
     };
@@ -303,26 +312,17 @@ export class StorefrontConfigController {
 
   /**
    * POST /api/v1/storefront/upload-video
-   * Subir video de fondo para la sección Hero
+   * Subir video de fondo para la sección Hero — optimized to WebM (VP9)
    */
   @Post("upload-video")
   @UseInterceptors(
     FileInterceptor("file", {
-      storage: diskStorage({
-        destination: "./uploads/storefront/videos",
-        filename: (req, file, callback) => {
-          const uniqueSuffix =
-            Date.now() + "-" + Math.round(Math.random() * 1e9);
-          const ext = extname(file.originalname);
-          const filename = `video-${uniqueSuffix}${ext}`;
-          callback(null, filename);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, callback) => {
-        if (!file.mimetype.match(/\/(mp4|webm|ogg)$/)) {
+        if (!file.mimetype.match(/\/(mp4|webm|ogg|quicktime|x-msvideo)$/)) {
           return callback(
             new BadRequestException(
-              "Solo se permiten archivos de video (MP4, WEBM, OGG)",
+              "Solo se permiten archivos de video (MP4, WEBM, OGG, MOV)",
             ),
             false,
           );
@@ -330,7 +330,7 @@ export class StorefrontConfigController {
         callback(null, true);
       },
       limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB
+        fileSize: 50 * 1024 * 1024, // 50MB
       },
     }),
   )
@@ -342,23 +342,61 @@ export class StorefrontConfigController {
       throw new BadRequestException("No se proporcionó ningún archivo");
     }
 
+    const uploadDir = join(process.cwd(), "uploads", "storefront", "videos");
+    await fs.mkdir(uploadDir, { recursive: true });
+
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+
+    // Save original temp for ffmpeg input
+    const tempExt = extname(file.originalname) || ".mp4";
+    const tempFilename = `temp-${uniqueSuffix}${tempExt}`;
+    const tempPath = join(uploadDir, tempFilename);
+    await fs.writeFile(tempPath, file.buffer);
+
+    const outFilename = `video-${uniqueSuffix}.webm`;
+    const outPath = join(uploadDir, outFilename);
+
+    // Transcode to WebM VP9 — optimized for web hero backgrounds
+    try {
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(tempPath)
+          .outputOptions([
+            "-c:v libvpx-vp9",
+            "-crf 35",
+            "-b:v 0",
+            "-vf scale='min(1920,iw)':-2",
+            "-an",
+            "-t 30",
+            "-threads 2",
+          ])
+          .output(outPath)
+          .on("end", () => resolve())
+          .on("error", (err) => reject(err))
+          .run();
+      });
+    } finally {
+      await fs.unlink(tempPath).catch(() => {});
+    }
+
     const baseUrl =
       process.env.API_BASE_URL ||
       `http://localhost:${process.env.PORT || 3000}`;
-    const videoUrl = `${baseUrl}/uploads/storefront/videos/${file.filename}`;
+    const videoUrl = `${baseUrl}/uploads/storefront/videos/${outFilename}`;
 
     const updatedConfig = await this.storefrontConfigService.uploadVideo(
       req.user.tenantId,
       videoUrl,
     );
 
+    const stats = await fs.stat(outPath);
     return {
       success: true,
       data: {
         videoUrl: videoUrl,
-        filename: file.filename,
+        filename: outFilename,
         originalName: file.originalname,
-        size: file.size,
+        originalSize: file.size,
+        optimizedSize: stats.size,
       },
       config: updatedConfig,
     };
