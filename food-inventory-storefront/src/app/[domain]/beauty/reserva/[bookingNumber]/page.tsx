@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
 import { getBookingByNumber, type Booking } from '@/lib/beautyApi';
 import { type ColorScheme, LIGHT, DARK } from '@/templates/BeautyStorefront/BeautyStorefront';
 
@@ -15,6 +16,27 @@ interface StorefrontConfig {
     whatsapp?: string;
     address?: string;
   };
+}
+
+function ConfirmationCelebration({ primaryColor, secondaryColor }: { primaryColor: string; secondaryColor: string }) {
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Fire confetti
+    import('canvas-confetti').then(({ default: confetti }) => {
+      confetti({ particleCount: 80, spread: 60, origin: { y: 0.5 }, colors: [primaryColor, secondaryColor, '#FFD700'] });
+      setTimeout(() => {
+        confetti({ particleCount: 40, spread: 80, origin: { y: 0.4, x: 0.3 }, colors: [primaryColor, secondaryColor] });
+      }, 300);
+      setTimeout(() => {
+        confetti({ particleCount: 40, spread: 80, origin: { y: 0.4, x: 0.7 }, colors: [primaryColor, secondaryColor] });
+      }, 500);
+    }).catch(() => {}); // Silently fail if confetti can't load
+    // Haptic feedback
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(200);
+    }
+  }, [primaryColor, secondaryColor]);
+  return null;
 }
 
 export default function BookingConfirmationPage() {
@@ -201,16 +223,47 @@ END:VCALENDAR`;
         </div>
       </header>
 
+      <ConfirmationCelebration primaryColor={primaryColor} secondaryColor={secondaryColor} />
+
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Success badge */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4" style={{ background: `linear-gradient(135deg, ${primaryColor}20, ${secondaryColor}20)` }}>
-            <svg className="w-10 h-10" style={{ color: primaryColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <motion.div
+            className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4"
+            style={{ background: `linear-gradient(135deg, ${primaryColor}20, ${secondaryColor}20)` }}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 12, delay: 0.1 }}
+          >
+            <motion.svg
+              className="w-10 h-10"
+              style={{ color: primaryColor }}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              initial={{ pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h1 className={`text-3xl font-bold tracking-tight mb-2 ${colors.text}`}>¡Reserva Confirmada!</h1>
-          <p className={colors.textMuted}>Tu cita ha sido reservada exitosamente.</p>
+            </motion.svg>
+          </motion.div>
+          <motion.h1
+            className={`text-3xl font-bold tracking-tight mb-2 ${colors.text}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            ¡Reserva Confirmada!
+          </motion.h1>
+          <motion.p
+            className={colors.textMuted}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+          >
+            Tu cita ha sido reservada exitosamente.
+          </motion.p>
         </div>
 
         {/* Booking details card */}
@@ -317,8 +370,8 @@ END:VCALENDAR`;
         <div className="space-y-3 mb-6">
           <button
             onClick={handleAddToCalendar}
-            className={`w-full px-6 py-3.5 rounded-xl font-semibold text-sm tracking-wide border-2 flex items-center justify-center gap-2 transition-all hover:shadow-lg hover:scale-[1.01]`}
-            style={{ borderColor: primaryColor, color: primaryColor }}
+            className="w-full px-6 py-4 rounded-xl font-bold text-base tracking-wide text-white flex items-center justify-center gap-2.5 transition-all hover:shadow-lg hover:scale-[1.01]"
+            style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
