@@ -223,9 +223,9 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 @media (hover: none) { body.skubik-page-active { cursor: auto; } }
 
 /* Custom cursor */
-.s-cursor { position: fixed; width: 10px; height: 10px; border-radius: 50%; background: var(--s-accent); pointer-events: none; z-index: 9999; mix-blend-mode: difference; transition: transform 0.15s ease, width 0.2s, height 0.2s; transform: translate(-50%,-50%); }
-.s-cursor.hover { width: 60px; height: 60px; background: var(--s-fg); }
-.s-cursor-ring { position: fixed; width: 40px; height: 40px; border: 1px solid var(--s-fg); border-radius: 50%; pointer-events: none; z-index: 9998; mix-blend-mode: difference; transform: translate(-50%,-50%); transition: transform 0.4s cubic-bezier(0.2,0.8,0.2,1); opacity: 0.5; }
+.s-cursor { position: fixed; top: 0; left: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--s-accent); pointer-events: none; z-index: 9999; will-change: transform; transform: translate(-50%,-50%); transition: width 0.2s, height 0.2s, background 0.2s; }
+.s-cursor.hover { width: 60px; height: 60px; background: var(--s-fg); mix-blend-mode: difference; }
+.s-cursor-ring { position: fixed; top: 0; left: 0; width: 40px; height: 40px; border: 1px solid var(--s-fg); border-radius: 50%; pointer-events: none; z-index: 9998; will-change: transform; transform: translate(-50%,-50%); opacity: 0.5; }
 
 /* Progress rail */
 .s-progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; background: transparent; z-index: 100; pointer-events: none; }
@@ -694,19 +694,21 @@ function Cursor() {
   const dotRef = useRef(null);
   const ringRef = useRef(null);
   useEffect(() => {
-    let rx = 0, ry = 0, dx = 0, dy = 0;
-    const move = (e) => {
-      dx = e.clientX; dy = e.clientY;
-      if (dotRef.current) dotRef.current.style.transform = `translate(${dx}px, ${dy}px) translate(-50%,-50%)`;
-    };
+    let mx = 0, my = 0; // mouse target
+    let rx = 0, ry = 0; // ring interpolated
+    let rafId = 0;
+    const move = (e) => { mx = e.clientX; my = e.clientY; };
     const tick = () => {
-      rx += (dx - rx) * 0.15;
-      ry += (dy - ry) * 0.15;
+      // Dot follows mouse directly (no CSS transition, just RAF batching)
+      if (dotRef.current) dotRef.current.style.transform = `translate(${mx}px, ${my}px) translate(-50%,-50%)`;
+      // Ring follows with smooth lerp (0.25 = responsive but soft)
+      rx += (mx - rx) * 0.25;
+      ry += (my - ry) * 0.25;
       if (ringRef.current) ringRef.current.style.transform = `translate(${rx}px, ${ry}px) translate(-50%,-50%)`;
-      requestAnimationFrame(tick);
+      rafId = requestAnimationFrame(tick);
     };
-    window.addEventListener('mousemove', move);
-    tick();
+    window.addEventListener('mousemove', move, { passive: true });
+    rafId = requestAnimationFrame(tick);
     const over = (e) => {
       const t = e.target;
       if (t.closest('a, button, input, .s-hoverable, .s-faq-item, .s-chat-prompt, .s-tl-scrub-pill')) {
@@ -717,6 +719,7 @@ function Cursor() {
     document.addEventListener('mouseover', over);
     document.addEventListener('mouseout', out);
     return () => {
+      cancelAnimationFrame(rafId);
       window.removeEventListener('mousemove', move);
       document.removeEventListener('mouseover', over);
       document.removeEventListener('mouseout', out);
