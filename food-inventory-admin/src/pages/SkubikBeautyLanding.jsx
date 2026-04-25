@@ -355,10 +355,9 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 /* Back video — plays on flip */
 .s-pain-back-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 1; pointer-events: none; z-index: 0; }
 .s-pain-back.has-back-video { background: #000; }
-.s-pain-back.has-back-video::after { content: ''; position: absolute; inset: 0; border-radius: 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,0.2) 70%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-back.has-back-video .s-pain-back-label,
 .s-pain-back.has-back-video .s-pain-back-a,
-.s-pain-back.has-back-video .s-pain-back-hint { position: relative; z-index: 2; text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
+.s-pain-back.has-back-video .s-pain-back-hint { position: relative; z-index: 2; }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
