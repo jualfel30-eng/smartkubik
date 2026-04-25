@@ -341,8 +341,13 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-card.flipped { z-index: 200 !important; filter: none !important; }
 @media (max-width: 600px) { .s-pain-card.flipped .s-pain-card-inner { transform: rotateY(180deg) scale(1.08); } }
 
-/* Shared face — opaque background required for Safari backface-visibility */
+/* Shared face */
 .s-pain-face { position: absolute; top: 0; left: 0; width: 100%; height: 100%; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 28px; padding: 36px 28px; display: flex; flex-direction: column; border: 1px solid var(--s-line); overflow: hidden; }
+/* Safari fallback: manually toggle visibility at flip midpoint (0.35s = half of 0.7s flip) */
+.s-pain-card.flipped .s-pain-front { visibility: hidden; transition: visibility 0s 0.35s; }
+.s-pain-card:not(.flipped) .s-pain-back { visibility: hidden; transition: visibility 0s 0.35s; }
+.s-pain-card.flipped .s-pain-back { visibility: visible; }
+.s-pain-card:not(.flipped) .s-pain-front { visibility: visible; }
 @media (max-width: 600px) { .s-pain-face { padding: 28px 22px; } }
 
 /* Front — must have opaque bg for Safari backface to work */
@@ -350,7 +355,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 /* Video bg — INSIDE the 3D flip context, rotates with the card */
 .s-pain-card-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.3; pointer-events: none; z-index: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; transition: opacity 0.4s; }
 .s-pain-card:hover .s-pain-card-video { opacity: 0.85; }
-.s-pain-front.has-video { background: transparent; }
+.s-pain-front.has-video { background: var(--s-bg2); }
 /* Back video — plays on flip. Keep opaque bg so Safari backface-visibility works */
 .s-pain-back-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; pointer-events: none; z-index: 0; }
 .s-pain-back-play { position: absolute; bottom: 28px; right: 28px; z-index: 3; width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; opacity: 1; }
@@ -1001,10 +1006,10 @@ function PainCard({ item, i, activeIdx }) {
         <div className="s-pain-glow-border" />
       </div>
       <div className="s-pain-card-inner">
-        {item.video && (
-          <video ref={videoRef} className="s-pain-card-video" src={item.video} loop muted playsInline preload="none" />
-        )}
         <div className={`s-pain-face s-pain-front ${item.video ? 'has-video' : ''}`}>
+          {item.video && (
+            <video ref={videoRef} className="s-pain-card-video" src={item.video} loop muted playsInline preload="none" />
+          )}
           <div className="s-pain-front-num">0{i + 1}</div>
           <div style={{ marginTop: 'auto' }}>
             <div className="s-pain-front-tag">{item.tag}</div>
