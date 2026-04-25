@@ -348,7 +348,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 /* Front — must have opaque bg for Safari backface to work */
 .s-pain-front { background: var(--s-bg2); position: relative; }
 /* Video bg — INSIDE the 3D flip context, rotates with the card */
-.s-pain-card-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.3; pointer-events: none; z-index: 3; backface-visibility: hidden; -webkit-backface-visibility: hidden; transition: opacity 0.4s; }
+.s-pain-card-video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; opacity: 0.3; pointer-events: none; z-index: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; transition: opacity 0.4s; }
 .s-pain-card:hover .s-pain-card-video { opacity: 0.85; }
 .s-pain-front.has-video { background: transparent; }
 /* Bottom gradient overlay for text legibility */
