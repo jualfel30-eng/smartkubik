@@ -12,6 +12,7 @@ import SmoothScrollProvider from './components/premium/SmoothScrollProvider';
 import GrainOverlay from './components/premium/GrainOverlay';
 import LoadingScreen from './components/premium/LoadingScreen';
 import FloatingCTA from './components/premium/FloatingCTA';
+import MotionProvider from './components/premium/MotionProvider';
 
 export interface ColorScheme {
   // Backgrounds
@@ -229,6 +230,7 @@ export default function BeautyStorefront({
       : 0;
 
   return (
+    <MotionProvider>
     <SmoothScrollProvider>
       <div className={`min-h-screen ${colors.bg} ${colors.text} transition-colors duration-300`}>
         <LoadingScreen logoUrl={config.logoUrl} primaryColor={primaryColor} />
@@ -397,8 +399,8 @@ export default function BeautyStorefront({
         </section>
       )}
 
-      {/* Reviews */}
-      {reviews.length > 0 && (
+      {/* Reviews — unified section with tabs for in-app + Google reviews */}
+      {(reviews.length > 0 || (googlePlacesData && (googlePlacesData.reviews?.length ?? 0) > 0)) && (
         <section id="resenas" className={`py-32 ${colors.bg} transition-colors duration-300`}>
           <div className="container mx-auto px-4">
             <div className="text-center mb-14">
@@ -409,19 +411,14 @@ export default function BeautyStorefront({
                 Lo Que Dicen Nuestros Clientes
               </h2>
               <div className="w-16 h-1 mx-auto rounded-full mb-6" style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }} />
-              <div className="flex items-center justify-center gap-3 mb-2">
-                <span className="text-5xl font-bold" style={{ color: primaryColor }}>{averageRating.toFixed(1)}</span>
-                <div className="flex gap-0.5">
-                  {[...Array(5)].map((_, i) => (
-                    <svg key={i} className="w-6 h-6" fill={i < Math.round(averageRating) ? '#F59E0B' : colors.emptyStar} viewBox="0 0 20 20">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-              </div>
-              <p className={colors.textMuted}>Basado en {reviews.length} reseñas</p>
             </div>
-            <BeautyReviews reviews={reviews} colors={colors} />
+            <BeautyReviews
+              reviews={reviews}
+              colors={colors}
+              primaryColor={primaryColor}
+              googlePlacesData={googlePlacesData}
+              googlePlaceId={googlePlaceId}
+            />
           </div>
         </section>
       )}
@@ -462,5 +459,6 @@ export default function BeautyStorefront({
       <FloatingCTA domain={domain} primaryColor={primaryColor} secondaryColor={secondaryColor} />
       </div>
     </SmoothScrollProvider>
+    </MotionProvider>
   );
 }
