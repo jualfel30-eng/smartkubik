@@ -58,7 +58,7 @@ export default function SidebarFooterContent({ user, tenant, handleLogout, onNav
       <div className="flex items-center gap-2.5 px-2 py-1">
         <UserAvatar name={user?.firstName} className="w-8 h-8" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground truncate">
+          <p className="text-sm font-medium text-foreground/80 truncate">
             {user?.firstName || 'Usuario'}
           </p>
           <p className="text-[11px] text-muted-foreground truncate">
@@ -74,7 +74,7 @@ export default function SidebarFooterContent({ user, tenant, handleLogout, onNav
             <TooltipTrigger asChild>
               <button
                 onClick={() => onNavigate('/settings')}
-                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-xs"
+                className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-muted-foreground hover:text-foreground/80 hover:bg-muted transition-colors text-xs"
               >
                 <Settings size={14} strokeWidth={1.5} />
                 <span>Ajustes</span>
