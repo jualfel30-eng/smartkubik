@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { fadeUp } from '@/lib/motion';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -12,6 +14,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs.jsx";
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu.jsx';
+import { SplitView } from '@/components/ui/split-view.jsx';
+import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body.jsx';
+import Celebration from '@/components/Celebration.jsx';
+import { useCelebration, triggerCelebration } from '@/hooks/use-celebration';
 import {
   Plus,
   Search,
@@ -40,7 +46,7 @@ import EmployeeDetailDrawer from '@/components/payroll/EmployeeDetailDrawer.jsx'
 import { CustomerDetailDialog } from '@/components/CustomerDetailDialog.jsx';
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { OpportunityDetailDialog } from '@/components/OpportunityDetailDialog.jsx';
 import OpportunityStagesManagement from './crm/OpportunityStagesManagement.jsx';
@@ -50,10 +56,20 @@ import { ActivityTimeline } from './ActivityTimeline.jsx';
 import { RemindersWidget } from './RemindersWidget.jsx';
 import { HRNavigation } from '@/components/payroll/HRNavigation.jsx';
 import { useConfirm } from '@/hooks/use-confirm';
+// Extracted CRM sub-components
+import { ContactsTable } from './crm/ContactsTable.jsx';
+import { ContactDetailPanel } from './crm/ContactDetailPanel.jsx';
+import { ContactsSummaryCards } from './crm/ContactsSummaryCards.jsx';
+import { KanbanColumn } from './crm/KanbanColumn.jsx';
+import { KanbanCard } from './crm/KanbanCard.jsx';
+import { getTierBadge, getContactTypeBadge, renderEmployeeStatusBadge } from './crm/badges.jsx';
+import { CRMEmptyState } from './crm/CRMEmptyState.jsx';
+import { computeInactiveDays } from './crm/AtRiskBadge.jsx';
+import { useCRMMilestones } from '@/hooks/use-crm-milestones';
 
 const DEFAULT_PAGE_LIMIT = 25;
 const SEARCH_PAGE_LIMIT = 100;
-const SEARCH_DEBOUNCE_MS = 600;
+const SEARCH_DEBOUNCE_MS = 300;
 
 const exportRowsToCsv = (headers, rows, filename) => {
   const csvRows = [headers, ...rows]
@@ -193,6 +209,8 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
 
   const handleTopTabChange = (value) => {
     setActiveTopTab(value);
+    // Clear split-view selection when leaving contacts tab
+    if (value !== 'contacts') setSelectedCustomer(null);
     if (value === 'pipeline') {
       setFilterType('pipeline');
       setSearchParams({ tab: 'pipeline' });
@@ -204,8 +222,9 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     } else if (value === 'reminders') {
       setSearchParams({ tab: 'reminders' });
     } else {
-      // Switch back to contacts
-      const newSubTab = filterType === 'pipeline' || filterType === 'settings' ? 'all' : filterType;
+      // Switch back to contacts — reset filterType if it's a top-level tab value
+      const nonContactFilters = ['pipeline', 'settings', 'playbooks', 'reminders'];
+      const newSubTab = nonContactFilters.includes(filterType) ? 'all' : filterType;
       setFilterType(newSubTab);
       setSearchParams({ tab: newSubTab });
     }
@@ -462,9 +481,15 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     'Cierre perdido': ['reasonLost'],
   };
 
-  // Customer Detail Dialog
+  // Customer Detail Panel (split-view)
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [justCreatedId, setJustCreatedId] = useState(null);
+  const [summaryFilter, setSummaryFilter] = useState(null); // 'atRisk' | 'new' | null
+
+  // Celebrations
+  const { celebrating, stop: stopCelebration } = useCelebration();
+  useCRMMilestones({ totalCustomers, onCelebrate: triggerCelebration });
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
   const [selectedEmployeeSnapshot, setSelectedEmployeeSnapshot] = useState(null);
   const [isEmployeeDrawerOpen, setIsEmployeeDrawerOpen] = useState(false);
@@ -492,6 +517,8 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   ];
 
   // Sincronizar filterType con searchParams cuando cambia la URL
+  // Only sync for valid contacts sub-tab filter types (not top-level tabs like pipeline/playbooks/reminders/settings)
+  const validContactsFilterTypes = ['all', 'individual', 'supplier', 'employee'];
   useEffect(() => {
     if (forceEmployeeTab && filterType !== 'employee') {
       setFilterType('employee');
@@ -499,7 +526,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       return;
     }
     const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && tabFromUrl !== filterType && !(hideEmployeeTab && tabFromUrl === 'employee')) {
+    if (tabFromUrl && tabFromUrl !== filterType && validContactsFilterTypes.includes(tabFromUrl) && !(hideEmployeeTab && tabFromUrl === 'employee')) {
       setFilterType(tabFromUrl);
     }
     if (hideEmployeeTab && filterType === 'employee') {
@@ -761,6 +788,9 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       setActiveOpportunity(null);
       refreshOpportunities();
       toast.success('Etapa actualizada');
+      if (stageForm.stage === 'Cierre ganado') {
+        triggerCelebration();
+      }
     } catch (error) {
       console.error('Error cambiando etapa:', error);
       toast.error(error?.message || 'Error al cambiar etapa');
@@ -909,54 +939,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     }
   }, [isEmployeeTab, selectedEmployeeIds.size]);
 
-  const getTierBadge = (tier) => {
-    const tierMap = {
-      diamante: { label: 'Diamante', icon: '💎', className: 'bg-info/10 text-blue-800 border-blue-300' },
-      oro: { label: 'Oro', icon: '🥇', className: 'bg-warning/10 text-yellow-800 border-yellow-300' },
-      plata: { label: 'Plata', icon: '🥈', className: 'bg-gray-100 text-gray-800 border-gray-300' },
-      bronce: { label: 'Bronce', icon: '🥉', className: 'bg-amber-100 text-amber-800 border-amber-300' },
-    };
-    const tierInfo = tierMap[tier] || { label: tier || 'Sin tier', icon: '', className: 'bg-gray-50 text-gray-600 border-gray-200' };
-    return (
-      <Badge className={`${tierInfo.className} border`}>
-        {tierInfo.icon && <span className="mr-1">{tierInfo.icon}</span>}
-        {tierInfo.label}
-      </Badge>
-    );
-  };
-
-  const getContactTypeBadge = (type) => {
-    const typeMap = {
-      admin: { label: 'Admin', className: 'bg-purple-100 text-purple-800' },
-      business: { label: 'Cliente', className: 'bg-info/10 text-blue-800' },
-      individual: { label: 'Cliente', className: 'bg-info/10 text-blue-800' },
-      supplier: { label: 'Proveedor', className: 'bg-success/10 text-green-800' },
-      employee: { label: 'Empleado', className: 'bg-warning/10 text-orange-800' },
-      manager: { label: 'Gestor', className: 'bg-gray-100 text-gray-800' },
-    };
-    const typeInfo = typeMap[type] || { label: type, className: 'bg-gray-200' };
-    return <Badge className={typeInfo.className}>{typeInfo.label}</Badge>;
-  };
-
-  const employeeStatusStyles = {
-    active: 'bg-emerald-100 text-emerald-800',
-    onboarding: 'bg-info/10 text-blue-800',
-    suspended: 'bg-warning/10 text-yellow-800',
-    terminated: 'bg-destructive/10 text-red-800',
-    draft: 'bg-gray-100 text-gray-800',
-  };
-
-  const renderEmployeeStatusBadge = (status = 'draft') => {
-    const className = employeeStatusStyles[status] || employeeStatusStyles.draft;
-    const labelMap = {
-      active: 'Activo',
-      onboarding: 'Onboarding',
-      suspended: 'Suspendido',
-      terminated: 'Terminado',
-      draft: 'Borrador',
-    };
-    return <Badge className={className}>{labelMap[status] || status}</Badge>;
-  };
+  // getTierBadge, getContactTypeBadge, renderEmployeeStatusBadge imported from ./crm/badges.jsx
 
   const openEmployeeDrawer = useCallback((employee) => {
     if (!employee?._id) return;
@@ -1421,12 +1404,22 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     setFilteredData(filtered);
   }, [crmData, filterTier]);
 
-  useEffect(() => {
-    console.log('CRM Data received:', crmData);
-    crmData.forEach(customer => {
-      console.log(`${customer.name}: totalSpent = ${customer.metrics?.totalSpent}`);
-    });
-  }, [crmData]);
+  // Apply summary card filters (at-risk, new this month)
+  const displayedData = useMemo(() => {
+    if (!summaryFilter) return filteredData;
+    if (summaryFilter === 'atRisk') {
+      return filteredData.filter(c => {
+        const days = computeInactiveDays(c);
+        return days !== null && days >= 30;
+      });
+    }
+    if (summaryFilter === 'new') {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      return filteredData.filter(c => c.createdAt && new Date(c.createdAt) >= monthStart);
+    }
+    return filteredData;
+  }, [filteredData, summaryFilter]);
 
   // --- MANEJO DE OPERACIONES CRUD ---
   const handleOpenEditDialog = (contact) => {
@@ -1477,13 +1470,19 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
 
     const shouldEnsureEmployee = payload.customerType === 'employee';
     try {
-      await addCustomer(payload, {
+      const result = await addCustomer(payload, {
         ensureEmployeeProfile: shouldEnsureEmployee,
         refreshEmployees: shouldEnsureEmployee,
         skipCustomerReload: isEmployeeTab,
       });
       setNewContact(initialNewContactState);
       setIsAddDialogOpen(false);
+      // Highlight new row briefly
+      const newId = result?._id || result?.data?._id;
+      if (newId) {
+        setJustCreatedId(newId);
+        setTimeout(() => setJustCreatedId(null), 2000);
+      }
     } catch (err) {
       alert(`Error al agregar cliente: ${err.message}`);
     }
@@ -1904,6 +1903,17 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                 </CardContent>
               </Card>
             </>
+          )}
+
+          {/* Summary Cards (contacts only, not employee tab) */}
+          {!isEmployeeTab && (
+            <ContactsSummaryCards
+              filteredData={filteredData}
+              totalCustomers={totalCustomers}
+              activeFilter={summaryFilter}
+              onFilterAtRisk={() => setSummaryFilter(summaryFilter === 'atRisk' ? null : 'atRisk')}
+              onFilterNew={() => setSummaryFilter(summaryFilter === 'new' ? null : 'new')}
+            />
           )}
 
           {(
@@ -2484,104 +2494,37 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                       </div>
                     </div>
                   ) : (
-                    <>
-                      <div className="rounded-md border">
-                        <Table>
-                          <TableHeader><TableRow><TableHead>Contacto</TableHead><TableHead>Tier RFM</TableHead><TableHead>Tipo</TableHead><TableHead>Dirección</TableHead><TableHead>Email</TableHead><TableHead>Contacto Principal</TableHead><TableHead>Gastos Totales</TableHead><TableHead>Acciones</TableHead></TableRow></TableHeader>
-                          <TableBody>
-                            {filteredData.map((customer) => {
-                              const primaryContact = customer.contacts?.find(c => c.isPrimary) || customer.contacts?.[0];
-                              return (
-                                <TableRow key={customer._id}>
-                                  <TableCell>
-                                    <div className="font-medium">{customer.name}</div>
-                                    <div className="text-sm text-muted-foreground">{customer.companyName}</div>
-                                  </TableCell>
-                                  <TableCell>{getTierBadge(customer.tier)}</TableCell>
-                                  <TableCell>{getContactTypeBadge(customer.customerType)}</TableCell>
-                                  <TableCell>
-                                    <div className="text-sm max-w-[200px] truncate" title={customer.addresses?.find(a => a.isDefault)?.street || customer.addresses?.[0]?.street || ''}>
-                                      {customer.addresses?.find(a => a.isDefault)?.street || customer.addresses?.[0]?.street || '-'}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="text-sm flex items-center gap-2">
-                                      {customer.contacts?.find(c => c.type === 'email')?.value ? (
-                                        <>
-                                          <Mail className="h-3 w-3" />
-                                          <span className="truncate max-w-[150px]" title={customer.contacts.find(c => c.type === 'email').value}>
-                                            {customer.contacts.find(c => c.type === 'email').value}
-                                          </span>
-                                        </>
-                                      ) : '-'}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    {primaryContact?.value && primaryContact.type !== 'email' ? (
-                                      <div className="text-sm flex items-center gap-2"><Phone className="h-3 w-3" /> {primaryContact.value}</div>
-                                    ) : '-'}
-                                  </TableCell>
-                                  <TableCell><div className="font-medium">${customer.metrics?.totalSpent?.toFixed(2) || '0.00'}</div></TableCell>
-                                  <TableCell>
-                                    <div className="flex space-x-2">
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                          setSelectedCustomer(customer);
-                                          setIsDetailDialogOpen(true);
-                                        }}
-                                        title="Ver detalles y historial"
-                                      >
-                                        <Eye className="h-4 w-4" />
-                                      </Button>
-                                      <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(customer)}><Edit className="h-4 w-4" /></Button>
-                                      <Button variant="outline" size="sm" onClick={() => handleDeleteContact(customer._id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </div>
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4">
-                        <div>
-                          Mostrando <span className="font-semibold">{filteredData.length}</span> de{' '}
-                          <span className="font-semibold">{totalCustomers}</span> contactos
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const newPage = Math.max(1, currentPage - 1);
-                              setCurrentPage(newPage);
-                              reloadCustomers(newPage, pageLimit, currentFilters);
-                            }}
-                            disabled={currentPage === 1}
-                          >
-                            Anterior
-                          </Button>
-                          <div className="text-sm text-muted-foreground">
-                            Página <span className="font-semibold">{currentPage}</span> de{' '}
-                            <span className="font-semibold">{totalPages}</span>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const newPage = Math.min(totalPages, currentPage + 1);
-                              setCurrentPage(newPage);
-                              reloadCustomers(newPage, pageLimit, currentFilters);
-                            }}
-                            disabled={currentPage === totalPages}
-                          >
-                            Siguiente
-                          </Button>
-                        </div>
-                      </div>
-                    </>
+                    <SplitView
+                      list={
+                        <ContactsTable
+                          filteredData={displayedData}
+                          loading={loading}
+                          onViewDetail={(customer) => setSelectedCustomer(customer)}
+                          onEdit={handleOpenEditDialog}
+                          onDelete={handleDeleteContact}
+                          justCreatedId={justCreatedId}
+                          totalCustomers={totalCustomers}
+                          currentPage={currentPage}
+                          totalPages={totalPages}
+                          onPageChange={(newPage) => {
+                            setCurrentPage(newPage);
+                            reloadCustomers(newPage, pageLimit, currentFilters);
+                          }}
+                        />
+                      }
+                      detail={selectedCustomer ? (
+                        <ContactDetailPanel
+                          customer={selectedCustomer}
+                          onClose={() => setSelectedCustomer(null)}
+                          onEdit={handleOpenEditDialog}
+                          onViewFull={(customer) => {
+                            setIsDetailDialogOpen(true);
+                          }}
+                        />
+                      ) : null}
+                      onCloseDetail={() => setSelectedCustomer(null)}
+                      listWidth="w-full xl:w-[60%] xl:min-w-[600px]"
+                    />
                   )}
                 </CardContent>
               </Card>
@@ -3669,115 +3612,9 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
         }}
       />
       <ConfirmDialog />
+      <Celebration active={celebrating} onComplete={stopCelebration} />
     </div>
   );
 }
 
 export default CRMManagement;
-
-function KanbanColumn({ stage, cards, onDrop, onQuickMove, onMqlDecision, onSqlDecision, onOpenDetail, stageOptions }) {
-  const [{ isOver }, drop] = useDrop(
-    () => ({
-      accept: 'OPPORTUNITY_CARD',
-      drop: (item) => onDrop(item.opp),
-      collect: (monitor) => ({
-        isOver: monitor.isOver(),
-      }),
-    }),
-    [onDrop],
-  );
-
-  return (
-    <div
-      ref={drop}
-      className={`rounded-lg border bg-muted/40 p-3 ${isOver ? 'ring-2 ring-primary' : ''}`}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <div className="font-semibold">{stage}</div>
-        <Badge variant="outline">{cards.length}</Badge>
-      </div>
-      <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
-        {cards.length === 0 && (
-          <div className="text-sm text-muted-foreground">Sin oportunidades</div>
-        )}
-        {cards.map((opp) => (
-          <KanbanCard
-            key={opp._id}
-            opp={opp}
-            onQuickMove={onQuickMove}
-            onMqlDecision={onMqlDecision}
-            onSqlDecision={onSqlDecision}
-            onOpenDetail={onOpenDetail}
-            stageOptions={stageOptions}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function KanbanCard({ opp, onQuickMove, onMqlDecision, onSqlDecision, onOpenDetail, stageOptions }) {
-  const [, drag] = useDrag(() => ({ type: 'OPPORTUNITY_CARD', opp }), [opp]);
-  const dueDate = opp.nextStepDue ? new Date(opp.nextStepDue) : null;
-  const today = new Date();
-  const diffDays = dueDate ? Math.floor((dueDate - today) / (1000 * 60 * 60 * 24)) : null;
-  const isOverdue = diffDays !== null && diffDays < 0;
-  const isDueSoon = diffDays !== null && diffDays >= 0 && diffDays <= 2;
-
-  return (
-    <div
-      ref={drag}
-      className="rounded-md border bg-background p-2 shadow-sm space-y-1 cursor-grab active:cursor-grabbing"
-    >
-      <div className="flex justify-between items-start">
-        <div className="font-medium text-sm">{opp.name || 'Sin nombre'}</div>
-        <Button variant="ghost" size="xs" className="h-4 w-4 p-0" onClick={() => onOpenDetail && onOpenDetail(opp)}>
-          <Eye className="h-3 w-3" />
-        </Button>
-      </div>
-      <div className="text-xs text-muted-foreground">
-        Cliente: {opp.customerId?.name || opp.customerId?.companyName || '—'}
-      </div>
-      <div className="text-xs text-muted-foreground">
-        Owner: {opp.ownerId?.name || opp.ownerId?.email || '—'}
-      </div>
-      <div className="text-xs flex items-center gap-2">
-        <span>Next: {opp.nextStep || '—'}</span>
-        <span className={`px-1.5 py-0.5 rounded text-[10px] ${isOverdue ? 'bg-destructive/20 text-destructive dark:bg-destructive/30 dark:text-destructive' : isDueSoon ? 'bg-amber-200 text-amber-900 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-muted text-muted-foreground'}`}>
-          {opp.nextStepDue ? new Date(opp.nextStepDue).toISOString().slice(0, 10) : '—'}
-        </span>
-      </div>
-      <Select
-        value={opp.stage}
-        onValueChange={(value) => onQuickMove(opp._id, value)}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder="Mover a" />
-        </SelectTrigger>
-        <SelectContent>
-          {stageOptions.map((s) => (
-            <SelectItem key={s} value={s}>
-              {s}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <div className="flex gap-2">
-        <Button
-          variant="secondary"
-          size="xs"
-          onClick={() => onMqlDecision && onMqlDecision(opp._id, 'accepted')}
-        >
-          MQL ✓
-        </Button>
-        <Button
-          variant="secondary"
-          size="xs"
-          onClick={() => onSqlDecision && onSqlDecision(opp._id, 'accepted')}
-        >
-          SQL ✓
-        </Button>
-      </div>
-    </div>
-  );
-}
