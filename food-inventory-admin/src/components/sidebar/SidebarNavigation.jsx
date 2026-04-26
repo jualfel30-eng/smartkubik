@@ -52,6 +52,8 @@ export default function SidebarNavigation({
   const isRouteActive = useCallback((itemHref) => {
     if (!itemHref) return false;
     if (activeTab === itemHref) return true;
+    // If item href has query params, require exact match (already checked above)
+    if (itemHref.includes('?')) return false;
     const itemBasePath = itemHref.split('?')[0];
     return itemBasePath === currentBasePath;
   }, [activeTab, currentBasePath]);
@@ -59,14 +61,17 @@ export default function SidebarNavigation({
   const hasActiveChild = useCallback((item) => {
     if (!item.children) return false;
     return item.children.some(child => {
-      const childBasePath = child.href.split('?')[0];
-      if (childBasePath === currentBasePath) return true;
+      if (child.href === activeTab) return true;
+      if (!child.href.includes('?') && child.href.split('?')[0] === currentBasePath) return true;
       if (child.children) {
-        return child.children.some(grandchild => grandchild.href.split('?')[0] === currentBasePath);
+        return child.children.some(grandchild => {
+          if (grandchild.href === activeTab) return true;
+          return !grandchild.href.includes('?') && grandchild.href.split('?')[0] === currentBasePath;
+        });
       }
       return false;
     });
-  }, [currentBasePath]);
+  }, [activeTab, currentBasePath]);
 
   // Find the deepest active href (for layoutId pill — only one pill at a time)
   const deepestActiveHref = useMemo(() => {
@@ -75,10 +80,12 @@ export default function SidebarNavigation({
         for (const child of item.children) {
           if (child.children) {
             for (const gc of child.children) {
-              if (gc.href === activeTab || gc.href.split('?')[0] === currentBasePath) return gc.href;
+              if (gc.href === activeTab) return gc.href;
+              if (!gc.href.includes('?') && gc.href.split('?')[0] === currentBasePath) return gc.href;
             }
           }
-          if (child.href === activeTab || child.href.split('?')[0] === currentBasePath) return child.href;
+          if (child.href === activeTab) return child.href;
+          if (!child.href.includes('?') && child.href.split('?')[0] === currentBasePath) return child.href;
         }
       }
       if (item.href === activeTab || item.href.split('?')[0] === currentBasePath) {
@@ -89,26 +96,30 @@ export default function SidebarNavigation({
   }, [navLinks, activeTab, currentBasePath, hasActiveChild]);
 
   // --- openMenus state (auto-expand on route change) ---
+  // Helper: check if href matches activeTab (exact for query-param hrefs, basePath for plain hrefs)
+  const hrefMatchesTab = useCallback((href, tab, basePath) => {
+    if (href === tab) return true;
+    if (!href.includes('?') && href.split('?')[0] === basePath) return true;
+    return false;
+  }, []);
+
   const [openMenus, setOpenMenus] = useState(() => {
     const initial = {};
     const basePath = activeTab.split('?')[0];
     navLinks.forEach(item => {
       if (item.children?.length > 0) {
-        const parentBasePath = item.href.split('?')[0];
-        const isActive = parentBasePath === basePath ||
+        const isActive = hrefMatchesTab(item.href, activeTab, basePath) ||
           item.children.some(child => {
-            const childBasePath = child.href.split('?')[0];
-            if (childBasePath === basePath) return true;
-            if (child.children) return child.children.some(gc => gc.href.split('?')[0] === basePath);
+            if (hrefMatchesTab(child.href, activeTab, basePath)) return true;
+            if (child.children) return child.children.some(gc => hrefMatchesTab(gc.href, activeTab, basePath));
             return false;
           });
         initial[item.href] = isActive;
         if (isActive) {
           item.children.forEach(child => {
             if (child.children) {
-              const childBasePath = child.href.split('?')[0];
-              const childActive = childBasePath === basePath ||
-                child.children.some(gc => gc.href.split('?')[0] === basePath);
+              const childActive = hrefMatchesTab(child.href, activeTab, basePath) ||
+                child.children.some(gc => hrefMatchesTab(gc.href, activeTab, basePath));
               initial[child.href] = childActive;
             }
           });
@@ -124,12 +135,10 @@ export default function SidebarNavigation({
       let hasChanges = false;
       navLinks.forEach(item => {
         if (item.children?.length > 0) {
-          const parentBasePath = item.href.split('?')[0];
-          const shouldBeOpen = parentBasePath === currentBasePath ||
+          const shouldBeOpen = hrefMatchesTab(item.href, activeTab, currentBasePath) ||
             item.children.some(child => {
-              const childBasePath = child.href.split('?')[0];
-              if (childBasePath === currentBasePath) return true;
-              if (child.children) return child.children.some(gc => gc.href.split('?')[0] === currentBasePath);
+              if (hrefMatchesTab(child.href, activeTab, currentBasePath)) return true;
+              if (child.children) return child.children.some(gc => hrefMatchesTab(gc.href, activeTab, currentBasePath));
               return false;
             });
           if (shouldBeOpen && prev[item.href] !== true) {
@@ -139,9 +148,8 @@ export default function SidebarNavigation({
           if (shouldBeOpen && item.children) {
             item.children.forEach(child => {
               if (child.children) {
-                const childBasePath = child.href.split('?')[0];
-                const childShouldOpen = childBasePath === currentBasePath ||
-                  child.children.some(gc => gc.href.split('?')[0] === currentBasePath);
+                const childShouldOpen = hrefMatchesTab(child.href, activeTab, currentBasePath) ||
+                  child.children.some(gc => hrefMatchesTab(gc.href, activeTab, currentBasePath));
                 if (childShouldOpen && prev[child.href] !== true) {
                   menusToOpen[child.href] = true;
                   hasChanges = true;
@@ -153,7 +161,7 @@ export default function SidebarNavigation({
       });
       return hasChanges ? { ...prev, ...menusToOpen } : prev;
     });
-  }, [currentBasePath, navLinks]);
+  }, [activeTab, currentBasePath, navLinks, hrefMatchesTab]);
 
   const handleNavigationClick = (href) => {
     if (!href) return;
@@ -244,7 +252,7 @@ export default function SidebarNavigation({
                         <SidebarBadgeDot color={badge.dotColor} />
                       )}
                     </span>
-                    <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">{getDisplayName(item)}</span>
+                    <span className="font-medium text-[0.78rem] group-data-[collapsible=icon]:hidden">{getDisplayName(item)}</span>
                     {state !== 'collapsed' && badge && !openMenus[item.href] && (
                       <SidebarBadge count={badge.count} variant={badge.variant} className="group-data-[collapsible=icon]:hidden" />
                     )}
@@ -346,7 +354,7 @@ export default function SidebarNavigation({
                   <SidebarBadgeDot color={badge.dotColor} />
                 )}
               </span>
-              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden flex-1">{getDisplayName(item)}</span>
+              <span className="font-medium text-[0.78rem] group-data-[collapsible=icon]:hidden flex-1">{getDisplayName(item)}</span>
               {state !== 'collapsed' && badge && (
                 <SidebarBadge
                   count={badge.count}
