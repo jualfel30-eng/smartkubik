@@ -1,7 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body.jsx';
+import { ContentTransition } from '@/components/ui/content-transition.jsx';
+import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { toast } from 'sonner';
@@ -111,9 +114,14 @@ export default function TransferOrdersPanel() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-              Cargando transferencias...
+            <div className="rounded-md border p-4 space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex gap-4">
+                  {Array.from({ length: 7 }).map((_, j) => (
+                    <Skeleton key={j} className="h-10 flex-1 rounded" />
+                  ))}
+                </div>
+              ))}
             </div>
           ) : orders.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
@@ -138,12 +146,12 @@ export default function TransferOrdersPanel() {
                     <TableHead>Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <AnimatedTableBody>
                   {orders.map((order) => {
                     const id = order._id || order.id;
                     const status = STATUS_CONFIG[order.status] || STATUS_CONFIG.draft;
                     return (
-                      <TableRow key={id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedOrderId(id)}>
+                      <AnimatedTableRow key={id} className="cursor-pointer" onClick={() => setSelectedOrderId(id)}>
                         <TableCell className="font-mono font-medium">{order.orderNumber}</TableCell>
                         <TableCell>
                           <div className="text-sm">
@@ -173,10 +181,10 @@ export default function TransferOrdersPanel() {
                             <Eye className="h-4 w-4" />
                           </Button>
                         </TableCell>
-                      </TableRow>
+                      </AnimatedTableRow>
                     );
                   })}
-                </TableBody>
+                </AnimatedTableBody>
               </Table>
 
               {/* Pagination */}

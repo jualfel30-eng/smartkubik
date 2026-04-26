@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body.jsx';
+import { ContentTransition } from '@/components/ui/content-transition.jsx';
+import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { EmptyState } from '@/components/ui/empty-state.jsx';
+import { Badge } from '@/components/ui/badge.jsx';
+import { loadFilters, saveFilters } from '@/components/inventory/filterPersistence.js';
 import { Button } from '@/components/ui/button.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Input } from '@/components/ui/input.jsx';
@@ -10,7 +16,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { toast } from 'sonner';
 import { fetchApi, getAuthToken, getApiBaseUrl } from '@/lib/api';
 import { format } from 'date-fns';
-import { Loader2, RefreshCw, Plus, ArrowRightLeft, Download, FileText, Printer } from 'lucide-react';
+import { Loader2, RefreshCw, Plus, ArrowRightLeft, Download, FileText, Printer, Activity } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 import { SearchableSelect } from './orders/v2/custom/SearchableSelect';
 
@@ -41,7 +47,7 @@ export default function InventoryMovementsPanel() {
   const [warehouses, setWarehouses] = useState([]);
   const [binLocations, setBinLocations] = useState([]);
   const [inventories, setInventories] = useState([]);
-  const [filters, setFilters] = useState({
+  const defaultFilters = {
     preset: 'all',
     movementType: '',
     warehouseId: '',
@@ -49,7 +55,13 @@ export default function InventoryMovementsPanel() {
     supplierId: 'all',
     dateFrom: '',
     dateTo: '',
-  });
+  };
+  const [filters, setFiltersRaw] = useState(() => loadFilters('inv-movements', defaultFilters));
+  const setFilters = (v) => {
+    const next = typeof v === 'function' ? v(filters) : v;
+    setFiltersRaw(next);
+    saveFilters('inv-movements', next);
+  };
   const [loading, setLoading] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -599,18 +611,32 @@ export default function InventoryMovementsPanel() {
                 <TableHead>Razón</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <AnimatedTableBody>
               {movements.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={multiWarehouseEnabled ? 6 : 5} className="text-center text-muted-foreground">
-                    Sin movimientos en el rango seleccionado.
+                  <TableCell colSpan={multiWarehouseEnabled ? 6 : 5} className="h-32">
+                    <EmptyState
+                      icon={Activity}
+                      title="Sin movimientos en este periodo"
+                      description="Ajusta los filtros o selecciona otro rango de fechas."
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
                 movements.map((mov, idx) => (
-                  <TableRow key={`${mov._id || mov.id || 'mov'}-${idx}`}>
+                  <AnimatedTableRow key={`${mov._id || mov.id || 'mov'}-${idx}`}>
                     <TableCell>{mov.createdAt ? format(new Date(mov.createdAt), 'dd/MM/yyyy HH:mm') : '—'}</TableCell>
-                    <TableCell>{mov.movementType}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={
+                        mov.movementType === 'IN' ? 'border-emerald-500/50 text-emerald-500 bg-emerald-500/10' :
+                        mov.movementType === 'OUT' ? 'border-red-500/50 text-red-500 bg-red-500/10' :
+                        mov.movementType === 'ADJUSTMENT' ? 'border-blue-500/50 text-blue-500 bg-blue-500/10' :
+                        mov.movementType === 'TRANSFER' ? 'border-amber-500/50 text-amber-500 bg-amber-500/10' :
+                        ''
+                      }>
+                        {mov.movementType}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       <div className="font-medium">{mov.productSku}</div>
                       <div className="text-xs text-muted-foreground">{mov.productName || ''}</div>
@@ -620,10 +646,10 @@ export default function InventoryMovementsPanel() {
                     )}
                     <TableCell>{mov.quantity}</TableCell>
                     <TableCell className="max-w-xs truncate">{mov.reason || '—'}</TableCell>
-                  </TableRow>
+                  </AnimatedTableRow>
                 ))
               )}
-            </TableBody>
+            </AnimatedTableBody>
           </Table>
         </div>
         {pagination?.total ? (

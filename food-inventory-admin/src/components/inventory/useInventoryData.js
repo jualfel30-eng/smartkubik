@@ -66,8 +66,8 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
   const [editingLotIndex, setEditingLotIndex] = useState(null);
   const [editingLotData, setEditingLotData] = useState(null);
 
-  // --- column visibility ---
-  const [visibleColumns, setVisibleColumns] = useState({
+  // --- column visibility (persisted in localStorage) ---
+  const defaultColumns = {
     sku: true,
     product: true,
     category: true,
@@ -80,7 +80,24 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
     actions: true,
     sellingPrice: false,
     totalValue: false,
+  };
+  const [visibleColumns, setVisibleColumnsRaw] = useState(() => {
+    try {
+      const saved = localStorage.getItem('smartkubik_inv_columns');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...defaultColumns, ...parsed };
+      }
+    } catch { /* ignore */ }
+    return defaultColumns;
   });
+  const setVisibleColumns = (updater) => {
+    setVisibleColumnsRaw((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try { localStorage.setItem('smartkubik_inv_columns', JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
 
   // --- label wizard ---
   const [isLabelWizardOpen, setIsLabelWizardOpen] = useState(false);
@@ -1031,6 +1048,8 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
     // handlers
     loadData,
     refreshData,
+    /** Convenience: refresh current page with current search/limit */
+    refresh: () => refreshData(currentPage, itemsPerPage, committedSearch),
     handlePageChange,
     handlePreviousPage,
     handleNextPage,

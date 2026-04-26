@@ -1,19 +1,22 @@
 /**
  * InventoryTable.jsx
  *
- * The main data table for inventory items. Includes sortable column headers
- * and row rendering with all visible column data.
+ * The main data table for inventory items. Includes sortable column headers,
+ * animated row rendering, inline stock adjustment, and mini stock bars.
  */
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body.jsx';
+import { ContentTransition } from '@/components/ui/content-transition.jsx';
+import { Skeleton } from '@/components/ui/skeleton.jsx';
+import InlineStockAdjust from '@/components/inventory/InlineStockAdjust.jsx';
 import {
   Edit,
   Trash2,
   Package,
   MapPin,
   ArrowRightLeft,
-  Loader2,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
@@ -23,8 +26,8 @@ import {
  * Renders the status badge for an inventory item.
  */
 function StatusBadge({ status }) {
-  if (status === 'lowStock') return <Badge variant="destructive">Stock Crítico</Badge>;
-  if (status === 'nearExpiration') return <Badge variant="secondary" className="bg-warning/10 text-orange-800">Próximo a Vencer</Badge>;
+  if (status === 'lowStock') return <Badge variant="destructive">Stock Critico</Badge>;
+  if (status === 'nearExpiration') return <Badge variant="secondary" className="bg-warning/10 text-orange-800">Proximo a Vencer</Badge>;
   return <Badge className="bg-success/10 text-green-800">Disponible</Badge>;
 }
 
@@ -36,6 +39,39 @@ function SortIcon({ columnKey, sortBy, sortOrder }) {
     return sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
   }
   return <ChevronsUpDown className="h-4 w-4" />;
+}
+
+/**
+ * Mini stock bar visualization.
+ */
+function StockBar({ quantity, maxQuantity = 100 }) {
+  const pct = Math.min(100, Math.max(0, (quantity / maxQuantity) * 100));
+  const color = pct < 20 ? 'bg-red-500' : pct < 50 ? 'bg-amber-500' : 'bg-emerald-500';
+  return (
+    <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden inline-block ml-2 align-middle">
+      <div
+        className={`h-full rounded-full transition-all duration-500 ${color}`}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Table skeleton for loading state.
+ */
+function TableSkeleton({ columns = 6 }) {
+  return (
+    <div className="rounded-md border p-4 space-y-3">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="flex gap-4">
+          {Array.from({ length: columns }).map((_, j) => (
+            <Skeleton key={j} className="h-10 flex-1 rounded" />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -56,6 +92,7 @@ function SortIcon({ columnKey, sortBy, sortOrder }) {
  * @param {Function} props.onDelete - delete handler
  * @param {Function} props.onTransfer - transfer handler
  * @param {Function} props.onViewLots - (item) => void
+ * @param {Function} [props.onAdjustComplete] - refresh callback after inline adjustment
  */
 export function InventoryTable({
   data,
@@ -74,6 +111,7 @@ export function InventoryTable({
   onDelete,
   onTransfer,
   onViewLots,
+  onAdjustComplete,
 }) {
   const handleColumnSort = (field, defaultOrder = 'asc') => {
     if (sortBy === field) {
@@ -84,172 +122,181 @@ export function InventoryTable({
   };
 
   return (
-    <div className="rounded-md border relative">
-      {loading && <div className="absolute inset-0 bg-background/60 z-10 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {visibleColumns.sku && (
-              <TableHead
-                className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
-                onClick={() => handleColumnSort('sku', 'asc')}
-              >
-                <div className="flex items-center space-x-1">
-                  <span>SKU</span>
-                  <span className="text-muted-foreground">
-                    <SortIcon columnKey="sku" sortBy={sortBy} sortOrder={sortOrder} />
-                  </span>
-                </div>
-              </TableHead>
-            )}
-            {visibleColumns.product && (
-              <TableHead
-                className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
-                onClick={() => handleColumnSort('productName', 'asc')}
-              >
-                <div className="flex items-center space-x-1">
-                  <span>Producto</span>
-                  <span className="text-muted-foreground">
-                    <SortIcon columnKey="productName" sortBy={sortBy} sortOrder={sortOrder} />
-                  </span>
-                </div>
-              </TableHead>
-            )}
-            {visibleColumns.category && <TableHead>Categoría</TableHead>}
-            {visibleColumns.available && (
-              <TableHead
-                className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
-                onClick={() => handleColumnSort('availableQuantity', 'desc')}
-              >
-                <div className="flex items-center space-x-1">
-                  <span>Stock Disponible</span>
-                  <span className="text-muted-foreground">
-                    <SortIcon columnKey="availableQuantity" sortBy={sortBy} sortOrder={sortOrder} />
-                  </span>
-                </div>
-              </TableHead>
-            )}
-            {visibleColumns.cost && (
-              <TableHead
-                className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
-                onClick={() => handleColumnSort('cost', 'desc')}
-              >
-                <div className="flex items-center space-x-1">
-                  <span>Costo Promedio</span>
-                  <span className="text-muted-foreground">
-                    <SortIcon columnKey="cost" sortBy={sortBy} sortOrder={sortOrder} />
-                  </span>
-                </div>
-              </TableHead>
-            )}
-            {visibleColumns.sellingPrice && <TableHead>Precio Venta</TableHead>}
-            {visibleColumns.totalValue && <TableHead>Valor Total</TableHead>}
-            {multiWarehouseEnabled && binLocations.length > 0 && visibleColumns.location && <TableHead>Ubicación</TableHead>}
-            {visibleColumns.expiration && <TableHead>Vencimiento (1er Lote)</TableHead>}
-            {visibleColumns.lots && <TableHead>Lotes</TableHead>}
-            {visibleColumns.status && <TableHead>Estado</TableHead>}
-            {visibleColumns.actions && <TableHead>Acciones</TableHead>}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.map((item) => (
-            <TableRow key={item._id}>
-              {visibleColumns.sku && <TableCell className="font-medium">{item.productSku}</TableCell>}
-              {visibleColumns.product && (
-                <TableCell>
-                  <div>
-                    <div className="font-medium">{item.productName}</div>
-                    <div className="text-sm text-muted-foreground">{item.productId?.brand || 'N/A'}</div>
+    <ContentTransition loading={loading} skeleton={<TableSkeleton columns={6} />}>
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {visibleColumns.sku && (
+                <TableHead
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                  onClick={() => handleColumnSort('sku', 'asc')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>SKU</span>
+                    <span className="text-muted-foreground">
+                      <SortIcon columnKey="sku" sortBy={sortBy} sortOrder={sortOrder} />
+                    </span>
                   </div>
-                </TableCell>
+                </TableHead>
               )}
-              {visibleColumns.category && <TableCell>{formatProductCategory(item.productId?.category)}</TableCell>}
-              {visibleColumns.available && <TableCell>{item.availableQuantity} unidades</TableCell>}
-              {visibleColumns.cost && <TableCell>${item.averageCostPrice.toFixed(2)}</TableCell>}
-              {visibleColumns.sellingPrice && (
-                <TableCell>
-                  ${(() => {
-                    const variants = item.productId?.variants || [];
-                    const variant = item.variantSku
-                      ? variants.find(v => v.sku === item.variantSku)
-                      : variants[0];
-                    const price = variant?.basePrice || 0;
-                    return price.toFixed(2);
-                  })()}
-                </TableCell>
+              {visibleColumns.product && (
+                <TableHead
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors min-w-[250px]"
+                  onClick={() => handleColumnSort('productName', 'asc')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Producto</span>
+                    <span className="text-muted-foreground">
+                      <SortIcon columnKey="productName" sortBy={sortBy} sortOrder={sortOrder} />
+                    </span>
+                  </div>
+                </TableHead>
               )}
-              {visibleColumns.totalValue && (
-                <TableCell>
-                  ${(() => {
-                    const variants = item.productId?.variants || [];
-                    const variant = item.variantSku
-                      ? variants.find(v => v.sku === item.variantSku)
-                      : variants[0];
-                    const price = variant?.basePrice || 0;
-                    return (item.availableQuantity * price).toFixed(2);
-                  })()}
-                </TableCell>
+              {visibleColumns.category && <TableHead>Categoria</TableHead>}
+              {visibleColumns.available && (
+                <TableHead
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                  onClick={() => handleColumnSort('availableQuantity', 'desc')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Stock Disponible</span>
+                    <span className="text-muted-foreground">
+                      <SortIcon columnKey="availableQuantity" sortBy={sortBy} sortOrder={sortOrder} />
+                    </span>
+                  </div>
+                </TableHead>
               )}
-              {multiWarehouseEnabled && binLocations.length > 0 && visibleColumns.location && (
-                <TableCell>
-                  {getBinLocationName(item.binLocationId) ? (
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-sm">{getBinLocationName(item.binLocationId)}</span>
+              {visibleColumns.cost && (
+                <TableHead
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                  onClick={() => handleColumnSort('cost', 'desc')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Costo Promedio</span>
+                    <span className="text-muted-foreground">
+                      <SortIcon columnKey="cost" sortBy={sortBy} sortOrder={sortOrder} />
+                    </span>
+                  </div>
+                </TableHead>
+              )}
+              {visibleColumns.sellingPrice && <TableHead>Precio Venta</TableHead>}
+              {visibleColumns.totalValue && <TableHead>Valor Total</TableHead>}
+              {multiWarehouseEnabled && binLocations.length > 0 && visibleColumns.location && <TableHead>Ubicacion</TableHead>}
+              {visibleColumns.expiration && <TableHead>Vencimiento (1er Lote)</TableHead>}
+              {visibleColumns.lots && <TableHead>Lotes</TableHead>}
+              {visibleColumns.status && <TableHead>Estado</TableHead>}
+              {visibleColumns.actions && <TableHead>Acciones</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <AnimatedTableBody>
+            {data.map((item) => (
+              <AnimatedTableRow key={item._id}>
+                {visibleColumns.sku && <TableCell className="font-medium">{item.productSku}</TableCell>}
+                {visibleColumns.product && (
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{item.productName}</div>
+                      <div className="text-sm text-muted-foreground">{item.productId?.brand || 'N/A'}</div>
                     </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Sin ubicación</span>
-                  )}
-                </TableCell>
-              )}
-              {visibleColumns.expiration && (
-                <TableCell>
-                  {item.lots && item.lots.length > 0 ? (
-                    <span>{new Date(item.lots[0].expirationDate).toLocaleDateString()}</span>
-                  ) : (
-                    <span className="text-muted-foreground">N/A</span>
-                  )}
-                </TableCell>
-              )}
-              {visibleColumns.lots && (
-                <TableCell>
-                  {item.lots && item.lots.length > 0 ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onViewLots(item)}
-                    >
-                      <Package className="h-4 w-4 mr-1" />
-                      {item.lots.length === 1 ? 'Ver lote' : `Ver ${item.lots.length} lotes`}
-                    </Button>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">Sin lotes</span>
-                  )}
-                </TableCell>
-              )}
-              {visibleColumns.status && <TableCell><StatusBadge status={getStatusBadge(item)} /></TableCell>}
-              {visibleColumns.actions && (
-                <TableCell>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" onClick={() => onEdit(item)}><Edit className="h-4 w-4" /></Button>
-                    {multiWarehouseEnabled && warehouses.length > 1 && (
+                  </TableCell>
+                )}
+                {visibleColumns.category && <TableCell>{formatProductCategory(item.productId?.category)}</TableCell>}
+                {visibleColumns.available && (
+                  <TableCell>
+                    <span>{item.availableQuantity} unidades</span>
+                    <StockBar quantity={item.availableQuantity} />
+                  </TableCell>
+                )}
+                {visibleColumns.cost && <TableCell>${item.averageCostPrice.toFixed(2)}</TableCell>}
+                {visibleColumns.sellingPrice && (
+                  <TableCell>
+                    ${(() => {
+                      const variants = item.productId?.variants || [];
+                      const variant = item.variantSku
+                        ? variants.find(v => v.sku === item.variantSku)
+                        : variants[0];
+                      const price = variant?.basePrice || 0;
+                      return price.toFixed(2);
+                    })()}
+                  </TableCell>
+                )}
+                {visibleColumns.totalValue && (
+                  <TableCell>
+                    ${(() => {
+                      const variants = item.productId?.variants || [];
+                      const variant = item.variantSku
+                        ? variants.find(v => v.sku === item.variantSku)
+                        : variants[0];
+                      const price = variant?.basePrice || 0;
+                      return (item.availableQuantity * price).toFixed(2);
+                    })()}
+                  </TableCell>
+                )}
+                {multiWarehouseEnabled && binLocations.length > 0 && visibleColumns.location && (
+                  <TableCell>
+                    {getBinLocationName(item.binLocationId) ? (
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-sm">{getBinLocationName(item.binLocationId)}</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Sin ubicacion</span>
+                    )}
+                  </TableCell>
+                )}
+                {visibleColumns.expiration && (
+                  <TableCell>
+                    {item.lots && item.lots.length > 0 ? (
+                      <span>{new Date(item.lots[0].expirationDate).toLocaleDateString()}</span>
+                    ) : (
+                      <span className="text-muted-foreground">N/A</span>
+                    )}
+                  </TableCell>
+                )}
+                {visibleColumns.lots && (
+                  <TableCell>
+                    {item.lots && item.lots.length > 0 ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onTransfer(item)}
-                        title="Transferir a otro almacén"
+                        onClick={() => onViewLots(item)}
                       >
-                        <ArrowRightLeft className="h-4 w-4" />
+                        <Package className="h-4 w-4 mr-1" />
+                        {item.lots.length === 1 ? 'Ver lote' : `Ver ${item.lots.length} lotes`}
                       </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Sin lotes</span>
                     )}
-                    <Button variant="outline" size="sm" onClick={() => onDelete(item._id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                </TableCell>
-              )}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+                  </TableCell>
+                )}
+                {visibleColumns.status && <TableCell><StatusBadge status={getStatusBadge(item)} /></TableCell>}
+                {visibleColumns.actions && (
+                  <TableCell>
+                    <div className="flex items-center gap-1 relative">
+                      <InlineStockAdjust item={item} onAdjustComplete={onAdjustComplete} />
+                      <div className="flex space-x-1 ml-1">
+                        <Button variant="outline" size="sm" onClick={() => onEdit(item)}><Edit className="h-4 w-4" /></Button>
+                        {multiWarehouseEnabled && warehouses.length > 1 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onTransfer(item)}
+                            title="Transferir a otro almacen"
+                          >
+                            <ArrowRightLeft className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button variant="outline" size="sm" onClick={() => onDelete(item._id)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                      </div>
+                    </div>
+                  </TableCell>
+                )}
+              </AnimatedTableRow>
+            ))}
+          </AnimatedTableBody>
+        </Table>
+      </div>
+    </ContentTransition>
   );
 }

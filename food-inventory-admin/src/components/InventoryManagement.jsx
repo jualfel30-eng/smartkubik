@@ -361,6 +361,7 @@ function InventoryManagement() {
             onDelete={handleDeleteItem}
             onTransfer={inv.handleOpenTransfer}
             onViewLots={handleViewLots}
+            onAdjustComplete={inv.refresh}
           />
 
           <InventoryPagination

@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body.jsx';
+import { ContentTransition } from '@/components/ui/content-transition.jsx';
+import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { EmptyState } from '@/components/ui/empty-state.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Input } from '@/components/ui/input.jsx';
@@ -10,7 +14,7 @@ import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
 import { Switch } from '@/components/ui/switch.jsx';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, BellOff } from 'lucide-react';
 import { useConfirm } from '@/hooks/use-confirm';
 
 export default function InventoryAlertsPanel() {
@@ -233,16 +237,20 @@ export default function InventoryAlertsPanel() {
                 <TableHead>Acciones</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <AnimatedTableBody>
               {rules.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={multiWarehouseEnabled ? 5 : 4} className="text-center text-muted-foreground">
-                    Sin reglas de alerta.
+                  <TableCell colSpan={multiWarehouseEnabled ? 5 : 4} className="h-32">
+                    <EmptyState
+                      icon={BellOff}
+                      title="Sin reglas de alerta"
+                      description="Configura alertas de stock minimo para que el sistema te notifique."
+                    />
                   </TableCell>
                 </TableRow>
               ) : (
                 rules.map((rule, idx) => (
-                  <TableRow key={`${rule._id || rule.id || 'rule'}-${idx}`}>
+                  <AnimatedTableRow key={`${rule._id || rule.id || 'rule'}-${idx}`}>
                     <TableCell>
                       <div className="font-medium">
                   {productOptions.find((p) => p.id === ((rule.productId?._id || rule.productId || '') + ''))?.name ||
@@ -267,10 +275,10 @@ export default function InventoryAlertsPanel() {
                         Eliminar
                       </Button>
                     </TableCell>
-                  </TableRow>
+                  </AnimatedTableRow>
                 ))
               )}
-            </TableBody>
+            </AnimatedTableBody>
           </Table>
         </div>
         {pagination?.total ? (

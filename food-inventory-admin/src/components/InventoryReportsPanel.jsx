@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body.jsx';
+import { Skeleton } from '@/components/ui/skeleton.jsx';
+import { EmptyState } from '@/components/ui/empty-state.jsx';
+import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber';
+import { loadFilters, saveFilters } from '@/components/inventory/filterPersistence.js';
 import { Button } from '@/components/ui/button.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
-import { Loader2, RefreshCw, Printer, Eye } from 'lucide-react';
+import { Loader2, RefreshCw, Printer, Eye, FileBarChart } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchApi, getAuthToken, getApiBaseUrl } from '@/lib/api';
 import { format } from 'date-fns';
@@ -43,15 +48,21 @@ export default function InventoryReportsPanel() {
     const [inventories, setInventories] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    // Filters state
-    const [filters, setFilters] = useState({
+    // Filters state (persisted)
+    const defaultReportFilters = {
         preset: 'today',
         dateFrom: '',
         dateTo: '',
         movementType: 'all',
         warehouseId: 'all',
         productId: 'all',
-    });
+    };
+    const [filters, setFiltersRaw] = useState(() => loadFilters('inv-reports', defaultReportFilters));
+    const setFilters = (v) => {
+        const next = typeof v === 'function' ? v(filters) : v;
+        setFiltersRaw(next);
+        saveFilters('inv-reports', next);
+    };
 
     const hasMountedRef = useRef(false);
 
@@ -311,9 +322,9 @@ export default function InventoryReportsPanel() {
                         </CardHeader>
                         <CardContent className="p-4 pt-0">
                             <div className="text-2xl font-bold text-blue-900 dark:text-blue-200">
-                                {netMovement.entries.toLocaleString()} <span className="text-xs font-normal">unds</span>
+                                <AnimatedNumber value={netMovement.entries} /> <span className="text-xs font-normal">unds</span>
                             </div>
-                            <p className="text-xs text-info/80 mt-1">${netMovement.entriesCost.toFixed(2)}</p>
+                            <p className="text-xs text-info/80 mt-1">$<AnimatedNumber value={netMovement.entriesCost} format={(n) => n.toFixed(2)} /></p>
                         </CardContent>
                     </Card>
 
@@ -323,9 +334,9 @@ export default function InventoryReportsPanel() {
                         </CardHeader>
                         <CardContent className="p-4 pt-0">
                             <div className="text-2xl font-bold text-orange-900 dark:text-orange-200">
-                                {netMovement.exits.toLocaleString()} <span className="text-xs font-normal">unds</span>
+                                <AnimatedNumber value={netMovement.exits} /> <span className="text-xs font-normal">unds</span>
                             </div>
-                            <p className="text-xs text-warning/80 mt-1">${netMovement.exitsCost.toFixed(2)}</p>
+                            <p className="text-xs text-warning/80 mt-1">$<AnimatedNumber value={netMovement.exitsCost} format={(n) => n.toFixed(2)} /></p>
                         </CardContent>
                     </Card>
 
@@ -366,22 +377,34 @@ export default function InventoryReportsPanel() {
                                 <TableHead className="text-center w-[120px]">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
-                        <TableBody>
+                        <AnimatedTableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-32 text-center">
-                                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                                    <TableCell colSpan={7} className="py-4">
+                                      <div className="space-y-3">
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                          <div key={i} className="flex gap-4">
+                                            {Array.from({ length: 7 }).map((_, j) => (
+                                              <Skeleton key={j} className="h-10 flex-1 rounded" />
+                                            ))}
+                                          </div>
+                                        ))}
+                                      </div>
                                     </TableCell>
                                 </TableRow>
                             ) : documents.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                                        No se encontraron documentos agrupados con los filtros aplicados.
+                                    <TableCell colSpan={7} className="h-32">
+                                        <EmptyState
+                                          icon={FileBarChart}
+                                          title="Sin documentos en este periodo"
+                                          description="Ajusta los filtros o selecciona otro rango de fechas."
+                                        />
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 documents.map((doc, idx) => (
-                                    <TableRow key={`${doc.batchId || doc._id || 'doc'}-${idx}`}>
+                                    <AnimatedTableRow key={`${doc.batchId || doc._id || 'doc'}-${idx}`}>
                                         <TableCell className="whitespace-nowrap">
                                             {doc.date ? format(new Date(doc.date), 'dd/MM/yyyy HH:mm') : '—'}
                                         </TableCell>
@@ -417,10 +440,10 @@ export default function InventoryReportsPanel() {
                                                 </Button>
                                             </div>
                                         </TableCell>
-                                    </TableRow>
+                                    </AnimatedTableRow>
                                 ))
                             )}
-                        </TableBody>
+                        </AnimatedTableBody>
                     </Table>
 
                 </div>

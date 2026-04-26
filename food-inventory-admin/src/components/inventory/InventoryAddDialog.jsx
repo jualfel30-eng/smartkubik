@@ -5,14 +5,18 @@
  * Includes product search, variant selection sub-dialog,
  * and a table for managing items to add.
  */
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { SearchableSelect } from '@/components/orders/v2/custom/SearchableSelect';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, ChevronDown, Settings2 } from 'lucide-react';
+import { SPRING } from '@/lib/motion';
 
 export function InventoryAddDialog({
   isAddDialogOpen,
@@ -35,28 +39,53 @@ export function InventoryAddDialog({
   handleSaveBatch,
   loading,
 }) {
+  const [configOpen, setConfigOpen] = useState(false);
+
+  // Build summary text for collapsed state
+  const configSummary = [
+    newInventoryItem.receivedBy && `Recibido por: ${newInventoryItem.receivedBy}`,
+    newInventoryItem.notes && `Notas: ${newInventoryItem.notes.slice(0, 40)}...`,
+  ].filter(Boolean).join(' | ') || 'Configurar almacen, responsable, notas...';
+
   return (
     <>
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-5xl h-[95vh] md:h-[85vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-3xl h-[95vh] md:h-[85vh] overflow-hidden flex flex-col">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={SPRING.soft}
+            className="flex flex-col h-full"
+          >
           <DialogHeader>
             <DialogTitle>Agregar Inventario</DialogTitle>
-            <DialogDescription>Agrega múltiples productos al inventario en una sola operación.</DialogDescription>
+            <DialogDescription>Agrega multiples productos al inventario en una sola operacion.</DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
 
-            {/* Global Configuration for Batch */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border rounded-lg bg-slate-50 dark:bg-slate-900/50">
+            {/* Global Configuration for Batch — Collapsible */}
+            <Collapsible open={configOpen} onOpenChange={setConfigOpen}>
+              <CollapsibleTrigger asChild>
+                <button className="w-full flex items-center justify-between p-3 border rounded-lg bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors text-left">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Settings2 className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">{configSummary}</span>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${configOpen ? 'rotate-180' : ''}`} />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 mt-2 border rounded-lg bg-slate-50 dark:bg-slate-900/50">
               {multiWarehouseEnabled && (
                 <div className="space-y-2">
-                  <Label>Almacén de Destino</Label>
+                  <Label>Almacen de Destino</Label>
                   <Select
                     value={newInventoryItem.warehouseId}
                     onValueChange={(v) => setNewInventoryItem({ ...newInventoryItem, warehouseId: v, binLocationId: '' })}
                   >
                     <SelectTrigger className="bg-white dark:bg-slate-950">
-                      <SelectValue placeholder="Seleccionar almacén" />
+                      <SelectValue placeholder="Seleccionar almacen" />
                     </SelectTrigger>
                     <SelectContent>
                       {warehouses.map((wh) => (
@@ -71,16 +100,16 @@ export function InventoryAddDialog({
 
               {multiWarehouseEnabled && newInventoryItem.warehouseId && (
                 <div className="space-y-2">
-                  <Label>Ubicación Predeterminada</Label>
+                  <Label>Ubicacion Predeterminada</Label>
                   <Select
                     value={newInventoryItem.binLocationId}
                     onValueChange={(v) => setNewInventoryItem({ ...newInventoryItem, binLocationId: v === 'none' ? '' : v })}
                   >
                     <SelectTrigger className="bg-white dark:bg-slate-950">
-                      <SelectValue placeholder="Sin ubicación" />
+                      <SelectValue placeholder="Sin ubicacion" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Sin ubicación</SelectItem>
+                      <SelectItem value="none">Sin ubicacion</SelectItem>
                       {binLocations
                         .filter(b => b.warehouseId === newInventoryItem.warehouseId)
                         .map((bin) => (
@@ -105,13 +134,15 @@ export function InventoryAddDialog({
               <div className="space-y-2 col-span-1 md:col-span-3">
                 <Label>Notas del Lote</Label>
                 <Input
-                  placeholder="Observaciones generales para todos los ítems..."
+                  placeholder="Observaciones generales para todos los items..."
                   value={newInventoryItem.notes}
                   onChange={(e) => setNewInventoryItem({ ...newInventoryItem, notes: e.target.value })}
                   className="bg-white dark:bg-slate-950"
                 />
               </div>
-            </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             {/* Product Search */}
             <div className="space-y-2">
@@ -224,6 +255,7 @@ export function InventoryAddDialog({
               </div>
             </div>
           </DialogFooter>
+          </motion.div>
         </DialogContent>
       </Dialog>
 
