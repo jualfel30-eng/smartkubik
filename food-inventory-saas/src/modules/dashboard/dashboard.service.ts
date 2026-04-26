@@ -4,6 +4,7 @@ import { Model, Types } from "mongoose";
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import { Customer, CustomerDocument } from "../../schemas/customer.schema";
 import { Inventory, InventoryDocument } from "../../schemas/inventory.schema";
+import { PurchaseOrder, PurchaseOrderDocument } from "../../schemas/purchase-order.schema";
 import { InventoryService } from "../inventory/inventory.service";
 
 @Injectable()
@@ -15,6 +16,8 @@ export class DashboardService {
     @InjectModel(Customer.name) private customerModel: Model<CustomerDocument>,
     @InjectModel(Inventory.name)
     private inventoryModel: Model<InventoryDocument>,
+    @InjectModel(PurchaseOrder.name)
+    private purchaseOrderModel: Model<PurchaseOrderDocument>,
     private readonly inventoryService: InventoryService,
   ) { }
 
@@ -29,6 +32,9 @@ export class DashboardService {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
     const [
       productsInStock,
       ordersToday,
@@ -38,6 +44,9 @@ export class DashboardService {
       nearExpirationAlerts,
       recentOrders,
       inventoryValueResult,
+      salesYesterdayResult,
+      ordersYesterday,
+      pendingPurchaseOrders,
     ] = await Promise.all([
       // Count unique products that have at least one variant with stock
       // Use tenantObjectId for Inventory model (stored as ObjectId)
@@ -174,10 +183,33 @@ export class DashboardService {
           },
         },
       ]),
+      // Yesterday's sales for comparison
+      this.orderModel.aggregate([
+        {
+          $match: {
+            tenantId,
+            paymentStatus: { $in: ["paid", "overpaid", "partial"] },
+            createdAt: { $gte: yesterday, $lt: today },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+      ]),
+      // Yesterday's orders count
+      this.orderModel.countDocuments({
+        tenantId,
+        createdAt: { $gte: yesterday, $lt: today },
+      }),
+      // Pending purchase orders count
+      this.purchaseOrderModel.countDocuments({
+        tenantId,
+        status: { $in: ['pending', 'draft'] },
+      }),
     ]);
 
     const salesToday =
       salesTodayResult.length > 0 ? salesTodayResult[0].total : 0;
+    const salesYesterday =
+      salesYesterdayResult.length > 0 ? salesYesterdayResult[0].total : 0;
 
     const inventoryValue = inventoryValueResult.length > 0
       ? {
@@ -226,6 +258,10 @@ export class DashboardService {
       inventoryValue,
       inventoryAlerts,
       recentOrders,
+      salesYesterday,
+      ordersYesterday,
+      lowStockAlertCount: lowStockAlerts.length,
+      pendingPurchaseOrders,
     };
   }
 

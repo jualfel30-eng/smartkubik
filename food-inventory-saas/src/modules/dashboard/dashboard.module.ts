@@ -6,6 +6,7 @@ import { AuthModule } from "../../auth/auth.module";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 import { Inventory, InventorySchema } from "../../schemas/inventory.schema";
+import { PurchaseOrder, PurchaseOrderSchema } from "../../schemas/purchase-order.schema";
 import { RolesModule } from "../roles/roles.module";
 import { InventoryModule } from "../inventory/inventory.module";
 
@@ -17,6 +18,7 @@ import { InventoryModule } from "../inventory/inventory.module";
       { name: Order.name, schema: OrderSchema },
       { name: Customer.name, schema: CustomerSchema },
       { name: Inventory.name, schema: InventorySchema },
+      { name: PurchaseOrder.name, schema: PurchaseOrderSchema },
     ]),
     InventoryModule,
   ],

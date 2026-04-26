@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button.jsx';
 import { ErrorState } from '@/components/ui/error-state';
 import {
   Card,
@@ -11,12 +10,12 @@ import {
 } from "@/components/ui/card.jsx";
 import {
   Table,
-  TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table.jsx";
+import { AnimatedTableBody, AnimatedTableRow } from "@/components/ui/animated-table-body.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
 import {
   DollarSign,
@@ -24,8 +23,6 @@ import {
   Users,
   Package,
   AlertTriangle,
-  PlusCircle,
-  Truck,
   TrendingUp,
   Boxes
 } from "lucide-react";
@@ -54,8 +51,14 @@ import { CustomAnalytics } from '@/components/charts/CustomAnalytics.jsx';
 import { useAuth } from '@/hooks/use-auth';
 import OnboardingChecklist from './OnboardingChecklist';
 import BeautyDashboardView from './BeautyDashboardView';
-import { ScrollReveal, ScrollRevealGroup } from '@/components/ui/scroll-reveal';
-import { DataHighlight } from '@/components/ui/data-highlight';
+import { ScrollRevealGroup } from '@/components/ui/scroll-reveal';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import DashboardGreeting from '@/components/dashboard/DashboardGreeting';
+import DashboardKpiCard from '@/components/dashboard/DashboardKpiCard';
+import PriorityAlerts from '@/components/dashboard/PriorityAlerts';
+import QuickActions from '@/components/dashboard/QuickActions';
+import { useDashboardAutoRefresh } from '@/hooks/use-dashboard-auto-refresh';
+import { useDashboardMilestones } from '@/hooks/use-dashboard-milestones';
 
 const statusMap = {
   draft: { label: 'Borrador', colorClassName: 'bg-gray-200 text-gray-800' },
@@ -75,7 +78,7 @@ const getStatusBadge = (status) => {
 
 function DashboardView() {
   const { flags } = useFeatureFlags();
-  const { tenant } = useAuth();
+  const { user, tenant } = useAuth();
   const isBeautyProfile = ['barbershop-salon', 'clinic-spa'].includes(tenant?.verticalProfile?.key);
   if (isBeautyProfile) return <BeautyDashboardView />;
   const [summaryData, setSummaryData] = useState(null);
@@ -96,22 +99,33 @@ function DashboardView() {
     { value: '90d', label: 'Últimos 90 días' },
   ];
 
-  const fetchSummary = useCallback(async () => {
+  const fetchSummary = useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
       const response = await fetchApi('/dashboard/summary');
       setSummaryData(response.data);
     } catch (err) {
-      setError(err.message);
+      if (!silent) setError(err.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     fetchSummary();
   }, [fetchSummary]);
+
+  const { lastUpdated } = useDashboardAutoRefresh(
+    useCallback(() => fetchSummary(true), [fetchSummary]),
+    60000
+  );
+
+  useDashboardMilestones({
+    salesToday: summaryData?.salesToday || 0,
+    lowStockAlertCount: summaryData?.lowStockAlertCount || 0,
+    dailyGoal: 500,
+  });
 
   if (loading) {
     return <RubikLoader />;
@@ -127,209 +141,250 @@ function DashboardView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center">
-        <div className="text-lg font-semibold text-foreground">Panel de Control</div>
-        <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4 mt-4 md:mt-0">
-          <Button onClick={() => navigate('/purchases')}>
-            <Truck className="mr-2 h-5 w-5" />
-            Crear Orden de Compra
-          </Button>
-          <Button onClick={() => navigate('/orders')}>
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Crear Pedido Nuevo
-          </Button>
-        </div>
-      </div>
+      <DashboardGreeting user={user} tenant={tenant} lastUpdated={lastUpdated} />
 
       {/* Onboarding checklist — visible until setup tasks are complete */}
       {tenant && !tenant.onboardingCompleted && (
         <OnboardingChecklist summaryData={summaryData} />
       )}
 
-      {/* Stat Cards */}
+      {/* Priority Alerts — only visible when there are actionable items */}
+      <PriorityAlerts
+        lowStockCount={summaryData.lowStockAlertCount || 0}
+        pendingPurchaseOrders={summaryData.pendingPurchaseOrders || 0}
+      />
+
+      {/* Quick Actions */}
+      <QuickActions />
+
+      {/* KPI Cards with Comparison */}
       <ScrollRevealGroup className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="glass-card-subtle">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ventas de Hoy</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <DataHighlight as="div" value={summaryData.salesToday}>
-              <AnimatedNumber
-                value={summaryData.salesToday || 0}
-                format={(n) => `$${n.toFixed(2)}`}
-                duration={0.6}
-                className="text-2xl font-bold"
-              />
-            </DataHighlight>
-          </CardContent>
-        </Card>
-        <Card className="glass-card-subtle">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Órdenes de Hoy</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <DataHighlight as="div" value={summaryData.ordersToday}>
-              <AnimatedNumber
-                value={summaryData.ordersToday || 0}
-                format={(n) => `+${Math.round(n)}`}
-                duration={0.6}
-                className="text-2xl font-bold"
-              />
-            </DataHighlight>
-          </CardContent>
-        </Card>
-        <Card className="glass-card-subtle">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Clientes Activos</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <DataHighlight as="div" value={summaryData.activeCustomers}>
-              <AnimatedNumber
-                value={summaryData.activeCustomers || 0}
-                format={(n) => Math.round(n).toLocaleString()}
-                duration={0.6}
-                className="text-2xl font-bold"
-              />
-            </DataHighlight>
-          </CardContent>
-        </Card>
-        <Card className="glass-card-subtle">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Productos en Stock</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <DataHighlight as="div" value={summaryData.productsInStock}>
-              <AnimatedNumber
-                value={summaryData.productsInStock || 0}
-                format={(n) => Math.round(n).toLocaleString()}
-                duration={0.6}
-                className="text-2xl font-bold"
-              />
-            </DataHighlight>
-          </CardContent>
-        </Card>
+        <DashboardKpiCard
+          title="Ventas de Hoy"
+          icon={DollarSign}
+          value={summaryData.salesToday || 0}
+          format={(n) => `$${n.toFixed(2)}`}
+          previousValue={summaryData.salesYesterday}
+          goalValue={500}
+          goalLabel="Meta diaria"
+        />
+        <DashboardKpiCard
+          title="Ordenes de Hoy"
+          icon={ShoppingCart}
+          value={summaryData.ordersToday || 0}
+          format={(n) => `+${Math.round(n)}`}
+          previousValue={summaryData.ordersYesterday}
+        />
+        <DashboardKpiCard
+          title="Clientes Activos"
+          icon={Users}
+          value={summaryData.activeCustomers || 0}
+          format={(n) => Math.round(n).toLocaleString()}
+        />
+        <DashboardKpiCard
+          title="Productos en Stock"
+          icon={Package}
+          value={summaryData.productsInStock || 0}
+          format={(n) => Math.round(n).toLocaleString()}
+        />
       </ScrollRevealGroup>
 
-      {/* Inventory Value Cards */}
-      {summaryData.inventoryValue && (
-        <ScrollRevealGroup className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="glass-card-subtle">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Valor de Inventario (Costo)</CardTitle>
-              <Boxes className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <AnimatedNumber
-                value={summaryData.inventoryValue.totalCostValue || 0}
-                format={(n) => `$${n.toFixed(2)}`}
-                duration={0.6}
-                className="text-2xl font-bold"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Inversión total en inventario
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="glass-card-subtle">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Valor de Inventario (Retail)</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <AnimatedNumber
-                value={summaryData.inventoryValue.totalRetailValue || 0}
-                format={(n) => `$${n.toFixed(2)}`}
-                duration={0.6}
-                className="text-2xl font-bold"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Valor potencial de venta
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="glass-card-subtle">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ganancia Potencial</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <AnimatedNumber
-                value={summaryData.inventoryValue.potentialProfit || 0}
-                format={(n) => `$${n.toFixed(2)}`}
-                duration={0.6}
-                className="text-2xl font-bold text-success"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Margen si se vende todo
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="glass-card-subtle">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Items</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <AnimatedNumber
-                value={summaryData.inventoryValue.totalItems || 0}
-                format={(n) => Math.round(n).toLocaleString()}
-                duration={0.6}
-                className="text-2xl font-bold"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Unidades en inventario
-              </p>
-            </CardContent>
-          </Card>
-        </ScrollRevealGroup>
-      )}
+      {/* === Progressive Disclosure Tabs === */}
+      <Tabs defaultValue="resumen" className="mt-2">
+        <TabsList>
+          <TabsTrigger value="resumen">Resumen</TabsTrigger>
+          <TabsTrigger value="finanzas">Finanzas</TabsTrigger>
+          {flags.DASHBOARD_CHARTS && <TabsTrigger value="ventas">Ventas</TabsTrigger>}
+          {flags.DASHBOARD_CHARTS && <TabsTrigger value="inventario">Inventario</TabsTrigger>}
+          <TabsTrigger value="analisis">Analisis</TabsTrigger>
+        </TabsList>
 
-      {/* KPIs Financieros - Vista ejecutiva para dueños de negocio */}
-      <ScrollReveal>
-        <FinancialKpisDashboard />
-      </ScrollReveal>
-
-      {/* Análisis Personalizado - Power BI style (Phase 2) */}
-      <ScrollReveal delay={0.05} className="mt-8">
-        <CustomAnalytics />
-      </ScrollReveal>
-
-      {flags.DASHBOARD_CHARTS ? (
-        <div className="space-y-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">Insights del negocio</h3>
-              <p className="text-sm text-muted-foreground">
-                Analiza ventas, inventario y rendimiento del equipo en el período seleccionado.
-              </p>
+        {/* ── Resumen ── */}
+        <TabsContent value="resumen" className="space-y-6">
+          {/* Inventory Value Cards */}
+          {summaryData.inventoryValue && (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card className="glass-card-subtle">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Valor de Inventario (Costo)</CardTitle>
+                  <Boxes className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <AnimatedNumber
+                    value={summaryData.inventoryValue.totalCostValue || 0}
+                    format={(n) => `$${n.toFixed(2)}`}
+                    duration={0.6}
+                    className="text-2xl font-bold"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Inversion total en inventario
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card-subtle">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Valor de Inventario (Retail)</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <AnimatedNumber
+                    value={summaryData.inventoryValue.totalRetailValue || 0}
+                    format={(n) => `$${n.toFixed(2)}`}
+                    duration={0.6}
+                    className="text-2xl font-bold"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Valor potencial de venta
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card-subtle">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Ganancia Potencial</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <AnimatedNumber
+                    value={summaryData.inventoryValue.potentialProfit || 0}
+                    format={(n) => `$${n.toFixed(2)}`}
+                    duration={0.6}
+                    className="text-2xl font-bold text-success"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Margen si se vende todo
+                  </p>
+                </CardContent>
+              </Card>
+              <Card className="glass-card-subtle">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total de Items</CardTitle>
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <AnimatedNumber
+                    value={summaryData.inventoryValue.totalItems || 0}
+                    format={(n) => Math.round(n).toLocaleString()}
+                    duration={0.6}
+                    className="text-2xl font-bold"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Unidades en inventario
+                  </p>
+                </CardContent>
+              </Card>
             </div>
-            <Select value={period} onValueChange={setPeriod}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Selecciona período" />
-              </SelectTrigger>
-              <SelectContent>
-                {periodOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          )}
 
-          {chartsLoading ? (
-            <ChartSkeleton />
-          ) : chartsError ? (
-            <Alert variant="destructive">
-              <AlertTitle>No se pudieron cargar las gráficas</AlertTitle>
-              <AlertDescription>{chartsError}</AlertDescription>
-            </Alert>
-          ) : (
-            <>
+          {/* Recent Orders + Inventory Alerts */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Ordenes Recientes</CardTitle>
+                <CardDescription>
+                  Un vistazo a las ultimas ordenes registradas.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead># Orden</TableHead>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Monto</TableHead>
+                      <TableHead>Estado</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <AnimatedTableBody>
+                    {summaryData.recentOrders?.length > 0 ? (
+                      summaryData.recentOrders.map((order) => (
+                        <AnimatedTableRow key={order.orderNumber}>
+                          <TableCell className="font-medium">
+                            {order.orderNumber}
+                          </TableCell>
+                          <TableCell>{order.customerName}</TableCell>
+                          <TableCell>${(order.totalAmount || 0).toFixed(2)}</TableCell>
+                          <TableCell>{getStatusBadge(order.status)}</TableCell>
+                        </AnimatedTableRow>
+                      ))
+                    ) : (
+                      <AnimatedTableRow>
+                        <TableCell colSpan="4" className="text-center">No hay ordenes recientes.</TableCell>
+                      </AnimatedTableRow>
+                    )}
+                  </AnimatedTableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <AlertTriangle className="h-5 w-5 mr-2 text-yellow-500" />
+                  Alertas de Inventario
+                </CardTitle>
+                <CardDescription>Productos que requieren atencion.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {summaryData.inventoryAlerts?.length > 0 ? (
+                    summaryData.inventoryAlerts.map((alert, index) => (
+                      <div key={index} className="flex items-center justify-between">
+                        <span className="font-medium">{alert.productName}</span>
+                        {
+                          alert.alerts.lowStock ? (
+                            <Badge variant="destructive">Stock Bajo</Badge>
+                          ) : alert.alerts.nearExpiration ? (
+                            <Badge variant="secondary">Proximo a Vencer</Badge>
+                          ) : null
+                        }
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No hay alertas de inventario.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* ── Finanzas ── */}
+        <TabsContent value="finanzas" className="space-y-6">
+          <FinancialKpisDashboard />
+        </TabsContent>
+
+        {/* ── Ventas ── */}
+        {flags.DASHBOARD_CHARTS && (
+          <TabsContent value="ventas" className="space-y-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Ventas</h3>
+                <p className="text-sm text-muted-foreground">
+                  Tendencias, categorias y comparativas de ventas.
+                </p>
+              </div>
+              <Select value={period} onValueChange={setPeriod}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Selecciona periodo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {periodOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {chartsLoading ? (
+              <ChartSkeleton />
+            ) : chartsError ? (
+              <Alert variant="destructive">
+                <AlertTitle>No se pudieron cargar las graficas</AlertTitle>
+                <AlertDescription>{chartsError}</AlertDescription>
+              </Alert>
+            ) : (
               <div className="grid gap-6 lg:grid-cols-3">
                 <div className="space-y-6 lg:col-span-2">
                   <SalesTrendChart data={chartData.sales.trend} />
@@ -344,116 +399,76 @@ function DashboardView() {
                 </div>
                 <SalesComparisonCard comparison={chartData.sales.comparison} />
               </div>
+            )}
+          </TabsContent>
+        )}
 
-              <div className="grid gap-6 lg:grid-cols-3">
-                <StockLevelsChart data={chartData.inventory.status} />
-                <InventoryMovementChart data={chartData.inventory.movement} />
-                <ProductRotationTable data={chartData.inventory.rotation} />
+        {/* ── Inventario ── */}
+        {flags.DASHBOARD_CHARTS && (
+          <TabsContent value="inventario" className="space-y-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Inventario</h3>
+                <p className="text-sm text-muted-foreground">
+                  Distribucion de stock, movimientos y rotacion de productos.
+                </p>
               </div>
-
-              {((chartData.inventory.attributes?.schema?.length ?? 0) > 0 &&
-                (chartData.inventory.attributes?.combinations?.length ?? 0) > 0) ? (
-                <InventoryAttributeTable
-                  schema={chartData.inventory.attributes.schema}
-                  combinations={chartData.inventory.attributes.combinations}
-                />
-              ) : null}
-
-              {flags.ADVANCED_REPORTS ? (
-                <div className="space-y-6">
-                  <ProfitAndLossChart data={chartData.advanced.pnl} />
-                  <div className="grid gap-6 lg:grid-cols-2">
-                    <CustomerSegmentationChart data={chartData.advanced.rfm} />
-                    <EmployeePerformanceChart data={chartData.advanced.employees} />
-                  </div>
-                </div>
-              ) : null}
-            </>
-          )}
-        </div>
-      ) : (
-        <Alert>
-          <AlertTitle>Gráficas desactivadas</AlertTitle>
-          <AlertDescription>
-            Las visualizaciones avanzadas del dashboard están desactivadas.
-            Un administrador puede activarlas desde el panel de configuración de Super Admin.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Main Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {/* Recent Orders */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Órdenes Recientes</CardTitle>
-            <CardDescription>
-              Un vistazo a las últimas órdenes registradas.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead># Orden</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Monto</TableHead>
-                  <TableHead>Estado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {summaryData.recentOrders?.length > 0 ? (
-                  summaryData.recentOrders.map((order) => (
-                    <TableRow key={order.orderNumber}>
-                      <TableCell className="font-medium">
-                        {order.orderNumber}
-                      </TableCell>
-                      <TableCell>{order.customerName}</TableCell>
-                      <TableCell>${(order.totalAmount || 0).toFixed(2)}</TableCell>
-                      <TableCell>{getStatusBadge(order.status)}</TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan="4" className="text-center">No hay órdenes recientes.</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* Inventory Alerts */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <AlertTriangle className="h-5 w-5 mr-2 text-yellow-500" />
-              Alertas de Inventario
-            </CardTitle>
-            <CardDescription>Productos que requieren atención.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {summaryData.inventoryAlerts?.length > 0 ? (
-                summaryData.inventoryAlerts.map((alert, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <span className="font-medium">{alert.productName}</span>
-                    {
-                      alert.alerts.lowStock ? (
-                        <Badge variant="destructive">Stock Bajo</Badge>
-                      ) : alert.alerts.nearExpiration ? (
-                        <Badge variant="secondary">Próximo a Vencer</Badge>
-                      ) : null
-                    }
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">No hay alertas de inventario.</p>
-              )}
+              <Select value={period} onValueChange={setPeriod}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Selecciona periodo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {periodOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+
+            {chartsLoading ? (
+              <ChartSkeleton />
+            ) : chartsError ? (
+              <Alert variant="destructive">
+                <AlertTitle>No se pudieron cargar las graficas</AlertTitle>
+                <AlertDescription>{chartsError}</AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <div className="grid gap-6 lg:grid-cols-3">
+                  <StockLevelsChart data={chartData.inventory.status} />
+                  <InventoryMovementChart data={chartData.inventory.movement} />
+                  <ProductRotationTable data={chartData.inventory.rotation} />
+                </div>
+
+                {((chartData.inventory.attributes?.schema?.length ?? 0) > 0 &&
+                  (chartData.inventory.attributes?.combinations?.length ?? 0) > 0) ? (
+                  <InventoryAttributeTable
+                    schema={chartData.inventory.attributes.schema}
+                    combinations={chartData.inventory.attributes.combinations}
+                  />
+                ) : null}
+              </>
+            )}
+          </TabsContent>
+        )}
+
+        {/* ── Analisis ── */}
+        <TabsContent value="analisis" className="space-y-6">
+          <CustomAnalytics />
+
+          {flags.DASHBOARD_CHARTS && flags.ADVANCED_REPORTS && !chartsLoading && !chartsError && (
+            <div className="space-y-6">
+              <ProfitAndLossChart data={chartData.advanced.pnl} />
+              <div className="grid gap-6 lg:grid-cols-2">
+                <CustomerSegmentationChart data={chartData.advanced.rfm} />
+                <EmployeePerformanceChart data={chartData.advanced.employees} />
+              </div>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
