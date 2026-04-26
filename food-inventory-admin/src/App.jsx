@@ -462,7 +462,7 @@ function TenantLayout() {
           />
         </Suspense>
       )}
-      <SidebarInset className="bg-background">
+      <SidebarInset className="bg-sidebar">
         <div className="flex h-screen flex-col overflow-hidden">
           <Suspense fallback={null}>
             <MobileTopBar
@@ -475,7 +475,7 @@ function TenantLayout() {
             </MobileTopBar>
           </Suspense>
           {/* Desktop Header — 3 zones: Logo | Context | Actions */}
-          <div className="hidden items-center justify-between border-b border-border bg-card px-6 py-3 md:flex">
+          <div className="hidden items-center justify-between border-b border-sidebar-border bg-sidebar px-6 py-3 text-sidebar-foreground/65 md:flex">
             {/* Zone 1: Logo */}
             <div className="flex items-center gap-3">
               <img src={logoSrc} alt="Smart Kubik" className="h-7 w-auto" />
@@ -483,7 +483,7 @@ function TenantLayout() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="text-muted-foreground"
+                  className="text-sidebar-foreground/65 hover:text-sidebar-foreground/80"
                   onClick={openTenantDialog}
                 >
                   <Building2 size={14} />
@@ -515,17 +515,23 @@ function TenantLayout() {
               <Button
                 variant="outline"
                 size="sm"
-                className="hidden lg:flex gap-2 text-muted-foreground h-8 px-3"
+                className="hidden h-8 gap-2 px-3 text-sidebar-foreground/65 hover:text-sidebar-foreground/80 lg:flex"
                 onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
               >
                 <Search size={14} />
                 <span className="text-xs">Buscar...</span>
-                <kbd className="pointer-events-none ml-1 inline-flex h-5 select-none items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                <kbd className="pointer-events-none ml-1 inline-flex h-5 select-none items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-sidebar-foreground/65">
                   <span className="text-xs">⌘</span>K
                 </kbd>
               </Button>
               <NotificationCenter />
-              <Button variant="ghost" size="icon" onClick={() => setAssistantSheetOpen(true)} title="Asistente IA">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-sidebar-foreground/65 hover:text-sidebar-foreground/80"
+                onClick={() => setAssistantSheetOpen(true)}
+                title="Asistente IA"
+              >
                 <Sparkles size={16} />
               </Button>
               <ThemeToggle />
@@ -533,14 +539,14 @@ function TenantLayout() {
               {/* User menu — collapses Settings + Logout */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="ml-1 gap-2">
+                  <Button variant="ghost" size="sm" className="ml-1 gap-2 text-sidebar-foreground/65 hover:text-sidebar-foreground/80">
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
                       <User size={14} />
                     </div>
                     <span className="max-w-[100px] truncate text-sm">
                       {tenant?.ownerFirstName || user?.firstName || 'Usuario'}
                     </span>
-                    <ChevronDown size={12} className="text-muted-foreground" />
+                    <ChevronDown size={12} className="text-sidebar-foreground/65" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">

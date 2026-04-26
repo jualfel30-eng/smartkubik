@@ -35,7 +35,7 @@ export default function MobileTopBar({ logoSrc, onAssistantOpen, onLogout, child
   return (
     <div
       className={cn(
-        'md:hidden flex items-center justify-between border-b border-border bg-card/95 backdrop-blur px-4 py-3 z-40',
+        'md:hidden flex items-center justify-between border-b border-sidebar-border bg-sidebar/95 backdrop-blur px-4 py-3 z-40',
         'transition-transform duration-200 ease-out',
         hidden ? '-translate-y-full' : 'translate-y-0',
       )}
