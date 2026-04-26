@@ -1,7 +1,8 @@
-import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { motion, AnimatePresence } from 'framer-motion';
+import { SPRING } from '@/lib/motion';
 
 /**
  * SplitView — Responsive master-detail layout.
@@ -40,22 +41,31 @@ export function SplitView({
       </div>
 
       {/* Detail panel */}
-      {hasDetail && (
-        <div className="flex-1 min-w-0 overflow-y-auto relative animate-in fade-in-0 slide-in-from-right-2 duration-200">
-          {/* Close button — only on narrow viewports where list is hidden */}
-          {onCloseDetail && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-3 right-3 z-10 xl:hidden"
-              onClick={onCloseDetail}
-            >
-              <X size={16} />
-            </Button>
-          )}
-          {detail}
-        </div>
-      )}
+      <AnimatePresence mode="wait">
+        {hasDetail && (
+          <motion.div
+            key="detail-panel"
+            className="flex-1 min-w-0 overflow-y-auto relative"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={SPRING.soft}
+          >
+            {/* Close button — only on narrow viewports where list is hidden */}
+            {onCloseDetail && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-3 right-3 z-10 xl:hidden"
+                onClick={onCloseDetail}
+              >
+                <X size={16} />
+              </Button>
+            )}
+            {detail}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
