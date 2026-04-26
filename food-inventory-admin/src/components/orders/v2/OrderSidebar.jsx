@@ -6,6 +6,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
+import { motion } from 'framer-motion';
+import { tapScale, DUR, EASE } from '@/lib/motion';
+import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber.jsx';
 
 /**
  * OrderSidebar - Columna derecha sticky con información del pedido
@@ -49,6 +52,7 @@ export function OrderSidebar({
   onSendToKitchen, // NEW
   isEditMode, // NEW
   context = 'default', // 'whatsapp' | 'tables' | 'default'
+  tenantCurrency,
 }) {
   const plugin = useCountryPlugin();
   const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
@@ -64,12 +68,24 @@ export function OrderSidebar({
       <div className="space-y-4">
         <div className="space-y-4">
           {/* Items del Pedido - Tabla Completa */}
-          <div className="p-4 border rounded-lg space-y-4 bg-card">
+          <motion.div
+            layout
+            transition={{ duration: DUR.base, ease: EASE.out }}
+            className="p-4 border rounded-lg space-y-4 bg-card"
+          >
             <Label className="text-base font-semibold">
-              Items ({items.length})
+              Items{' '}
+              <motion.span
+                key={items.length}
+                initial={{ scale: 1.3, color: '#10B981' }}
+                animate={{ scale: 1, color: 'inherit' }}
+                transition={{ duration: 0.3 }}
+              >
+                ({items.length})
+              </motion.span>
             </Label>
             {fullItemsTable}
-          </div>
+          </motion.div>
 
           {/* Delivery Method and Notes Section - ABOVE Summary */}
           <div className="p-4 border rounded-lg space-y-4 bg-card">
@@ -167,13 +183,25 @@ export function OrderSidebar({
 
             <div className="flex justify-between text-lg font-bold">
               <span>TOTAL:</span>
-              <span className="text-primary">${totals.total.toFixed(2)}</span>
+              <span className="text-primary">
+                <AnimatedNumber
+                  value={totals.total}
+                  format={(n) => `$${n.toFixed(2)}`}
+                  duration={0.4}
+                />
+              </span>
             </div>
 
             {totals.ivaWithholdingAmount > 0 && (
               <div className="flex justify-between text-sm font-semibold text-amber-600 dark:text-amber-400">
                 <span>A cobrar (neto):</span>
-                <span>${totals.totalWithWithholding.toFixed(2)}</span>
+                <span>
+                  <AnimatedNumber
+                    value={totals.totalWithWithholding}
+                    format={(n) => `$${n.toFixed(2)}`}
+                    duration={0.4}
+                  />
+                </span>
               </div>
             )}
 
@@ -187,7 +215,13 @@ export function OrderSidebar({
             {bcvRate && totals.total > 0 && (
               <div className="flex justify-between text-sm font-semibold text-info">
                 <span>Total en Bs.:</span>
-                <span>Bs. {(totals.total * bcvRate).toFixed(2)}</span>
+                <span>
+                  <AnimatedNumber
+                    value={totals.total * bcvRate}
+                    format={(n) => `Bs. ${n.toFixed(2)}`}
+                    duration={0.4}
+                  />
+                </span>
               </div>
             )}
           </div>
@@ -213,35 +247,41 @@ export function OrderSidebar({
               <>
                 {/* Only show "Enviar a Cocina" for NEW orders. Hide when editing (user preference) */}
                 {!isEditMode && (
-                  <Button
-                    onClick={onSendToKitchen}
-                    disabled={isCreateDisabled}
-                    className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                    size="lg"
-                  >
-                    Enviar a Cocina
-                  </Button>
+                  <motion.div whileTap={tapScale}>
+                    <Button
+                      onClick={onSendToKitchen}
+                      disabled={isCreateDisabled}
+                      className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                      size="lg"
+                    >
+                      Enviar a Cocina
+                    </Button>
+                  </motion.div>
                 )}
 
-                <Button
-                  onClick={onCreateOrder}
-                  disabled={isCreateDisabled}
-                  className="w-full bg-success hover:bg-green-700 text-white"
-                  size="lg"
-                >
-                  {isEditMode ? 'Pagar / Cerrar' : 'Pagar Inmediato'}
-                </Button>
+                <motion.div whileTap={tapScale}>
+                  <Button
+                    onClick={onCreateOrder}
+                    disabled={isCreateDisabled}
+                    className="w-full bg-success hover:bg-green-700 text-white"
+                    size="lg"
+                  >
+                    {isEditMode ? 'Pagar / Cerrar' : 'Pagar Inmediato'}
+                  </Button>
+                </motion.div>
               </>
             ) : (
               /* STANDARD VERTICAL (Single Blue Button) */
-              <Button
-                onClick={onCreateOrder}
-                disabled={isCreateDisabled}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                size="lg"
-              >
-                {isEditMode ? 'Actualizar Orden' : 'Crear Orden'}
-              </Button>
+              <motion.div whileTap={tapScale}>
+                <Button
+                  onClick={onCreateOrder}
+                  disabled={isCreateDisabled}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  size="lg"
+                >
+                  {isEditMode ? 'Actualizar Orden' : 'Crear Orden'}
+                </Button>
+              </motion.div>
             )}
           </div>
 

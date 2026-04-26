@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { motion } from 'framer-motion';
+import { STAGGER, listItem, tapScale } from '@/lib/motion';
 
 const ProductListView = ({
   products = [],
@@ -83,14 +85,20 @@ const ProductListView = ({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2"
+          variants={STAGGER(0.03)}
+          initial="initial"
+          animate="animate"
+          key={searchTerm}
+        >
           {filteredProducts.map((product) => {
             const price = getProductPrice(product);
             const availableQty = getInventoryQuantity(product);
 
             return (
+              <motion.div key={product._id} variants={listItem} whileTap={tapScale}>
               <Card
-                key={product._id}
                 onClick={() => onProductSelect({ product })}
                 className="cursor-pointer transition-all hover:shadow-md hover:border-primary/50"
               >
@@ -125,9 +133,10 @@ const ProductListView = ({
                   </div>
                 </CardContent>
               </Card>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       )}
     </div>
   );

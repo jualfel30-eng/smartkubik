@@ -38,6 +38,9 @@ import ProductListView from './ProductListView';
 import ViewSwitcher from './ViewSwitcher';
 import useTenantViewPreferences from '@/hooks/useTenantViewPreferences';
 import { OrderSidebar } from './OrderSidebar';
+import { motion, AnimatePresence } from 'framer-motion';
+import { fadeUp, tapScale, SPRING, DUR, EASE } from '@/lib/motion';
+import SaleCompleteOverlay from './SaleCompleteOverlay';
 
 const initialOrderState = {
   customerId: '',
@@ -72,7 +75,7 @@ const formatDecimalString = (value, decimals = 3) => {
 
 import { useMediaQuery } from '@/hooks/use-media-query';
 
-export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCustomer = null, existingOrder = null, onOrderUpdated = null, initialTableId = null, initialWaiterId = null }) {
+export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCustomer = null, existingOrder = null, onOrderUpdated = null, initialTableId = null, initialWaiterId = null, posRevenue = null }) {
   const { crmData: customers } = useCrmContext();
   const [activeTab, setActiveTab] = useState('products');
   const [activeOrder, setActiveOrder] = useState(existingOrder || null);
@@ -295,6 +298,19 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   // Customization state
   const [showRecipeCustomizer, setShowRecipeCustomizer] = useState(false);
   const [customizerItem, setCustomizerItem] = useState(null);
+
+  // Sale celebration overlay state
+  const [saleOverlayData, setSaleOverlayData] = useState(null);
+
+  // Barcode success flash state
+  const [barcodeSuccess, setBarcodeSuccess] = useState(false);
+
+  // Frequent products from localStorage
+  const [freqMap, setFreqMap] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`sk_pos:${tenant?._id}:freq_products`) || '{}');
+    } catch { return {}; }
+  });
 
   // Payment Drawer State
   const [isProcessingDrawerOpen, setIsProcessingDrawerOpen] = useState(false);
@@ -1032,7 +1048,57 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
       return { ...prev, items };
     });
+
+    // Update frequency tracker for frequent products (non-blocking)
+    try {
+      const key = `sk_pos:${tenant?._id}:freq_products`;
+      const freq = JSON.parse(localStorage.getItem(key) || '{}');
+      freq[config.product._id] = (freq[config.product._id] || 0) + 1;
+      localStorage.setItem(key, JSON.stringify(freq));
+      setFreqMap({ ...freq });
+    } catch { /* ignore */ }
+  }, [tenant?._id]);
+
+  // Frequent products — top 5 most-sold, cross-referenced with loaded products
+  const frequentProducts = useMemo(() => {
+    if (!products.length) return [];
+    return Object.entries(freqMap)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([id]) => products.find((p) => String(p._id) === id))
+      .filter(Boolean);
+  }, [freqMap, products]);
+
+  // Sale overlay complete handler — resets form after celebration
+  const handleSaleOverlayComplete = useCallback(() => {
+    setSaleOverlayData(null);
+    setNewOrder(initialOrderState);
+    setCustomerNameInput('');
+    setCustomerRifInput('');
+    setProductSearchInput('');
+    setSelectedTable('none');
   }, []);
+
+  // Listen for F2 (focus search) and F4 (pay) events from parent
+  useEffect(() => {
+    const handleFocusSearch = () => {
+      setProductSearchInput('');
+      // Focus the product search — trigger a click on the search view if available
+      const searchInput = document.querySelector('[data-pos-product-search]');
+      if (searchInput) searchInput.focus();
+    };
+    const handlePay = () => {
+      if (newOrder.items.length > 0 && newOrder.customerName && newOrder.customerRif) {
+        handlePayOrder();
+      }
+    };
+    document.addEventListener('pos-focus-search', handleFocusSearch);
+    document.addEventListener('pos-pay', handlePay);
+    return () => {
+      document.removeEventListener('pos-focus-search', handleFocusSearch);
+      document.removeEventListener('pos-pay', handlePay);
+    };
+  }, [newOrder.items.length, newOrder.customerName, newOrder.customerRif]);
 
   const handleProductSelection = useCallback(
     async (selectedOption) => {
@@ -1214,6 +1280,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           });
           setBarcodeSearch('');
           setProductSearchInput('');
+          setBarcodeSuccess(true);
+          setTimeout(() => setBarcodeSuccess(false), 600);
           toast.success('Producto añadido por código de barras');
         } else {
           // Fallback: buscar en backend para casos en que el producto no está en el listado local
@@ -1235,6 +1303,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
             });
             setBarcodeSearch('');
             setProductSearchInput('');
+            setBarcodeSuccess(true);
+            setTimeout(() => setBarcodeSuccess(false), 600);
             toast.success('Producto añadido por código de barras');
           } else {
             toast.error('No se encontró un producto con ese código de barras');
@@ -1710,16 +1780,33 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         }
       }
 
-      // Reset form if creating new, but maybe keep open if editing? 
-      // User specific flow: "Send to Kitchen" usually means "Save and Close" or "Save and Keep Open".
-      // Let's reset for now or follow callback interaction.
       // Reset form if creating new AND reset option is true
       if (!isEditMode && options.reset !== false) {
-        setNewOrder(initialOrderState);
-        setCustomerNameInput('');
-        setCustomerRifInput('');
-        setProductSearchInput('');
-        setSelectedTable('none');
+        if (posRevenue) {
+          // Commit to daily revenue tracker BEFORE showing overlay
+          posRevenue.commitDay(orderData.totalAmount, {
+            orderNumber: orderData.orderNumber,
+            customerName: orderData.customerName,
+            total: orderData.totalAmount,
+          });
+          // Show celebration overlay — form reset happens on overlay complete
+          setSaleOverlayData({
+            orderNumber: orderData.orderNumber,
+            amount: orderData.totalAmount,
+            customerName: orderData.customerName,
+            todayTotal: posRevenue.todayTotal + orderData.totalAmount,
+            todayCount: posRevenue.todayCount + 1,
+            milestones: posRevenue.milestones,
+            isNewRecord: posRevenue.isNewRecord,
+          });
+        } else {
+          // Fallback: no revenue tracking, reset immediately
+          setNewOrder(initialOrderState);
+          setCustomerNameInput('');
+          setCustomerRifInput('');
+          setProductSearchInput('');
+          setSelectedTable('none');
+        }
       }
 
       return orderData; // Return data for chaining
@@ -2804,7 +2891,31 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 />
               </div>
 
+              {/* Frequent Products Row */}
+              {frequentProducts.length > 0 && !productSearchInput && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: DUR.base, ease: EASE.out }}
+                  className="flex items-center gap-2 mb-3 overflow-x-auto pb-1"
+                >
+                  <span className="text-xs text-muted-foreground shrink-0">Frecuentes:</span>
+                  {frequentProducts.map((fp) => (
+                    <motion.button
+                      key={fp._id}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleProductSelection({ value: fp._id, label: fp.name, product: fp })}
+                      className="shrink-0 px-3 py-1.5 rounded-lg border bg-card text-sm font-medium hover:border-primary/50 transition-colors"
+                    >
+                      {fp.name} ${(fp.variants?.[0]?.basePrice || 0).toFixed(2)}
+                    </motion.button>
+                  ))}
+                </motion.div>
+              )}
+
+              <AnimatePresence mode="wait">
               {preferences.productViewType === 'search' ? (
+                <motion.div key="search" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: DUR.fast }}>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                   <div className="flex-grow min-w-0">
                     <ProductSearchView
@@ -2817,8 +2928,12 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                     />
                   </div>
                   <div className="flex w-full flex-col gap-2 sm:w-[360px]">
-                    <Label className="text-sm text-muted-foreground">Escanear / código de barras</Label>
-                    <div className="flex items-center gap-2">
+                    <Label className="text-sm text-muted-foreground">Escanear / codigo de barras</Label>
+                    <motion.div
+                      className={`flex items-center gap-2 rounded-lg transition-shadow ${barcodeSuccess ? 'ring-2 ring-emerald-500 shadow-emerald-500/20 shadow-lg' : ''}`}
+                      animate={barcodeSuccess ? { scale: [1, 1.02, 1] } : { scale: 1 }}
+                      transition={SPRING.snappy}
+                    >
                       <Input
                         value={barcodeSearch}
                         onChange={(e) => setBarcodeSearch(e.target.value)}
@@ -2826,6 +2941,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                         ref={barcodeInputRef}
                         placeholder="Escanea aquí o pega el código"
                         className="flex-1"
+                        data-pos-product-search
                       />
                       <Button
                         type="button"
@@ -2863,19 +2979,23 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                         <Scan className="h-4 w-4 mr-2" />
                         {continuousScan ? "Escáner activo" : "Escáner en vivo"}
                       </Button>
-                    </div>
+                    </motion.div>
                     {isBarcodeLookup && (
                       <span className="text-xs text-info dark:text-blue-300">Buscando producto por código...</span>
                     )}
                   </div>
                 </div>
+                </motion.div>
               ) : preferences.productViewType === 'list' ? (
+                <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: DUR.fast }}>
                 <ProductListView
                   products={products}
                   onProductSelect={handleProductSelection}
                   inventoryMap={inventoryMap}
                 />
+                </motion.div>
               ) : (
+                <motion.div key="grid" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: DUR.fast }}>
                 <ProductGridView
                   products={products}
                   onProductSelect={handleProductSelection}
@@ -2886,7 +3006,9 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                   inventoryMap={inventoryMap}
                   cartItems={newOrder.items}
                 />
+                </motion.div>
               )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -2960,46 +3082,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                   />
                 </div>
               </div>
-              {/* Price List Selector */}
-              <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
-                <div className="space-y-2">
-                  <Label htmlFor="priceListId" className="text-sm font-medium flex items-center gap-2">
-                    <Tag className="h-4 w-4" />
-                    Lista de Precios
-                  </Label>
-                  <Select
-                    value={newOrder.priceListId || 'none'}
-                    onValueChange={(value) => handleFieldChange('priceListId', value === 'none' ? '' : value)}
-                  >
-                    <SelectTrigger id="priceListId">
-                      <SelectValue placeholder="Precio regular (sin lista específica)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin lista específica</SelectItem>
-                      {priceLists.map((pl) => (
-                        <SelectItem key={pl._id} value={pl._id}>
-                          {pl.name} - {pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type === 'promotional' ? 'Promocional' : pl.type}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {newOrder.priceListId ? 'Se aplicarán precios personalizados de esta lista' : 'Se usarán los precios base del producto'}
-                  </p>
-                </div>
-                {newOrder.priceListId && newOrder.customerId && (
-                  <div className="flex items-center space-x-2 pt-2 border-t">
-                    <Switch
-                      id="savePriceList"
-                      checked={newOrder.savePriceListToCustomer || false}
-                      onCheckedChange={(checked) => handleFieldChange('savePriceListToCustomer', checked)}
-                    />
-                    <Label htmlFor="savePriceList" className="text-xs cursor-pointer">
-                      Guardar esta lista como predeterminada para {newOrder.customerName}
-                    </Label>
-                  </div>
-                )}
-              </div>
+
+              {/* Dirección — right below phone/email */}
               <div className="space-y-2">
                 <Label htmlFor="customerAddress">Dirección</Label>
                 <SearchableSelect
@@ -3017,23 +3101,62 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 />
               </div>
 
-              {/* Contribuyente Especial Toggle */}
-              <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-amber-600" />
-                  <div className="space-y-0.5">
+              {/* Price List + Contribuyente Especial — same row */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Price List Selector */}
+                <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
+                  <Label htmlFor="priceListId" className="text-sm font-medium flex items-center gap-2">
+                    <Tag className="h-4 w-4" />
+                    Lista de Precios
+                  </Label>
+                  <Select
+                    value={newOrder.priceListId || 'none'}
+                    onValueChange={(value) => handleFieldChange('priceListId', value === 'none' ? '' : value)}
+                  >
+                    <SelectTrigger id="priceListId">
+                      <SelectValue placeholder="Sin lista específica" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin lista específica</SelectItem>
+                      {priceLists.map((pl) => (
+                        <SelectItem key={pl._id} value={pl._id}>
+                          {pl.name} - {pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type === 'promotional' ? 'Promocional' : pl.type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {newOrder.priceListId && newOrder.customerId && (
+                    <div className="flex items-center space-x-2 pt-2 border-t">
+                      <Switch
+                        id="savePriceList"
+                        checked={newOrder.savePriceListToCustomer || false}
+                        onCheckedChange={(checked) => handleFieldChange('savePriceListToCustomer', checked)}
+                      />
+                      <Label htmlFor="savePriceList" className="text-[11px] cursor-pointer leading-tight">
+                        Guardar como predeterminada
+                      </Label>
+                    </div>
+                  )}
+                </div>
+
+                {/* Contribuyente Especial Toggle */}
+                <div className="flex flex-col justify-between rounded-lg border p-3 shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0" />
                     <Label className="text-sm font-medium">Contribuyente Especial</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {newOrder.customerIsSpecialTaxpayer
-                        ? `Retiene ${totals.ivaWithholdingPercentage}% del IVA`
-                        : 'El cliente retiene IVA al pagar'}
-                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {newOrder.customerIsSpecialTaxpayer
+                      ? `Retiene ${totals.ivaWithholdingPercentage}% del IVA`
+                      : 'El cliente retiene IVA al pagar'}
+                  </p>
+                  <div className="flex justify-end mt-2">
+                    <Switch
+                      checked={newOrder.customerIsSpecialTaxpayer || false}
+                      onCheckedChange={(checked) => handleFieldChange('customerIsSpecialTaxpayer', checked)}
+                    />
                   </div>
                 </div>
-                <Switch
-                  checked={newOrder.customerIsSpecialTaxpayer || false}
-                  onCheckedChange={(checked) => handleFieldChange('customerIsSpecialTaxpayer', checked)}
-                />
               </div>
 
               {/* Employee Selector */}
@@ -3464,9 +3587,15 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           onOrderUpdated={(updated) => {
             // If order updated in drawer (e.g. paid), update local state or notify parent
             if (onOrderUpdated) onOrderUpdated(updated);
-            // Optionally close drawer if status is final? 
-            // OrderProcessingDrawer handles its own flow.
           }}
+        />
+      )}
+
+      {/* Sale Complete Celebration Overlay */}
+      {saleOverlayData && (
+        <SaleCompleteOverlay
+          {...saleOverlayData}
+          onComplete={handleSaleOverlayComplete}
         />
       )}
     </>

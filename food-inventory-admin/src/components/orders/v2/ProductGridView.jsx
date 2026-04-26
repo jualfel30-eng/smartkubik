@@ -4,6 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, X, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { motion } from 'framer-motion';
+import { STAGGER, listItem, tapScale, SPRING } from '@/lib/motion';
 
 // ─── Category filter bar — horizontal scroll, searchable ─────────────────────
 function CategoryFilterBar({ categories, selected, onSelect }) {
@@ -228,7 +230,13 @@ const ProductGridView = ({
           )}
         </div>
       ) : (
-        <div className={`grid gap-2 md:gap-4 ${gridColsClass}`}>
+        <motion.div
+          className={`grid gap-2 md:gap-4 ${gridColsClass}`}
+          variants={STAGGER(0.03)}
+          initial="initial"
+          animate="animate"
+          key={searchTerm + selectedCategory}
+        >
           {filteredProducts.map((product) => {
             const imageUrl = getProductImage(product);
             const price = getProductPrice(product);
@@ -237,8 +245,12 @@ const ProductGridView = ({
             const cartQty = cartQtyMap[String(product._id)] || 0;
 
             return (
-              <Card
+              <motion.div
                 key={product._id}
+                variants={listItem}
+                whileTap={inStock ? tapScale : undefined}
+              >
+              <Card
                 className={`overflow-hidden cursor-pointer transition-all hover:shadow-lg border bg-background p-0 relative ${
                   !inStock ? 'opacity-60 cursor-not-allowed' : ''
                 } ${cartQty > 0 ? 'ring-1 ring-primary/40' : ''}`}
@@ -246,9 +258,15 @@ const ProductGridView = ({
               >
                 {/* Cart quantity badge */}
                 {cartQty > 0 && (
-                  <div className="absolute top-1.5 right-1.5 z-10 min-w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shadow-lg px-1.5">
+                  <motion.div
+                    key={cartQty}
+                    initial={{ scale: 1.4 }}
+                    animate={{ scale: 1 }}
+                    transition={SPRING.snappy}
+                    className="absolute top-1.5 right-1.5 z-10 min-w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shadow-lg px-1.5"
+                  >
                     {cartQty}
-                  </div>
+                  </motion.div>
                 )}
 
                 {/* Product image */}
@@ -325,9 +343,10 @@ const ProductGridView = ({
                   </div>
                 </CardContent>
               </Card>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       )}
     </div>
   );

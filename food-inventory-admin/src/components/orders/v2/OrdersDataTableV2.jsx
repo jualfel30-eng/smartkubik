@@ -7,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AnimatedTableBody, AnimatedTableRow } from "@/components/ui/animated-table-body";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -62,10 +63,10 @@ export function OrdersDataTableV2({ columns, data, pagination, onPageChange, pag
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
+          <AnimatedTableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map(row => (
-                <TableRow
+                <AnimatedTableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                 >
@@ -74,7 +75,7 @@ export function OrdersDataTableV2({ columns, data, pagination, onPageChange, pag
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
-                </TableRow>
+                </AnimatedTableRow>
               ))
             ) : (
               <TableRow>
@@ -83,7 +84,7 @@ export function OrdersDataTableV2({ columns, data, pagination, onPageChange, pag
                 </TableCell>
               </TableRow>
             )}
-          </TableBody>
+          </AnimatedTableBody>
         </Table>
       </div>
       {pagination && (
