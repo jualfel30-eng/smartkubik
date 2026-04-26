@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Button } from './ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from './ui/dialog';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { createPayment, fetchApi } from '../lib/api';
+import { Button } from '../ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../ui/dialog';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { createPayment, fetchApi } from '@/lib/api';
 import { toast } from 'sonner';
-import { PAYMENT_METHODS, isVesMethod, mapPaymentMethodToName } from '../lib/payment-methods';
+import { PAYMENT_METHODS, isVesMethod, mapPaymentMethodToName } from '@/lib/payment-methods';
+import { formatCurrency } from '@/lib/currency-utils';
+import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber';
 
-export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) => {
+export default function RecordReceivablePaymentDialog({ isOpen, onClose, receivable, onPaymentSuccess }) {
   const [amount, setAmount] = useState(0);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState('transferencia_usd');
@@ -17,40 +19,34 @@ export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) =>
   const [bankAccounts, setBankAccounts] = useState([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [exchangeRate, setExchangeRate] = useState(null);
-  const [, setLoadingRate] = useState(false);
   const [error, setError] = useState('');
 
   const remainingAmount = useMemo(() => {
-    if (!payable) return 0;
-    return (payable.totalAmount || 0) - (payable.paidAmount || 0);
-  }, [payable]);
+    if (!receivable) return 0;
+    return Number(receivable.balance) || ((receivable.totalAmount || 0) - (receivable.paidAmount || 0));
+  }, [receivable]);
 
-  const remainingAmountVes = useMemo(() => {
-    if (!payable) return 0;
-    return (payable.totalAmountVes || 0) - (payable.paidAmountVes || 0);
-  }, [payable]);
+  useEffect(() => {
+    if (isOpen && receivable) {
+      setAmount(remainingAmount);
+      setError('');
+      setReferenceNumber('');
+      setBankAccountId('');
+    }
+  }, [isOpen, receivable, remainingAmount]);
 
-  // Load exchange rate
   useEffect(() => {
     const loadExchangeRate = async () => {
-      setLoadingRate(true);
       try {
         const data = await fetchApi('/exchange-rate/bcv');
         setExchangeRate(data.rate);
       } catch (error) {
         console.error('Error loading exchange rate:', error);
-        toast.error('No se pudo cargar la tasa de cambio');
-      } finally {
-        setLoadingRate(false);
       }
     };
-
-    if (isOpen) {
-      loadExchangeRate();
-    }
+    if (isOpen) loadExchangeRate();
   }, [isOpen]);
 
-  // Load bank accounts
   useEffect(() => {
     const loadBankAccounts = async () => {
       setLoadingAccounts(true);
@@ -59,35 +55,22 @@ export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) =>
         setBankAccounts(data || []);
       } catch (error) {
         console.error('Error loading bank accounts:', error);
-        toast.error('No se pudieron cargar las cuentas bancarias');
       } finally {
         setLoadingAccounts(false);
       }
     };
-
-    if (isOpen) {
-      loadBankAccounts();
-    }
+    if (isOpen) loadBankAccounts();
   }, [isOpen]);
 
-  // Set initial amount
-  useEffect(() => {
-    if (payable) {
-      setAmount(remainingAmount);
-    }
-  }, [payable, remainingAmount]);
-
-  // Filter bank accounts by payment method
   const filteredBankAccounts = useMemo(() => {
     if (!paymentMethod) return [];
     const methodName = mapPaymentMethodToName(paymentMethod);
     return bankAccounts.filter(account =>
-      account.acceptedPaymentMethods &&
-      account.acceptedPaymentMethods.includes(methodName)
+      account.acceptedPaymentMethods?.includes(methodName)
     );
   }, [bankAccounts, paymentMethod]);
 
-  if (!payable) return null;
+  if (!receivable) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -99,13 +82,13 @@ export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) =>
     }
 
     const isVes = isVesMethod(paymentMethod);
-    const rate = exchangeRate || (payable.totalAmountVes / payable.totalAmount) || 0;
+    const rate = exchangeRate || 1;
 
     const payload = {
-      paymentType: 'payable',
-      payableId: payable._id,
+      paymentType: 'sale',
+      orderId: receivable.orderId || receivable._id,
       amount: Number(amount),
-      amountVes: Number(amount) * rate,
+      amountVes: isVes ? Number(amount) : Number(amount) * rate,
       exchangeRate: rate,
       currency: isVes ? 'VES' : 'USD',
       date,
@@ -119,12 +102,10 @@ export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) =>
 
     try {
       await createPayment(payload);
-      toast.success('Pago registrado con éxito.');
-      setBankAccountId('');
-      setReferenceNumber('');
+      toast.success(`Cobro registrado — ${formatCurrency(Number(amount))} recibido de ${receivable.customerName}`);
       onPaymentSuccess();
     } catch (err) {
-      toast.error('Error al registrar el pago', {
+      toast.error('Error al registrar el cobro', {
         description: err.message || 'Ocurrió un error inesperado.',
       });
       console.error(err);
@@ -135,10 +116,10 @@ export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) =>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Registrar Pago</DialogTitle>
+          <DialogTitle>Registrar Cobro</DialogTitle>
           <DialogDescription>
-            Cuenta: {payable.description || payable.payableNumber} | Balance Pendiente: ${remainingAmount.toFixed(2)} USD
-            {remainingAmountVes > 0 && ` / Bs ${remainingAmountVes.toFixed(2)}`}
+            Orden #{receivable.orderNumber} | Cliente: {receivable.customerName} | Saldo:{' '}
+            <AnimatedNumber value={remainingAmount} format={(n) => formatCurrency(n)} className="inline font-semibold" />
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -183,24 +164,19 @@ export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) =>
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Monto a Pagar</Label>
+              <Label className="text-right">Monto</Label>
               <div className="col-span-3">
-                <div className="p-3 bg-muted rounded-md">
-                  <p className="text-lg font-semibold">
-                    {isVesMethod(paymentMethod)
-                      ? `Bs ${remainingAmountVes.toFixed(2)}`
-                      : `$${remainingAmount.toFixed(2)}`
-                    }
-                  </p>
-                  {paymentMethod && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {isVesMethod(paymentMethod)
-                        ? `≈ $${remainingAmount.toFixed(2)} USD`
-                        : `≈ Bs ${remainingAmountVes.toFixed(2)}`
-                      }
-                    </p>
-                  )}
-                </div>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={remainingAmount}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Saldo pendiente: {formatCurrency(remainingAmount)}
+                </p>
               </div>
             </div>
 
@@ -230,10 +206,10 @@ export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) =>
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-            <Button type="submit">Registrar Pago</Button>
+            <Button type="submit">Registrar Cobro</Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
   );
-};
+}
