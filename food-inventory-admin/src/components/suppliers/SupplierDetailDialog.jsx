@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
@@ -69,7 +69,15 @@ export default function SupplierDetailDialog({ open, onOpenChange, supplier, onS
     });
     const [linking, setLinking] = useState(false);
 
+    // Only initialize form when dialog OPENS (not on every prop change)
+    // This preserves unsaved edits when switching tabs within the dialog
+    const prevOpenRef = useRef(false);
     useEffect(() => {
+        const justOpened = open && !prevOpenRef.current;
+        prevOpenRef.current = open;
+
+        if (!justOpened) return;
+
         if (supplier) {
             setFormData({
                 name: supplier.name || '',

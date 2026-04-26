@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
 import { useVerticalKey } from '@/hooks/useVerticalConfig.js';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs.jsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import ProductsManagement from '@/components/ProductsManagement.jsx';
 import ConsumablesTab from '@/components/ConsumablesTab.jsx';
 import SuppliesTab from '@/components/SuppliesTab.jsx';
@@ -11,77 +11,75 @@ import { Package, Layers, Wrench, Calculator, Factory, GitMerge } from 'lucide-r
 /**
  * ProductsManagementWithTabs
  *
- * Wrapper component that provides a tabbed interface for:
- * - Products Management (Finished Goods / Merchandise)
- * - Raw Materials (Ingredients for production)
- * - Consumables Configuration
- * - Supplies Management (Operational supplies)
- * - Products Pricing Engine
+ * Uses a dropdown Select instead of tab bar to reduce visual complexity.
+ * Hick's Law: fewer visible options = faster decisions.
  */
 function ProductsManagementWithTabs({ activeSubTab = 'products' }) {
   const [, setSearchParams] = useSearchParams();
   const verticalKey = useVerticalKey();
   const isBeautyProfile = ['barbershop-salon', 'clinic-spa'].includes(verticalKey);
 
-  const handleTabChange = (newTab) => {
+  const handleChange = (newTab) => {
     setSearchParams({ tab: newTab }, { replace: true });
   };
 
+  const options = [
+    { value: 'products', label: 'Mercancia', icon: Package },
+    { value: 'raw-materials', label: 'Materias Primas', icon: Factory },
+    { value: 'consumables', label: 'Consumibles', icon: Layers },
+    { value: 'supplies', label: 'Suministros', icon: Wrench },
+    ...(!isBeautyProfile ? [{ value: 'pricing-engine', label: 'Motor de Precios', icon: Calculator }] : []),
+    { value: 'dedup', label: 'Depuracion', icon: GitMerge },
+  ];
+
+  const currentLabel = options.find(o => o.value === activeSubTab)?.label || 'Mercancia';
+
   return (
-    <Tabs value={activeSubTab} onValueChange={handleTabChange} className="w-full">
-      <TabsList className="mb-4">
-        <TabsTrigger value="products" className="gap-2">
-          <Package className="h-4 w-4" />
-          Mercancía
-        </TabsTrigger>
-        <TabsTrigger value="raw-materials" className="gap-2">
-          <Factory className="h-4 w-4" />
-          Materias Primas
-        </TabsTrigger>
-        <TabsTrigger value="consumables" className="gap-2">
-          <Layers className="h-4 w-4" />
-          Consumibles
-        </TabsTrigger>
-        <TabsTrigger value="supplies" className="gap-2">
-          <Wrench className="h-4 w-4" />
-          Suministros
-        </TabsTrigger>
-        {!isBeautyProfile && (
-          <TabsTrigger value="pricing-engine" className="gap-2">
-            <Calculator className="h-4 w-4" />
-            Motor de Precios
-          </TabsTrigger>
-        )}
-        <TabsTrigger value="dedup" className="gap-2">
-          <GitMerge className="h-4 w-4" />
-          Depuración
-        </TabsTrigger>
-      </TabsList>
+    <div className="space-y-4">
+      {/* Product type selector — replaces 6 tabs with 1 dropdown */}
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-medium text-muted-foreground shrink-0">Tipo:</label>
+        <Select value={activeSubTab} onValueChange={handleChange}>
+          <SelectTrigger className="w-[220px]">
+            <SelectValue placeholder="Seleccionar tipo">
+              <span className="flex items-center gap-2">
+                {(() => {
+                  const opt = options.find(o => o.value === activeSubTab);
+                  if (!opt) return currentLabel;
+                  const Icon = opt.icon;
+                  return <><Icon className="h-4 w-4" />{opt.label}</>;
+                })()}
+              </span>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((opt) => {
+              const Icon = opt.icon;
+              return (
+                <SelectItem key={opt.value} value={opt.value}>
+                  <span className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    {opt.label}
+                  </span>
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      </div>
 
-      <TabsContent value="products">
+      {/* Content — renders the selected product type */}
+      {activeSubTab === 'products' && (
         <ProductsManagement defaultProductType="simple" showSalesFields={true} />
-      </TabsContent>
-
-      <TabsContent value="raw-materials">
+      )}
+      {activeSubTab === 'raw-materials' && (
         <ProductsManagement defaultProductType="raw_material" showSalesFields={false} />
-      </TabsContent>
-
-      <TabsContent value="consumables">
-        <ConsumablesTab />
-      </TabsContent>
-
-      <TabsContent value="supplies">
-        <SuppliesTab />
-      </TabsContent>
-
-      <TabsContent value="pricing-engine">
-        <PricingEngineTab />
-      </TabsContent>
-
-      <TabsContent value="dedup">
-        <DedupTab />
-      </TabsContent>
-    </Tabs>
+      )}
+      {activeSubTab === 'consumables' && <ConsumablesTab />}
+      {activeSubTab === 'supplies' && <SuppliesTab />}
+      {activeSubTab === 'pricing-engine' && <PricingEngineTab />}
+      {activeSubTab === 'dedup' && <DedupTab />}
+    </div>
   );
 }
 

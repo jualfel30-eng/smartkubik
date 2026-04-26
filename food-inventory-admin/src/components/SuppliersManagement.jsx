@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body.jsx';
+import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog.jsx';
 import { Plus, Search, Edit, Trash2, Phone, Mail, FileText, Star } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -34,6 +36,10 @@ export default function SuppliersManagement() {
     const [suppliers, setSuppliers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const pageLimit = 20;
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [selectedSupplier, setSelectedSupplier] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
@@ -42,16 +48,23 @@ export default function SuppliersManagement() {
     const loadSuppliers = useCallback(async () => {
         try {
             setLoading(true);
-            const query = search ? `?search=${encodeURIComponent(search)}` : '';
+            const params = new URLSearchParams();
+            if (search) params.set('search', search);
+            params.set('page', String(page));
+            params.set('limit', String(pageLimit));
+            const query = params.toString() ? `?${params.toString()}` : '';
             const response = await fetchApi(`/suppliers${query}`);
-            setSuppliers(Array.isArray(response) ? response : (response.data || []));
+            const data = Array.isArray(response) ? response : (response.data || []);
+            setSuppliers(data);
+            setTotalPages(response?.pagination?.totalPages || response?.totalPages || Math.ceil((response?.pagination?.total || data.length) / pageLimit) || 1);
+            setTotalItems(response?.pagination?.total || response?.total || data.length);
         } catch (error) {
             console.error('Error loading suppliers:', error);
             toast.error('Error al cargar proveedores');
         } finally {
             setLoading(false);
         }
-    }, [search]);
+    }, [search, page]);
 
     useEffect(() => {
         loadSuppliers();
@@ -108,7 +121,7 @@ export default function SuppliersManagement() {
                     <Input
                         placeholder="Buscar por nombre, RIF..."
                         value={search}
-                        onChange={(e) => setSearch(e.target.value)}
+                        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                         className="pl-8"
                     />
                 </div>
@@ -128,10 +141,20 @@ export default function SuppliersManagement() {
                                 <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
-                        <TableBody>
+                        <AnimatedTableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8">Cargando proveedores...</TableCell>
+                                    <TableCell colSpan={7} className="py-4">
+                                      <div className="space-y-3">
+                                        {Array.from({ length: 5 }).map((_, i) => (
+                                          <div key={i} className="flex gap-4">
+                                            {Array.from({ length: 7 }).map((_, j) => (
+                                              <Skeleton key={j} className="h-10 flex-1 rounded" />
+                                            ))}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </TableCell>
                                 </TableRow>
                             ) : suppliers.length === 0 ? (
                                 <TableRow>
@@ -147,7 +170,7 @@ export default function SuppliersManagement() {
                                 </TableRow>
                             ) : (
                                 suppliers.map((supplier) => (
-                                    <TableRow key={supplier._id}>
+                                    <AnimatedTableRow key={supplier._id}>
                                         <TableCell>
                                             <div className="font-medium">{supplier.name}</div>
                                             {supplier.tradeName && supplier.tradeName !== supplier.name && (
@@ -210,11 +233,37 @@ export default function SuppliersManagement() {
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
-                                    </TableRow>
+                                    </AnimatedTableRow>
                                 ))
                             )}
-                        </TableBody>
+                        </AnimatedTableBody>
                     </Table>
+
+                    {/* Pagination */}
+                    {totalPages > 0 && (
+                        <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground">
+                            <span>Mostrando {suppliers.length} de {totalItems} proveedores</span>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                                    disabled={page <= 1}
+                                >
+                                    Anterior
+                                </Button>
+                                <span className="text-xs">Pagina {page} de {totalPages}</span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={page >= totalPages}
+                                >
+                                    Siguiente
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

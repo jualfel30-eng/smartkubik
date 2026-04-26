@@ -59,7 +59,9 @@ import {
   Printer,
   ChevronUp,
   ChevronDown,
-  ChevronsUpDown
+  ChevronsUpDown,
+  MoreHorizontal,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 const UNASSIGNED_SELECT_VALUE = '__UNASSIGNED__';
@@ -421,7 +423,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState(initialNewProductState);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [visibleColumns, setVisibleColumns] = useState({
+  const defaultProductColumns = {
     sku: true,
     name: true,
     brand: true,
@@ -434,7 +436,21 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     promotion: true,
     status: true,
     actions: true
+  };
+  const [visibleColumns, setVisibleColumnsRaw] = useState(() => {
+    try {
+      const saved = localStorage.getItem('smartkubik_prod_columns');
+      if (saved) return { ...defaultProductColumns, ...JSON.parse(saved) };
+    } catch { /* ignore */ }
+    return defaultProductColumns;
   });
+  const setVisibleColumns = (updater) => {
+    setVisibleColumnsRaw((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try { localStorage.setItem('smartkubik_prod_columns', JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
   const [additionalVariants, setAdditionalVariants] = useState([]);
   const [isBarcodeDialogOpen, setIsBarcodeDialogOpen] = useState(false);
   const [barcodeCaptureTarget, setBarcodeCaptureTarget] = useState(null);
@@ -2216,47 +2232,85 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-start items-center space-x-4">
+      {/* Consolidated toolbar: Search + Category + Status + "..." menu + primary CTA */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        {/* Search */}
+        <div className="flex-1 relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nombre, SKU o marca..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+
+        {/* Category filter */}
+        <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <SelectTrigger className="w-full sm:w-[180px] shrink-0">
+            <SelectValue placeholder="Todas las categorias" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las categorias</SelectItem>
+            {categories.map((cat, i) => (
+              <SelectItem key={`cat-${i}-${cat}`} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Status filter */}
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-full sm:w-[170px] shrink-0">
+            <SelectValue placeholder="Todos los estados" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los estados</SelectItem>
+            <SelectItem value="active">Activo</SelectItem>
+            <SelectItem value="inactive">Inactivo</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Consolidated "..." menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline">Acciones en Lote</Button>
+            <Button variant="outline" size="icon" className="shrink-0" title="Mas opciones">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            {hasDynamicTemplateColumns ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuItem onSelect={handleDownloadTemplate}>
-                    Descargar Plantilla
-                  </DropdownMenuItem>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" align="start" className="max-w-xs text-left space-y-1">
-                  <p className="font-semibold">Plantilla adaptada a la vertical</p>
-                  <p>
-                    Incluye columnas <code>VariantSKU</code> y <code>{'productAttr_{clave}'}</code> / <code>{'variantAttr_{clave}'}</code> para los atributos configurados: {dynamicAttributeLabels.join(', ')}. Los nombres deben coincidir con la configuración del producto/variante.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <DropdownMenuItem onSelect={handleDownloadTemplate}>
-                Descargar Plantilla
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onSelect={() => document.getElementById('bulk-upload-input').click()}>
-              Importar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">Columnas</Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Alternar columnas</DropdownMenuLabel>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
             <DropdownMenuSeparator />
+
+            <DropdownMenuItem onSelect={handleDownloadTemplate}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Descargar plantilla
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => document.getElementById('bulk-upload-input').click()}>
+              <Upload className="h-4 w-4 mr-2" />
+              Importar archivo
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => openExportDialog('xlsx')}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar a .xlsx
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => openExportDialog('csv')}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar a .csv
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem onSelect={() => setIsLabelWizardOpen(true)}>
+              <Printer className="h-4 w-4 mr-2" />
+              Imprimir etiquetas
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Columnas visibles</DropdownMenuLabel>
             <DropdownMenuCheckboxItem checked={visibleColumns.sku} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, sku: checked }))}>SKU</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.name} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, name: checked }))}>Producto</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.brand} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, brand: checked }))}>Marca</DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem checked={visibleColumns.category} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, category: checked }))}>Categoría</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.category} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, category: checked }))}>Categoria</DropdownMenuCheckboxItem>
             {!isNonFoodRetailVertical && (
               <DropdownMenuCheckboxItem checked={visibleColumns.isSoldByWeight} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, isSoldByWeight: checked }))}>Vendible por Peso</DropdownMenuCheckboxItem>
             )}
@@ -2264,20 +2318,12 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
             <DropdownMenuCheckboxItem checked={visibleColumns.cost} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, cost: checked }))}>Costo</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.wholesalePrice} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, wholesalePrice: checked }))}>P. Mayor</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.variants} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, variants: checked }))}>Variantes</DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem checked={visibleColumns.promotion} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, promotion: checked }))}>Promoción</DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem checked={visibleColumns.promotion} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, promotion: checked }))}>Promocion</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.status} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, status: checked }))}>Estado</DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem checked={visibleColumns.actions} onCheckedChange={(checked) => setVisibleColumns(prev => ({ ...prev, actions: checked }))}>Acciones</DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">Exportar</Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onSelect={() => openExportDialog('xlsx')}>Exportar a Excel (.xlsx)</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => openExportDialog('csv')}>Exportar a CSV (.csv)</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+
         <input
           type="file"
           id="bulk-upload-input"
@@ -2285,9 +2331,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           accept=".xlsx, .xls"
           onChange={handleBulkUpload}
         />
-        <Button variant="secondary" onClick={() => setIsLabelWizardOpen(true)}>
-          <Printer className="h-4 w-4 mr-2" /> Imprimir Etiquetas
-        </Button>
+
+        {/* Primary CTA */}
         <PriceListsManager />
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
@@ -3761,36 +3806,6 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       <Card>
         <CardHeader />
         <CardContent>
-          <div className="flex space-x-4 mb-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={getPlaceholder('search', 'Buscar por nombre, SKU o marca...')}
-                className="pl-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filtrar por categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las categorías</SelectItem>
-                {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filtrar por estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="active">Solo activos</SelectItem>
-                <SelectItem value="inactive">Solo inactivos</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
           <div className="rounded-md border relative">
             {loading && <div className="absolute inset-0 bg-background/60 z-10 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
             <Table>
@@ -3818,7 +3833,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   )}
                   {visibleColumns.name && (
                     <TableHead
-                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors min-w-[250px]"
                       onClick={() => {
                         if (sortBy === 'name') {
                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');

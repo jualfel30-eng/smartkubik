@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { fetchApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body.jsx';
+import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
@@ -9,6 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from 'sonner';
 import { Eye, Truck, RefreshCw } from 'lucide-react';
 import RatingModal from './RatingModal.jsx';
+import POReceivedCeremony from '@/components/inventory/POReceivedCeremony.jsx';
+import { checkMilestone } from '@/components/inventory/MilestoneToast.jsx';
+import { recordActivity } from '@/components/inventory/DailyStreak.jsx';
 
 export default function PurchaseHistory() {
   const [purchases, setPurchases] = useState([]);
@@ -18,6 +23,8 @@ export default function PurchaseHistory() {
   const [selectedPurchaseOrder, setSelectedPurchaseOrder] = useState(null);
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
   const [poForRating, setPoForRating] = useState(null);
+  const [ceremonyActive, setCeremonyActive] = useState(false);
+  const [ceremonyData, setCeremonyData] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageLimit, setPageLimit] = useState(25);
   const [totalPurchases, setTotalPurchases] = useState(0);
@@ -78,7 +85,14 @@ export default function PurchaseHistory() {
           invoiceDate: ratingData.invoiceDate
         })
       });
-      toast.success('Orden Recibida', { description: 'El inventario ha sido actualizado correctamente.' });
+      // Trigger celebration ceremony
+      const po = poForRating || ratingData;
+      const itemCount = po?.items?.length || po?.lineItems?.length || 0;
+      const totalValue = po?.total || po?.grandTotal || 0;
+      setCeremonyData({ itemCount, totalValue });
+      setCeremonyActive(true);
+      recordActivity();
+      checkMilestone('firstPOReceived', 1);
 
       setIsRatingModalOpen(false);
       loadPurchases(currentPage, pageLimit);
@@ -138,11 +152,11 @@ export default function PurchaseHistory() {
                 <TableHead className="w-[250px]">Estado / Acciones</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <AnimatedTableBody>
               {purchases.length > 0 ? (
                 purchases.map(po => {
                   return (
-                    <TableRow key={po._id}>
+                    <AnimatedTableRow key={po._id}>
                       <TableCell className="font-medium">{po.poNumber}</TableCell>
                       <TableCell className="text-muted-foreground">{po.invoiceNumber || '—'}</TableCell>
                       <TableCell>{po.supplierName}</TableCell>
@@ -171,7 +185,7 @@ export default function PurchaseHistory() {
                         </Button>
                       </div>
                     </TableCell>
-                    </TableRow>
+                    </AnimatedTableRow>
                   );
                 })
               ) : (
@@ -179,7 +193,7 @@ export default function PurchaseHistory() {
                   <TableCell colSpan="5" className="text-center">No se encontraron compras.</TableCell>
                 </TableRow>
               )}
-            </TableBody>
+            </AnimatedTableBody>
           </Table>
 
           {totalPages > 0 && (
@@ -307,6 +321,13 @@ export default function PurchaseHistory() {
           purchaseOrder={poForRating}
         />
       )}
+
+      {/* PO Received Celebration */}
+      <POReceivedCeremony
+        active={ceremonyActive}
+        poData={ceremonyData}
+        onComplete={() => setCeremonyActive(false)}
+      />
     </>
   );
 }

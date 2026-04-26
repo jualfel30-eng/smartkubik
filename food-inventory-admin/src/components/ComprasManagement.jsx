@@ -5,6 +5,7 @@
  */
 import PurchaseHistory from './PurchaseHistory.jsx';
 import { ErrorState } from '@/components/ui/error-state';
+import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { useComprasData } from './compras/useComprasData';
 import CompraCreateDialog from './compras/CompraCreateDialog.jsx';
 import CompraNewProductDialog from './compras/CompraNewProductDialog.jsx';
@@ -14,7 +15,23 @@ import ComprasAlertCards from './compras/ComprasAlertCards.jsx';
 export default function ComprasManagement() {
   const data = useComprasData();
 
-  if (data.loading) return <div>Cargando...</div>;
+  if (data.loading) return (
+    <div className="space-y-6 p-4">
+      <div className="flex gap-4">
+        <Skeleton className="h-10 w-48 rounded" />
+        <Skeleton className="h-10 w-48 rounded" />
+      </div>
+      <div className="space-y-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex gap-4">
+            {Array.from({ length: 5 }).map((_, j) => (
+              <Skeleton key={j} className="h-10 flex-1 rounded" />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
   if (data.error) return <ErrorState message={data.error} onRetry={() => window.location.reload()} />;
 
   return (
