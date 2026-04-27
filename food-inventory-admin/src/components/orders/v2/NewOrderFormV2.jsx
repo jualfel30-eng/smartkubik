@@ -41,6 +41,11 @@ import { OrderSidebar } from './OrderSidebar';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fadeUp, tapScale, SPRING, DUR, EASE } from '@/lib/motion';
 import SaleCompleteOverlay from './SaleCompleteOverlay';
+import { CollapsibleSection } from './CollapsibleSection';
+import { CheckoutFooter } from './CheckoutFooter';
+import { OrderSummaryBreakdown } from './OrderSummaryBreakdown';
+import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber.jsx';
+import { User, Truck } from 'lucide-react';
 
 const initialOrderState = {
   customerId: '',
@@ -304,6 +309,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
   // Barcode success flash state
   const [barcodeSuccess, setBarcodeSuccess] = useState(false);
+
+  // Collapsible sections state (desktop POS)
+  const [customerSectionOpen, setCustomerSectionOpen] = useState(true);
+  const [deliverySectionOpen, setDeliverySectionOpen] = useState(false);
 
   // Frequent products from localStorage
   const [freqMap, setFreqMap] = useState(() => {
@@ -856,6 +865,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           useExistingLocation: !!customer.primaryLocation,
           priceListId: customer.defaultPriceListId || '',
         }));
+        // Auto-collapse customer section after selecting existing customer
+        setCustomerSectionOpen(false);
       }
     } else {
       setNewOrder(prev => ({ ...prev, customerName: '', customerId: '', customerIsSpecialTaxpayer: false, customerLocation: null, useExistingLocation: false }));
@@ -901,6 +912,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           useExistingLocation: !!customer.primaryLocation,
           priceListId: customer.defaultPriceListId || '',
         }));
+        // Auto-collapse customer section after selecting existing customer
+        setCustomerSectionOpen(false);
       }
     } else {
       setNewOrder(prev => ({ ...prev, customerRif: '', customerId: '', customerIsSpecialTaxpayer: false, customerLocation: null, useExistingLocation: false }));
@@ -2880,7 +2893,31 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         /* DESKTOP / FULLSCREEN LAYOUT (Flexible 2 Columns) */
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(400px,45%)] gap-4 mb-8 lg:h-[calc(100vh-12rem)]">
           {/* LEFT COLUMN - Products ONLY - Independent scroll */}
-          <div className="space-y-6 lg:overflow-y-auto lg:pr-2">
+          <div className="space-y-4 lg:overflow-y-auto lg:pr-2">
+            {/* Mini cart indicator (desktop) */}
+            <AnimatePresence>
+              {newOrder.items.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: DUR.base, ease: EASE.out }}
+                  className="flex items-center justify-between px-4 py-2.5 rounded-lg border bg-muted/30 overflow-hidden"
+                >
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <ShoppingCart className="h-4 w-4" />
+                    <span>{newOrder.items.length} producto{newOrder.items.length !== 1 ? 's' : ''} en el carrito</span>
+                  </div>
+                  <AnimatedNumber
+                    value={totals.total}
+                    format={(n) => `$${n.toFixed(2)}`}
+                    className="text-sm font-bold text-primary tabular-nums"
+                    duration={0.4}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Products Section */}
             <div className="p-4 border rounded-lg space-y-4 bg-card">
               <div className="flex items-center justify-between mb-4">
@@ -3012,409 +3049,316 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
             </div>
           </div>
 
-          {/* RIGHT COLUMN - Customer/Delivery sections + OrderSidebar - Independent scroll */}
-          <div className="space-y-4 lg:overflow-y-auto lg:pl-2">
-            {/* Customer Data Section */}
-            <div className="p-4 border rounded-lg space-y-4 bg-card">
-              <Label className="text-base font-semibold">Datos del Cliente</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* RIGHT COLUMN — Cart-first layout with sticky checkout footer */}
+          <div className="flex flex-col lg:pl-2">
+            {/* Scrollable area */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0">
+
+              {/* 1. Cart Items (FIRST — most important in POS) */}
+              <OrderSidebar
+                items={newOrder.items}
+                fullItemsTable={renderFullItemsTable()}
+                totals={totals}
+                compact={true}
+              />
+
+              {/* 2. Customer Data (collapsible) */}
+              <CollapsibleSection
+                title="Cliente"
+                icon={User}
+                open={customerSectionOpen}
+                onOpenChange={setCustomerSectionOpen}
+                summary={
+                  newOrder.customerName
+                    ? <>{newOrder.customerName} · {newOrder.taxType}-{newOrder.customerRif}{newOrder.customerPhone ? ` · ${newOrder.customerPhone}` : ''}</>
+                    : 'Sin cliente seleccionado'
+                }
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>RIF / C.I.</Label>
+                    <div className="flex items-center border border-input rounded-md">
+                      <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
+                        <SelectTrigger className="w-[70px] !h-10 !min-h-10 !py-2 rounded-l-md rounded-r-none !border-0 !border-r !border-input focus:z-10">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="V">V</SelectItem>
+                          <SelectItem value="E">E</SelectItem>
+                          <SelectItem value="J">J</SelectItem>
+                          <SelectItem value="G">G</SelectItem>
+                          <SelectItem value="P">P</SelectItem>
+                          <SelectItem value="N">N</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="flex-grow">
+                        <SearchableSelect
+                          options={rifOptions}
+                          onSelection={handleCustomerRifSelection}
+                          onInputChange={handleCustomerRifInputChange}
+                          inputValue={customerRifInput}
+                          value={getCustomerRifValue()}
+                          placeholder="Escriba para buscar RIF..."
+                          isLoading={isSearchingCustomers}
+                          customControlClass="flex h-10 w-full rounded-l-none rounded-r-md !border-0 bg-input-background px-3 py-2 text-sm ring-offset-background"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerName">Nombre o Razón Social</Label>
+                    <SearchableSelect
+                      options={customerOptions}
+                      onSelection={handleCustomerNameSelection}
+                      onInputChange={handleCustomerNameInputChange}
+                      inputValue={customerNameInput}
+                      value={getCustomerNameValue()}
+                      placeholder="Escriba para buscar cliente..."
+                      isLoading={isSearchingCustomers}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="customerPhone">Teléfono</Label>
+                    <Input
+                      id="customerPhone"
+                      value={newOrder.customerPhone || ''}
+                      onChange={(e) => handleFieldChange('customerPhone', e.target.value)}
+                      placeholder="04141234567"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="customerEmail">Correo Electrónico</Label>
+                    <Input
+                      id="customerEmail"
+                      type="email"
+                      value={newOrder.customerEmail || ''}
+                      onChange={(e) => handleFieldChange('customerEmail', e.target.value)}
+                      placeholder="cliente@ejemplo.com"
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <Label>RIF / C.I.</Label>
-                  <div className="flex items-center border border-input rounded-md">
-                    <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
-                      <SelectTrigger className="w-[70px] !h-10 !min-h-10 !py-2 rounded-l-md rounded-r-none !border-0 !border-r !border-input focus:z-10">
-                        <SelectValue />
+                  <Label htmlFor="customerAddress">Dirección</Label>
+                  <SearchableSelect
+                    options={addressOptions}
+                    onSelection={handleCustomerAddressSelection}
+                    value={getCustomerAddressValue()}
+                    placeholder="Escriba la dirección o seleccione..."
+                    isCreatable={true}
+                    onInputChange={(val) => {
+                      if (val && val !== newOrder.customerAddress) {
+                        handleFieldChange('customerAddress', val);
+                      }
+                    }}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
+                    <Label htmlFor="priceListId" className="text-sm font-medium flex items-center gap-2">
+                      <Tag className="h-4 w-4" />
+                      Lista de Precios
+                    </Label>
+                    <Select
+                      value={newOrder.priceListId || 'none'}
+                      onValueChange={(value) => handleFieldChange('priceListId', value === 'none' ? '' : value)}
+                    >
+                      <SelectTrigger id="priceListId">
+                        <SelectValue placeholder="Sin lista específica" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="V">V</SelectItem>
-                        <SelectItem value="E">E</SelectItem>
-                        <SelectItem value="J">J</SelectItem>
-                        <SelectItem value="G">G</SelectItem>
-                        <SelectItem value="P">P</SelectItem>
-                        <SelectItem value="N">N</SelectItem>
+                        <SelectItem value="none">Sin lista específica</SelectItem>
+                        {priceLists.map((pl) => (
+                          <SelectItem key={pl._id} value={pl._id}>
+                            {pl.name} - {pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type === 'promotional' ? 'Promocional' : pl.type}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
-                    <div className="flex-grow">
-                      <SearchableSelect
-                        options={rifOptions}
-                        onSelection={handleCustomerRifSelection}
-                        onInputChange={handleCustomerRifInputChange}
-                        inputValue={customerRifInput}
-                        value={getCustomerRifValue()}
-                        placeholder="Escriba para buscar RIF..."
-                        isLoading={isSearchingCustomers}
-                        customControlClass="flex h-10 w-full rounded-l-none rounded-r-md !border-0 bg-input-background px-3 py-2 text-sm ring-offset-background"
-                      />
+                    {newOrder.priceListId && newOrder.customerId && (
+                      <div className="flex items-center space-x-2 pt-2 border-t">
+                        <Switch id="savePriceList" checked={newOrder.savePriceListToCustomer || false} onCheckedChange={(checked) => handleFieldChange('savePriceListToCustomer', checked)} />
+                        <Label htmlFor="savePriceList" className="text-[11px] cursor-pointer leading-tight">Guardar como predeterminada</Label>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0" />
+                      <Label className="text-sm font-medium">Contribuyente Especial</Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {newOrder.customerIsSpecialTaxpayer ? `Retiene ${totals.ivaWithholdingPercentage}% del IVA` : 'El cliente retiene IVA al pagar'}
+                    </p>
+                    <div className="flex justify-end mt-2">
+                      <Switch checked={newOrder.customerIsSpecialTaxpayer || false} onCheckedChange={(checked) => handleFieldChange('customerIsSpecialTaxpayer', checked)} />
                     </div>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="customerName">Nombre o Razón Social</Label>
-                  <SearchableSelect
-                    options={customerOptions}
-                    onSelection={handleCustomerNameSelection}
-                    onInputChange={handleCustomerNameInputChange}
-                    inputValue={customerNameInput}
-                    value={getCustomerNameValue()}
-                    placeholder="Escriba para buscar cliente..."
-                    isLoading={isSearchingCustomers}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="customerPhone">Teléfono</Label>
-                  <Input
-                    id="customerPhone"
-                    value={newOrder.customerPhone || ''}
-                    onChange={(e) => handleFieldChange('customerPhone', e.target.value)}
-                    placeholder="04141234567"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customerEmail">Correo Electrónico</Label>
-                  <Input
-                    id="customerEmail"
-                    type="email"
-                    value={newOrder.customerEmail || ''}
-                    onChange={(e) => handleFieldChange('customerEmail', e.target.value)}
-                    placeholder="cliente@ejemplo.com"
-                  />
-                </div>
-              </div>
-
-              {/* Dirección — right below phone/email */}
-              <div className="space-y-2">
-                <Label htmlFor="customerAddress">Dirección</Label>
-                <SearchableSelect
-                  options={addressOptions}
-                  onSelection={handleCustomerAddressSelection}
-                  value={getCustomerAddressValue()}
-                  placeholder="Escriba la dirección o seleccione..."
-                  isCreatable={true}
-                  onInputChange={(val) => {
-                    // Update address directly as user types if it's text input
-                    if (val && val !== newOrder.customerAddress) {
-                      handleFieldChange('customerAddress', val);
-                    }
-                  }}
-                />
-              </div>
-
-              {/* Price List + Contribuyente Especial — same row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Price List Selector */}
-                <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
-                  <Label htmlFor="priceListId" className="text-sm font-medium flex items-center gap-2">
-                    <Tag className="h-4 w-4" />
-                    Lista de Precios
-                  </Label>
-                  <Select
-                    value={newOrder.priceListId || 'none'}
-                    onValueChange={(value) => handleFieldChange('priceListId', value === 'none' ? '' : value)}
-                  >
-                    <SelectTrigger id="priceListId">
-                      <SelectValue placeholder="Sin lista específica" />
+                  <Label htmlFor="assignedTo">Atendido Por</Label>
+                  <Select value={newOrder.assignedTo || 'unassigned'} onValueChange={(value) => handleFieldChange('assignedTo', value === 'unassigned' ? '' : value)} disabled={loadingEmployees}>
+                    <SelectTrigger id="assignedTo">
+                      <SelectValue placeholder={loadingEmployees ? "Cargando empleados..." : "Seleccione empleado..."} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Sin lista específica</SelectItem>
-                      {priceLists.map((pl) => (
-                        <SelectItem key={pl._id} value={pl._id}>
-                          {pl.name} - {pl.type === 'wholesale' ? 'Mayorista' : pl.type === 'retail' ? 'Retail' : pl.type === 'promotional' ? 'Promocional' : pl.type}
+                      <SelectItem value="unassigned">Sin asignar</SelectItem>
+                      {employees.map((emp) => (
+                        <SelectItem key={emp._id} value={emp._id}>
+                          {emp.customer?.name || emp.name || 'Sin Nombre'} {emp.position ? `- ${emp.position}` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {newOrder.priceListId && newOrder.customerId && (
-                    <div className="flex items-center space-x-2 pt-2 border-t">
-                      <Switch
-                        id="savePriceList"
-                        checked={newOrder.savePriceListToCustomer || false}
-                        onCheckedChange={(checked) => handleFieldChange('savePriceListToCustomer', checked)}
-                      />
-                      <Label htmlFor="savePriceList" className="text-[11px] cursor-pointer leading-tight">
-                        Guardar como predeterminada
-                      </Label>
+                </div>
+              </CollapsibleSection>
+
+              {/* 3. Delivery + Notes (collapsible, collapsed by default) */}
+              <CollapsibleSection
+                title="Entrega y Notas"
+                icon={Truck}
+                open={deliverySectionOpen}
+                onOpenChange={setDeliverySectionOpen}
+                summary={
+                  <>
+                    <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+                      {newOrder.deliveryMethod === 'store' ? 'Tienda' : newOrder.deliveryMethod === 'pickup' ? 'Pickup' : newOrder.deliveryMethod === 'delivery' ? 'Delivery' : newOrder.deliveryMethod === 'envio_nacional' ? 'Envio' : newOrder.deliveryMethod}
+                    </Badge>
+                    {newOrder.notes && <span className="truncate max-w-[150px]">{newOrder.notes.substring(0, 30)}{newOrder.notes.length > 30 ? '...' : ''}</span>}
+                  </>
+                }
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Método de Entrega</Label>
+                    <Select value={newOrder.deliveryMethod} onValueChange={(value) => handleFieldChange('deliveryMethod', value)}>
+                      <SelectTrigger><SelectValue placeholder="Seleccione método..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="store">Venta en Tienda</SelectItem>
+                        <SelectItem value="pickup">Pickup (Retiro en tienda)</SelectItem>
+                        <SelectItem value="delivery">Delivery (Entrega local)</SelectItem>
+                        <SelectItem value="envio_nacional">Envío Nacional</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="notesDesk" className="text-sm font-medium">Notas</Label>
+                    <textarea
+                      id="notesDesk"
+                      value={newOrder.notes || ''}
+                      onChange={(e) => handleFieldChange('notes', e.target.value)}
+                      placeholder="Instrucciones especiales..."
+                      className="w-full min-h-[60px] p-2 text-sm border rounded-md resize-none"
+                    />
+                  </div>
+                </div>
+              </CollapsibleSection>
+
+              {/* 4. Conditional sections (unchanged logic, just repositioned) */}
+              {newOrder.deliveryMethod === 'delivery' && (
+                <div className="p-4 border rounded-lg space-y-4 bg-card">
+                  <Label className="text-base font-semibold">Ubicación de Entrega</Label>
+                  {newOrder.customerLocation && newOrder.customerId && newOrder.useExistingLocation && (
+                    <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-900/30 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-blue-900 dark:text-blue-200">Ubicación guardada del cliente</Label>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setNewOrder(prev => ({ ...prev, useExistingLocation: false }))}>Cambiar ubicación</Button>
+                      </div>
+                      {newOrder.customerLocation.formattedAddress && (
+                        <p className="text-sm text-blue-700 dark:text-blue-200">{newOrder.customerLocation.formattedAddress}</p>
+                      )}
+                    </div>
+                  )}
+                  {(!newOrder.useExistingLocation || !newOrder.customerLocation || !newOrder.customerId) && (
+                    <div>
+                      <LocationPicker label="Selecciona la ubicación en el mapa" value={newOrder.customerLocation} onChange={(location) => setNewOrder(prev => ({ ...prev, customerLocation: location }))} />
+                      {!newOrder.customerId && newOrder.customerLocation && (<p className="text-sm text-success mt-2">Esta ubicación se guardará automáticamente en el perfil del cliente</p>)}
+                      {newOrder.customerId && newOrder.customerLocation && (<Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => setNewOrder(prev => ({ ...prev, useExistingLocation: true }))}>Usar ubicación guardada</Button>)}
                     </div>
                   )}
                 </div>
+              )}
 
-                {/* Contribuyente Especial Toggle */}
-                <div className="flex flex-col justify-between rounded-lg border p-3 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-amber-600 shrink-0" />
-                    <Label className="text-sm font-medium">Contribuyente Especial</Label>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {newOrder.customerIsSpecialTaxpayer
-                      ? `Retiene ${totals.ivaWithholdingPercentage}% del IVA`
-                      : 'El cliente retiene IVA al pagar'}
-                  </p>
-                  <div className="flex justify-end mt-2">
-                    <Switch
-                      checked={newOrder.customerIsSpecialTaxpayer || false}
-                      onCheckedChange={(checked) => handleFieldChange('customerIsSpecialTaxpayer', checked)}
-                    />
+              {newOrder.deliveryMethod === 'envio_nacional' && (
+                <div className="p-4 border rounded-lg space-y-4 bg-card">
+                  <Label className="text-base font-semibold">Datos de Envío Nacional</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Empresa de Encomiendas</Label>
+                      <Select value={selectedProvider ? selectedProvider.code : ''} onValueChange={(val) => { const provider = shippingProviders.find(p => p.code === val); setSelectedProvider(provider); setAvailableStates(provider?.regions || []); setAvailableCities([]); setAvailableAgencies([]); setSelectedAgency(null); handleAddressChange('street', ''); handleAddressChange('state', ''); handleAddressChange('city', ''); }}>
+                        <SelectTrigger><SelectValue placeholder="Seleccione empresa..." /></SelectTrigger>
+                        <SelectContent>{shippingProviders.map(p => (<SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>))}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Estado</Label>
+                      <Select value={newOrder.shippingAddress.state} onValueChange={(val) => { handleAddressChange('state', val); const region = availableStates.find(r => r.state === val); setAvailableCities(region ? region.cities : []); setAvailableAgencies([]); handleAddressChange('city', ''); }} disabled={!selectedProvider}>
+                        <SelectTrigger><SelectValue placeholder="Seleccione estado..." /></SelectTrigger>
+                        <SelectContent>{availableStates.map(r => (<SelectItem key={r.state} value={r.state}>{r.state}</SelectItem>))}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ciudad</Label>
+                      <Select value={newOrder.shippingAddress.city} onValueChange={(val) => { handleAddressChange('city', val); const city = availableCities.find(c => c.name === val); setAvailableAgencies(city ? city.agencies : []); setSelectedAgency(null); }} disabled={!newOrder.shippingAddress.state}>
+                        <SelectTrigger><SelectValue placeholder="Seleccione ciudad..." /></SelectTrigger>
+                        <SelectContent>{availableCities.map(c => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Agencia de Destino</Label>
+                      <Select value={selectedAgency ? selectedAgency.code : 'manual'} onValueChange={(val) => { if (val === 'manual') { setSelectedAgency(null); handleAddressChange('street', ''); return; } const agency = availableAgencies.find(a => a.code === val); setSelectedAgency(agency); if (agency) { handleAddressChange('street', `${agency.name} - ${agency.address} (${agency.code})`); } }} disabled={!newOrder.shippingAddress.city}>
+                        <SelectTrigger><SelectValue placeholder="Seleccione agencia..." /></SelectTrigger>
+                        <SelectContent>{availableAgencies.map(a => (<SelectItem key={a.code} value={a.code}>{a.name}</SelectItem>))}<SelectItem value="manual">Ingresar manualmente</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-1 md:col-span-2 space-y-2">
+                      <Label>Dirección Completa (Agencia)</Label>
+                      <Textarea value={newOrder.shippingAddress.street} onChange={(e) => handleAddressChange('street', e.target.value)} placeholder="Dirección de la agencia seleccionada..." rows={2} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Employee Selector */}
-              <div className="space-y-2">
-                <Label htmlFor="assignedTo">Atendido Por</Label>
-                <Select
-                  value={newOrder.assignedTo || 'unassigned'}
-                  onValueChange={(value) => handleFieldChange('assignedTo', value === 'unassigned' ? '' : value)}
-                  disabled={loadingEmployees}
-                >
-                  <SelectTrigger id="assignedTo">
-                    <SelectValue placeholder={loadingEmployees ? "Cargando empleados..." : "Seleccione empleado..."} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="unassigned">Sin asignar</SelectItem>
-                    {employees.map((emp) => (
-                      <SelectItem key={emp._id} value={emp._id}>
-                        {emp.customer?.name || emp.name || 'Sin Nombre'} {emp.position ? `- ${emp.position}` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Empleado responsable de atender esta orden
-                </p>
-              </div>
+              {restaurantEnabled && (
+                <div className="p-4 border rounded-lg space-y-4 bg-card">
+                  <Label className="text-base font-semibold">Mesa (Opcional)</Label>
+                  <Select value={selectedTable} onValueChange={(value) => setSelectedTable(value)}>
+                    <SelectTrigger><SelectValue placeholder="Selecciona una mesa disponible..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin mesa asignada</SelectItem>
+                      {tables.map((table) => (<SelectItem key={table._id} value={table._id}>Mesa {table.tableNumber} · {table.section} · {table.maxCapacity} personas</SelectItem>))}
+                    </SelectContent>
+                  </Select>
+                  {tables.length === 0 && (<p className="text-xs text-muted-foreground">No hay mesas disponibles en este momento.</p>)}
+                </div>
+              )}
+
+              {/* 5. Summary breakdown (scrollable, detailed) */}
+              {newOrder.items.length > 0 && (
+                <OrderSummaryBreakdown
+                  totals={totals}
+                  shippingCost={shippingCost}
+                  calculatingShipping={calculatingShipping}
+                  bcvRate={bcvRate}
+                  loadingRate={loadingRate}
+                  generalDiscountPercentage={newOrder.generalDiscountPercentage}
+                  onOpenGeneralDiscount={canApplyDiscounts ? handleOpenGeneralDiscount : undefined}
+                  canApplyDiscounts={canApplyDiscounts}
+                />
+              )}
             </div>
 
-            {/* Location Picker - if delivery */}
-            {newOrder.deliveryMethod === 'delivery' && (
-              <div className="p-4 border rounded-lg space-y-4 bg-card">
-                <Label className="text-base font-semibold">Ubicación de Entrega</Label>
-
-                {newOrder.customerLocation && newOrder.customerId && newOrder.useExistingLocation && (
-                  <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-900/30 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium text-blue-900 dark:text-blue-200">
-                        Ubicación guardada del cliente
-                      </Label>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setNewOrder(prev => ({ ...prev, useExistingLocation: false }))}
-                      >
-                        Cambiar ubicación
-                      </Button>
-                    </div>
-                    {newOrder.customerLocation.formattedAddress && (
-                      <p className="text-sm text-blue-700 dark:text-blue-200">
-                        {newOrder.customerLocation.formattedAddress}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {(!newOrder.useExistingLocation || !newOrder.customerLocation || !newOrder.customerId) && (
-                  <div>
-                    <LocationPicker
-                      label="Selecciona la ubicación en el mapa"
-                      value={newOrder.customerLocation}
-                      onChange={(location) => setNewOrder(prev => ({ ...prev, customerLocation: location }))}
-                    />
-                    {!newOrder.customerId && newOrder.customerLocation && (
-                      <p className="text-sm text-success mt-2">
-                        ✓ Esta ubicación se guardará automáticamente en el perfil del cliente
-                      </p>
-                    )}
-                    {newOrder.customerId && newOrder.customerLocation && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="mt-2"
-                        onClick={() => setNewOrder(prev => ({ ...prev, useExistingLocation: true }))}
-                      >
-                        Usar ubicación guardada
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Shipping Address - if envio_nacional */}
-            {newOrder.deliveryMethod === 'envio_nacional' && (
-              <div className="p-4 border rounded-lg space-y-4 bg-card">
-                <Label className="text-base font-semibold">Datos de Envío Nacional</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Provider Selection */}
-                  <div className="space-y-2">
-                    <Label>Empresa de Encomiendas</Label>
-                    <Select
-                      value={selectedProvider ? selectedProvider.code : ''}
-                      onValueChange={(val) => {
-                        const provider = shippingProviders.find(p => p.code === val);
-                        setSelectedProvider(provider);
-                        setAvailableStates(provider?.regions || []);
-                        setAvailableCities([]);
-                        setAvailableAgencies([]);
-                        setSelectedAgency(null);
-                        handleAddressChange('street', ''); // Clear address
-                        handleAddressChange('state', '');
-                        handleAddressChange('city', '');
-                      }}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Seleccione empresa..." /></SelectTrigger>
-                      <SelectContent>
-                        {shippingProviders.map(p => (
-                          <SelectItem key={p.code} value={p.code}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* State Selection */}
-                  <div className="space-y-2">
-                    <Label>Estado</Label>
-                    <Select
-                      value={newOrder.shippingAddress.state}
-                      onValueChange={(val) => {
-                        handleAddressChange('state', val);
-                        const region = availableStates.find(r => r.state === val);
-                        setAvailableCities(region ? region.cities : []);
-                        setAvailableAgencies([]);
-                        handleAddressChange('city', '');
-                      }}
-                      disabled={!selectedProvider}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Seleccione estado..." /></SelectTrigger>
-                      <SelectContent>
-                        {availableStates.map(r => (
-                          <SelectItem key={r.state} value={r.state}>{r.state}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* City Selection */}
-                  <div className="space-y-2">
-                    <Label>Ciudad</Label>
-                    <Select
-                      value={newOrder.shippingAddress.city}
-                      onValueChange={(val) => {
-                        handleAddressChange('city', val);
-                        const city = availableCities.find(c => c.name === val);
-                        setAvailableAgencies(city ? city.agencies : []);
-                        setSelectedAgency(null);
-                        // Reset address if it was an agency address? Maybe not to persist manual edits if needed.
-                      }}
-                      disabled={!newOrder.shippingAddress.state}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Seleccione ciudad..." /></SelectTrigger>
-                      <SelectContent>
-                        {availableCities.map(c => (
-                          <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Agency Selection */}
-                  <div className="space-y-2">
-                    <Label>Agencia de Destino</Label>
-                    <Select
-                      value={selectedAgency ? selectedAgency.code : 'manual'}
-                      onValueChange={(val) => {
-                        if (val === 'manual') {
-                          setSelectedAgency(null);
-                          handleAddressChange('street', '');
-                          return;
-                        }
-                        const agency = availableAgencies.find(a => a.code === val);
-                        setSelectedAgency(agency);
-                        if (agency) {
-                          handleAddressChange('street', `${agency.name} - ${agency.address} (${agency.code})`);
-                        }
-                      }}
-                      disabled={!newOrder.shippingAddress.city}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Seleccione agencia..." /></SelectTrigger>
-                      <SelectContent>
-                        {availableAgencies.map(a => (
-                          <SelectItem key={a.code} value={a.code}>{a.name}</SelectItem>
-                        ))}
-                        <SelectItem value="manual">Ingresar manualmente</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Full Address Display/Edit */}
-                  <div className="col-span-1 md:col-span-2 space-y-2">
-                    <Label>Dirección Completa (Agencia)</Label>
-                    <Textarea
-                      value={newOrder.shippingAddress.street}
-                      onChange={(e) => handleAddressChange('street', e.target.value)}
-                      placeholder="Dirección de la agencia seleccionada..."
-                      rows={2}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Restaurant Tables - if enabled */}
-            {restaurantEnabled && (
-              <div className="p-4 border rounded-lg space-y-4 bg-card">
-                <Label className="text-base font-semibold">Mesa (Opcional)</Label>
-                <Select value={selectedTable} onValueChange={(value) => setSelectedTable(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una mesa disponible..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin mesa asignada</SelectItem>
-                    {tables.map((table) => (
-                      <SelectItem key={table._id} value={table._id}>
-                        Mesa {table.tableNumber} · {table.section} · {table.maxCapacity} personas
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {tables.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    No hay mesas disponibles en este momento.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Order Summary - OrderSidebar */}
-            <OrderSidebar
-              customerName={newOrder.customerName}
-              customerRif={`${newOrder.taxType}-${newOrder.customerRif}`}
-              taxType={newOrder.taxType}
-              customerPhone={newOrder.customerPhone}
-              customerAddress={newOrder.customerAddress}
+            {/* STICKY CHECKOUT FOOTER — always visible, never scrolls */}
+            <CheckoutFooter
               items={newOrder.items}
-              itemsTableContent={renderItemsTable()}
-              fullItemsTable={renderFullItemsTable()}
-              deliveryMethod={newOrder.deliveryMethod}
-              deliveryContent={renderDeliveryContent()}
-              totals={totals}
-              shippingCost={shippingCost}
-              calculatingShipping={calculatingShipping}
-              bcvRate={bcvRate}
-              loadingRate={loadingRate}
+              total={totals.total}
+              totalWithWithholding={totals.totalWithWithholding}
+              hasWithholding={totals.ivaWithholdingAmount > 0}
               onCreateOrder={handlePayOrder}
               isCreateDisabled={isCreateDisabled}
-              notes={newOrder.notes}
-              onNotesChange={(value) => handleFieldChange('notes', value)}
-              handleFieldChange={handleFieldChange}
-              generalDiscountPercentage={newOrder.generalDiscountPercentage}
-              onOpenGeneralDiscount={canApplyDiscounts ? handleOpenGeneralDiscount : undefined}
-              canApplyDiscounts={canApplyDiscounts}
-              // Only pass onSendToKitchen if it's a restaurant, enabling the 2-button layout
               onSendToKitchen={tenant?.vertical === 'FOOD_SERVICE' ? handleSendToKitchen : undefined}
               isEditMode={isEditMode}
-              tenantCurrency={plugin.currencyEngine.getPrimaryCurrency().code}
             />
           </div>
         </div>

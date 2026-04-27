@@ -11,8 +11,11 @@ import { tapScale, DUR, EASE } from '@/lib/motion';
 import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber.jsx';
 
 /**
- * OrderSidebar - Columna derecha sticky con información del pedido
- * Muestra: datos del cliente, items, método de entrega, y resumen
+ * OrderSidebar - Columna derecha con información del pedido
+ *
+ * compact={true}:  Only renders the items table (desktop POS uses separate
+ *                  CheckoutFooter + OrderSummaryBreakdown + CollapsibleSections)
+ * compact={false}: Full sidebar with delivery, summary, and buttons (mobile/embedded)
  */
 export function OrderSidebar({
   // Customer data
@@ -49,25 +52,49 @@ export function OrderSidebar({
   onOpenGeneralDiscount,
   canApplyDiscounts,
   handleFieldChange,
-  onSendToKitchen, // NEW
-  isEditMode, // NEW
-  context = 'default', // 'whatsapp' | 'tables' | 'default'
+  onSendToKitchen,
+  isEditMode,
+  context = 'default',
   tenantCurrency,
+  compact = false,
 }) {
   const plugin = useCountryPlugin();
   const defaultTax = plugin.taxEngine.getDefaultTaxes()[0];
   const transactionTax = plugin.taxEngine.getTransactionTaxes({ paymentMethodId: 'efectivo_usd' })[0];
   const ivaLabel = defaultTax ? `${defaultTax.type} (${defaultTax.rate}%):` : 'IVA (16%):';
   const igtfLabel = transactionTax ? `${transactionTax.type} (${transactionTax.rate}%):` : 'IGTF (3%):';
-  // Ajustar padding según contexto
   const bottomPadding = context === 'whatsapp' ? 'pb-8' : 'pb-2';
 
+  // ─── Compact mode: items table only (desktop POS) ─────────────────────────
+  if (compact) {
+    return (
+      <motion.div
+        layout
+        transition={{ duration: DUR.base, ease: EASE.out }}
+        className="p-4 border rounded-lg space-y-4 bg-card"
+      >
+        <Label className="text-base font-semibold">
+          Items{' '}
+          <motion.span
+            key={items.length}
+            initial={{ scale: 1.3, color: '#10B981' }}
+            animate={{ scale: 1, color: 'inherit' }}
+            transition={{ duration: 0.3 }}
+          >
+            ({items.length})
+          </motion.span>
+        </Label>
+        {fullItemsTable}
+      </motion.div>
+    );
+  }
+
+  // ─── Full mode: items + delivery/notes + summary + buttons (mobile/embedded) ──
   return (
     <div className="flex flex-col">
-      {/* Sección scrolleable */}
       <div className="space-y-4">
         <div className="space-y-4">
-          {/* Items del Pedido - Tabla Completa */}
+          {/* Items del Pedido */}
           <motion.div
             layout
             transition={{ duration: DUR.base, ease: EASE.out }}
@@ -87,10 +114,9 @@ export function OrderSidebar({
             {fullItemsTable}
           </motion.div>
 
-          {/* Delivery Method and Notes Section - ABOVE Summary */}
+          {/* Delivery Method and Notes */}
           <div className="p-4 border rounded-lg space-y-4 bg-card">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Columna izquierda: Método de Entrega */}
               <div className="space-y-4">
                 <Label className="text-base font-semibold">Método de Entrega</Label>
                 <Select value={deliveryMethod} onValueChange={(value) => handleFieldChange?.('deliveryMethod', value)}>
@@ -105,8 +131,6 @@ export function OrderSidebar({
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Columna derecha: Notas Adicionales */}
               <div className="space-y-4">
                 <Label htmlFor="notesInline" className="text-base font-semibold">Notas Adicionales</Label>
                 <textarea
@@ -122,7 +146,7 @@ export function OrderSidebar({
         </div>
       </div>
 
-      {/* Resumen y Botón - Sticky en bottom */}
+      {/* Summary + Buttons */}
       <div className={`pt-4 ${bottomPadding} bg-background`}>
         <div className="p-4 border rounded-lg space-y-4 bg-card">
           <Label className="text-base font-semibold">Resumen</Label>
@@ -153,9 +177,7 @@ export function OrderSidebar({
             {shippingCost > 0 && (
               <div className="flex justify-between text-sm">
                 <span>Envío:</span>
-                <span>
-                  {calculatingShipping ? '...' : `$$${shippingCost.toFixed(2)}`}
-                </span>
+                <span>{calculatingShipping ? '...' : `$$${shippingCost.toFixed(2)}`}</span>
               </div>
             )}
 
@@ -184,11 +206,7 @@ export function OrderSidebar({
             <div className="flex justify-between text-lg font-bold">
               <span>TOTAL:</span>
               <span className="text-primary">
-                <AnimatedNumber
-                  value={totals.total}
-                  format={(n) => `$${n.toFixed(2)}`}
-                  duration={0.4}
-                />
+                <AnimatedNumber value={totals.total} format={(n) => `$${n.toFixed(2)}`} duration={0.4} />
               </span>
             </div>
 
@@ -196,11 +214,7 @@ export function OrderSidebar({
               <div className="flex justify-between text-sm font-semibold text-amber-600 dark:text-amber-400">
                 <span>A cobrar (neto):</span>
                 <span>
-                  <AnimatedNumber
-                    value={totals.totalWithWithholding}
-                    format={(n) => `$${n.toFixed(2)}`}
-                    duration={0.4}
-                  />
+                  <AnimatedNumber value={totals.totalWithWithholding} format={(n) => `$${n.toFixed(2)}`} duration={0.4} />
                 </span>
               </div>
             )}
@@ -216,69 +230,39 @@ export function OrderSidebar({
               <div className="flex justify-between text-sm font-semibold text-info">
                 <span>Total en Bs.:</span>
                 <span>
-                  <AnimatedNumber
-                    value={totals.total * bcvRate}
-                    format={(n) => `Bs. ${n.toFixed(2)}`}
-                    duration={0.4}
-                  />
+                  <AnimatedNumber value={totals.total * bcvRate} format={(n) => `Bs. ${n.toFixed(2)}`} duration={0.4} />
                 </span>
               </div>
             )}
           </div>
 
           {canApplyDiscounts && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onOpenGeneralDiscount}
-              className="w-full"
-            >
+            <Button variant="outline" size="sm" onClick={onOpenGeneralDiscount} className="w-full">
               {generalDiscountPercentage > 0
                 ? `Modificar Descuento (${generalDiscountPercentage}%)`
-                : 'Aplicar Descuento General'
-              }
+                : 'Aplicar Descuento General'}
             </Button>
           )}
 
           <div className="flex flex-col gap-2">
-            {/* LOGICA DE BOTONES SEGUN VERTICAL */}
             {onSendToKitchen ? (
-              /* RESTAURANT VERTICAL (Buttons: Orange & Green) */
               <>
-                {/* Only show "Enviar a Cocina" for NEW orders. Hide when editing (user preference) */}
                 {!isEditMode && (
                   <motion.div whileTap={tapScale}>
-                    <Button
-                      onClick={onSendToKitchen}
-                      disabled={isCreateDisabled}
-                      className="w-full bg-orange-600 hover:bg-orange-700 text-white"
-                      size="lg"
-                    >
+                    <Button onClick={onSendToKitchen} disabled={isCreateDisabled} className="w-full bg-orange-600 hover:bg-orange-700 text-white" size="lg">
                       Enviar a Cocina
                     </Button>
                   </motion.div>
                 )}
-
                 <motion.div whileTap={tapScale}>
-                  <Button
-                    onClick={onCreateOrder}
-                    disabled={isCreateDisabled}
-                    className="w-full bg-success hover:bg-green-700 text-white"
-                    size="lg"
-                  >
+                  <Button onClick={onCreateOrder} disabled={isCreateDisabled} className="w-full bg-success hover:bg-green-700 text-white" size="lg">
                     {isEditMode ? 'Pagar / Cerrar' : 'Pagar Inmediato'}
                   </Button>
                 </motion.div>
               </>
             ) : (
-              /* STANDARD VERTICAL (Single Blue Button) */
               <motion.div whileTap={tapScale}>
-                <Button
-                  onClick={onCreateOrder}
-                  disabled={isCreateDisabled}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  size="lg"
-                >
+                <Button onClick={onCreateOrder} disabled={isCreateDisabled} className="w-full bg-blue-600 hover:bg-blue-700 text-white" size="lg">
                   {isEditMode ? 'Actualizar Orden' : 'Crear Orden'}
                 </Button>
               </motion.div>
