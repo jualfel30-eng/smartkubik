@@ -311,14 +311,10 @@ export function useComprasData() {
   };
 
   const handleAddProduct = async () => {
-    // Validate payment methods
-    const allPaymentMethods = [...newProduct.paymentTerms.paymentMethods];
-    if (newProduct.paymentTerms.customPaymentMethod.trim()) {
+    // Payment methods are optional at PO creation time
+    const allPaymentMethods = [...(newProduct.paymentTerms.paymentMethods || [])];
+    if (newProduct.paymentTerms.customPaymentMethod?.trim()) {
       allPaymentMethods.push(newProduct.paymentTerms.customPaymentMethod.trim());
-    }
-    if (allPaymentMethods.length === 0) {
-      toast.error('Error de Validación', { description: 'Debe seleccionar al menos un método de pago.' });
-      return;
     }
 
     const normalizedSku = (newProduct.sku || '').trim();
@@ -1203,13 +1199,11 @@ export function useComprasData() {
       return;
     }
 
-    const allPaymentMethods = [...po.paymentTerms.paymentMethods];
-    if (po.paymentTerms.customPaymentMethod.trim()) {
+    // Payment methods are now optional at PO creation time
+    // (configured in supplier profile or at payment time in Accounts Payable)
+    const allPaymentMethods = [...(po.paymentTerms.paymentMethods || [])];
+    if (po.paymentTerms.customPaymentMethod?.trim()) {
       allPaymentMethods.push(po.paymentTerms.customPaymentMethod.trim());
-    }
-    if (allPaymentMethods.length === 0) {
-      toast.error('Error de Validación', { description: 'Debe seleccionar al menos un método de pago.' });
-      return;
     }
 
     setPoLoading(true);
