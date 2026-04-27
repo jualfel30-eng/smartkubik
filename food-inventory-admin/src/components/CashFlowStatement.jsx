@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { fetchApi } from '../lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Download, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 import { useAccountingContext } from '@/context/AccountingContext';
+import { Skeleton } from "@/components/ui/skeleton";
 
 const CashFlowStatement = () => {
     const [reportData, setReportData] = useState(null);
@@ -74,65 +80,83 @@ const CashFlowStatement = () => {
 
     return (
         <Card>
-            <CardHeader>
-                <div className="flex justify-between items-center">
-                    <CardTitle>Estado de Flujo de Caja</CardTitle>
-                    <button
-                        onClick={handleExport}
-                        disabled={!reportData}
-                        className="p-2 text-sm bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded flex items-center gap-2"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-download"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" x2="12" y1="15" y2="3" /></svg>
-                        Exportar CSV
-                    </button>
-                </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <CardTitle>Estado de Flujo de Caja</CardTitle>
+                <Button variant="outline" size="sm" onClick={handleExport} disabled={!reportData}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Exportar CSV
+                </Button>
             </CardHeader>
             <CardContent>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 mb-4 gap-4 sm:gap-0">
-                    <div className="flex items-center w-full sm:w-auto">
-                        <label htmlFor="from" className="mr-2 text-foreground">Desde:</label>
-                        <input id="from" type="date" name="from" value={dates.from} onChange={handleDateChange} className="p-2 border dark:border-gray-600 rounded flex-grow bg-background text-foreground" />
+                {/* Date range controls */}
+                <div className="flex flex-col sm:flex-row sm:items-end gap-3 mb-6">
+                    <div className="flex-1 sm:max-w-[180px]">
+                        <Label htmlFor="cf-from" className="text-xs">Desde</Label>
+                        <Input id="cf-from" type="date" name="from" value={dates.from} onChange={handleDateChange} />
                     </div>
-                    <div className="flex items-center w-full sm:w-auto">
-                        <label htmlFor="to" className="mr-2 text-foreground">Hasta:</label>
-                        <input id="to" type="date" name="to" value={dates.to} onChange={handleDateChange} className="p-2 border dark:border-gray-600 rounded flex-grow bg-background text-foreground" />
+                    <div className="flex-1 sm:max-w-[180px]">
+                        <Label htmlFor="cf-to" className="text-xs">Hasta</Label>
+                        <Input id="cf-to" type="date" name="to" value={dates.to} onChange={handleDateChange} />
                     </div>
-                    <div className="w-full sm:w-auto">
-                        <button onClick={fetchReport} className="p-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded w-full" disabled={loading}>
-                            {loading ? 'Generando...' : 'Generar Reporte'}
-                        </button>
-                    </div>
+                    <Button onClick={fetchReport} disabled={loading} size="sm">
+                        {loading ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Generando...</> : 'Generar Reporte'}
+                    </Button>
                 </div>
-                {loading && <div className="text-muted-foreground">Cargando...</div>}
-                {error && <div className="text-destructive">Error: {error}</div>}
-                {reportData && (
+
+                {/* Loading skeleton */}
+                {loading && (
                     <div className="space-y-4">
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center p-4 border-2 dark:border-gray-600 rounded-lg bg-card shadow-sm">
-                                <h3 className="text-xl font-bold text-foreground">Flujo de Caja Neto</h3>
-                                <span className={`text-2xl font-bold ${reportData.netCashFlow >= 0 ? 'text-success' : 'text-destructive'}`}>
+                        <Skeleton className="h-20 w-full rounded-lg" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <Skeleton className="h-40 w-full rounded-lg" />
+                            <Skeleton className="h-40 w-full rounded-lg" />
+                        </div>
+                    </div>
+                )}
+
+                {error && <div className="text-destructive text-sm">Error: {error}</div>}
+
+                {!loading && reportData && (
+                    <div className="space-y-4">
+                        {/* Net Cash Flow hero card */}
+                        <Card className={`border-2 ${reportData.netCashFlow >= 0 ? 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-800 dark:bg-emerald-950/30' : 'border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/30'}`}>
+                            <CardContent className="flex justify-between items-center py-4">
+                                <div className="flex items-center gap-2">
+                                    {reportData.netCashFlow >= 0
+                                        ? <TrendingUp className="h-5 w-5 text-emerald-600" />
+                                        : <TrendingDown className="h-5 w-5 text-red-600" />
+                                    }
+                                    <span className="text-lg font-semibold">Flujo de Caja Neto</span>
+                                </div>
+                                <span className={`text-2xl font-bold ${reportData.netCashFlow >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
                                     ${reportData.netCashFlow.toFixed(2)}
                                 </span>
-                            </div>
+                            </CardContent>
+                        </Card>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="p-4 border dark:border-gray-700 rounded-lg bg-muted/30">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Inflows */}
+                            <Card>
+                                <CardContent className="pt-4">
                                     <div className="flex justify-between items-center mb-4">
-                                        <h3 className="text-lg font-semibold text-success">Entradas de Efectivo</h3>
-                                        <span className="text-lg font-bold">${reportData.cashInflows.total.toFixed(2)}</span>
+                                        <div className="flex items-center gap-2">
+                                            <TrendingUp className="h-4 w-4 text-emerald-600" />
+                                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">Entradas de Efectivo</span>
+                                        </div>
+                                        <Badge variant="outline" className="font-mono">${reportData.cashInflows.total.toFixed(2)}</Badge>
                                     </div>
                                     {reportData.inflowBreakdown && reportData.inflowBreakdown.length > 0 && (
-                                        <div className="mt-4 space-y-3">
-                                            <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Desglose por método</h4>
+                                        <div className="space-y-3">
+                                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Desglose por metodo</p>
                                             {reportData.inflowBreakdown.map((item, idx) => (
                                                 <div key={idx} className="space-y-1">
                                                     <div className="flex justify-between text-sm">
                                                         <span className="capitalize">{item.method}</span>
-                                                        <span className="font-mono">${item.total.toFixed(2)}</span>
+                                                        <span className="font-mono text-xs">${item.total.toFixed(2)}</span>
                                                     </div>
-                                                    <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                                                         <div
-                                                            className="h-full bg-success rounded-full"
+                                                            className="h-full bg-emerald-500 rounded-full transition-all duration-500"
                                                             style={{ width: `${Math.min(item.percentage, 100)}%` }}
                                                         />
                                                     </div>
@@ -140,21 +164,27 @@ const CashFlowStatement = () => {
                                             ))}
                                         </div>
                                     )}
-                                </div>
+                                </CardContent>
+                            </Card>
 
-                                <div className="p-4 border dark:border-gray-700 rounded-lg bg-muted/30 h-fit">
+                            {/* Outflows */}
+                            <Card>
+                                <CardContent className="pt-4">
                                     <div className="flex justify-between items-center">
-                                        <h3 className="text-lg font-semibold text-destructive">Salidas de Efectivo</h3>
-                                        <span className="text-lg font-bold">${reportData.cashOutflows.total.toFixed(2)}</span>
+                                        <div className="flex items-center gap-2">
+                                            <TrendingDown className="h-4 w-4 text-red-600" />
+                                            <span className="font-semibold text-red-700 dark:text-red-400">Salidas de Efectivo</span>
+                                        </div>
+                                        <Badge variant="outline" className="font-mono">${reportData.cashOutflows.total.toFixed(2)}</Badge>
                                     </div>
-                                    <p className="text-sm text-muted-foreground mt-2">Pagos a proveedores y gastos registrados.</p>
-                                </div>
-                            </div>
+                                    <p className="text-sm text-muted-foreground mt-3">Pagos a proveedores y gastos registrados.</p>
+                                </CardContent>
+                            </Card>
                         </div>
                     </div>
                 )}
             </CardContent>
-        </Card >
+        </Card>
     );
 };
 

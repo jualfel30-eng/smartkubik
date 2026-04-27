@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import {
   fetchApi,
   createResourceBlock,
@@ -1497,10 +1498,14 @@ function ResourcesManagement() {
               </div>
             </div>
 
-            {/* Allowed Services */}
-            <div className="space-y-3">
+            {/* Collapsible Sections */}
+            <Accordion type="multiple" defaultValue={editingResource ? [] : ['services']} className="space-y-2">
+
+            <AccordionItem value="services" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-base font-semibold py-3">Servicios que puede realizar</AccordionTrigger>
+              <AccordionContent>
+            <div className="space-y-3 pb-2">
               <div>
-                <h3 className="text-lg font-semibold">Servicios que puede realizar</h3>
                 <p className="text-sm text-muted-foreground">
                   Selecciona los servicios que este recurso puede realizar
                 </p>
@@ -1548,8 +1553,13 @@ function ResourcesManagement() {
               )}
             </div>
 
-            {/* Pricing */}
-            <div className="space-y-4">
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="pricing" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-base font-semibold py-3">Tarifas y Precios</AccordionTrigger>
+              <AccordionContent>
+            <div className="space-y-4 pb-2">
               {isResourceCentric || isFlexible ? (
                 <div className="bg-success-muted border border-success/30 rounded-lg p-4">
                   <div className="flex items-start gap-3 mb-4">
@@ -1842,8 +1852,13 @@ function ResourcesManagement() {
               )}
             </div>
 
-            {/* Promotions */}
-            <div className="space-y-4">
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="promotions" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-base font-semibold py-3">Promociones</AccordionTrigger>
+              <AccordionContent>
+            <div className="space-y-4 pb-2">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold">Promociones</h3>
@@ -2009,9 +2024,13 @@ function ResourcesManagement() {
               )}
             </div>
 
-            {/* Schedule */}
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="schedule" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-base font-semibold py-3">Horario de Disponibilidad</AccordionTrigger>
+              <AccordionContent>
             <div>
-              <h3 className="text-lg font-semibold mb-3">Horario de Disponibilidad</h3>
               <div className="space-y-2">
                 {DAYS.map((day) => (
                   <div key={day.key} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-slate-800 rounded">
@@ -2071,12 +2090,13 @@ function ResourcesManagement() {
               </div>
             </div>
 
-            {/* Images */}
-            <div className="space-y-3">
-              <div>
-                <h3 className="text-base font-semibold">Imágenes del recurso (máx. 3)</h3>
-                <p className="text-sm text-muted-foreground">Fotos que se mostrarán en el storefront</p>
-              </div>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="images" className="border rounded-lg px-4">
+              <AccordionTrigger className="text-base font-semibold py-3">Imagenes del recurso (max. 3)</AccordionTrigger>
+              <AccordionContent>
+            <div className="space-y-3 pb-2">
               <div className="flex gap-4 items-start">
                 {/* Main preview */}
                 <label htmlFor="resource-images" className={`cursor-pointer flex-shrink-0 flex flex-col items-center justify-center w-40 h-40 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50 overflow-hidden ${(formData.images?.length || 0) >= 3 ? 'pointer-events-none opacity-50' : ''}`}>
@@ -2126,6 +2146,11 @@ function ResourcesManagement() {
                 </div>
               </div>
             </div>
+
+              </AccordionContent>
+            </AccordionItem>
+
+            </Accordion>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
