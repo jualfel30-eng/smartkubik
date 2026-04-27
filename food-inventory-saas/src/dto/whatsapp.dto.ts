@@ -170,6 +170,23 @@ export class GetWhatsAppTemplatesQueryDto {
 
 // ==================== Message Sending DTOs ====================
 
+export class SendTextMessageDto {
+  @IsString()
+  to: string; // Recipient phone number in international format
+
+  @IsString()
+  @MinLength(1)
+  message: string; // Message text body
+
+  @IsOptional()
+  @IsString()
+  customerId?: string; // Link to customer for tracking
+
+  @IsOptional()
+  @IsString()
+  appointmentId?: string; // Link to appointment for context
+}
+
 export class SendTemplateMessageDto {
   @IsString()
   templateId: string; // Our internal template ID

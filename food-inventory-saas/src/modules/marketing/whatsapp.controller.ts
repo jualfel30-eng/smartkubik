@@ -16,6 +16,7 @@ import { WhatsAppService } from "./whatsapp.service";
 import {
   CreateWhatsAppTemplateDto,
   UpdateWhatsAppTemplateDto,
+  SendTextMessageDto,
   SendTemplateMessageDto,
   SendInteractiveButtonMessageDto,
   SendInteractiveListMessageDto,
@@ -137,6 +138,40 @@ export class WhatsAppController {
   }
 
   // ==================== Message Sending Endpoints ====================
+
+  @Post("send/text")
+  async sendTextMessage(
+    @Body() sendDto: SendTextMessageDto,
+    @Request() req,
+  ) {
+    this.logger.log(
+      `POST /whatsapp/send/text - Sending text message to ${sendDto.to} for tenant ${req.user.tenantId}`,
+    );
+
+    const result = await this.whatsappService.sendTextMessage(
+      req.user.tenantId,
+      sendDto.to,
+      sendDto.message,
+      sendDto.customerId,
+    );
+
+    if (result.success) {
+      return {
+        success: true,
+        data: {
+          deliveryId: result.deliveryId,
+          recipient: sendDto.to,
+        },
+        message: "WhatsApp text message sent successfully",
+      };
+    } else {
+      return {
+        success: false,
+        error: result.error,
+        message: "Failed to send WhatsApp text message",
+      };
+    }
+  }
 
   @Post("send/template")
   async sendTemplateMessage(
