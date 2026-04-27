@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea.jsx';
 import { Label } from '@/components/ui/label.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
+import WheelTimePicker from '@/components/shared/WheelTimePicker.jsx';
 import { SPRING, STAGGER, listItem, fadeUp } from '@/lib/motion';
 
 const TOTAL_STEPS = 4;
@@ -63,6 +64,39 @@ export default function DesktopBookingWizard({ open, onClose, preselectedDate, i
   const [recurrenceCount, setRecurrenceCount] = useState(4);
 
   const [submitting, setSubmitting] = useState(false);
+  const [occupiedSlots, setOccupiedSlots] = useState([]);
+
+  // ─── Load occupied slots when date or professional changes ──────
+  useEffect(() => {
+    if (!selectedDate) { setOccupiedSlots([]); return; }
+    const ep = isBeautyVertical ? '/beauty-bookings' : '/appointments/calendar';
+    const params = new URLSearchParams({ startDate: selectedDate, endDate: selectedDate, limit: '100' });
+    if (selectedProfessional?._id) params.append(isBeautyVertical ? 'professionalId' : 'resourceId', selectedProfessional._id);
+
+    fetchApi(`${ep}?${params}`).then(res => {
+      const items = Array.isArray(res) ? res : res?.data || res?.items || [];
+      const occupied = new Set();
+      items.forEach(apt => {
+        if (apt.status === 'cancelled') return;
+        const start = apt.startTime || '';
+        // Extract HH:MM — handle both "14:30" and ISO "2026-04-27T14:30:00.000Z"
+        const timeStr = start.includes('T')
+          ? new Date(start).toTimeString().slice(0, 5)
+          : start.slice(0, 5);
+        // Mark the start slot and subsequent slots based on duration
+        const duration = apt.totalDuration || 30;
+        const [h, m] = timeStr.split(':').map(Number);
+        if (isNaN(h)) return;
+        for (let offset = 0; offset < duration; offset += 30) {
+          const totalMin = h * 60 + m + offset;
+          const sh = Math.floor(totalMin / 60);
+          const sm = totalMin % 60;
+          occupied.add(`${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}`);
+        }
+      });
+      setOccupiedSlots([...occupied]);
+    }).catch(() => setOccupiedSlots([]));
+  }, [selectedDate, selectedProfessional, isBeautyVertical]);
 
   // ─── Load Data ──────────────────────────────────────────────────
   useEffect(() => {
@@ -440,21 +474,15 @@ export default function DesktopBookingWizard({ open, onClose, preselectedDate, i
                       className="h-9 text-sm" min={new Date().toISOString().split('T')[0]} />
                   </div>
 
-                  {/* Time grid */}
+                  {/* Time wheel picker */}
                   <div className="space-y-1.5">
                     <p className="text-xs text-muted-foreground">Hora</p>
-                    <div className="grid grid-cols-6 gap-1 max-h-[120px] overflow-y-auto">
-                      {timeSlots.map(slot => (
-                        <button key={slot} type="button" onClick={() => setSelectedTime(slot)}
-                          className={`py-1.5 rounded text-xs font-mono transition-all ${
-                            selectedTime === slot
-                              ? 'bg-primary text-primary-foreground'
-                              : 'border border-border/30 hover:border-primary/40 text-muted-foreground'
-                          }`}>
-                          {slot}
-                        </button>
-                      ))}
-                    </div>
+                    <WheelTimePicker
+                      slots={timeSlots}
+                      value={selectedTime}
+                      onChange={setSelectedTime}
+                      occupiedSlots={occupiedSlots}
+                    />
                     <p className="text-xs text-muted-foreground text-center">
                       {selectedTime} — {endTime} ({totalDuration}min)
                     </p>

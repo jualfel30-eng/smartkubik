@@ -222,14 +222,15 @@ export function getNavLinks(tenant) {
             { name: 'Proveedores', href: 'crm?tab=supplier', icon: Truck },
           ]
         },
-        {
+        // Pipeline hidden for beauty profiles (barbershop-salon, clinic-spa) — not relevant for service-based retention model
+        ...(!['barbershop-salon', 'clinic-spa'].includes(tenant?.verticalProfile?.key) ? [{
           name: 'Embudo de Ventas',
           href: 'crm?tab=pipeline',
           icon: Filter,
           children: [
             { name: 'Pipeline', href: 'crm?tab=pipeline', icon: BarChart3 },
           ]
-        }
+        }] : [])
       ]
     },
 
