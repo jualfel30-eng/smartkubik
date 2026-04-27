@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { listItem, STAGGER, scaleIn, SPRING, tapScale } from '@/lib/motion';
+import {
+  DollarSign, Smartphone, Building2, Banknote, CreditCard,
+  Plus, Pencil, Trash2, Check, X, Loader2,
+} from 'lucide-react';
 
+// ─── Types ───────────────────────────────────────────────────────────────────
 interface PaymentMethod {
   methodId: string;
   name: string;
@@ -28,13 +35,29 @@ interface PaymentConfig {
 }
 
 const PAYMENT_METHOD_TYPES = [
-  { id: 'zelle', name: 'Zelle', fields: ['zelleEmail'] },
-  { id: 'pago_movil', name: 'Pago Móvil', fields: ['pagoMovilPhone', 'bankName', 'idNumber'] },
-  { id: 'transfer', name: 'Transferencia Bancaria', fields: ['bankName', 'accountNumber', 'accountHolder', 'routingNumber'] },
-  { id: 'cash', name: 'Efectivo', fields: [] },
-  { id: 'card', name: 'Tarjeta de Crédito/Débito', fields: [] },
+  { id: 'zelle', name: 'Zelle', fields: ['zelleEmail'], icon: DollarSign, color: '#6D28D9' },
+  { id: 'pago_movil', name: 'Pago Móvil', fields: ['pagoMovilPhone', 'bankName', 'idNumber'], icon: Smartphone, color: '#2563EB' },
+  { id: 'transfer', name: 'Transferencia Bancaria', fields: ['bankName', 'accountNumber', 'accountHolder', 'routingNumber'], icon: Building2, color: '#059669' },
+  { id: 'cash', name: 'Efectivo', fields: [], icon: Banknote, color: '#D97706' },
+  { id: 'card', name: 'Tarjeta de Crédito/Débito', fields: [], icon: CreditCard, color: '#DC2626' },
 ];
 
+// ─── Helper ──────────────────────────────────────────────────────────────────
+function getMethodType(name: string) {
+  return PAYMENT_METHOD_TYPES.find((t) =>
+    name.toLowerCase().includes(t.name.toLowerCase())
+  ) || PAYMENT_METHOD_TYPES[3]; // default to cash
+}
+
+function getMethodSummary(method: PaymentMethod): string {
+  const d = method.accountDetails;
+  if (d?.zelleEmail) return d.zelleEmail;
+  if (d?.pagoMovilPhone) return `${d.pagoMovilPhone}${d.bankName ? ` • ${d.bankName}` : ''}`;
+  if (d?.accountNumber) return `${d.bankName || 'Banco'} • ****${d.accountNumber.slice(-4)}`;
+  return method.currency || 'USD';
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
 export function PaymentMethodsEditor() {
   const [config, setConfig] = useState<PaymentConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,7 +76,6 @@ export function PaymentMethodsEditor() {
       setConfig(response.data || response);
     } catch (error: any) {
       if (error?.response?.status === 404) {
-        // No config exists yet, create empty one
         setConfig({ paymentMethods: [] });
       } else {
         toast.error('Error al cargar métodos de pago');
@@ -82,7 +104,6 @@ export function PaymentMethodsEditor() {
 
   const deletePaymentMethod = async (methodId: string) => {
     if (!confirm('¿Eliminar este método de pago?')) return;
-
     try {
       setSaving(true);
       await api.delete(`/tenant-payment-config/payment-methods/${methodId}`);
@@ -102,111 +123,135 @@ export function PaymentMethodsEditor() {
 
   if (loading) {
     return (
-      <div className="flex justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
       </div>
     );
   }
 
+  const methods = config?.paymentMethods || [];
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-            Métodos de Pago
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Configura los métodos de pago disponibles para tus clientes en el storefront
-          </p>
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          + Agregar Método
-        </button>
-      </div>
+    <div className="space-y-4">
+      {/* Cards grid */}
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 gap-3"
+        variants={STAGGER(0.06)}
+        initial="initial"
+        animate="animate"
+      >
+        <AnimatePresence mode="popLayout">
+          {methods.map((method) => {
+            const type = getMethodType(method.name);
+            const Icon = type.icon;
 
-      {/* Payment Methods List */}
-      <div className="space-y-3">
-        {config?.paymentMethods?.length === 0 && (
-          <div className="text-center p-8 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
-            <p className="text-gray-500 dark:text-gray-400">
-              No hay métodos de pago configurados. Agrega uno para comenzar.
-            </p>
-          </div>
-        )}
+            return (
+              <motion.div
+                key={method.methodId}
+                variants={listItem}
+                layout
+                exit={{ opacity: 0, scale: 0.95 }}
+                className={`
+                  relative rounded-xl border p-4 transition-colors
+                  ${method.isActive
+                    ? 'bg-white/[0.04] border-white/[0.1]'
+                    : 'bg-white/[0.02] border-white/[0.05] opacity-60'
+                  }
+                `}
+              >
+                <div className="flex items-start gap-3">
+                  {/* Icon */}
+                  <div
+                    className="flex items-center justify-center w-10 h-10 rounded-lg flex-shrink-0"
+                    style={{ backgroundColor: `${type.color}20` }}
+                  >
+                    <Icon className="w-5 h-5" style={{ color: type.color }} />
+                  </div>
 
-        {config?.paymentMethods?.map((method) => (
-          <div
-            key={method.methodId}
-            className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <input
-                  type="checkbox"
-                  checked={method.isActive}
-                  onChange={() => toggleMethodActive(method)}
-                  className="h-5 w-5 text-blue-600 rounded"
-                />
-                <div>
-                  <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                    {method.name}
-                  </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {method.currency || 'USD'} • Orden: {method.displayOrder}
-                  </p>
-                  {method.accountDetails && (
-                    <div className="mt-2 text-xs text-gray-600 dark:text-gray-300 space-y-1">
-                      {method.accountDetails.zelleEmail && (
-                        <div>📧 Zelle: {method.accountDetails.zelleEmail}</div>
-                      )}
-                      {method.accountDetails.pagoMovilPhone && (
-                        <div>📱 Pago Móvil: {method.accountDetails.pagoMovilPhone} - {method.accountDetails.bankName}</div>
-                      )}
-                      {method.accountDetails.accountNumber && (
-                        <div>🏦 Cuenta: {method.accountDetails.bankName} - {method.accountDetails.accountNumber}</div>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-medium text-gray-100 truncate">{method.name}</h4>
+                      {method.isActive && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-[10px] font-medium text-emerald-400">
+                          <Check className="w-2.5 h-2.5" /> Activo
+                        </span>
                       )}
                     </div>
-                  )}
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">
+                      {getMethodSummary(method)}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setEditingMethod(method)}
-                  className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
-                >
-                  Editar
-                </button>
-                <button
-                  onClick={() => deletePaymentMethod(method.methodId)}
-                  className="px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-900/50"
-                >
-                  Eliminar
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1 mt-3 pt-3 border-t border-white/[0.06]">
+                  <motion.button
+                    whileTap={tapScale}
+                    onClick={() => toggleMethodActive(method)}
+                    className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      method.isActive
+                        ? 'bg-gray-500/10 text-gray-400 hover:bg-gray-500/20'
+                        : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                    }`}
+                  >
+                    {method.isActive ? 'Desactivar' : 'Activar'}
+                  </motion.button>
+                  <motion.button
+                    whileTap={tapScale}
+                    onClick={() => setEditingMethod(method)}
+                    className="px-2 py-1.5 rounded-lg text-xs text-gray-400 hover:bg-white/[0.06] transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </motion.button>
+                  <motion.button
+                    whileTap={tapScale}
+                    onClick={() => deletePaymentMethod(method.methodId)}
+                    className="px-2 py-1.5 rounded-lg text-xs text-red-400/60 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </motion.button>
+                </div>
+              </motion.div>
+            );
+          })}
+
+          {/* Add card */}
+          <motion.button
+            key="add"
+            variants={listItem}
+            layout
+            whileTap={tapScale}
+            onClick={() => setShowAddModal(true)}
+            className="rounded-xl border-2 border-dashed border-white/[0.08] p-4 flex flex-col items-center justify-center gap-2 min-h-[120px] hover:border-blue-500/30 hover:bg-blue-500/5 transition-colors group"
+          >
+            <Plus className="w-5 h-5 text-gray-600 group-hover:text-blue-400 transition-colors" />
+            <span className="text-xs text-gray-500 group-hover:text-blue-400 transition-colors">
+              Agregar metodo de pago
+            </span>
+          </motion.button>
+        </AnimatePresence>
+      </motion.div>
 
       {/* Add/Edit Modal */}
-      {(showAddModal || editingMethod) && (
-        <PaymentMethodModal
-          method={editingMethod}
-          onSave={savePaymentMethod}
-          onClose={() => {
-            setShowAddModal(false);
-            setEditingMethod(null);
-          }}
-          saving={saving}
-        />
-      )}
+      <AnimatePresence>
+        {(showAddModal || editingMethod) && (
+          <PaymentMethodModal
+            method={editingMethod}
+            onSave={savePaymentMethod}
+            onClose={() => {
+              setShowAddModal(false);
+              setEditingMethod(null);
+            }}
+            saving={saving}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
+// ─── Modal ───────────────────────────────────────────────────────────────────
 interface PaymentMethodModalProps {
   method: PaymentMethod | null;
   onSave: (method: PaymentMethod) => void;
@@ -227,7 +272,7 @@ function PaymentMethodModal({ method, onSave, onClose, saving }: PaymentMethodMo
     }
   );
 
-  const selectedType = PAYMENT_METHOD_TYPES.find(t =>
+  const selectedType = PAYMENT_METHOD_TYPES.find((t) =>
     formData.name.toLowerCase().includes(t.name.toLowerCase())
   );
 
@@ -236,48 +281,60 @@ function PaymentMethodModal({ method, onSave, onClose, saving }: PaymentMethodMo
     onSave(formData);
   };
 
+  const inputClass = 'w-full px-3 py-2 rounded-lg bg-white/[0.06] border border-white/[0.08] text-gray-100 placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40';
+  const labelClass = 'block text-sm font-medium text-gray-200 mb-1.5';
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-900 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            {method ? 'Editar' : 'Agregar'} Método de Pago
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        variants={scaleIn}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        className="bg-[#111827] border border-white/[0.08] rounded-xl max-w-lg w-full max-h-[85vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-5 border-b border-white/[0.06] flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-100">
+            {method ? 'Editar' : 'Agregar'} Metodo de Pago
           </h3>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/[0.06] text-gray-400">
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Tipo de Método */}
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {/* Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              Tipo de Método *
-            </label>
+            <label className={labelClass}>Tipo de Metodo *</label>
             <select
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-800 dark:text-gray-100"
+              className={inputClass}
               required
             >
               <option value="">Seleccionar...</option>
-              {PAYMENT_METHOD_TYPES.map(type => (
+              {PAYMENT_METHOD_TYPES.map((type) => (
                 <option key={type.id} value={type.name}>{type.name}</option>
               ))}
             </select>
           </div>
 
-          {/* Campos según tipo */}
+          {/* Dynamic fields */}
           {selectedType?.fields.includes('zelleEmail') && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                Email de Zelle
-              </label>
+              <label className={labelClass}>Email de Zelle</label>
               <input
                 type="email"
                 value={formData.accountDetails?.zelleEmail || ''}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  accountDetails: { ...formData.accountDetails, zelleEmail: e.target.value }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-800 dark:text-gray-100"
+                onChange={(e) => setFormData({ ...formData, accountDetails: { ...formData.accountDetails, zelleEmail: e.target.value } })}
+                className={inputClass}
               />
             </div>
           )}
@@ -285,32 +342,22 @@ function PaymentMethodModal({ method, onSave, onClose, saving }: PaymentMethodMo
           {selectedType?.fields.includes('pagoMovilPhone') && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                  Teléfono Pago Móvil
-                </label>
+                <label className={labelClass}>Telefono Pago Movil</label>
                 <input
                   type="tel"
                   value={formData.accountDetails?.pagoMovilPhone || ''}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    accountDetails: { ...formData.accountDetails, pagoMovilPhone: e.target.value }
-                  })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-800 dark:text-gray-100"
+                  onChange={(e) => setFormData({ ...formData, accountDetails: { ...formData.accountDetails, pagoMovilPhone: e.target.value } })}
+                  className={inputClass}
                   placeholder="0414-1234567"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                  Cédula/RIF
-                </label>
+                <label className={labelClass}>Cedula/RIF</label>
                 <input
                   type="text"
                   value={formData.accountDetails?.idNumber || ''}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    accountDetails: { ...formData.accountDetails, idNumber: e.target.value }
-                  })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-800 dark:text-gray-100"
+                  onChange={(e) => setFormData({ ...formData, accountDetails: { ...formData.accountDetails, idNumber: e.target.value } })}
+                  className={inputClass}
                   placeholder="V-12345678"
                 />
               </div>
@@ -319,17 +366,12 @@ function PaymentMethodModal({ method, onSave, onClose, saving }: PaymentMethodMo
 
           {selectedType?.fields.includes('bankName') && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                Nombre del Banco
-              </label>
+              <label className={labelClass}>Nombre del Banco</label>
               <input
                 type="text"
                 value={formData.accountDetails?.bankName || ''}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  accountDetails: { ...formData.accountDetails, bankName: e.target.value }
-                })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-800 dark:text-gray-100"
+                onChange={(e) => setFormData({ ...formData, accountDetails: { ...formData.accountDetails, bankName: e.target.value } })}
+                className={inputClass}
               />
             </div>
           )}
@@ -337,60 +379,46 @@ function PaymentMethodModal({ method, onSave, onClose, saving }: PaymentMethodMo
           {selectedType?.fields.includes('accountNumber') && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                  Número de Cuenta
-                </label>
+                <label className={labelClass}>Numero de Cuenta</label>
                 <input
                   type="text"
                   value={formData.accountDetails?.accountNumber || ''}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    accountDetails: { ...formData.accountDetails, accountNumber: e.target.value }
-                  })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-800 dark:text-gray-100"
+                  onChange={(e) => setFormData({ ...formData, accountDetails: { ...formData.accountDetails, accountNumber: e.target.value } })}
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                  Titular de la Cuenta
-                </label>
+                <label className={labelClass}>Titular de la Cuenta</label>
                 <input
                   type="text"
                   value={formData.accountDetails?.accountHolder || ''}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    accountDetails: { ...formData.accountDetails, accountHolder: e.target.value }
-                  })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-800 dark:text-gray-100"
+                  onChange={(e) => setFormData({ ...formData, accountDetails: { ...formData.accountDetails, accountHolder: e.target.value } })}
+                  className={inputClass}
                 />
               </div>
             </>
           )}
 
-          {/* Instrucciones */}
+          {/* Instructions */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-              Instrucciones para el Cliente
-            </label>
+            <label className={labelClass}>Instrucciones para el Cliente</label>
             <textarea
               value={formData.instructions || ''}
               onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-800 dark:text-gray-100"
-              placeholder="Ej: Por favor incluye tu número de orden en la referencia del pago"
+              className={`${inputClass} resize-none`}
+              placeholder="Ej: Incluye tu numero de orden en la referencia"
             />
           </div>
 
-          {/* Moneda y Orden */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Currency & Order */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                Moneda
-              </label>
+              <label className={labelClass}>Moneda</label>
               <select
                 value={formData.currency}
                 onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-800 dark:text-gray-100"
+                className={inputClass}
               >
                 <option value="USD">USD</option>
                 <option value="VES">VES</option>
@@ -398,50 +426,47 @@ function PaymentMethodModal({ method, onSave, onClose, saving }: PaymentMethodMo
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
-                Orden de Visualización
-              </label>
+              <label className={labelClass}>Orden</label>
               <input
                 type="number"
                 value={formData.displayOrder}
                 onChange={(e) => setFormData({ ...formData, displayOrder: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-800 dark:text-gray-100"
+                className={inputClass}
               />
             </div>
           </div>
 
           {/* IGTF */}
-          <label className="flex items-center gap-2">
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
               checked={formData.igtfApplicable || false}
               onChange={(e) => setFormData({ ...formData, igtfApplicable: e.target.checked })}
-              className="h-4 w-4 text-blue-600 rounded"
+              className="h-4 w-4 rounded border-gray-600 bg-white/[0.06] text-blue-500"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-200">
-              Aplicar IGTF (Impuesto a las Grandes Transacciones Financieras)
-            </span>
+            <span className="text-sm text-gray-300">Aplicar IGTF</span>
           </label>
 
           {/* Buttons */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex justify-end gap-2 pt-3 border-t border-white/[0.06]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+              className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/[0.06] transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
             >
-              {saving ? 'Guardando...' : 'Guardar'}
+              {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              Guardar
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

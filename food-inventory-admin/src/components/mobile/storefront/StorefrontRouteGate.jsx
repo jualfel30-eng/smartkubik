@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 
-const DesktopStorefrontSettings = lazy(() => import('@/components/StorefrontSettings'));
+const DesktopStorefrontSettings = lazy(() => import('@/components/StorefrontSettings/StorefrontHub'));
 const MobileStorefrontPage = lazy(() => import('./MobileStorefrontPage.jsx'));
 
 function useIsMobile() {

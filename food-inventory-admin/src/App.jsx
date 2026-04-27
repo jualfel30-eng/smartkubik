@@ -150,6 +150,7 @@ const TablesPage = lazy(() => import('./pages/TablesPage.jsx'));
 const KitchenDisplay = lazy(() => import('@/components/restaurant/KitchenDisplay.jsx'));
 const StorefrontRouteGate = lazy(() => import('./components/mobile/storefront/StorefrontRouteGate.jsx'));
 const RestaurantStorefrontPage = lazy(() => import('./pages/RestaurantStorefrontPage.jsx'));
+const StorefrontHub = lazy(() => import('./components/StorefrontSettings/StorefrontHub'));
 const ReservationsPage = lazy(() => import('./pages/ReservationsPage.jsx'));
 const TipsPage = lazy(() => import('./pages/TipsPage.jsx'));
 const CommissionsRouteGate = lazy(() => import('@/components/mobile/commissions/CommissionsRouteGate.jsx'));
@@ -396,6 +397,9 @@ function TenantLayout() {
             </SidebarMenuButton>
           </SidebarMenuItem>
         )}
+        <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
+          <BusinessLocationSelector />
+        </SidebarMenuItem>
         <SidebarMenuItem>
           <SidebarMenuButton
             tooltip="Mis Organizaciones"
@@ -479,21 +483,9 @@ function TenantLayout() {
             {/* Zone 1: Logo */}
             <div className="flex items-center gap-3">
               <img src={logoSrc} alt="Smart Kubik" className="h-7 w-auto" />
-              {isMultiTenantEnabled && memberships.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-sidebar-foreground/65 hover:text-sidebar-foreground/80"
-                  onClick={openTenantDialog}
-                >
-                  <Building2 size={14} />
-                  <span className="max-w-[140px] truncate">{tenant?.name || 'Organización'}</span>
-                  <ChevronDown size={12} />
-                </Button>
-              )}
             </div>
 
-            {/* Zone 2: Context (shift + location) */}
+            {/* Zone 2: Context (shift) */}
             <div className="flex items-center gap-3">
               <ShiftTimer />
               {isClockedIn ? (
@@ -507,7 +499,6 @@ function TenantLayout() {
                   Iniciar Turno
                 </Button>
               )}
-              <BusinessLocationSelector />
             </div>
 
             {/* Zone 3: Actions */}
@@ -687,7 +678,7 @@ function TenantLayout() {
                 } />
                 <Route path="services" element={<ServicesRouteGate />} />
                 <Route path="resources" element={<ProfessionalsRouteGate />} />
-                <Route path="floor-view" element={<FloorViewRouteGate />} />
+                <Route path="floor-view" element={<Navigate to="/appointments" replace />} />
                 <Route path="reviews" element={<ReviewsManagement />} />
                 <Route path="fichar" element={<TimeClock />} />
                 <Route path="hospitality/deposits" element={
@@ -714,7 +705,7 @@ function TenantLayout() {
                 <Route path="restaurant/purchase-orders" element={<PurchaseOrdersPage />} />
                 <Route path="restaurant/storefront" element={
                   restaurantModuleEnabled
-                    ? <RestaurantStorefrontPage />
+                    ? <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Cargando...</div>}><StorefrontHub vertical="restaurant" /></Suspense>
                     : <Navigate to="/dashboard" replace />
                 } />
                 <Route path="waste-control" element={<WasteManagementPage />} />

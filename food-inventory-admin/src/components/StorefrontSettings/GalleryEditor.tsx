@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { listItem, STAGGER, scaleIn } from '../../lib/motion';
 import { Trash2, Upload, Eye, EyeOff, ChevronUp, ChevronDown, X, Plus, Tag } from 'lucide-react';
 import {
   getBeautyGallery,
@@ -391,10 +393,19 @@ export function GalleryEditor() {
       )}
 
       {/* Gallery grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <motion.div
+        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"
+        variants={STAGGER(0.04)}
+        initial="initial"
+        animate="animate"
+      >
+        <AnimatePresence mode="popLayout">
         {filteredItems.map((item, idx) => (
-          <div
+          <motion.div
             key={item._id}
+            variants={listItem}
+            layout
+            exit={{ opacity: 0, scale: 0.9 }}
             className={`group relative bg-white dark:bg-gray-800 border rounded-lg overflow-hidden shadow-sm transition-all ${
               item.isActive
                 ? 'border-gray-200 dark:border-gray-700'
@@ -616,9 +627,10 @@ export function GalleryEditor() {
                 </div>
               </div>
             )}
-          </div>
+          </motion.div>
         ))}
-      </div>
+        </AnimatePresence>
+      </motion.div>
 
       {/* Preview modal */}
       {previewItem && (
