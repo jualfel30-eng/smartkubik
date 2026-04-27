@@ -783,11 +783,17 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
             Cancelar
           </Button>
 
-          {/* Express: create + request + approve + prepare + dispatch in one click */}
+          {/* Secondary: save as draft for workflows that need approval steps */}
+          <Button variant="outline" onClick={() => handleSave('draft')} disabled={saving} className="gap-1.5">
+            {saving && !expressMode ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Guardar borrador
+          </Button>
+
+          {/* Primary: express dispatch — create + request + approve + prepare + dispatch */}
           <Button
             onClick={() => handleSave('express')}
             disabled={saving}
-            className="bg-[#FB923C] hover:bg-[#F97316] text-white gap-2"
+            className="bg-[#FB923C] hover:bg-[#F97316] text-white gap-1.5"
           >
             {saving && expressMode ? (
               <Loader2 className="h-4 w-4 animate-spin" />

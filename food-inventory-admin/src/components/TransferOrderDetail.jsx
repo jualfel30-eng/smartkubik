@@ -34,6 +34,7 @@ import {
   Warehouse,
   Edit,
   RotateCcw,
+  Zap,
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
@@ -243,21 +244,31 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
   const handleExpressDispatch = async () => {
     setActionLoading(true);
     try {
-      const status = order.status;
-      const norm = normalizeStatus(status);
+      const norm = normalizeStatus(order.status);
 
-      // Chain remaining transitions to reach in_transit
-      if (status === 'draft') {
+      // Ordered state machine: only execute steps the order hasn't reached yet
+      // draft → requested → approved → in_preparation → in_transit
+      const stateOrder = ['draft', 'requested', 'approved', 'in_preparation'];
+      const currentIdx = stateOrder.indexOf(norm);
+
+      if (currentIdx < 0) {
+        // Already past preparation (in_transit or later) — nothing to do
+        toast.info('Esta transferencia ya fue despachada');
+        return;
+      }
+
+      // Step through each remaining transition
+      if (norm === 'draft') {
         await requestTransferOrder(orderId);
       }
-      if (['draft', 'requested'].includes(norm) || status === 'draft') {
+      if (currentIdx <= stateOrder.indexOf('requested')) {
         const approveFn = order.type === 'pull' ? approveTransferRequest : approveTransferOrder;
         await approveFn(orderId);
       }
-      if (['draft', 'requested', 'approved'].includes(norm) || status === 'draft') {
+      if (currentIdx <= stateOrder.indexOf('approved')) {
         await prepareTransferOrder(orderId);
       }
-      // Finally dispatch
+      // Final step: dispatch
       await shipTransferOrder(orderId);
 
       toast.success('Transferencia despachada — esperando recepcion en destino');
@@ -471,16 +482,50 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
             Cancelar
           </Button>
         )}
+        {canRevert && (
+          <Button variant="outline" size="sm" onClick={() => setRevertDialogOpen(true)} disabled={actionLoading}>
+            <RotateCcw className="h-4 w-4 mr-1" />
+            Regresar a borrador
+          </Button>
+        )}
         {canEdit && (
           <Button variant="outline" size="sm" onClick={openEditDialog} disabled={actionLoading}>
             <Edit className="h-4 w-4 mr-1" />
             Editar
           </Button>
         )}
-        {/* Express dispatch: single button replaces request+approve+prepare+dispatch */}
+        {/* Granular step buttons (secondary, for users who need control) */}
+        {canRequest && (
+          <Button variant="outline" size="sm" onClick={() => handleAction(requestTransferOrder, 'Transferencia solicitada')} disabled={actionLoading}>
+            {actionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
+            Solicitar
+          </Button>
+        )}
+        {canApprove && (
+          <Button variant="outline" size="sm" onClick={() => {
+            const approveFn = order.type === 'pull' ? approveTransferRequest : approveTransferOrder;
+            handleAction(approveFn, 'Transferencia aprobada');
+          }} disabled={actionLoading}>
+            {actionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-1" />}
+            Aprobar
+          </Button>
+        )}
+        {canPrepare && (
+          <Button variant="outline" size="sm" onClick={() => handleAction(prepareTransferOrder, 'Transferencia en preparacion')} disabled={actionLoading}>
+            {actionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ClipboardList className="h-4 w-4 mr-1" />}
+            Preparar
+          </Button>
+        )}
+        {canShip && (
+          <Button variant="outline" size="sm" onClick={() => handleAction(shipTransferOrder, 'Inventario despachado')} disabled={actionLoading}>
+            {actionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Truck className="h-4 w-4 mr-1" />}
+            Despachar
+          </Button>
+        )}
+        {/* Express dispatch: primary CTA — chains all remaining steps */}
         {canExpressDispatch && (
           <Button size="sm" onClick={handleExpressDispatch} disabled={actionLoading} className="bg-[#FB923C] hover:bg-[#F97316] text-white gap-1.5">
-            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Truck className="h-4 w-4" />}
+            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
             Enviar ahora
           </Button>
         )}
