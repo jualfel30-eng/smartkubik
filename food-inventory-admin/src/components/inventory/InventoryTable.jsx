@@ -129,7 +129,7 @@ export function InventoryTable({
             <TableRow>
               {visibleColumns.sku && (
                 <TableHead
-                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[100px]"
                   onClick={() => handleColumnSort('sku', 'asc')}
                 >
                   <div className="flex items-center space-x-1">
@@ -142,7 +142,7 @@ export function InventoryTable({
               )}
               {visibleColumns.product && (
                 <TableHead
-                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors min-w-[250px]"
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[30%] min-w-[280px]"
                   onClick={() => handleColumnSort('productName', 'asc')}
                 >
                   <div className="flex items-center space-x-1">
@@ -153,7 +153,7 @@ export function InventoryTable({
                   </div>
                 </TableHead>
               )}
-              {visibleColumns.category && <TableHead>Categoria</TableHead>}
+              {visibleColumns.category && <TableHead className="w-[110px]">Categoria</TableHead>}
               {visibleColumns.available && (
                 <TableHead
                   className="cursor-pointer select-none hover:bg-muted/50 transition-colors"

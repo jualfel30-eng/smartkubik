@@ -3813,7 +3813,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 <TableRow>
                   {visibleColumns.sku && (
                     <TableHead
-                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[100px]"
                       onClick={() => {
                         if (sortBy === 'sku') {
                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -3833,7 +3833,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   )}
                   {visibleColumns.name && (
                     <TableHead
-                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors min-w-[250px]"
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[30%] min-w-[280px]"
                       onClick={() => {
                         if (sortBy === 'name') {
                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -3853,7 +3853,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   )}
                   {visibleColumns.brand && (
                     <TableHead
-                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[100px]"
                       onClick={() => {
                         if (sortBy === 'brand') {
                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -3873,7 +3873,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   )}
                   {visibleColumns.category && (
                     <TableHead
-                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[120px]"
                       onClick={() => {
                         if (sortBy === 'category') {
                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
