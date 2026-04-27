@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -8,7 +9,8 @@ import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { fetchApi, getServicePackages, createServicePackage, updateServicePackage, deleteServicePackage } from '../lib/api';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs.jsx';
@@ -31,8 +33,18 @@ import {
   Building,
   Wrench,
   Truck,
-  ImageIcon
+  ImageIcon,
+  Package,
+  Activity,
+  LayoutGrid,
+  List
 } from 'lucide-react';
+import { STAGGER, fadeUp, SPRING } from '@/lib/motion';
+import AnimatedPageWrapper from '@/components/shared/AnimatedPageWrapper';
+import KpiDashboardRow from '@/components/shared/KpiDashboardRow';
+import { triggerCelebration } from '@/hooks/use-celebration';
+import { useModuleMilestones } from '@/hooks/use-module-milestones';
+import { toast } from 'sonner';
 
 const compressAndConvertImage = (file) => {
   return new Promise((resolve, reject) => {
@@ -123,6 +135,9 @@ function ServicesManagement() {
   const [filteredServices, setFilteredServices] = useState([]);
   const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('services_viewMode') || 'cards');
+  const [editingPriceId, setEditingPriceId] = useState(null);
+  const [editingPriceValue, setEditingPriceValue] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -438,12 +453,17 @@ function ServicesManagement() {
           method: 'PUT',
           body: JSON.stringify(payload),
         });
+        toast.success('Servicio actualizado');
       } else {
         // Create
         await fetchApi(servicesEndpoint, {
           method: 'POST',
           body: JSON.stringify(payload),
         });
+        toast.success('Servicio creado!');
+        if (services.length === 0) {
+          setTimeout(() => triggerCelebration(), 300);
+        }
       }
 
       setIsDialogOpen(false);
@@ -473,6 +493,30 @@ function ServicesManagement() {
     }
   };
 
+  const handleInlinePriceSave = async (serviceId, newPrice) => {
+    const parsed = parseFloat(newPrice);
+    if (isNaN(parsed) || parsed < 0) {
+      setEditingPriceId(null);
+      return;
+    }
+    try {
+      const service = services.find(s => s._id === serviceId);
+      const payload = isBeautyVertical
+        ? { price: { amount: parsed, currency: 'USD' } }
+        : { price: parsed };
+      await fetchApi(`${servicesEndpoint}/${serviceId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      toast.success('Precio actualizado');
+      loadServices();
+    } catch (error) {
+      toast.error('Error al actualizar precio');
+    } finally {
+      setEditingPriceId(null);
+    }
+  };
+
   const formatCurrency = (amount) => {
     const value = typeof amount === 'object' && amount !== null ? amount.amount : amount;
     return new Intl.NumberFormat('es-VE', {
@@ -488,6 +532,25 @@ function ServicesManagement() {
     return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
   };
 
+  // KPI computations
+  const activeServices = services.filter(s => s.status === 'active' || s.isActive);
+  const inactiveServices = services.filter(s => s.status !== 'active' && !s.isActive);
+  const avgPrice = activeServices.length > 0
+    ? activeServices.reduce((sum, s) => sum + (typeof s.price === 'object' ? s.price?.amount || 0 : s.price || 0), 0) / activeServices.length
+    : 0;
+  const activePackages = packages.filter(p => p.isActive !== false);
+
+  // Milestones
+  useModuleMilestones({
+    moduleKey: 'services',
+    milestones: [
+      { key: 'first-service', condition: (d) => d.total > 0, message: 'Primer servicio creado!' },
+      { key: '10-services', condition: (d) => d.total >= 10, message: '10 servicios en tu catalogo!', confetti: true },
+      { key: 'first-package', condition: (d) => d.packages > 0, message: 'Primer paquete creado!' },
+    ],
+    data: { total: services.length, packages: packages.length },
+  });
+
   // Check module access
   if (!hasAccess) {
     return <ModuleAccessDenied moduleName="appointments" />;
@@ -500,8 +563,8 @@ function ServicesManagement() {
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <div className="relative">
+            <div className="md:col-span-2 flex gap-2">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Buscar servicios..."
@@ -509,6 +572,23 @@ function ServicesManagement() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
+              </div>
+              {/* View toggle */}
+              <div className="flex rounded-lg border overflow-hidden">
+                <button
+                  onClick={() => { setViewMode('cards'); localStorage.setItem('services_viewMode', 'cards'); }}
+                  className={`p-2 transition-colors ${viewMode === 'cards' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
+                  title="Vista de tarjetas"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => { setViewMode('table'); localStorage.setItem('services_viewMode', 'table'); }}
+                  className={`p-2 transition-colors ${viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
+                  title="Vista de tabla"
+                >
+                  <List className="h-4 w-4" />
+                </button>
               </div>
             </div>
 
@@ -538,7 +618,114 @@ function ServicesManagement() {
         </CardContent>
       </Card>
 
-      {/* Services Table */}
+      {/* Services Count */}
+      <p className="text-sm text-muted-foreground">
+        {filteredServices.length} servicio{filteredServices.length !== 1 ? 's' : ''}
+      </p>
+
+      {/* Card View */}
+      {viewMode === 'cards' ? (
+        filteredServices.length === 0 ? (
+          <EmptyState
+            icon={Wrench}
+            title="No se encontraron servicios"
+            description={searchTerm ? "Intenta con otro termino de busqueda" : "Crea tu primer servicio para comenzar"}
+            actionLabel={!searchTerm ? "Crear servicio" : undefined}
+            onAction={!searchTerm ? () => setIsDialogOpen(true) : undefined}
+          />
+        ) : (
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+            variants={STAGGER(0.03)}
+            initial="initial"
+            animate="animate"
+          >
+            {filteredServices.map((service) => {
+              const priceVal = typeof service.price === 'object' ? service.price?.amount : service.price;
+              const color = service.color || '#6366f1';
+              const isActive = service.status === 'active' || service.isActive;
+
+              return (
+                <motion.div key={service._id} variants={fadeUp}>
+                  <motion.div whileHover={{ scale: 1.01, y: -2 }} transition={SPRING.snappy}>
+                    <Card className={`overflow-hidden transition-all hover:shadow-md ${!isActive ? 'opacity-60' : ''}`}>
+                      {/* Color strip */}
+                      <div className="h-1.5 w-full" style={{ background: color }} />
+                      <CardContent className="p-4">
+                        {/* Name + badge */}
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className="font-semibold text-sm leading-tight truncate">{service.name}</h3>
+                          <Badge variant={isActive ? 'success' : 'secondary'} className="shrink-0 text-[10px]">
+                            {isActive ? 'Activo' : 'Inactivo'}
+                          </Badge>
+                        </div>
+
+                        {/* Category */}
+                        {service.category && (
+                          <Badge variant="outline" className="mb-2 text-xs">{service.category}</Badge>
+                        )}
+
+                        {/* Description */}
+                        {service.description && (
+                          <p className="text-xs text-muted-foreground truncate mb-3">{service.description}</p>
+                        )}
+
+                        {/* Price + Duration row */}
+                        <div className="flex items-center gap-3 text-sm mb-3">
+                          {editingPriceId === service._id ? (
+                            <div className="flex items-center gap-1">
+                              <DollarSign className="h-3.5 w-3.5 text-emerald-600" />
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                autoFocus
+                                className="h-7 w-24 text-sm font-semibold"
+                                value={editingPriceValue}
+                                onChange={(e) => setEditingPriceValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleInlinePriceSave(service._id, editingPriceValue);
+                                  if (e.key === 'Escape') setEditingPriceId(null);
+                                }}
+                                onBlur={() => handleInlinePriceSave(service._id, editingPriceValue)}
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              className="flex items-center gap-1 font-semibold text-emerald-600 cursor-pointer hover:underline"
+                              title="Clic para editar precio"
+                              onClick={() => { setEditingPriceId(service._id); setEditingPriceValue(priceVal || 0); }}
+                            >
+                              <DollarSign className="h-3.5 w-3.5" />
+                              {formatCurrency(priceVal || 0)}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Clock className="h-3.5 w-3.5" />
+                            {formatDuration(service.duration)}
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex gap-2 pt-2 border-t">
+                          <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => openEditDialog(service)}>
+                            <Edit className="h-3.5 w-3.5 mr-1" />
+                            Editar
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(service._id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )
+      ) : (
+      /* Table View */
       <Card>
         <CardHeader>
           <CardTitle>
@@ -558,7 +745,7 @@ function ServicesManagement() {
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <AnimatedTableBody>
               {filteredServices.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7}>
@@ -573,7 +760,7 @@ function ServicesManagement() {
                 </TableRow>
               ) : (
                 filteredServices.map((service) => (
-                  <TableRow key={service._id}>
+                  <AnimatedTableRow key={service._id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div
@@ -641,13 +828,14 @@ function ServicesManagement() {
                         </Button>
                       </div>
                     </TableCell>
-                  </TableRow>
+                  </AnimatedTableRow>
                 ))
               )}
-            </TableBody>
+            </AnimatedTableBody>
           </Table>
         </CardContent>
       </Card>
+      )}
     </>
   );
 
@@ -677,7 +865,7 @@ function ServicesManagement() {
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <AnimatedTableBody>
               {packagesLoading ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-gray-500">
@@ -705,7 +893,7 @@ function ServicesManagement() {
                   const priceAmount = typeof pkg.price === 'object' ? pkg.price?.amount : pkg.price;
                   const savingsAmount = pkg.savings || 0;
                   return (
-                    <TableRow key={pkg._id}>
+                    <AnimatedTableRow key={pkg._id}>
                       <TableCell>
                         <div className="font-medium">{pkg.name}</div>
                         {pkg.description && (
@@ -767,11 +955,11 @@ function ServicesManagement() {
                           </Button>
                         </div>
                       </TableCell>
-                    </TableRow>
+                    </AnimatedTableRow>
                   );
                 })
               )}
-            </TableBody>
+            </AnimatedTableBody>
           </Table>
         </CardContent>
       </Card>
@@ -779,7 +967,7 @@ function ServicesManagement() {
   );
 
   return (
-    <div className="p-6 space-y-6">
+    <AnimatedPageWrapper className="p-6 space-y-6">
       <ConfirmDialog />
       {/* Header */}
       <div className="flex justify-between items-center">
@@ -792,6 +980,17 @@ function ServicesManagement() {
           Nuevo Servicio
         </Button>
       </div>
+
+      {/* KPI Dashboard */}
+      <KpiDashboardRow
+        loading={!services.length && loading}
+        items={[
+          { icon: Wrench, label: 'Servicios activos', value: activeServices.length, format: (n) => Math.round(n).toString() },
+          { icon: DollarSign, label: 'Precio promedio', value: avgPrice, format: (n) => `$${n.toFixed(2)}`, color: 'text-emerald-500' },
+          { icon: Package, label: 'Paquetes activos', value: activePackages.length, format: (n) => Math.round(n).toString() },
+          { icon: Activity, label: 'Inactivos', value: inactiveServices.length, format: (n) => Math.round(n).toString(), warning: inactiveServices.length > 0 },
+        ]}
+      />
 
       {isBeautyVertical ? (
         <Tabs defaultValue={initialTab}>
@@ -1242,7 +1441,7 @@ function ServicesManagement() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </AnimatedPageWrapper>
   );
 }
 

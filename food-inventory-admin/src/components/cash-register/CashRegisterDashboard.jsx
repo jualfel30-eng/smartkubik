@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -23,12 +24,12 @@ import {
 } from '../ui/dialog';
 import {
   Table,
-  TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from '../ui/table';
+import { AnimatedTableBody, AnimatedTableRow } from '../ui/animated-table-body';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import {
   DollarSign,
@@ -55,6 +56,12 @@ import {
 import { toast } from 'sonner';
 import { fetchApi } from '../../lib/api';
 import CashRegisterReports from './CashRegisterReports';
+import AnimatedPageWrapper from '../shared/AnimatedPageWrapper';
+import AnimatedNumber from '../mobile/primitives/AnimatedNumber';
+import ModuleSkeleton from '../shared/ModuleSkeleton';
+import { triggerCelebration } from '../../hooks/use-celebration';
+import { useModuleMilestones } from '../../hooks/use-module-milestones';
+import { fadeUp, STAGGER, SPRING, tapScale, scaleIn } from '../../lib/motion';
 
 // Helpers para formatear moneda
 const formatCurrency = (amount, currency = 'USD') => {
@@ -145,6 +152,7 @@ export default function CashRegisterDashboard() {
     closingNotes: '',
     exchangeRate: 0,
   });
+  const [closeStep, setCloseStep] = useState(1); // 2-step wizard
 
   // Formulario movimiento de efectivo
   const [movementForm, setMovementForm] = useState({
@@ -253,7 +261,8 @@ export default function CashRegisterDashboard() {
         method: 'POST',
         body: JSON.stringify(payload),
       });
-      toast.success('Caja abierta correctamente');
+      toast.success('Caja abierta — a trabajar!');
+      triggerCelebration();
       setOpenSessionModal(false);
       setOpenForm({
         registerName: 'Caja Principal',
@@ -285,9 +294,18 @@ export default function CashRegisterDashboard() {
           ...closeForm,
         }),
       });
-      toast.success('Cierre de caja generado correctamente', {
-        description: `Número de cierre: ${response?.closingNumber}`,
-      });
+      const isBalanced = Math.abs(diffUsd) < 0.01 && Math.abs(diffVes) < 0.01;
+      if (isBalanced) {
+        toast.success('Cierre perfecto — cuadra exacto!', {
+          description: `Número de cierre: ${response?.closingNumber}`,
+          duration: 6000,
+        });
+        setTimeout(() => triggerCelebration(), 300);
+      } else {
+        toast.success('Cierre de caja generado correctamente', {
+          description: `Número de cierre: ${response?.closingNumber}`,
+        });
+      }
 
       setLastClosingId(response?.closingId || response?._id); // Capture ID
 
@@ -364,7 +382,8 @@ export default function CashRegisterDashboard() {
         method: 'POST',
         body: JSON.stringify({ closingId }),
       });
-      toast.success('Cierre aprobado');
+      toast.success('Cierre aprobado!');
+      triggerCelebration();
       fetchClosings();
       if (selectedClosing?._id === closingId) {
         const response = await fetchApi(`/cash-register/closings/${closingId}`);
@@ -570,8 +589,30 @@ export default function CashRegisterDashboard() {
   // RENDER
   // ============================================
 
+  // Milestones
+  useModuleMilestones({
+    moduleKey: 'cash-register',
+    milestones: [
+      {
+        key: 'sessionOpened',
+        condition: (d) => d.hasSession,
+        message: 'Caja abierta — a trabajar!',
+      },
+      {
+        key: 'balancedClose',
+        condition: (d) => d.lastCloseBalanced,
+        message: 'Cierre perfecto — cuadra exacto!',
+        confetti: true,
+      },
+    ],
+    data: {
+      hasSession: !!currentSession,
+      lastCloseBalanced: closings[0]?.hasDifferences === false && closings[0]?.status === 'approved',
+    },
+  });
+
   return (
-    <div className="space-y-6 p-6">
+    <AnimatedPageWrapper className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -580,29 +621,42 @@ export default function CashRegisterDashboard() {
             Gestiona las sesiones de caja, cierres diarios y reportes financieros
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => {
-              checkLiveTotals();
-              fetchAllOpenSessions();
-              fetchClosings();
-            }}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualizar
-          </Button>
-          {!currentSession && (
-            <Button onClick={() => setOpenSessionModal(true)}>
-              <Unlock className="h-4 w-4 mr-2" />
-              Abrir Caja
-            </Button>
-          )}
-        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => {
+            checkLiveTotals();
+            fetchAllOpenSessions();
+            fetchClosings();
+          }}
+        >
+          <RefreshCw className="h-4 w-4" />
+        </Button>
       </div>
 
-      {/* Estado actual de la caja */}
-      {currentSession && (
+      {/* State-Driven UI: No session → Hero CTA, Session open → Session Card + KPIs */}
+      {!currentSession ? (
+        <motion.div variants={fadeUp} initial="initial" animate="animate">
+          <Card className="border-dashed border-2 border-muted-foreground/20">
+            <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
+              <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+                <Lock className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <div className="text-center">
+                <h2 className="text-xl font-semibold mb-1">No hay caja abierta</h2>
+                <p className="text-muted-foreground text-sm max-w-md">
+                  Abre una sesion de caja para comenzar a registrar ventas, movimientos y transacciones del dia.
+                </p>
+              </div>
+              <Button size="lg" onClick={() => setOpenSessionModal(true)} className="mt-2">
+                <Unlock className="h-5 w-5 mr-2" />
+                Abrir Caja
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ) : (
+        <motion.div variants={fadeUp} initial="initial" animate="animate">
         <Card className="border-green-200 bg-success-muted">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -632,50 +686,42 @@ export default function CashRegisterDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+            <motion.div className="grid grid-cols-2 md:grid-cols-4 gap-4" variants={STAGGER(0.04)} initial="initial" animate="animate">
+              <motion.div variants={fadeUp} className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <p className="text-sm text-muted-foreground">Fondo Inicial USD</p>
-                <p className="text-2xl font-bold">{formatCurrency(currentSession.openingAmountUsd, 'USD')}</p>
-              </div>
-              <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                <AnimatedNumber value={currentSession.openingAmountUsd || 0} format={(n) => formatCurrency(n, 'USD')} className="text-2xl font-bold" />
+              </motion.div>
+              <motion.div variants={fadeUp} className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <p className="text-sm text-muted-foreground">Fondo Inicial VES</p>
-                <p className="text-2xl font-bold">{formatCurrency(currentSession.openingAmountVes, 'VES')}</p>
-              </div>
-              <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                <AnimatedNumber value={currentSession.openingAmountVes || 0} format={(n) => formatCurrency(n, 'VES')} className="text-2xl font-bold" />
+              </motion.div>
+              <motion.div variants={fadeUp} className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <p className="text-sm text-muted-foreground">Transacciones</p>
-                <p className="text-2xl font-bold">{currentSession.totalTransactions || currentSession.calculatedTotals?.totalOrders || 0}</p>
-              </div>
-              <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                <AnimatedNumber value={currentSession.totalTransactions || currentSession.calculatedTotals?.totalOrders || 0} format={(n) => Math.round(n).toString()} className="text-2xl font-bold" />
+              </motion.div>
+              <motion.div variants={fadeUp} className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <p className="text-sm text-muted-foreground">Ventas (USD)</p>
-                <p className="text-2xl font-bold">{formatCurrency(currentSession.calculatedTotals?.salesUsd || currentSession.totalSalesUsd || 0, 'USD')}</p>
-              </div>
+                <AnimatedNumber value={currentSession.calculatedTotals?.salesUsd || currentSession.totalSalesUsd || 0} format={(n) => formatCurrency(n, 'USD')} className="text-2xl font-bold" />
+              </motion.div>
 
               {/* Cash Tender Metrics */}
-              <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+              <motion.div variants={fadeUp} className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <p className="text-sm text-muted-foreground">Efectivo Recibido (USD)</p>
-                <p className="text-xl font-semibold text-info">
-                  {formatCurrency(currentSession.calculatedTotals?.cashReceivedUsd || 0, 'USD')}
-                </p>
-              </div>
-              <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                <AnimatedNumber value={currentSession.calculatedTotals?.cashReceivedUsd || 0} format={(n) => formatCurrency(n, 'USD')} className="text-xl font-semibold text-info" />
+              </motion.div>
+              <motion.div variants={fadeUp} className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <p className="text-sm text-muted-foreground">Vuelto Dado (USD)</p>
-                <p className="text-xl font-semibold text-warning">
-                  {formatCurrency(currentSession.calculatedTotals?.changeGivenUsd || 0, 'USD')}
-                </p>
-              </div>
-              <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                <AnimatedNumber value={currentSession.calculatedTotals?.changeGivenUsd || 0} format={(n) => formatCurrency(n, 'USD')} className="text-xl font-semibold text-warning" />
+              </motion.div>
+              <motion.div variants={fadeUp} className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <p className="text-sm text-muted-foreground">Vuelto Dado (VES)</p>
-                <p className="text-xl font-semibold text-warning">
-                  {formatCurrency(currentSession.calculatedTotals?.changeGivenVes || 0, 'VES')}
-                </p>
-              </div>
-              <div className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
+                <AnimatedNumber value={currentSession.calculatedTotals?.changeGivenVes || 0} format={(n) => formatCurrency(n, 'VES')} className="text-xl font-semibold text-warning" />
+              </motion.div>
+              <motion.div variants={fadeUp} className="text-center p-3 bg-white dark:bg-gray-800 rounded-lg">
                 <p className="text-sm text-muted-foreground">Pago Móvil (Vuelto)</p>
-                <p className="text-xl font-semibold text-purple-600">
-                  {formatCurrency(Math.abs(currentSession.calculatedTotals?.mobilePaymentVes || 0), 'VES')}
-                </p>
-              </div>
-            </div>
+                <AnimatedNumber value={Math.abs(currentSession.calculatedTotals?.mobilePaymentVes || 0)} format={(n) => formatCurrency(n, 'VES')} className="text-xl font-semibold text-purple-600" />
+              </motion.div>
+            </motion.div>
 
             {/* Movimientos de efectivo */}
             {currentSession.cashMovements?.length > 0 && (
@@ -702,7 +748,37 @@ export default function CashRegisterDashboard() {
             )}
           </CardContent>
         </Card>
+        </motion.div>
       )}
+
+      {/* Pending Approvals Alert Bar */}
+      {(() => {
+        const pendingClosings = closings.filter(c => c.status === 'draft' || c.status === 'pending_approval');
+        if (pendingClosings.length === 0) return null;
+        return (
+          <motion.div variants={fadeUp} initial="initial" animate="animate"
+            className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800"
+          >
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0" />
+              <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                {pendingClosings.length} cierre{pendingClosings.length !== 1 ? 's' : ''} pendiente{pendingClosings.length !== 1 ? 's' : ''} de aprobacion
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/50"
+              onClick={() => {
+                setActiveTab('history');
+                setFilters(prev => ({ ...prev, status: 'pending_approval' }));
+              }}
+            >
+              Ver pendientes
+            </Button>
+          </motion.div>
+        );
+      })()}
 
       {/* Tabs principales */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -756,9 +832,9 @@ export default function CashRegisterDashboard() {
                       <TableHead>Estado</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <AnimatedTableBody>
                     {allOpenSessions.map((session) => (
-                      <TableRow key={session._id}>
+                      <AnimatedTableRow key={session._id}>
                         <TableCell className="font-medium">{session.sessionNumber}</TableCell>
                         <TableCell>{session.registerName}</TableCell>
                         <TableCell>{session.cashierName}</TableCell>
@@ -767,9 +843,9 @@ export default function CashRegisterDashboard() {
                         <TableCell>{formatCurrency(session.openingAmountVes, 'VES')}</TableCell>
                         <TableCell>{session.totalTransactions || 0}</TableCell>
                         <TableCell>{getStatusBadge(session.status)}</TableCell>
-                      </TableRow>
+                      </AnimatedTableRow>
                     ))}
-                  </TableBody>
+                  </AnimatedTableBody>
                 </Table>
               )}
             </CardContent>
@@ -840,7 +916,7 @@ export default function CashRegisterDashboard() {
           <Card>
             <CardContent className="pt-6">
               {loading ? (
-                <div className="text-center py-8">Cargando...</div>
+                <ModuleSkeleton layout="kpi-table" />
               ) : closings.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -861,9 +937,9 @@ export default function CashRegisterDashboard() {
                       <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <AnimatedTableBody>
                     {closings.map((closing) => (
-                      <TableRow key={closing._id}>
+                      <AnimatedTableRow key={closing._id}>
                         <TableCell className="font-medium">{closing.closingNumber}</TableCell>
                         <TableCell>
                           {closing.closingType === 'consolidated' ? (
@@ -922,9 +998,9 @@ export default function CashRegisterDashboard() {
                             </Button>
                           </div>
                         </TableCell>
-                      </TableRow>
+                      </AnimatedTableRow>
                     ))}
-                  </TableBody>
+                  </AnimatedTableBody>
                 </Table>
               )}
             </CardContent>
@@ -1015,17 +1091,28 @@ export default function CashRegisterDashboard() {
       {/* Modal: Cerrar Caja */}
       <Dialog open={closeSessionModal} onOpenChange={(val) => {
         setCloseSessionModal(val);
-        if (!val) setLastClosingId(null);
+        if (!val) { setLastClosingId(null); setCloseStep(1); }
       }}>
         <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Cerrar Caja</DialogTitle>
+            <DialogTitle>
+              {lastClosingId ? 'Cierre Completado' : closeStep === 1 ? 'Paso 1: Conteo de Efectivo' : 'Paso 2: Revision y Confirmacion'}
+            </DialogTitle>
             <DialogDescription>
               {lastClosingId
                 ? "El cierre se ha procesado correctamente"
-                : "Declara el efectivo en caja para generar el cierre"
+                : closeStep === 1
+                  ? "Declara el efectivo contado en la caja"
+                  : "Revisa las diferencias y confirma el cierre"
               }
             </DialogDescription>
+            {/* Step indicator */}
+            {!lastClosingId && (
+              <div className="flex gap-2 mt-3">
+                <div className={`h-1.5 flex-1 rounded-full transition-colors ${closeStep >= 1 ? 'bg-primary' : 'bg-muted'}`} />
+                <div className={`h-1.5 flex-1 rounded-full transition-colors ${closeStep >= 2 ? 'bg-primary' : 'bg-muted'}`} />
+              </div>
+            )}
           </DialogHeader>
 
           {lastClosingId ? (
@@ -1068,19 +1155,22 @@ export default function CashRegisterDashboard() {
               </DialogFooter>
             </div>
           ) : (
-            // ===== FORMULARIO NORMAL =====
+            // ===== 2-STEP WIZARD =====
             <>
-              <div className="space-y-4">
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm font-medium">Sesión: {currentSession?.sessionNumber}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Abierta desde: {formatDate(currentSession?.openedAt)}
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Conteo de Efectivo (USD)</h4>
-                    <div className="grid grid-cols-2 gap-4">
+              {/* Session info (always visible) */}
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm font-medium">Sesion: {currentSession?.sessionNumber}</p>
+                <p className="text-sm text-muted-foreground">
+                  Abierta desde: {formatDate(currentSession?.openedAt)}
+                </p>
+              </div>
+
+              {closeStep === 1 ? (
+                // ===== STEP 1: CONTEO DE EFECTIVO =====
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Conteo de Efectivo (USD)</h4>
                       <div className="space-y-2">
                         <Label>Sistema (Esperado)</Label>
                         <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground font-mono text-right flex items-center justify-end">
@@ -1097,14 +1187,8 @@ export default function CashRegisterDashboard() {
                         />
                       </div>
                     </div>
-                    <div className={`text-xs text-right font-medium px-2 py-1 rounded ${getDiffBadgeColor(diffUsd)}`}>
-                      Diferencia: {diffUsd > 0 ? '+' : ''}{formatCurrency(diffUsd, 'USD')}
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Conteo de Efectivo (VES)</h4>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-4 border rounded-lg p-4 bg-muted/30">
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Conteo de Efectivo (VES)</h4>
                       <div className="space-y-2">
                         <Label>Sistema (Esperado)</Label>
                         <div className="h-10 px-3 py-2 rounded-md border bg-muted text-muted-foreground font-mono text-right flex items-center justify-end">
@@ -1121,36 +1205,88 @@ export default function CashRegisterDashboard() {
                         />
                       </div>
                     </div>
-                    <div className={`text-xs text-right font-medium px-2 py-1 rounded ${getDiffBadgeColor(diffVes)}`}>
-                      Diferencia: {diffVes > 0 ? '+' : ''}{formatCurrency(diffVes, 'VES')}
+                  </div>
+                  <div>
+                    <Label>Tasa de Cambio (BCV)</Label>
+                    <Input
+                      type="number"
+                      value={closeForm.exchangeRate}
+                      onChange={(e) => setCloseForm(prev => ({ ...prev, exchangeRate: parseFloat(e.target.value) || 0 }))}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setCloseSessionModal(false)}>
+                      Cancelar
+                    </Button>
+                    <Button onClick={() => setCloseStep(2)}>
+                      Siguiente &rarr;
+                    </Button>
+                  </DialogFooter>
+                </div>
+              ) : (
+                // ===== STEP 2: REVISION Y CONFIRMACION =====
+                <div className="space-y-4">
+                  {/* Difference traffic lights */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className={`rounded-lg p-4 border-2 ${Math.abs(diffUsd) < 0.01 ? 'border-green-500 bg-green-50 dark:bg-green-950/30' : Math.abs(diffUsd) < 5 ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' : 'border-red-500 bg-red-50 dark:bg-red-950/30'}`}>
+                      <p className="text-xs text-muted-foreground mb-1">Diferencia USD</p>
+                      <p className={`text-2xl font-bold ${Math.abs(diffUsd) < 0.01 ? 'text-green-700 dark:text-green-400' : Math.abs(diffUsd) < 5 ? 'text-amber-700 dark:text-amber-400' : 'text-red-700 dark:text-red-400'}`}>
+                        {diffUsd > 0 ? '+' : ''}{formatCurrency(diffUsd, 'USD')}
+                      </p>
+                      <p className="text-xs mt-1">
+                        {Math.abs(diffUsd) < 0.01 ? 'Cuadra exacto' : diffUsd > 0 ? 'Sobrante' : 'Faltante'}
+                      </p>
+                    </div>
+                    <div className={`rounded-lg p-4 border-2 ${Math.abs(diffVes) < 0.01 ? 'border-green-500 bg-green-50 dark:bg-green-950/30' : Math.abs(diffVes) < 5 ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' : 'border-red-500 bg-red-50 dark:bg-red-950/30'}`}>
+                      <p className="text-xs text-muted-foreground mb-1">Diferencia VES</p>
+                      <p className={`text-2xl font-bold ${Math.abs(diffVes) < 0.01 ? 'text-green-700 dark:text-green-400' : Math.abs(diffVes) < 5 ? 'text-amber-700 dark:text-amber-400' : 'text-red-700 dark:text-red-400'}`}>
+                        {diffVes > 0 ? '+' : ''}{formatCurrency(diffVes, 'VES')}
+                      </p>
+                      <p className="text-xs mt-1">
+                        {Math.abs(diffVes) < 0.01 ? 'Cuadra exacto' : diffVes > 0 ? 'Sobrante' : 'Faltante'}
+                      </p>
                     </div>
                   </div>
+
+                  {/* Summary */}
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-muted-foreground">Contado USD</p>
+                      <p className="font-mono font-semibold">{formatCurrency(closeForm.closingAmountUsd, 'USD')}</p>
+                    </div>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-muted-foreground">Contado VES</p>
+                      <p className="font-mono font-semibold">{formatCurrency(closeForm.closingAmountVes, 'VES')}</p>
+                    </div>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-muted-foreground">Esperado USD</p>
+                      <p className="font-mono font-semibold">{formatCurrency(expectedUsd, 'USD')}</p>
+                    </div>
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-muted-foreground">Esperado VES</p>
+                      <p className="font-mono font-semibold">{formatCurrency(expectedVes, 'VES')}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Notas del Cierre</Label>
+                    <Textarea
+                      value={closeForm.closingNotes}
+                      onChange={(e) => setCloseForm(prev => ({ ...prev, closingNotes: e.target.value }))}
+                      placeholder="Observaciones al cerrar la caja..."
+                    />
+                  </div>
+
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setCloseStep(1)}>
+                      &larr; Atras
+                    </Button>
+                    <Button variant="destructive" onClick={handleCloseSession} disabled={loading}>
+                      {loading ? 'Cerrando...' : 'Confirmar Cierre'}
+                    </Button>
+                  </DialogFooter>
                 </div>
-                <div>
-                  <Label>Tasa de Cambio (BCV)</Label>
-                  <Input
-                    type="number"
-                    value={closeForm.exchangeRate}
-                    onChange={(e) => setCloseForm(prev => ({ ...prev, exchangeRate: parseFloat(e.target.value) || 0 }))}
-                  />
-                </div>
-                <div>
-                  <Label>Notas del Cierre</Label>
-                  <Textarea
-                    value={closeForm.closingNotes}
-                    onChange={(e) => setCloseForm(prev => ({ ...prev, closingNotes: e.target.value }))}
-                    placeholder="Observaciones al cerrar la caja..."
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setCloseSessionModal(false)}>
-                  Cancelar
-                </Button>
-                <Button variant="destructive" onClick={handleCloseSession} disabled={loading}>
-                  {loading ? 'Cerrando...' : 'Cerrar Caja'}
-                </Button>
-              </DialogFooter>
+              )}
             </>
           )}
         </DialogContent>
@@ -1372,7 +1508,7 @@ export default function CashRegisterDashboard() {
                         <TableHead>IGTF</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
+                    <AnimatedTableBody>
                       {selectedClosing.paymentMethodSummary?.map((pm, idx) => (
                         <TableRow key={idx}>
                           <TableCell className="font-medium">{pm.methodName}</TableCell>
@@ -1382,7 +1518,7 @@ export default function CashRegisterDashboard() {
                           <TableCell>{formatCurrency(pm.igtfAmount, 'USD')}</TableCell>
                         </TableRow>
                       ))}
-                    </TableBody>
+                    </AnimatedTableBody>
                   </Table>
                 </CardContent>
               </Card>
@@ -1403,7 +1539,7 @@ export default function CashRegisterDashboard() {
                           <TableHead>VES</TableHead>
                         </TableRow>
                       </TableHeader>
-                      <TableBody>
+                      <AnimatedTableBody>
                         <TableRow>
                           <TableCell className="font-medium text-success">Entradas (+)</TableCell>
                           <TableCell>
@@ -1453,7 +1589,7 @@ export default function CashRegisterDashboard() {
                             )}
                           </TableCell>
                         </TableRow>
-                      </TableBody>
+                      </AnimatedTableBody>
                     </Table>
                   </CardContent>
                 </Card>
@@ -1471,7 +1607,7 @@ export default function CashRegisterDashboard() {
                           <TableHead>Total Dado</TableHead>
                         </TableRow>
                       </TableHeader>
-                      <TableBody>
+                      <AnimatedTableBody>
                         {selectedClosing.changeGiven?.map((change, idx) => (
                           <TableRow key={idx}>
                             <TableCell className="font-medium">{change.currency}</TableCell>
@@ -1483,7 +1619,7 @@ export default function CashRegisterDashboard() {
                             <TableCell colSpan={2} className="text-center text-muted-foreground">Sin registros de vueltos</TableCell>
                           </TableRow>
                         )}
-                      </TableBody>
+                      </AnimatedTableBody>
                     </Table>
                   </CardContent>
                 </Card>
@@ -1546,7 +1682,7 @@ export default function CashRegisterDashboard() {
                           <TableHead>Estado</TableHead>
                         </TableRow>
                       </TableHeader>
-                      <TableBody>
+                      <AnimatedTableBody>
                         {selectedClosing.cashDifferences.map((diff, idx) => (
                           <TableRow key={idx}>
                             <TableCell className="font-medium">{diff.currency}</TableCell>
@@ -1558,7 +1694,7 @@ export default function CashRegisterDashboard() {
                             <TableCell>{getDifferenceBadge(diff)}</TableCell>
                           </TableRow>
                         ))}
-                      </TableBody>
+                      </AnimatedTableBody>
                     </Table>
                   </CardContent>
                 </Card>
@@ -1598,6 +1734,6 @@ export default function CashRegisterDashboard() {
           )}
         </DialogContent>
       </Dialog>
-    </div >
+    </AnimatedPageWrapper>
   );
 }

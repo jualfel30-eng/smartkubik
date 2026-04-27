@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
@@ -7,7 +8,8 @@ import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { AnimatedTableBody } from '@/components/ui/animated-table-body';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import {
   fetchApi,
@@ -38,7 +40,18 @@ import {
   ImageIcon,
   Lock,
   X as XIcon,
+  Users,
+  Activity,
+  LayoutGrid,
+  List,
+  Clock,
+  Star,
 } from 'lucide-react';
+import AnimatedPageWrapper from '@/components/shared/AnimatedPageWrapper';
+import KpiDashboardRow from '@/components/shared/KpiDashboardRow';
+import { useModuleMilestones } from '@/hooks/use-module-milestones';
+import { toast } from 'sonner';
+import { STAGGER, fadeUp, SPRING } from '@/lib/motion';
 
 const compressAndConvertImage = (file) => {
   return new Promise((resolve, reject) => {
@@ -168,6 +181,7 @@ function ResourcesManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('resources_viewMode') || 'cards');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingResource, setEditingResource] = useState(null);
   const [formData, setFormData] = useState(buildEmptyResourceForm());
@@ -275,6 +289,16 @@ function ResourcesManagement() {
     }
     filterResources();
   }, [hasAccess, filterResources]);
+
+  // Milestones — must be before early returns (React hooks rules)
+  useModuleMilestones({
+    moduleKey: 'professionals',
+    milestones: [
+      { key: 'first-resource', condition: (d) => d.total > 0, message: 'Primer recurso agregado!' },
+      { key: '5-resources', condition: (d) => d.total >= 5, message: '5 recursos en tu equipo!', confetti: true },
+    ],
+    data: { total: resources.length },
+  });
 
   if (!hasAccess) {
     return <ModuleAccessDenied moduleName="appointments" />;
@@ -804,8 +828,14 @@ function ResourcesManagement() {
     }));
   };
 
+  // KPI computations
+  const activeResources = resources.filter(r => r.status === 'active');
+  const resourcesByType = {};
+  resources.forEach(r => { resourcesByType[r.type] = (resourcesByType[r.type] || 0) + 1; });
+  const topType = Object.entries(resourcesByType).sort((a, b) => b[1] - a[1])[0];
+
   return (
-    <div className="p-6 space-y-6">
+    <AnimatedPageWrapper className="p-6 space-y-6">
       <ConfirmDialog />
       {/* Header */}
       <div className="flex justify-between items-center">
@@ -819,12 +849,23 @@ function ResourcesManagement() {
         </Button>
       </div>
 
+      {/* KPI Dashboard */}
+      <KpiDashboardRow
+        loading={!resources.length && loading}
+        items={[
+          { icon: Users, label: 'Total recursos', value: resources.length, format: (n) => Math.round(n).toString() },
+          { icon: Activity, label: 'Activos', value: activeResources.length, format: (n) => Math.round(n).toString(), color: 'text-emerald-500' },
+          { icon: User, label: topType ? topType[0] : 'Tipo', value: topType ? topType[1] : 0, format: (n) => Math.round(n).toString() },
+          { icon: DollarSign, label: 'Con tarifa', value: resources.filter(r => r.baseRate?.amount > 0).length, format: (n) => Math.round(n).toString() },
+        ]}
+      />
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <div className="relative">
+            <div className="md:col-span-2 flex gap-2">
+              <div className="relative flex-1">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Buscar recursos..."
@@ -832,6 +873,23 @@ function ResourcesManagement() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
+              </div>
+              {/* View toggle */}
+              <div className="flex rounded-lg border overflow-hidden">
+                <button
+                  onClick={() => { setViewMode('cards'); localStorage.setItem('resources_viewMode', 'cards'); }}
+                  className={`p-2 transition-colors ${viewMode === 'cards' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
+                  title="Vista de tarjetas"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => { setViewMode('table'); localStorage.setItem('resources_viewMode', 'table'); }}
+                  className={`p-2 transition-colors ${viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'}`}
+                  title="Vista de tabla"
+                >
+                  <List className="h-4 w-4" />
+                </button>
               </div>
             </div>
 
@@ -864,7 +922,123 @@ function ResourcesManagement() {
         </CardContent>
       </Card>
 
-      {/* Resources Table */}
+      {/* Resources Count */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {filteredResources.length} recurso{filteredResources.length !== 1 ? 's' : ''}
+        </p>
+      </div>
+
+      {/* Card View */}
+      {viewMode === 'cards' ? (
+        filteredResources.length === 0 ? (
+          <EmptyState
+            icon={User}
+            title="No se encontraron recursos"
+            description={searchTerm ? "Intenta con otro termino de busqueda" : "Agrega profesionales, estaciones o equipos para asignarlos a servicios"}
+            actionLabel={!searchTerm ? "Agregar recurso" : undefined}
+            onAction={!searchTerm ? () => setIsDialogOpen(true) : undefined}
+          />
+        ) : (
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            variants={STAGGER(0.04)}
+            initial="initial"
+            animate="animate"
+          >
+            {filteredResources.map((resource) => {
+              const Icon = getTypeIcon(resource.type);
+              const isActive = resource.status === 'active';
+              const photo = resource.images?.[0] || null;
+              const color = resource.color || '#6366f1';
+              const specialties = resource.specializations || [];
+
+              return (
+                <motion.div key={resource._id} variants={fadeUp}>
+                  <motion.div whileHover={{ scale: 1.01, y: -2 }} transition={SPRING.snappy}>
+                    <Card className={`overflow-hidden transition-all hover:shadow-md ${!isActive ? 'opacity-60' : ''}`}>
+                      {/* Color strip */}
+                      <div className="h-1.5 w-full" style={{ background: color }} />
+                      <CardContent className="p-4">
+                        {/* Avatar + name + status */}
+                        <div className="flex items-start gap-3 mb-3">
+                          <div
+                            className="w-12 h-12 rounded-full flex-none flex items-center justify-center text-white font-bold text-sm overflow-hidden shadow-sm"
+                            style={{ background: photo ? 'transparent' : color }}
+                          >
+                            {photo
+                              ? <img src={photo} alt={resource.name} className="w-full h-full object-cover" />
+                              : resource.name?.substring(0, 2).toUpperCase() || '??'
+                            }
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-1">
+                              <h3 className="font-semibold text-sm leading-tight truncate">{resource.name}</h3>
+                              {getStatusBadge(resource.status)}
+                            </div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Icon className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
+                                {RESOURCE_TYPES.find(t => t.value === resource.type)?.label || resource.type}
+                              </span>
+                            </div>
+                            {resource.email && (
+                              <p className="text-xs text-muted-foreground truncate mt-0.5">{resource.email}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Specialties */}
+                        {specialties.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {specialties.slice(0, 3).map((s, i) => (
+                              <span key={i} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">{s}</span>
+                            ))}
+                            {specialties.length > 3 && (
+                              <span className="text-xs text-muted-foreground">+{specialties.length - 3}</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Rate info */}
+                        {resource.baseRate?.amount > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
+                            <DollarSign className="h-3 w-3" />
+                            <span className="font-medium">
+                              {formatCurrency(resource.baseRate.amount, resource.baseRate.currency || 'USD')}
+                            </span>
+                            {resource.baseRate.description && (
+                              <span className="truncate">— {resource.baseRate.description}</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Action buttons */}
+                        <div className="flex gap-2 pt-2 border-t">
+                          <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => openEditDialog(resource)}>
+                            <Edit className="h-3.5 w-3.5 mr-1" />
+                            Editar
+                          </Button>
+                          {isBeautyVertical && (
+                            <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => openBlockDialog(resource)}>
+                              <Lock className="h-3.5 w-3.5 mr-1" />
+                              Bloquear
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(resource._id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        )
+      ) : (
+      /* Table View */
       <Card>
         <CardHeader>
           <CardTitle>
@@ -884,7 +1058,7 @@ function ResourcesManagement() {
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <AnimatedTableBody>
               {filteredResources.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7}>
@@ -1076,10 +1250,11 @@ function ResourcesManagement() {
                   );
                 })
               )}
-            </TableBody>
+            </AnimatedTableBody>
           </Table>
         </CardContent>
       </Card>
+      )}
 
       {/* Resource Block Dialog — beauty vertical only */}
       {isBeautyVertical && (
@@ -1963,7 +2138,7 @@ function ResourcesManagement() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </AnimatedPageWrapper>
   );
 }
 

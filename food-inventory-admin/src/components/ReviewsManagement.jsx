@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { Button } from '@/components/ui/button.jsx';
@@ -8,6 +9,12 @@ import { Star, Check, X, Trash2, MessageSquare, Search, RefreshCw } from 'lucide
 import { getBeautyReviews, approveBeautyReview, rejectBeautyReview } from '../lib/api';
 import { toast } from 'sonner';
 import { useConfirm } from '@/hooks/use-confirm';
+import AnimatedPageWrapper from '@/components/shared/AnimatedPageWrapper';
+import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber';
+import ModuleSkeleton from '@/components/shared/ModuleSkeleton';
+import { triggerCelebration } from '@/hooks/use-celebration';
+import { useModuleMilestones } from '@/hooks/use-module-milestones';
+import { STAGGER, fadeUp, listItem, tapScale, SPRING } from '@/lib/motion';
 
 // ── Star rating component ─────────────────────────────────────────────────────
 const StarRating = ({ rating, max = 5 }) => (
@@ -99,12 +106,31 @@ export default function ReviewsManagement() {
     return true;
   });
 
+  // Pending-first sorting (Zeigarnik effect — unresolved items demand attention)
+  const sortedReviews = [...filteredReviews].sort((a, b) => {
+    const aIsPending = !a.isApproved && !a.rejectionReason;
+    const bIsPending = !b.isApproved && !b.rejectionReason;
+    if (aIsPending && !bIsPending) return -1;
+    if (!aIsPending && bIsPending) return 1;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+
+  // Star distribution for chart
+  const starDistribution = [5, 4, 3, 2, 1].map(star => {
+    const count = reviews.filter(r => r.rating === star).length;
+    return { star, count, percent: reviews.length > 0 ? (count / reviews.length) * 100 : 0 };
+  });
+
   // ── Actions ─────────────────────────────────────────────────────────────────
   const handleApprove = async (id) => {
     setSubmitting(true);
     try {
       await approveBeautyReview(id);
-      toast.success('Reseña aprobada');
+      toast.success('Resena aprobada!');
+      // Celebrate if clearing the last pending
+      if (pendingReviews.length === 1) {
+        setTimeout(() => triggerCelebration(), 300);
+      }
       fetchReviews();
     } catch (err) {
       toast.error(err.message || 'Error al aprobar la reseña');
@@ -160,6 +186,16 @@ export default function ReviewsManagement() {
   };
 
   // ── Tabs ────────────────────────────────────────────────────────────────────
+  // Milestones
+  useModuleMilestones({
+    moduleKey: 'reviews',
+    milestones: [
+      { key: 'all-reviewed', condition: (d) => d.total > 0 && d.pending === 0, message: 'Sin resenas pendientes — todo moderado!', confetti: true },
+      { key: '50-reviews', condition: (d) => d.total >= 50, message: '50 resenas — tus clientes confian en ti!', confetti: true },
+    ],
+    data: { total: reviews.length, pending: pendingReviews.length },
+  });
+
   const tabs = [
     { key: 'all', label: 'Todas', count: reviews.length },
     { key: 'pending', label: 'Pendientes', count: pendingReviews.length },
@@ -168,7 +204,7 @@ export default function ReviewsManagement() {
   ];
 
   return (
-    <div className="space-y-6">
+    <AnimatedPageWrapper className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -182,39 +218,80 @@ export default function ReviewsManagement() {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card>
+      <motion.div className="grid grid-cols-2 md:grid-cols-4 gap-3" variants={STAGGER(0.04)} initial="initial" animate="animate">
+        <motion.div variants={fadeUp}>
+          <motion.div whileHover={{ scale: 1.02 }} transition={SPRING.snappy}>
+            <Card className="glass-card-subtle">
+              <CardContent className="pt-4 pb-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Rating promedio</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <AnimatedNumber value={parseFloat(avgRating) || 0} format={(n) => n.toFixed(1)} className="text-2xl font-bold" />
+                  <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+                </div>
+                <p className="text-xs text-muted-foreground">{approvedReviews.length} aprobadas</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
+        <motion.div variants={fadeUp}>
+          <motion.div whileHover={{ scale: 1.02 }} transition={SPRING.snappy}>
+            <Card className="glass-card-subtle">
+              <CardContent className="pt-4 pb-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Total</p>
+                <AnimatedNumber value={reviews.length} format={(n) => Math.round(n).toString()} className="text-2xl font-bold block mt-1" />
+                <p className="text-xs text-muted-foreground">resenas recibidas</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
+        <motion.div variants={fadeUp}>
+          <motion.div whileHover={{ scale: 1.02 }} transition={SPRING.snappy}>
+            <Card className={`glass-card-subtle ${pendingReviews.length > 0 ? 'border-amber-500/40' : ''}`}>
+              <CardContent className="pt-4 pb-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Pendientes</p>
+                <AnimatedNumber value={pendingReviews.length} format={(n) => Math.round(n).toString()} className="text-2xl font-bold block mt-1 text-amber-600" />
+                <p className="text-xs text-muted-foreground">requieren revision</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
+        <motion.div variants={fadeUp}>
+          <motion.div whileHover={{ scale: 1.02 }} transition={SPRING.snappy}>
+            <Card className="glass-card-subtle">
+              <CardContent className="pt-4 pb-3">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Rechazadas</p>
+                <AnimatedNumber value={rejectedReviews.length} format={(n) => Math.round(n).toString()} className="text-2xl font-bold block mt-1 text-red-500" />
+                <p className="text-xs text-muted-foreground">no publicadas</p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+
+      {/* Star Distribution Chart */}
+      {reviews.length > 0 && (
+        <Card className="glass-card-subtle">
           <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Rating promedio</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-2xl font-bold">{avgRating}</span>
-              <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">Distribucion de calificaciones</p>
+            <div className="space-y-2">
+              {starDistribution.map(({ star, count, percent }) => (
+                <div key={star} className="flex items-center gap-2 text-sm">
+                  <span className="w-8 text-right font-medium">{star}<Star className="h-3 w-3 inline ml-0.5 fill-amber-400 text-amber-400" /></span>
+                  <div className="flex-1 h-5 bg-muted rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-amber-400 rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${percent}%` }}
+                      transition={{ duration: 0.6, delay: (5 - star) * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                    />
+                  </div>
+                  <span className="w-16 text-xs text-muted-foreground">{percent.toFixed(0)}% ({count})</span>
+                </div>
+              ))}
             </div>
-            <p className="text-xs text-muted-foreground">{approvedReviews.length} aprobadas</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Total</p>
-            <p className="text-2xl font-bold mt-1">{reviews.length}</p>
-            <p className="text-xs text-muted-foreground">reseñas recibidas</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Pendientes</p>
-            <p className="text-2xl font-bold mt-1 text-amber-600">{pendingReviews.length}</p>
-            <p className="text-xs text-muted-foreground">requieren revisión</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Rechazadas</p>
-            <p className="text-2xl font-bold mt-1 text-red-500">{rejectedReviews.length}</p>
-            <p className="text-xs text-muted-foreground">no publicadas</p>
-          </CardContent>
-        </Card>
-      </div>
+      )}
 
       {/* Filters */}
       <div className="space-y-3">
@@ -268,10 +345,10 @@ export default function ReviewsManagement() {
 
       {/* Content */}
       {loading ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">Cargando reseñas...</div>
+        <ModuleSkeleton layout="kpi-cards" />
       ) : error ? (
         <div className="text-center py-12 text-destructive text-sm">{error}</div>
-      ) : filteredReviews.length === 0 ? (
+      ) : sortedReviews.length === 0 ? (
         <div className="text-center py-16">
           <Star className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
           <p className="text-muted-foreground font-medium">No hay reseñas para mostrar</p>
@@ -280,14 +357,15 @@ export default function ReviewsManagement() {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredReviews.map((review) => {
+        <motion.div className="space-y-4" variants={STAGGER(0.04)} initial="initial" animate="animate">
+          {sortedReviews.map((review) => {
             const isPending = !review.isApproved && !review.rejectionReason;
             const isRejecting = rejectingId === review._id;
             const isResponding = respondingTo === review._id;
 
             return (
-              <Card key={review._id} className="overflow-hidden">
+              <motion.div key={review._id} variants={listItem}>
+              <Card className="overflow-hidden">
                 <CardContent className="pt-4 pb-3">
                   <div className="flex items-start justify-between gap-3">
                     {/* Left: info */}
@@ -319,27 +397,27 @@ export default function ReviewsManagement() {
                       {isPending && (
                         <>
                           <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                            title="Aprobar"
+                            size="sm"
+                            variant="outline"
+                            className="text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 dark:border-emerald-800 dark:hover:bg-emerald-950/50"
                             disabled={submitting}
                             onClick={() => handleApprove(review._id)}
                           >
-                            <Check className="h-4 w-4" />
+                            <Check className="h-4 w-4 mr-1" />
+                            Aprobar
                           </Button>
                           <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
-                            title="Rechazar"
+                            size="sm"
+                            variant="outline"
+                            className="text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300 dark:border-red-800 dark:hover:bg-red-950/50"
                             disabled={submitting}
                             onClick={() => {
                               setRejectingId(isRejecting ? null : review._id);
                               setRejectReason('');
                             }}
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-4 w-4 mr-1" />
+                            Rechazar
                           </Button>
                         </>
                       )}
@@ -428,10 +506,11 @@ export default function ReviewsManagement() {
                   )}
                 </CardContent>
               </Card>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       )}
-    </div>
+    </AnimatedPageWrapper>
   );
 }

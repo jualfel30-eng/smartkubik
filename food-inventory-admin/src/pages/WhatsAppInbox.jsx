@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { io } from 'socket.io-client';
 import { getConversations, getMessagesForConversation } from '../lib/chatApi';
 import { useAuth } from '../hooks/use-auth';
@@ -7,7 +8,9 @@ import { useNotification } from '@/context/NotificationContext';
 import { api } from '../lib/api';
 import { toast } from 'sonner';
 
-import { ShoppingBag, Calendar, Menu, ChevronLeft, Smile, CreditCard, Send, Store } from 'lucide-react';
+import { ShoppingBag, Calendar, Menu, ChevronLeft, Smile, CreditCard, Send, Store, Search, MessageCircle } from 'lucide-react';
+import ModuleSkeleton from '@/components/shared/ModuleSkeleton';
+import { listItem, pulseGlow } from '@/lib/motion';
 import { ActionPanel } from '../components/chat/ActionPanel';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +38,8 @@ const WhatsAppInbox = () => {
   const [isActionPanelOpen, setIsActionPanelOpen] = useState(false);
   const [activeAction, setActiveAction] = useState('order'); // 'order' | 'reservation'
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
   const [orderIdToView, setOrderIdToView] = useState(null);
 
   // Responsive: Close sidebar on mobile when conversation is selected
@@ -303,15 +308,60 @@ const WhatsAppInbox = () => {
     <div className="flex h-full w-full overflow-hidden bg-background text-foreground font-sans rounded-lg border border-border shadow-sm md:flex-row">
       {/* Conversations Sidebar - Hide when ActionPanel is open */}
       <div className={`${isSidebarOpen && !isActionPanelOpen ? 'flex' : 'hidden'} w-full flex-shrink-0 flex-col border-border bg-card border-b md:h-full md:w-80 md:border-b-0 md:border-r lg:w-96 transition-all duration-300 ease-in-out`}>
-        <div className="border-border border-b p-4 flex-shrink-0 sticky top-0 z-20 bg-card flex justify-between items-center">
-          <h2 className="text-xl font-bold">Conversations</h2>
+        {/* Sidebar Header */}
+        <div className="border-border border-b flex-shrink-0 sticky top-0 z-20 bg-card">
+          <div className="p-4 flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold">Conversaciones</h2>
+              <p className="text-xs text-muted-foreground">{conversations.length} conversaciones</p>
+            </div>
+            <Button
+              variant={showUnreadOnly ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setShowUnreadOnly(!showUnreadOnly)}
+              title={showUnreadOnly ? 'Mostrar todas' : 'Solo no leidas'}
+            >
+              <MessageCircle className="h-4 w-4" />
+              {showUnreadOnly && <span className="ml-1 text-xs">No leidas</span>}
+            </Button>
+          </div>
+          {/* Search */}
+          <div className="px-4 pb-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Buscar conversacion..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-9 pl-9 pr-3 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto min-h-0">
-          {conversations.map(convo => (
+          {conversations
+            .filter(convo => {
+              // Search filter
+              if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                const name = (convo.customerName || '').toLowerCase();
+                const phone = (convo.customerPhoneNumber || '').toLowerCase();
+                if (!name.includes(q) && !phone.includes(q)) return false;
+              }
+              // Unread filter
+              if (showUnreadOnly && getUnreadCount(convo._id) === 0) return false;
+              return true;
+            })
+            .map(convo => (
             <div
               key={convo._id}
               onClick={() => handleSelectConversation(convo)}
-              className={`p-4 cursor-pointer hover:bg-muted transition-colors flex items-center gap-3 ${activeConversation?._id === convo._id ? 'bg-muted' : ''}`}
+              className={`p-4 cursor-pointer transition-colors flex items-center gap-3 ${
+                activeConversation?._id === convo._id
+                  ? 'bg-primary/10 border-l-2 border-primary'
+                  : 'hover:bg-muted border-l-2 border-transparent'
+              }`}
             >
               <Avatar>
                 <AvatarImage src={convo.avatar || convo.profilePicUrl} />
@@ -393,7 +443,7 @@ const WhatsAppInbox = () => {
             {/* Messages Container - Scrollable */}
             <div className="flex-1 overflow-y-auto min-h-0 p-4 bg-muted/50">
               {loading ? (
-                <div className="flex justify-center p-4">Loading messages...</div>
+                <ModuleSkeleton layout="chat" />
               ) : (
                 messages.map((msg, index) => {
                   const isUser = msg.sender === 'user';
@@ -406,7 +456,7 @@ const WhatsAppInbox = () => {
                       : 'bg-card border border-border/20';
 
                   return (
-                    <div key={index} className={`mb-3 flex ${alignmentClass}`}>
+                    <motion.div key={index} className={`mb-3 flex ${alignmentClass}`} variants={listItem} initial="initial" animate="animate" layout={false}>
                       <div className={`max-w-lg rounded-lg px-4 py-2 shadow-sm ${bubbleClass}`}>
                         <p className="whitespace-pre-wrap">{msg.content}</p>
                         {msg.metadata?.action === 'order_created' && msg.metadata?.data?.orderId && (
@@ -428,15 +478,15 @@ const WhatsAppInbox = () => {
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })
               )}
               {activeAssistantStatus && (activeAssistantStatus.status === 'queued' || activeAssistantStatus.status === 'processing') && (
-                <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <motion.div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground" variants={pulseGlow} animate="animate">
                   <span role="img" aria-label="typing">💬</span>
-                  El asistente está redactando una respuesta...
-                </div>
+                  El asistente esta redactando una respuesta...
+                </motion.div>
               )}
               {activeAssistantStatus && activeAssistantStatus.status === 'failed' && (
                 <div className="mt-2 flex items-center gap-2 text-sm text-destructive-foreground">

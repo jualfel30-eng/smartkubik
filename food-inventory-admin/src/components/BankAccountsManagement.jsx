@@ -1,18 +1,30 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Table, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { AnimatedTableBody, AnimatedTableRow } from './ui/animated-table-body';
 import { Badge } from './ui/badge';
 import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
-import { PlusCircle, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, List as ListIcon, RefreshCcw, CheckCircle } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, DollarSign, TrendingUp, TrendingDown, List as ListIcon, RefreshCcw, CheckCircle, MoreHorizontal, Building2, CreditCard } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import { Textarea } from './ui/textarea';
 import { useConfirm } from '@/hooks/use-confirm';
+import AnimatedPageWrapper from './shared/AnimatedPageWrapper';
+import AnimatedNumber from './mobile/primitives/AnimatedNumber';
+import ModuleSkeleton from './shared/ModuleSkeleton';
+import { STAGGER, fadeUp, SPRING } from '@/lib/motion';
 
 const initialFormState = {
   bankName: '',
@@ -340,34 +352,36 @@ export default function BankAccountsManagement() {
     return types[type] || type;
   };
 
-  if (loading) return <p>Cargando cuentas bancarias...</p>;
+  if (loading) return <ModuleSkeleton layout="kpi-table" />;
 
   return (
-    <div className="space-y-6">
+    <AnimatedPageWrapper className="space-y-6">
       {/* Resumen de saldos */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-4" variants={STAGGER(0.04)} initial="initial" animate="animate">
         {Object.entries(balancesByCurrency).map(([currency, balance]) => (
-          <Card key={currency}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Saldo Total {currency}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold">
-                  {new Intl.NumberFormat('es-VE', {
-                    style: 'currency',
-                    currency: currency,
-                    minimumFractionDigits: 2
-                  }).format(balance)}
-                </span>
-                <DollarSign className="h-8 w-8 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
+          <motion.div key={currency} variants={fadeUp}>
+            <motion.div whileHover={{ scale: 1.02 }} transition={SPRING.snappy}>
+              <Card className="glass-card-subtle">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    Saldo Total {currency}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <AnimatedNumber
+                      value={balance}
+                      format={(n) => new Intl.NumberFormat('es-VE', { style: 'currency', currency, minimumFractionDigits: 2 }).format(n)}
+                      className="text-2xl font-bold"
+                    />
+                    <DollarSign className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
 
       {/* Totales por banco */}
       {Object.keys(totalsByBank).length > 0 && (
@@ -617,97 +631,90 @@ export default function BankAccountsManagement() {
           </Dialog>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Banco</TableHead>
-                <TableHead>Cuenta</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Saldo Actual</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-center">Ver Movimientos</TableHead>
-                <TableHead className="text-center">Conciliar</TableHead>
-                <TableHead className="text-center">Ajustar Saldo</TableHead>
-                <TableHead className="text-center">Editar</TableHead>
-                <TableHead className="text-center">Eliminar</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          {/* Account Cards Grid */}
+          {accounts.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Building2 className="h-12 w-12 mx-auto mb-4 opacity-30" />
+              <p className="font-medium">No hay cuentas bancarias</p>
+              <p className="text-sm mt-1">Agrega tu primera cuenta bancaria para gestionar tus finanzas</p>
+            </div>
+          ) : (
+            <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" variants={STAGGER(0.04)} initial="initial" animate="animate">
               {accounts.map((account) => (
-                <TableRow key={account._id}>
-                  <TableCell className="font-medium">{account.bankName}</TableCell>
-                  <TableCell>{account.accountNumber}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{getAccountTypeBadge(account.accountType)}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="font-semibold">
-                      {new Intl.NumberFormat('es-VE', {
-                        style: 'currency',
-                        currency: account.currency,
-                        minimumFractionDigits: 2
-                      }).format(account.currentBalance)}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={account.isActive ? 'default' : 'secondary'}>
-                      {account.isActive ? 'Activa' : 'Inactiva'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openMovementsDialog(account)}
-                      title="Ver movimientos"
-                    >
-                      <ListIcon className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => navigate(`/bank-accounts/${account._id}/reconciliation`)}
-                      title="Conciliar banco"
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openAdjustDialog(account)}
-                      title="Ajustar saldo"
-                    >
-                      <DollarSign className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEditDialog(account)}
-                      title="Editar cuenta"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(account._id)}
-                      title="Eliminar cuenta"
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                <motion.div key={account._id} variants={fadeUp}>
+                  <motion.div whileHover={{ scale: 1.01, y: -2 }} transition={SPRING.snappy}>
+                    <Card className={`overflow-hidden transition-all hover:shadow-md ${!account.isActive ? 'opacity-60' : ''}`}>
+                      <CardContent className="p-4">
+                        {/* Bank name + overflow menu */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <Building2 className="h-4 w-4 text-primary" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-sm">{account.bankName}</h3>
+                              <p className="text-xs text-muted-foreground">
+                                {'****' + (account.accountNumber || '').slice(-4)} · {getAccountTypeBadge(account.accountType)} · {account.currency}
+                              </p>
+                            </div>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => openEditDialog(account)}>
+                                <Edit className="h-4 w-4 mr-2" /> Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => navigate(`/bank-accounts/${account._id}/reconciliation`)}>
+                                <CheckCircle className="h-4 w-4 mr-2" /> Conciliar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(account._id)}>
+                                <Trash2 className="h-4 w-4 mr-2" /> Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+
+                        {/* Balance */}
+                        <div className="mb-3">
+                          <AnimatedNumber
+                            value={account.currentBalance || 0}
+                            format={(n) => new Intl.NumberFormat('es-VE', { style: 'currency', currency: account.currency, minimumFractionDigits: 2 }).format(n)}
+                            className="text-2xl font-bold"
+                          />
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant={account.isActive ? 'default' : 'secondary'} className="text-[10px]">
+                              {account.isActive ? 'Activa' : 'Inactiva'}
+                            </Badge>
+                            {account.acceptedPaymentMethods?.length > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                {account.acceptedPaymentMethods.length} metodo{account.acceptedPaymentMethods.length !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action buttons — 2 primary + overflow */}
+                        <div className="flex gap-2 pt-2 border-t">
+                          <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => openMovementsDialog(account)}>
+                            <ListIcon className="h-3.5 w-3.5 mr-1" />
+                            Movimientos
+                          </Button>
+                          <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => openAdjustDialog(account)}>
+                            <DollarSign className="h-3.5 w-3.5 mr-1" />
+                            Ajustar
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </motion.div>
               ))}
-            </TableBody>
-          </Table>
+            </motion.div>
+          )}
 
           {totalPages > 0 && (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
@@ -807,7 +814,7 @@ export default function BankAccountsManagement() {
                   <TableHead>Estado</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <AnimatedTableBody>
                 {movementsLoading && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
@@ -857,7 +864,7 @@ export default function BankAccountsManagement() {
                       </TableCell>
                     </TableRow>
                   ))}
-              </TableBody>
+              </AnimatedTableBody>
             </Table>
           </div>
 
@@ -1006,6 +1013,6 @@ export default function BankAccountsManagement() {
         </DialogContent>
       </Dialog>
       <ConfirmDialog />
-    </div>
+    </AnimatedPageWrapper>
   );
 }

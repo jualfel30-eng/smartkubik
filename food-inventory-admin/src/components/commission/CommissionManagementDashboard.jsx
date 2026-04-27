@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { useConfirm } from '@/hooks/use-confirm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
@@ -24,12 +25,12 @@ import {
 } from '../ui/dialog';
 import {
   Table,
-  TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from '../ui/table';
+import { AnimatedTableBody, AnimatedTableRow } from '../ui/animated-table-body';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Progress } from '../ui/progress';
 import {
@@ -73,6 +74,11 @@ import {
 import { toast } from 'sonner';
 import { useModuleAccess } from '../../hooks/useModuleAccess';
 import { useAuth } from '../../hooks/use-auth';
+import AnimatedPageWrapper from '../shared/AnimatedPageWrapper';
+import AnimatedNumber from '../mobile/primitives/AnimatedNumber';
+import { triggerCelebration } from '../../hooks/use-celebration';
+import { useModuleMilestones } from '../../hooks/use-module-milestones';
+import { STAGGER, fadeUp, SPRING } from '../../lib/motion';
 
 export default function CommissionManagementDashboard() {
   const [ConfirmDialog, confirm] = useConfirm();
@@ -97,6 +103,8 @@ export default function CommissionManagementDashboard() {
   const [bonusModalOpen, setBonusModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [editingGoal, setEditingGoal] = useState(null);
+  // Rejection dialog state (replaces window.prompt)
+  const [rejectDialog, setRejectDialog] = useState({ open: false, type: null, id: null, reason: '', category: '' });
 
   // Filter states
   const [selectedPeriod, setSelectedPeriod] = useState('current-month');
@@ -289,7 +297,10 @@ export default function CommissionManagementDashboard() {
   const handleApproveCommission = async (recordId) => {
     try {
       await approveCommission(recordId);
-      toast.success('Comisión aprobada');
+      toast.success('Comision aprobada!');
+      if (pendingCommissions.length <= 1) {
+        setTimeout(() => triggerCelebration(), 300);
+      }
       fetchCommissionRecords();
       fetchPendingCommissions();
     } catch (error) {
@@ -297,17 +308,37 @@ export default function CommissionManagementDashboard() {
     }
   };
 
-  const handleRejectCommission = async (recordId) => {
-    const reason = prompt('Razón del rechazo:');
-    if (!reason) return;
-    try {
-      await rejectCommission(recordId, reason);
-      toast.success('Comisión rechazada');
-      fetchCommissionRecords();
-      fetchPendingCommissions();
-    } catch (error) {
-      toast.error('Error al rechazar comisión', { description: error.message });
+  const openRejectDialog = (type, id) => {
+    setRejectDialog({ open: true, type, id, reason: '', category: '' });
+  };
+
+  const handleConfirmReject = async () => {
+    const { type, id, reason, category } = rejectDialog;
+    const fullReason = category ? `${category}: ${reason}`.trim() : reason;
+    if (!fullReason) {
+      toast.warning('Escribe una razon para el rechazo');
+      return;
     }
+    try {
+      if (type === 'commission') {
+        await rejectCommission(id, fullReason);
+        toast.success('Comision rechazada');
+        fetchCommissionRecords();
+        fetchPendingCommissions();
+      } else if (type === 'bonus') {
+        await rejectBonus(id, fullReason);
+        toast.success('Bono rechazado');
+        fetchBonuses();
+        fetchPendingBonuses();
+      }
+      setRejectDialog({ open: false, type: null, id: null, reason: '', category: '' });
+    } catch (error) {
+      toast.error(`Error al rechazar ${type === 'commission' ? 'comision' : 'bono'}`, { description: error.message });
+    }
+  };
+
+  const handleRejectCommission = (recordId) => {
+    openRejectDialog('commission', recordId);
   };
 
   const handleCreateGoal = async () => {
@@ -367,17 +398,8 @@ export default function CommissionManagementDashboard() {
     }
   };
 
-  const handleRejectBonus = async (bonusId) => {
-    const reason = prompt('Razón del rechazo:');
-    if (!reason) return;
-    try {
-      await rejectBonus(bonusId, reason);
-      toast.success('Bono rechazado');
-      fetchBonuses();
-      fetchPendingBonuses();
-    } catch (error) {
-      toast.error('Error al rechazar bono', { description: error.message });
-    }
+  const handleRejectBonus = (bonusId) => {
+    openRejectDialog('bonus', bonusId);
   };
 
   // Reset functions
@@ -533,6 +555,15 @@ export default function CommissionManagementDashboard() {
     toast.success('Reporte exportado exitosamente');
   };
 
+  // Milestones — must be before early returns (React hooks rules)
+  useModuleMilestones({
+    moduleKey: 'commissions',
+    milestones: [
+      { key: 'all-approved', condition: (d) => d.total > 0 && d.pending === 0, message: 'Sin pendientes — todo aprobado!', confetti: true },
+    ],
+    data: { total: commissionRecords.length, pending: pendingCommissions.length + pendingBonuses.length },
+  });
+
   if (loading && !commissionPlans.length) {
     return <div className="flex justify-center p-8 text-muted-foreground">Cargando módulo de comisiones...</div>;
   }
@@ -554,7 +585,7 @@ export default function CommissionManagementDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <AnimatedPageWrapper className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -572,7 +603,8 @@ export default function CommissionManagementDashboard() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <motion.div className="grid gap-4 md:grid-cols-4" variants={STAGGER(0.04)} initial="initial" animate="animate">
+        <motion.div variants={fadeUp}>
         <Card className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border-emerald-200 dark:border-emerald-800">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Comisiones</CardTitle>
@@ -581,15 +613,15 @@ export default function CommissionManagementDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
-              ${reportData?.totalCommissions?.toFixed(2) || '0.00'}
-            </div>
+            <AnimatedNumber value={reportData?.totalCommissions || 0} format={(n) => `$${n.toFixed(2)}`} className="text-2xl font-bold text-emerald-700 dark:text-emerald-400" />
             <p className="text-xs text-muted-foreground">
               {commissionRecords.filter(r => r.status === 'approved').length} aprobadas este período
             </p>
           </CardContent>
         </Card>
+        </motion.div>
 
+        <motion.div variants={fadeUp}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
@@ -598,15 +630,15 @@ export default function CommissionManagementDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {pendingCommissions.length + pendingBonuses.length}
-            </div>
+            <AnimatedNumber value={pendingCommissions.length + pendingBonuses.length} format={(n) => Math.round(n).toString()} className="text-2xl font-bold" />
             <p className="text-xs text-muted-foreground">
               {pendingCommissions.length} comisiones, {pendingBonuses.length} bonos
             </p>
           </CardContent>
         </Card>
+        </motion.div>
 
+        <motion.div variants={fadeUp}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Metas Activas</CardTitle>
@@ -615,15 +647,15 @@ export default function CommissionManagementDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {goals.filter(g => g.status === 'active').length}
-            </div>
+            <AnimatedNumber value={goals.filter(g => g.status === 'active').length} format={(n) => Math.round(n).toString()} className="text-2xl font-bold" />
             <p className="text-xs text-muted-foreground">
               {goals.filter(g => g.status === 'completed').length} completadas
             </p>
           </CardContent>
         </Card>
+        </motion.div>
 
+        <motion.div variants={fadeUp}>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Planes Activos</CardTitle>
@@ -632,15 +664,39 @@ export default function CommissionManagementDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {commissionPlans.filter(p => p.isActive).length}
-            </div>
+            <AnimatedNumber value={commissionPlans.filter(p => p.isActive).length} format={(n) => Math.round(n).toString()} className="text-2xl font-bold" />
             <p className="text-xs text-muted-foreground">
               de {commissionPlans.length} totales
             </p>
           </CardContent>
         </Card>
-      </div>
+        </motion.div>
+      </motion.div>
+
+      {/* Pending Approvals Alert Bar */}
+      {(pendingCommissions.length > 0 || pendingBonuses.length > 0) && (
+        <motion.div variants={fadeUp} initial="initial" animate="animate"
+          className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800"
+        >
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-amber-600 flex-shrink-0" />
+            <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+              {pendingCommissions.length > 0 && `${pendingCommissions.length} comision${pendingCommissions.length !== 1 ? 'es' : ''}`}
+              {pendingCommissions.length > 0 && pendingBonuses.length > 0 && ' y '}
+              {pendingBonuses.length > 0 && `${pendingBonuses.length} bono${pendingBonuses.length !== 1 ? 's' : ''}`}
+              {' '}pendiente{(pendingCommissions.length + pendingBonuses.length) !== 1 ? 's' : ''} de aprobacion
+            </span>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-amber-300 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200"
+            onClick={() => setActiveTab('overview')}
+          >
+            Revisar ahora
+          </Button>
+        </motion.div>
+      )}
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -868,7 +924,7 @@ export default function CommissionManagementDashboard() {
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <AnimatedTableBody>
                     {commissionPlans.map((plan) => (
                       <TableRow key={plan._id}>
                         <TableCell className="font-medium">{plan.name}</TableCell>
@@ -896,7 +952,7 @@ export default function CommissionManagementDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </TableBody>
+                  </AnimatedTableBody>
                 </Table>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
@@ -946,7 +1002,7 @@ export default function CommissionManagementDashboard() {
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <AnimatedTableBody>
                     {commissionRecords.map((record) => (
                       <TableRow key={record._id}>
                         <TableCell className="font-medium">
@@ -973,7 +1029,7 @@ export default function CommissionManagementDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </TableBody>
+                  </AnimatedTableBody>
                 </Table>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
@@ -1153,7 +1209,7 @@ export default function CommissionManagementDashboard() {
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <AnimatedTableBody>
                     {goals.map((goal) => (
                       <TableRow key={goal._id}>
                         <TableCell className="font-medium">{goal.name}</TableCell>
@@ -1181,7 +1237,7 @@ export default function CommissionManagementDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </TableBody>
+                  </AnimatedTableBody>
                 </Table>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
@@ -1293,7 +1349,7 @@ export default function CommissionManagementDashboard() {
                       <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <AnimatedTableBody>
                     {bonuses.map((bonus) => (
                       <TableRow key={bonus._id}>
                         <TableCell className="font-medium">
@@ -1328,7 +1384,7 @@ export default function CommissionManagementDashboard() {
                         </TableCell>
                       </TableRow>
                     ))}
-                  </TableBody>
+                  </AnimatedTableBody>
                 </Table>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
@@ -1342,6 +1398,55 @@ export default function CommissionManagementDashboard() {
         </TabsContent>
       </Tabs>
       <ConfirmDialog />
-    </div>
+
+      {/* Rejection Dialog (replaces window.prompt) */}
+      <Dialog open={rejectDialog.open} onOpenChange={(val) => { if (!val) setRejectDialog(prev => ({ ...prev, open: false })); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rechazar {rejectDialog.type === 'commission' ? 'Comision' : 'Bono'}</DialogTitle>
+            <DialogDescription>
+              Indica la razon del rechazo. Esto sera visible para el empleado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Categoria</Label>
+              <Select
+                value={rejectDialog.category}
+                onValueChange={(val) => setRejectDialog(prev => ({ ...prev, category: val }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar razon..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Datos incorrectos">Datos incorrectos</SelectItem>
+                  <SelectItem value="Fuera de periodo">Fuera de periodo</SelectItem>
+                  <SelectItem value="Duplicada">Duplicada</SelectItem>
+                  <SelectItem value="No corresponde">No corresponde</SelectItem>
+                  <SelectItem value="Otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Detalle (opcional)</Label>
+              <Textarea
+                value={rejectDialog.reason}
+                onChange={(e) => setRejectDialog(prev => ({ ...prev, reason: e.target.value }))}
+                placeholder="Escribe detalles adicionales..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialog(prev => ({ ...prev, open: false }))}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmReject}>
+              Confirmar Rechazo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AnimatedPageWrapper>
   );
 }
