@@ -61,14 +61,23 @@ const normalizeStatus = (status) => {
   return status;
 };
 
+// Simplified 3-step timeline (industry standard: Shopify, Lightspeed, Cin7)
+// Internal statuses (draft, requested, approved, in_preparation) map to "Creado"
+// in_transit/delivered map to "En Camino"
+// received/partially_received map to "Recibido"
 const TIMELINE_STEPS_DISPLAY = [
-  { key: 'draft', label: 'Borrador' },
-  { key: 'requested', label: 'Solicitado' },
-  { key: 'approved', label: 'Aprobado' },
-  { key: 'in_preparation', label: 'Preparacion' },
-  { key: 'in_transit', label: 'En Transito' },
-  { key: 'received', label: 'Recibido' },
+  { key: 'created', label: 'Creado', matchStatuses: ['draft', 'requested', 'approved', 'in_preparation'] },
+  { key: 'in_transit', label: 'En Camino', matchStatuses: ['in_transit', 'delivered'] },
+  { key: 'received', label: 'Recibido', matchStatuses: ['received', 'partially_received'] },
 ];
+
+// Map any normalized status to the simplified timeline step
+const getSimplifiedStep = (normalizedStatus) => {
+  for (let i = 0; i < TIMELINE_STEPS_DISPLAY.length; i++) {
+    if (TIMELINE_STEPS_DISPLAY[i].matchStatuses.includes(normalizedStatus)) return i;
+  }
+  return 0;
+};
 
 export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
   const [order, setOrder] = useState(null);
@@ -231,6 +240,39 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
     }
   };
 
+  const handleExpressDispatch = async () => {
+    setActionLoading(true);
+    try {
+      const status = order.status;
+      const norm = normalizeStatus(status);
+
+      // Chain remaining transitions to reach in_transit
+      if (status === 'draft') {
+        await requestTransferOrder(orderId);
+      }
+      if (['draft', 'requested'].includes(norm) || status === 'draft') {
+        const approveFn = order.type === 'pull' ? approveTransferRequest : approveTransferOrder;
+        await approveFn(orderId);
+      }
+      if (['draft', 'requested', 'approved'].includes(norm) || status === 'draft') {
+        await prepareTransferOrder(orderId);
+      }
+      // Finally dispatch
+      await shipTransferOrder(orderId);
+
+      toast.success('Transferencia despachada — esperando recepcion en destino');
+      await loadOrder();
+      onUpdated?.();
+    } catch (err) {
+      console.warn('Express dispatch partially completed:', err);
+      toast.warning('Proceso parcialmente completado. Revisa el estado actual.');
+      await loadOrder();
+      onUpdated?.();
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
@@ -255,9 +297,11 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
   const statusConfig = STATUS_CONFIG[order.status] || STATUS_CONFIG.draft;
   const StatusIcon = statusConfig.icon;
   const normalizedStatus = normalizeStatus(order.status);
-  const currentStepIdx = TIMELINE_STEPS_DISPLAY.findIndex((s) => s.key === normalizedStatus);
+  const currentStepIdx = getSimplifiedStep(normalizedStatus);
   const canEdit = order.status === 'draft';
   const canRevert = ['push_requested', 'pull_requested', 'push_approved', 'pull_approved', 'requested', 'approved'].includes(order.status);
+  // Express dispatch: available for any pre-transit status (chains remaining transitions)
+  const canExpressDispatch = ['draft', 'push_requested', 'pull_requested', 'push_approved', 'pull_approved', 'requested', 'approved', 'in_preparation'].includes(order.status);
   const canRequest = order.status === 'draft';
   const canApprove = ['push_requested', 'pull_requested', 'requested'].includes(order.status);
   const canPrepare = ['push_approved', 'pull_approved', 'approved'].includes(order.status);
@@ -294,7 +338,7 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
           <div className="flex items-center justify-between">
             {TIMELINE_STEPS_DISPLAY.map((step, idx) => {
               const isActive = idx <= currentStepIdx && order.status !== 'cancelled';
-              const isCurrent = step.key === normalizedStatus;
+              const isCurrent = idx === currentStepIdx && order.status !== 'cancelled';
               return (
                 <div key={step.key} className="flex items-center flex-1">
                   <div className={`flex flex-col items-center ${isCurrent ? 'scale-110' : ''}`}>
@@ -427,43 +471,17 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
             Cancelar
           </Button>
         )}
-        {canRevert && (
-          <Button variant="outline" size="sm" onClick={() => setRevertDialogOpen(true)} disabled={actionLoading}>
-            <RotateCcw className="h-4 w-4 mr-1" />
-            Regresar a borrador
-          </Button>
-        )}
         {canEdit && (
           <Button variant="outline" size="sm" onClick={openEditDialog} disabled={actionLoading}>
             <Edit className="h-4 w-4 mr-1" />
             Editar
           </Button>
         )}
-        {canRequest && (
-          <Button variant="outline" size="sm" onClick={() => handleAction(requestTransferOrder, 'Transferencia solicitada')} disabled={actionLoading}>
-            {actionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
-            Solicitar
-          </Button>
-        )}
-        {canApprove && (
-          <Button variant="outline" size="sm" onClick={() => {
-            const approveFn = order.type === 'pull' ? approveTransferRequest : approveTransferOrder;
-            handleAction(approveFn, 'Transferencia aprobada');
-          }} disabled={actionLoading}>
-            {actionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-1" />}
-            Aprobar
-          </Button>
-        )}
-        {canPrepare && (
-          <Button variant="outline" size="sm" onClick={() => handleAction(prepareTransferOrder, 'Transferencia en preparacion')} disabled={actionLoading}>
-            {actionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ClipboardList className="h-4 w-4 mr-1" />}
-            Preparar
-          </Button>
-        )}
-        {canShip && (
-          <Button size="sm" onClick={() => handleAction(shipTransferOrder, 'Inventario despachado')} disabled={actionLoading}>
-            {actionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Truck className="h-4 w-4 mr-1" />}
-            Despachar
+        {/* Express dispatch: single button replaces request+approve+prepare+dispatch */}
+        {canExpressDispatch && (
+          <Button size="sm" onClick={handleExpressDispatch} disabled={actionLoading} className="bg-[#FB923C] hover:bg-[#F97316] text-white gap-1.5">
+            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Truck className="h-4 w-4" />}
+            Enviar ahora
           </Button>
         )}
         {canReceive && (

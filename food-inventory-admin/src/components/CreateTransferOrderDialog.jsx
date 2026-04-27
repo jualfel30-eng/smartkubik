@@ -9,18 +9,28 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge.jsx';
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
-import { getBusinessLocations, getSubsidiaries, createTransferOrder } from '@/lib/api';
+import { getBusinessLocations, getSubsidiaries, createTransferOrder, requestTransferOrder, approveTransferOrder, prepareTransferOrder, shipTransferOrder } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
-import { Plus, Trash2, Loader2, Search, MapPin, Building2, PackageOpen } from 'lucide-react';
+import { Plus, Trash2, Loader2, Search, MapPin, Building2, PackageOpen, Zap, Send } from 'lucide-react';
+
+const STORAGE_KEY = 'smartkubik_transfer_defaults';
+
+function loadDefaults() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  } catch { return {}; }
+}
+
+function saveDefaults(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch { /* */ }
+}
 
 export default function CreateTransferOrderDialog({ open, onOpenChange, onCreated }) {
   const { tenant } = useAuth();
 
-  // Transfer mode: 'sedes' (multi-tenant) or 'locations' (BusinessLocations)
   const [transferMode, setTransferMode] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Data sources
   const [subsidiaries, setSubsidiaries] = useState([]);
   const [locations, setLocations] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -30,16 +40,14 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loadingInventory, setLoadingInventory] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [expressMode, setExpressMode] = useState(false);
 
   const [form, setForm] = useState({
-    // Common fields
     sourceWarehouseId: '',
     destinationWarehouseId: '',
     notes: '',
     items: [],
-    // Multi-sede fields
     destinationTenantId: '',
-    // BusinessLocations fields
     sourceLocationId: '',
     destinationLocationId: '',
   });
@@ -50,20 +58,17 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     const load = async () => {
       setLoading(true);
       try {
-        // Fetch source warehouses (current tenant)
         const whs = await fetchApi('/warehouses');
-        setWarehouses(Array.isArray(whs) ? whs : whs?.data || []);
+        const whsList = Array.isArray(whs) ? whs : whs?.data || [];
+        setWarehouses(whsList);
 
-        // Detect transfer mode: try subsidiaries first, then locations
         let mode = null;
 
         // Try multi-sede mode
         try {
           const subsResponse = await getSubsidiaries();
           const sedes = subsResponse?.data || [];
-
           if (sedes.length > 0 || subsResponse?.isParent || subsResponse?.isSubsidiary) {
-            // Has sedes: use multi-sede mode
             setSubsidiaries(sedes);
             mode = 'sedes';
           }
@@ -76,7 +81,6 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           try {
             const locs = await getBusinessLocations({ isActive: true });
             const locationsList = Array.isArray(locs) ? locs : locs?.data || [];
-
             if (locationsList.length > 0) {
               setLocations(locationsList);
               mode = 'locations';
@@ -86,9 +90,37 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           }
         }
 
-        // Default to sedes mode if nothing found (allow creating first transfer)
         setTransferMode(mode || 'sedes');
 
+        // Smart defaults: remember last used source/destination
+        const defaults = loadDefaults();
+        const initialForm = {
+          sourceWarehouseId: '',
+          destinationWarehouseId: '',
+          notes: '',
+          items: [],
+          destinationTenantId: '',
+          sourceLocationId: '',
+          destinationLocationId: '',
+        };
+
+        // Auto-select source warehouse if only 1 exists
+        if (whsList.length === 1) {
+          initialForm.sourceWarehouseId = whsList[0]._id || whsList[0].id;
+        } else if (defaults.sourceWarehouseId && whsList.some(w => (w._id || w.id) === defaults.sourceWarehouseId)) {
+          initialForm.sourceWarehouseId = defaults.sourceWarehouseId;
+        }
+
+        // Restore last destination
+        if (mode === 'sedes' && defaults.destinationTenantId) {
+          initialForm.destinationTenantId = defaults.destinationTenantId;
+        }
+        if (mode === 'locations') {
+          if (defaults.sourceLocationId) initialForm.sourceLocationId = defaults.sourceLocationId;
+          if (defaults.destinationLocationId) initialForm.destinationLocationId = defaults.destinationLocationId;
+        }
+
+        setForm(initialForm);
       } catch (err) {
         console.error('Error loading data for transfer', err);
         toast.error('Error cargando datos para transferencia');
@@ -98,21 +130,11 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     };
 
     load();
-
-    // Reset form
-    setForm({
-      sourceWarehouseId: '',
-      destinationWarehouseId: '',
-      notes: '',
-      items: [],
-      destinationTenantId: '',
-      sourceLocationId: '',
-      destinationLocationId: '',
-    });
     setProductSearch('');
     setInventoryItems([]);
     setFilteredProducts([]);
     setDestinationWarehouses([]);
+    setExpressMode(false);
   }, [open]);
 
   // Fetch inventory when source warehouse changes
@@ -143,7 +165,6 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
 
     fetchInventory();
     setProductSearch('');
-    // Clear selected items since they belong to the previous warehouse's inventory
     setForm((f) => ({ ...f, items: [] }));
   }, [form.sourceWarehouseId]);
 
@@ -176,12 +197,13 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
 
     const fetchDestWarehouses = async () => {
       try {
-        // TODO: Backend needs to support ?tenantId=xxx parameter
-        // For now, we'll use the same warehouses endpoint which returns current tenant's warehouses
-        // The backend transfer-orders.service already validates warehouse belongs to destination tenant
         const response = await fetchApi(`/warehouses?tenantId=${form.destinationTenantId}`);
         const destWhs = Array.isArray(response) ? response : response?.data || [];
         setDestinationWarehouses(destWhs);
+        // Auto-select if only 1 destination warehouse
+        if (destWhs.length === 1) {
+          setForm((f) => ({ ...f, destinationWarehouseId: destWhs[0]._id || destWhs[0].id }));
+        }
       } catch (err) {
         console.error('Error fetching destination warehouses:', err);
         setDestinationWarehouses([]);
@@ -210,14 +232,12 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     }
     const populatedProduct = invRecord.productId && typeof invRecord.productId === 'object' ? invRecord.productId : null;
 
-    // Extract multi-unit configuration from populated product
     const hasMultiUnit = populatedProduct?.hasMultipleSellingUnits && populatedProduct?.sellingUnits?.length > 0;
     const activeSellingUnits = hasMultiUnit
       ? populatedProduct.sellingUnits.filter((u) => u.isActive !== false)
       : [];
     const baseUnit = populatedProduct?.unitOfMeasure || 'unidad';
 
-    // Build unit options: base unit first, then selling units
     const unitOptions = [
       { name: baseUnit, abbreviation: baseUnit, conversionFactor: 1, isBase: true },
       ...activeSellingUnits.map((u) => ({
@@ -237,18 +257,16 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           productName: invRecord.productName,
           productSku: invRecord.productSku,
           brand: populatedProduct?.brand || '',
-          availableQuantity: invRecord.availableQuantity, // always in base units
+          availableQuantity: invRecord.availableQuantity,
           quantity: 1,
-          // Multi-unit fields
           unitOptions,
           hasMultiUnit: unitOptions.length > 1,
           selectedUnit: unitOptions[0].abbreviation,
-          conversionFactor: 1, // start with base unit
+          conversionFactor: 1,
           unitOfMeasure: baseUnit,
         },
       ],
     }));
-    // Clear search to close dropdown after selection
     setProductSearch('');
   };
 
@@ -267,7 +285,6 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
         if (qty === '') return { ...i, quantity: '' };
         const rawValue = parseFloat(qty);
         if (isNaN(rawValue)) return { ...i, quantity: '' };
-        // Max available in selected unit
         const maxInUnit = i.conversionFactor !== 1
           ? i.availableQuantity / i.conversionFactor
           : i.availableQuantity;
@@ -284,7 +301,6 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
         if (i.productId !== productId) return i;
         const unit = i.unitOptions.find((u) => u.abbreviation === unitAbbreviation);
         if (!unit) return i;
-        // Reset quantity to 1 when changing unit
         return {
           ...i,
           selectedUnit: unit.abbreviation,
@@ -295,8 +311,9 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     }));
   };
 
-  const handleSave = async (autoRequest = false) => {
-    // Validation based on mode
+  const handleSave = async (mode = 'request') => {
+    // mode: 'draft' | 'request' | 'express'
+    // Validation
     if (transferMode === 'sedes') {
       if (!form.destinationTenantId) {
         toast.error('Selecciona sede destino');
@@ -327,6 +344,8 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     }
 
     setSaving(true);
+    if (mode === 'express') setExpressMode(true);
+
     try {
       const payload = {
         sourceWarehouseId: form.sourceWarehouseId,
@@ -337,15 +356,12 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           productName: i.productName,
           productSku: i.productSku,
           requestedQuantity: i.quantity,
-          // Always persist unit info so the detail view can display it correctly
           selectedUnit: i.selectedUnit,
           unitOfMeasure: i.unitOfMeasure,
-          // Only include conversionFactor when it's a non-base unit
           ...(i.conversionFactor !== 1 && { conversionFactor: i.conversionFactor }),
         })),
       };
 
-      // Add fields based on mode
       if (transferMode === 'sedes') {
         payload.destinationTenantId = form.destinationTenantId;
       } else if (transferMode === 'locations') {
@@ -353,15 +369,38 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
         payload.destinationLocationId = form.destinationLocationId;
       }
 
+      // Save defaults for next time
+      saveDefaults({
+        sourceWarehouseId: form.sourceWarehouseId,
+        destinationTenantId: form.destinationTenantId,
+        sourceLocationId: form.sourceLocationId,
+        destinationLocationId: form.destinationLocationId,
+      });
+
       const createdOrder = await createTransferOrder(payload);
       const orderId = createdOrder?._id || createdOrder?.id;
 
-      // If autoRequest is true, automatically call request endpoint
-      if (autoRequest && orderId) {
-        await fetchApi(`/transfer-orders/${orderId}/request`, { method: 'POST' });
-        toast.success('Transferencia creada y solicitada exitosamente');
-      } else {
+      if (mode === 'draft') {
         toast.success('Transferencia guardada como borrador');
+      } else if (mode === 'request') {
+        if (orderId) {
+          await requestTransferOrder(orderId);
+          toast.success('Transferencia creada y solicitada');
+        }
+      } else if (mode === 'express' && orderId) {
+        // Express: request → approve → prepare → dispatch (all in sequence)
+        toast.loading('Procesando transferencia express...', { id: 'express' });
+        try {
+          await requestTransferOrder(orderId);
+          await approveTransferOrder(orderId);
+          await prepareTransferOrder(orderId);
+          await shipTransferOrder(orderId);
+          toast.success('Transferencia enviada — esperando recepcion en destino', { id: 'express' });
+        } catch (expressErr) {
+          // If any step fails, the order is still created at whatever step it reached
+          console.warn('Express flow partially completed:', expressErr);
+          toast.warning('Transferencia creada pero el envio express no se completo. Revisa el estado en el detalle.', { id: 'express' });
+        }
       }
 
       onCreated?.();
@@ -370,6 +409,7 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
       toast.error(err?.message || 'Error creando transferencia');
     } finally {
       setSaving(false);
+      setExpressMode(false);
     }
   };
 
@@ -398,7 +438,7 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            Nueva Transferencia de Inventario
+            Nueva Transferencia
             {transferMode && (
               <Badge variant="outline" className="text-[10px]">
                 {transferMode === 'sedes' ? (
@@ -418,10 +458,9 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
             <div className="space-y-3">
               <h4 className="text-sm font-medium text-success">Origen</h4>
 
-              {/* Source location (only for BusinessLocations mode) */}
               {transferMode === 'locations' && (
                 <div>
-                  <Label>Ubicación origen</Label>
+                  <Label>Ubicacion origen</Label>
                   <Select
                     value={form.sourceLocationId}
                     onValueChange={(v) =>
@@ -443,7 +482,6 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
                 </div>
               )}
 
-              {/* Source sede (multi-sede mode - always current tenant) */}
               {transferMode === 'sedes' && (
                 <div>
                   <Label>Sede origen</Label>
@@ -453,9 +491,8 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
                 </div>
               )}
 
-              {/* Source warehouse */}
               <div>
-                <Label>Almacén origen</Label>
+                <Label>Almacen origen</Label>
                 <Select
                   value={form.sourceWarehouseId}
                   onValueChange={(v) => setForm((f) => ({ ...f, sourceWarehouseId: v }))}
@@ -478,10 +515,9 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
             <div className="space-y-3">
               <h4 className="text-sm font-medium text-info">Destino</h4>
 
-              {/* Destination location (only for BusinessLocations mode) */}
               {transferMode === 'locations' && (
                 <div>
-                  <Label>Ubicación destino</Label>
+                  <Label>Ubicacion destino</Label>
                   <Select
                     value={form.destinationLocationId}
                     onValueChange={(v) =>
@@ -503,7 +539,6 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
                 </div>
               )}
 
-              {/* Destination sede (multi-sede mode) */}
               {transferMode === 'sedes' && (
                 <div>
                   <Label>Sede destino</Label>
@@ -519,7 +554,6 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
                         const id = sede._id || sede.id;
                         const currentTenantId = tenant?._id || tenant?.id;
                         const isCurrent = id === currentTenantId;
-
                         return (
                           <SelectItem key={id} value={id} disabled={isCurrent}>
                             <div className="flex items-center gap-2">
@@ -536,9 +570,8 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
                 </div>
               )}
 
-              {/* Destination warehouse */}
               <div>
-                <Label>Almacén destino</Label>
+                <Label>Almacen destino</Label>
                 <Select
                   value={form.destinationWarehouseId}
                   onValueChange={(v) => setForm((f) => ({ ...f, destinationWarehouseId: v }))}
@@ -574,7 +607,7 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
             {!form.sourceWarehouseId ? (
               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                 <PackageOpen className="h-3.5 w-3.5" />
-                Selecciona un almacén de origen para ver productos disponibles
+                Selecciona un almacen de origen para ver productos disponibles
               </p>
             ) : (
               <>
@@ -598,7 +631,7 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
                 )}
                 {inventoryItems.length === 0 && !loadingInventory && form.sourceWarehouseId && (
                   <p className="text-xs text-orange-500 mt-1">
-                    No hay productos con inventario en este almacén
+                    No hay productos con inventario en este almacen
                   </p>
                 )}
                 {productSearch.trim() && filteredProducts.length > 0 && (
@@ -745,17 +778,23 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 sm:gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>
-          <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Guardar borrador
-          </Button>
-          <Button onClick={() => handleSave(true)} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Crear y solicitar
+
+          {/* Express: create + request + approve + prepare + dispatch in one click */}
+          <Button
+            onClick={() => handleSave('express')}
+            disabled={saving}
+            className="bg-[#FB923C] hover:bg-[#F97316] text-white gap-2"
+          >
+            {saving && expressMode ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Zap className="h-4 w-4" />
+            )}
+            Enviar ahora
           </Button>
         </DialogFooter>
       </DialogContent>
