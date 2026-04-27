@@ -433,7 +433,7 @@ function SidebarMenu({
     <ul
       data-slot="sidebar-menu"
       data-sidebar="menu"
-      className={cn("flex w-full min-w-0 flex-col gap-0.5 md:gap-2", className)}
+      className={cn("flex w-full min-w-0 flex-col gap-0.5 md:gap-[0.525rem]", className)}
       {...props} />
   );
 }
@@ -452,7 +452,7 @@ function SidebarMenuItem({
 }
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-1.5 overflow-hidden rounded-md p-1.5 text-left text-sm text-sidebar-foreground/65 md:gap-1 md:px-[5px] md:py-[3px] md:text-[0.68rem] 2xl:h-7 outline-hidden ring-sidebar-ring transition-[width,height,padding,background-color,color,transform] duration-150 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:translate-x-0.5 focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground md:h-[22px] group-data-[collapsible=icon]:!w-full group-data-[collapsible=icon]:!h-8 md:group-data-[collapsible=icon]:!h-[22px] 2xl:group-data-[collapsible=icon]:!h-7 group-data-[collapsible=icon]:!justify-center group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:hover:!translate-x-0 [&>span:last-child]:truncate [&>svg]:size-4 md:[&>svg]:size-[0.78rem] xl:[&>svg]:size-5 2xl:[&>svg]:size-5 [&>svg]:shrink-0 group-data-[collapsible=icon]:[&>svg]:mx-auto",
+  "peer/menu-button flex w-full items-center gap-1.5 overflow-hidden rounded-md p-1.5 text-left text-sm text-sidebar-foreground/65 md:gap-1 md:px-[5px] md:py-[3px] md:text-[0.68rem] 2xl:h-7 outline-hidden ring-sidebar-ring transition-[width,height,padding,background-color,color,transform] duration-150 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:translate-x-0.5 focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground md:h-[22px] group-data-[collapsible=icon]:!w-full group-data-[collapsible=icon]:!h-8 md:group-data-[collapsible=icon]:!h-[22px] 2xl:group-data-[collapsible=icon]:!h-7 group-data-[collapsible=icon]:!justify-center group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:hover:!translate-x-0 [&>span:last-child]:truncate [&>svg]:size-4 md:[&>svg]:size-[0.62rem] xl:[&>svg]:size-4 2xl:[&>svg]:size-4 [&>svg]:shrink-0 group-data-[collapsible=icon]:[&>svg]:mx-auto",
   {
     variants: {
       variant: {
@@ -606,7 +606,7 @@ function SidebarMenuSub({
       data-slot="sidebar-menu-sub"
       data-sidebar="menu-sub"
       className={cn(
-        "border-sidebar-border mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 md:gap-4 border-l px-2.5 py-0.5 md:py-2",
+        "border-sidebar-border mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 md:gap-3 border-l px-2.5 py-0.5 md:py-2",
         "group-data-[collapsible=icon]:hidden",
         className
       )}

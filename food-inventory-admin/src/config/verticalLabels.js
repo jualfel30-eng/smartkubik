@@ -7,6 +7,14 @@
 
 export const VERTICAL_LABELS = {
   'barbershop-salon': {
+    // Calendario / Agenda
+    calendar: {
+      pageTitle: 'Agenda de Citas',
+      tabLabel: 'Calendario de Citas',
+      newButton: 'Nueva Cita',
+      emptyTitle: 'Sin citas programadas',
+      emptyDescription: 'Crea tu primera cita o comparte tu link de reservas',
+    },
     // Recursos (estaciones, sillas)
     recurso: {
       singular: 'Estación',
@@ -54,6 +62,14 @@ export const VERTICAL_LABELS = {
   },
 
   'mechanic-shop': {
+    // Calendario / Agenda
+    calendar: {
+      pageTitle: 'Agenda de Servicios',
+      tabLabel: 'Calendario de Citas de Servicio',
+      newButton: 'Nueva Cita de Servicio',
+      emptyTitle: 'Sin citas programadas',
+      emptyDescription: 'Registra tu primera cita de servicio',
+    },
     recurso: {
       singular: 'Bahía',
       plural: 'Bahías / Equipos',
@@ -92,6 +108,14 @@ export const VERTICAL_LABELS = {
   },
 
   'clinic-spa': {
+    // Calendario / Agenda
+    calendar: {
+      pageTitle: 'Agenda de Consultas',
+      tabLabel: 'Calendario de Consultas',
+      newButton: 'Nueva Consulta',
+      emptyTitle: 'Sin consultas programadas',
+      emptyDescription: 'Programa tu primera consulta',
+    },
     recurso: {
       singular: 'Consultorio',
       plural: 'Consultorios',
@@ -130,6 +154,14 @@ export const VERTICAL_LABELS = {
   },
 
   'hospitality': {
+    // Calendario / Agenda
+    calendar: {
+      pageTitle: 'Agenda de Reservas',
+      tabLabel: 'Calendario de Reservas',
+      newButton: 'Nueva Reserva',
+      emptyTitle: 'Sin reservas programadas',
+      emptyDescription: 'Registra tu primera reservación',
+    },
     recurso: {
       singular: 'Habitación',
       plural: 'Habitaciones',

@@ -10,8 +10,9 @@ import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet.jsx';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
+// Table import removed — list view replaced by Command Panel
+// Tabs removed — unified calendar + command panel layout
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible.jsx';
 import { SearchableSelect } from '@/components/orders/v2/custom/SearchableSelect.jsx';
 import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
@@ -22,6 +23,14 @@ import ModuleAccessDenied from './ModuleAccessDenied';
 import { AppointmentsCalendar } from './appointments/AppointmentsCalendar.jsx';
 import { AppointmentsPaymentDialog } from './hospitality/AppointmentsPaymentDialog.jsx';
 import CommissionSetupPrompt, { shouldShowCommissionPrompt } from './beauty/CommissionSetupPrompt.jsx';
+import AppointmentsSummaryHeader from './appointments/AppointmentsSummaryHeader.jsx';
+import AppointmentDetailPanel from './appointments/AppointmentDetailPanel.jsx';
+import CompletionOverlay from './appointments/CompletionOverlay.jsx';
+import InsightsWidget from './appointments/InsightsWidget.jsx';
+import DesktopWalkInWizard from './appointments/DesktopWalkInWizard.jsx';
+import AppointmentsHistory from './appointments/AppointmentsHistory.jsx';
+import DesktopBookingWizard from './appointments/DesktopBookingWizard.jsx';
+import FloorPanel from './appointments/FloorPanel.jsx';
 import {
   Plus,
   Calendar,
@@ -38,6 +47,8 @@ import {
   ChevronDown,
   ChevronUp,
   DollarSign,
+  List,
+  History,
 } from 'lucide-react';
 
 const UNASSIGNED_RESOURCE = '__UNASSIGNED__';
@@ -244,6 +255,15 @@ function AppointmentsManagement() {
       startTime: booking.date && booking.startTime
         ? `${new Date(booking.date).toISOString().slice(0, 10)}T${booking.startTime}:00`
         : booking.startTime,
+      endTime: (() => {
+        if (!booking.date || !booking.startTime) return booking.endTime;
+        const dur = booking.totalDuration || 60;
+        const [h, m] = booking.startTime.split(':').map(Number);
+        const endMins = h * 60 + m + dur;
+        const eh = String(Math.floor(endMins / 60) % 24).padStart(2, '0');
+        const em = String(endMins % 60).padStart(2, '0');
+        return `${new Date(booking.date).toISOString().slice(0, 10)}T${eh}:${em}:00`;
+      })(),
       // Keep original fields for beauty-specific display
       bookingNumber: booking.bookingNumber,
       totalPrice: booking.totalPrice,
@@ -261,23 +281,16 @@ function AppointmentsManagement() {
   const [services, setServices] = useState([]);
   const [resources, setResources] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'list');
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [completedAppointment, setCompletedAppointment] = useState(null);
+  const [walkInOpen, setWalkInOpen] = useState(false);
+  const [bookingWizardOpen, setBookingWizardOpen] = useState(false);
+  const [walkInProfessionalId, setWalkInProfessionalId] = useState(null);
 
-  // Sincronizar activeTab con searchParams cuando cambia la URL
-  useEffect(() => {
-    const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && tabFromUrl !== activeTab) {
-      setActiveTab(tabFromUrl);
-    }
-  }, [searchParams, activeTab]);
-
-  // Manejador para cambiar tabs (actualiza estado y URL)
-  const handleTabChange = (newTab) => {
-    setActiveTab(newTab);
-    setSearchParams({ tab: newTab }, { replace: true });
-  };
   const [formData, setFormData] = useState({ ...initialAppointmentState });
   const [loading, setLoading] = useState(false);
   const [customerProfile, setCustomerProfile] = useState({ ...initialCustomerProfile });
@@ -423,6 +436,11 @@ function AppointmentsManagement() {
     const nextTaxInfo = {
       ...(currentRecord?.taxInfo || {}),
     };
+    // Always ensure taxType is a valid enum value — the spread above may copy an empty string
+    // from legacy records, which fails backend validation.
+    if (!nextTaxInfo.taxType || !['V', 'E', 'J', 'G', 'P', 'N'].includes(nextTaxInfo.taxType)) {
+      nextTaxInfo.taxType = preparedTaxType;
+    }
     let taxInfoChanged = false;
 
     if (preparedTaxType && preparedTaxType !== (currentRecord?.taxInfo?.taxType || initialCustomerProfile.taxType)) {
@@ -455,7 +473,7 @@ function AppointmentsManagement() {
       taxInfoChanged = true;
     }
 
-    if (taxInfoChanged) {
+    if (taxInfoChanged && nextTaxInfo.taxId) {
       updates.taxInfo = nextTaxInfo;
     }
 
@@ -1950,10 +1968,14 @@ function AppointmentsManagement() {
         body: JSON.stringify({ status: newStatus }),
       });
       await loadAppointments();
-      // Auto-open payment dialog when marking a beauty booking as completed
-      if (isBeautyVertical && newStatus === 'completed') {
+      // Trigger completion ceremony
+      if (newStatus === 'completed') {
         const apt = appointments.find((a) => a._id === appointmentId) || { _id: appointmentId };
-        await handleOpenPaymentDialog(apt);
+        setCompletedAppointment(apt);
+        // Auto-open payment dialog when marking a beauty booking as completed
+        if (isBeautyVertical) {
+          await handleOpenPaymentDialog(apt);
+        }
       }
     } catch (error) {
       console.error('Error updating status:', error);
@@ -1983,10 +2005,14 @@ function AppointmentsManagement() {
     <div className="p-6 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Agenda de Citas</h1>
+          <h1 className="text-3xl font-bold">{labels.calendar?.pageTitle || 'Agenda'}</h1>
           <p className="text-gray-500">{labels.appointmentsDescription}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setHistoryOpen(true)}>
+            <History className="h-4 w-4 mr-2" />
+            Historial
+          </Button>
           <Button variant="outline" onClick={openBlockDialog}>
             <Plus className="h-4 w-4 mr-2" />
             Bloque {labels.recurso.singularLower}
@@ -1995,214 +2021,103 @@ function AppointmentsManagement() {
             <Plus className="h-4 w-4 mr-2" />
             {labels.blockGroupTitle}
           </Button>
-          <Button onClick={openCreateDialog}>
+          <Button onClick={() => setBookingWizardOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
-            Nueva Cita
+            {labels.calendar?.newButton || 'Nueva Cita'}
           </Button>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="list">Lista</TabsTrigger>
-          <TabsTrigger value="calendar">{isBeautyVertical ? 'Calendario' : 'Calendario hotel'}</TabsTrigger>
-        </TabsList>
+      <AppointmentsSummaryHeader
+        appointments={appointments}
+        resources={resources}
+        businessHours={tenant?.settings?.businessHours || { start: '08:00', end: '20:00' }}
+        labels={labels}
+      />
 
-        <TabsContent value="list" className="space-y-6">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <Label>Desde</Label>
-                  <Input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                  />
-                </div>
+      <InsightsWidget appointments={appointments} resources={resources} />
 
-                <div>
-                  <Label>Hasta</Label>
-                  <Input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
-                  />
-                </div>
+      {/* Floor Panel + Calendar + Command Panel */}
+      <div className="flex gap-4" style={{ minHeight: '600px' }}>
+        {/* Floor Panel — left side (beauty only) */}
+        {isBeautyVertical && (
+          <FloorPanel
+            onWalkIn={(professionalId) => {
+              setWalkInProfessionalId(professionalId || null);
+              setWalkInOpen(true);
+            }}
+            onComplete={() => loadAppointments()}
+          />
+        )}
 
-                <div>
-                  <Label>Estado</Label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="pending">Pendientes</SelectItem>
-                      <SelectItem value="confirmed">Confirmadas</SelectItem>
-                      <SelectItem value="in_progress">En progreso</SelectItem>
-                      <SelectItem value="completed">Completadas</SelectItem>
-                      <SelectItem value="cancelled">Canceladas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        {/* Calendar — center */}
+        <div className="flex-1 min-w-0">
+          <AppointmentsCalendar
+            onCreateAppointment={(date) => {
+              if (date) setSelectedDate(typeof date === 'string' ? date : new Date(date).toISOString().split('T')[0]);
+              setSelectedAppointment(null);
+            }}
+            onReschedule={handleCalendarReschedule}
+            onDayClick={(dateStr) => {
+              setSelectedDate(dateStr);
+              setSelectedAppointment(null);
+            }}
+            onAppointmentClick={(apt) => setSelectedAppointment(apt)}
+            navigateToDate={selectedDate}
+            calendarEndpoint={isBeautyVertical ? endpoints.appointments : '/appointments/calendar'}
+            transformAppointment={isBeautyVertical ? transformBeautyBooking : undefined}
+          />
+        </div>
 
-                <div className="flex items-end">
-                  <Button onClick={loadAppointments} className="w-full">
-                    Buscar
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {appointments.length} cita{appointments.length !== 1 ? 's' : ''}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha/Hora</TableHead>
-                    <TableHead>{labels.cliente.singular}</TableHead>
-                    <TableHead>Servicio</TableHead>
-                    <TableHead>{labels.recurso.singular}</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {appointments.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6}>
-                        <EmptyState
-                          icon={Calendar}
-                          title="Sin citas en este rango"
-                          description="No se encontraron citas en las fechas seleccionadas. Ajusta el rango o crea una nueva cita."
-                          actionLabel="Nueva cita"
-                          onAction={() => openCreateDialog()}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    appointments.map((apt) => (
-                      <TableRow key={apt._id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-gray-400" />
-                            <div>
-                              <div className="font-medium">
-                                {new Date(apt.startTime).toLocaleDateString('es-VE', {
-                                  weekday: 'short',
-                                  month: 'short',
-                                  day: 'numeric',
-                                })}
-                              </div>
-                              <div className="text-sm text-gray-500 flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {new Date(apt.startTime).toLocaleTimeString('es-VE', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-gray-400" />
-                            <div>
-                              <div className="font-medium">
-                                {apt.customerName}
-                                {apt.isRecurring && (
-                                  <span title="Cita recurrente" className="ml-1 text-xs opacity-60">
-                                    🔄
-                                  </span>
-                                )}
-                              </div>
-                              {apt.customerPhone && (
-                                <div className="text-sm text-gray-500">{apt.customerPhone}</div>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {apt.serviceName || 'Sin servicio'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {apt.resourceName || <span className="text-gray-400">-</span>}
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={apt.status}
-                            onValueChange={(value) => handleStatusChange(apt._id, value)}
-                          >
-                            <SelectTrigger className="w-[160px]">
-                              {getStatusBadge(apt.status)}
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(STATUS_CONFIG).map(([value, config]) => (
-                                <SelectItem key={value} value={value}>
-                                  {config.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            {isBeautyVertical && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="Cobrar"
-                                onClick={() => handleOpenPaymentDialog(apt)}
-                                className="text-success hover:text-success hover:bg-success/5 dark:hover:bg-green-950"
-                              >
-                                <DollarSign className="h-4 w-4" />
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditDialog(apt)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(apt._id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="calendar">
-          <AppointmentsCalendar onCreateAppointment={openCreateDialog} onReschedule={handleCalendarReschedule} />
-        </TabsContent>
-      </Tabs>
+        {/* Command Panel — right side */}
+        <div className="w-[380px] shrink-0 hidden lg:block relative">
+          <AppointmentDetailPanel
+            selectedDate={selectedDate}
+            selectedAppointment={selectedAppointment}
+            appointments={appointments}
+            labels={labels}
+            isBeautyVertical={isBeautyVertical}
+            onStatusChange={handleStatusChange}
+            onEdit={openEditDialog}
+            onDelete={handleDelete}
+            onPayment={handleOpenPaymentDialog}
+            onSelectAppointment={setSelectedAppointment}
+            onClearSelection={() => setSelectedAppointment(null)}
+            onDateChange={(dateStr) => {
+              setSelectedDate(dateStr);
+              setSelectedAppointment(null);
+            }}
+            onCreateAppointment={() => setBookingWizardOpen(true)}
+            onWalkIn={() => {
+              if (isBeautyVertical) {
+                setWalkInOpen(true);
+              } else {
+                openCreateDialog(selectedDate);
+              }
+            }}
+            className="h-full"
+          />
+          <CompletionOverlay
+            appointment={completedAppointment}
+            dailyTotal={appointments
+              .filter(a => {
+                const d = new Date(a.startTime).toISOString().split('T')[0];
+                const today = new Date().toISOString().split('T')[0];
+                return d === today && a.status === 'completed';
+              })
+              .reduce((sum, a) => sum + (Number(a.totalPrice) || 0), 0)}
+            onPayment={isBeautyVertical ? handleOpenPaymentDialog : undefined}
+            onDismiss={() => setCompletedAppointment(null)}
+          />
+        </div>
+      </div>
 
       {/* Create/Edit Sheet */}
       <Sheet open={isDialogOpen} onOpenChange={handleDialogChange}>
         <SheetContent className="w-full sm:max-w-3xl overflow-y-auto dark:bg-gray-900 dark:border-gray-800">
           <SheetHeader>
             <SheetTitle className="dark:text-gray-100">
-              {editingAppointment ? 'Editar Cita' : 'Nueva Cita'}
+              {editingAppointment ? `Editar ${labels.cita?.singular || 'Cita'}` : (labels.calendar?.newButton || 'Nueva Cita')}
             </SheetTitle>
             <SheetDescription className="dark:text-gray-400">
               Completa la información de la cita y asigna un {labels.recurso.singularLower} opcional antes de guardar.
@@ -2224,100 +2139,100 @@ function AppointmentsManagement() {
                 />
               </div>
 
-              <div className="col-span-2 grid grid-cols-1 gap-3 md:grid-cols-4">
-                <div className="space-y-2">
-                  <Label htmlFor="customer-tax-type">Tipo de documento</Label>
-                  <Select
-                    value={customerProfile.taxType}
-                    onValueChange={(value) =>
-                      setCustomerProfile((prev) => ({ ...prev, taxType: value }))
-                    }
-                    disabled={customerDetailLoading}
-                  >
-                    <SelectTrigger id="customer-tax-type">
-                      <SelectValue placeholder="Tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="V">V</SelectItem>
-                      <SelectItem value="E">E</SelectItem>
-                      <SelectItem value="J">J</SelectItem>
-                      <SelectItem value="G">G</SelectItem>
-                      <SelectItem value="P">P</SelectItem>
-                      <SelectItem value="N">N</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customer-tax-id">Nº C.I / RIF</Label>
-                  <Input
-                    id="customer-tax-id"
-                    value={customerProfile.taxId}
-                    onChange={(event) =>
-                      setCustomerProfile((prev) => ({ ...prev, taxId: event.target.value }))
-                    }
-                    placeholder="Ej: V-12345678"
-                    autoComplete="off"
-                    disabled={customerDetailLoading}
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="customer-tax-name">Nombre fiscal</Label>
-                  <Input
-                    id="customer-tax-name"
-                    value={customerProfile.taxName}
-                    onChange={(event) =>
-                      setCustomerProfile((prev) => ({ ...prev, taxName: event.target.value }))
-                    }
-                    placeholder="Razón social o nombre en factura"
-                    autoComplete="off"
-                    disabled={customerDetailLoading}
-                  />
-                </div>
-              </div>
+              <Collapsible className="col-span-2">
+                <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-1">
+                  <ChevronDown className="h-3.5 w-3.5" />
+                  <span>Datos fiscales y contacto</span>
+                  {customerDetailLoading && <Loader2 className="h-3 w-3 animate-spin ml-auto" />}
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-3 pt-2">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="customer-tax-type">Tipo de documento</Label>
+                      <Select
+                        value={customerProfile.taxType}
+                        onValueChange={(value) =>
+                          setCustomerProfile((prev) => ({ ...prev, taxType: value }))
+                        }
+                        disabled={customerDetailLoading}
+                      >
+                        <SelectTrigger id="customer-tax-type">
+                          <SelectValue placeholder="Tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="V">V</SelectItem>
+                          <SelectItem value="E">E</SelectItem>
+                          <SelectItem value="J">J</SelectItem>
+                          <SelectItem value="G">G</SelectItem>
+                          <SelectItem value="P">P</SelectItem>
+                          <SelectItem value="N">N</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customer-tax-id">Nº C.I / RIF</Label>
+                      <Input
+                        id="customer-tax-id"
+                        value={customerProfile.taxId}
+                        onChange={(event) =>
+                          setCustomerProfile((prev) => ({ ...prev, taxId: event.target.value }))
+                        }
+                        placeholder="Ej: V-12345678"
+                        autoComplete="off"
+                        disabled={customerDetailLoading}
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="customer-tax-name">Nombre fiscal</Label>
+                      <Input
+                        id="customer-tax-name"
+                        value={customerProfile.taxName}
+                        onChange={(event) =>
+                          setCustomerProfile((prev) => ({ ...prev, taxName: event.target.value }))
+                        }
+                        placeholder="Razón social o nombre en factura"
+                        autoComplete="off"
+                        disabled={customerDetailLoading}
+                      />
+                    </div>
+                  </div>
 
-              <div className="col-span-2 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="customer-phone">Teléfono</Label>
-                  <Input
-                    id="customer-phone"
-                    type="tel"
-                    value={customerProfile.phone}
-                    onChange={(event) =>
-                      setCustomerProfile((prev) => ({ ...prev, phone: event.target.value }))
-                    }
-                    placeholder="Ej: +58 412 1234567"
-                    autoComplete="tel"
-                    disabled={customerDetailLoading}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customer-email">Correo electrónico</Label>
-                  <Input
-                    id="customer-email"
-                    type="email"
-                    value={customerProfile.email}
-                    onChange={(event) =>
-                      setCustomerProfile((prev) => ({ ...prev, email: event.target.value }))
-                    }
-                    placeholder="cliente@ejemplo.com"
-                    autoComplete="email"
-                    disabled={customerDetailLoading}
-                  />
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="customer-phone">Teléfono</Label>
+                      <Input
+                        id="customer-phone"
+                        type="tel"
+                        value={customerProfile.phone}
+                        onChange={(event) =>
+                          setCustomerProfile((prev) => ({ ...prev, phone: event.target.value }))
+                        }
+                        placeholder="Ej: +58 412 1234567"
+                        autoComplete="tel"
+                        disabled={customerDetailLoading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="customer-email">Correo electrónico</Label>
+                      <Input
+                        id="customer-email"
+                        type="email"
+                        value={customerProfile.email}
+                        onChange={(event) =>
+                          setCustomerProfile((prev) => ({ ...prev, email: event.target.value }))
+                        }
+                        placeholder="cliente@ejemplo.com"
+                        autoComplete="email"
+                        disabled={customerDetailLoading}
+                      />
+                    </div>
+                  </div>
 
-              <div className="col-span-2 text-xs text-muted-foreground flex items-center gap-2">
-                {customerDetailLoading ? (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Cargando datos del cliente…</span>
-                  </>
-                ) : (
-                  <span>
-                    Los datos fiscales y de contacto se sincronizan con el CRM al guardar la cita.
-                  </span>
-                )}
-              </div>
+                  <p className="text-xs text-muted-foreground">
+                    Los datos fiscales y de contacto se sincronizan con el CRM al guardar.
+                  </p>
+                </CollapsibleContent>
+              </Collapsible>
 
               <div className={isBeautyVertical ? 'col-span-2' : ''}>
                 <Label htmlFor="serviceId">{isBeautyVertical ? 'Servicios' : 'Servicio'}</Label>
@@ -2461,16 +2376,21 @@ function AppointmentsManagement() {
                 />
               </div>
 
-              <div className="col-span-2">
-                <Label htmlFor="notes">Notas</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Notas adicionales..."
-                  rows={3}
-                />
-              </div>
+              <Collapsible className="col-span-2">
+                <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full py-1">
+                  <ChevronDown className="h-3.5 w-3.5" />
+                  <span>Notas {formData.notes ? '(1)' : '(opcional)'}</span>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2">
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Notas adicionales..."
+                    rows={3}
+                  />
+                </CollapsibleContent>
+              </Collapsible>
             </div>
 
             {/* Sección de depósitos - Solo para hospitality */}
@@ -3566,6 +3486,42 @@ function AppointmentsManagement() {
         onClose={() => setShowCommissionPrompt(false)}
       />
       <ConfirmDialog />
+
+      {/* Walk-in Wizard (beauty only) */}
+      {isBeautyVertical && (
+        <DesktopWalkInWizard
+          open={walkInOpen}
+          onClose={(created) => {
+            setWalkInOpen(false);
+            setWalkInProfessionalId(null);
+            if (created) loadAppointments();
+          }}
+          preselectedDate={selectedDate}
+          initialProfessionalId={walkInProfessionalId}
+        />
+      )}
+
+      {/* Booking Wizard */}
+      <DesktopBookingWizard
+        open={bookingWizardOpen}
+        onClose={(created) => {
+          setBookingWizardOpen(false);
+          if (created) loadAppointments();
+        }}
+        preselectedDate={selectedDate}
+        isBeautyVertical={isBeautyVertical}
+        endpoints={endpoints}
+      />
+
+      {/* Appointments History */}
+      <AppointmentsHistory
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        endpoint={isBeautyVertical ? endpoints.appointments : '/appointments/calendar'}
+        isBeautyVertical={isBeautyVertical}
+        transformAppointment={isBeautyVertical ? transformBeautyBooking : undefined}
+        labels={labels}
+      />
     </div>
   );
 }

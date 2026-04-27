@@ -3,57 +3,26 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchApi } from '../lib/api';
 import { Table, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, CreditCard, MessageSquare, Eye, X, Search } from 'lucide-react';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ArrowLeft, CreditCard, MessageSquare, X, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body';
 import { EmptyState } from '@/components/ui/empty-state';
+import { DataHighlight } from '@/components/ui/data-highlight';
+import { ContentTransition } from '@/components/ui/content-transition';
+import { TableSkeleton } from '@/components/ui/page-loading';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/currency-utils';
+import { URGENCY_STYLES, getUrgency, getDaysLabel, getARStatusInfo } from '@/lib/invoice-constants';
 import { fadeUp } from '@/lib/motion';
 import ARSummaryCards from './accounts-receivable/ARSummaryCards';
 import RecordReceivablePaymentDialog from './accounts-receivable/RecordReceivablePaymentDialog';
-
-const getUrgency = (dueDate, status) => {
-  if (status === 'paid') return 'current';
-  if (!dueDate) return 'current';
-  const days = Math.floor((new Date() - new Date(dueDate)) / 86400000);
-  if (days > 0) return 'overdue';
-  if (days > -7) return 'due-soon';
-  return 'current';
-};
-
-const urgencyStyles = {
-  overdue: 'border-l-4 border-l-red-500 bg-red-500/5',
-  'due-soon': 'border-l-4 border-l-amber-500',
-  current: '',
-};
-
-const getDaysLabel = (dueDate) => {
-  if (!dueDate) return null;
-  const days = Math.floor((new Date() - new Date(dueDate)) / 86400000);
-  if (days > 0) return { text: `Vencida hace ${days} día${days === 1 ? '' : 's'}`, className: 'text-destructive text-xs' };
-  if (days === 0) return { text: 'Vence hoy', className: 'text-amber-600 dark:text-amber-400 text-xs' };
-  if (days > -7) return { text: `Vence en ${Math.abs(days)} día${Math.abs(days) === 1 ? '' : 's'}`, className: 'text-amber-600 dark:text-amber-400 text-xs' };
-  return null;
-};
-
-const getStatusBadge = (status, dueDate) => {
-  const isOverdue = dueDate && new Date(dueDate) < new Date();
-  if (status === 'paid') return { variant: 'default', label: 'Pagado', className: 'bg-success/10 text-green-800 dark:text-green-400' };
-  if (status === 'partial') return { variant: 'secondary', label: 'Parcial', className: 'bg-warning/10 text-yellow-800 dark:text-yellow-400' };
-  if (isOverdue) return { variant: 'destructive', label: 'Vencida', className: '' };
-  return { variant: 'outline', label: 'Pendiente', className: '' };
-};
-
-const sendWhatsAppReminder = (row) => {
-  const msg = `Hola ${row.customerName}, le recordamos que tiene un saldo pendiente de ${formatCurrency(Number(row.balance))} correspondiente a la orden #${row.orderNumber}. Agradecemos su pronto pago. Gracias.`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-};
 
 const AccountsReceivableReport = () => {
   const [reportData, setReportData] = useState([]);
@@ -61,17 +30,13 @@ const AccountsReceivableReport = () => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [agingFilter, setAgingFilter] = useState(null);
 
-  // Payment dialog
   const [selectedReceivable, setSelectedReceivable] = useState(null);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-  const [flashRowId, setFlashRowId] = useState(null);
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -87,15 +52,11 @@ const AccountsReceivableReport = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchReport();
-  }, [fetchReport]);
+  useEffect(() => { fetchReport(); }, [fetchReport]);
 
-  // Filtered data
   const filteredData = useMemo(() => {
     let result = reportData;
 
-    // Search filter
     if (searchTerm.trim()) {
       const search = searchTerm.toLowerCase();
       result = result.filter(row =>
@@ -104,7 +65,6 @@ const AccountsReceivableReport = () => {
       );
     }
 
-    // Status filter
     if (statusFilter !== 'all') {
       if (statusFilter === 'overdue') {
         result = result.filter(row => row.dueDate && new Date(row.dueDate) < new Date() && row.status !== 'paid');
@@ -113,7 +73,6 @@ const AccountsReceivableReport = () => {
       }
     }
 
-    // Aging filter from summary cards
     if (agingFilter) {
       const now = new Date();
       if (agingFilter === 'overdue') {
@@ -144,14 +103,12 @@ const AccountsReceivableReport = () => {
     return result;
   }, [reportData, searchTerm, statusFilter, agingFilter]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filteredData.slice(start, start + itemsPerPage);
   }, [filteredData, currentPage]);
 
-  // Reset page on filter change
   useEffect(() => { setCurrentPage(1); }, [searchTerm, statusFilter, agingFilter]);
 
   const handleAgingFilterChange = (filter) => {
@@ -159,13 +116,8 @@ const AccountsReceivableReport = () => {
   };
 
   const handlePaymentSuccess = () => {
-    const paidId = selectedReceivable?.orderNumber;
     setIsPaymentDialogOpen(false);
     fetchReport();
-    if (paidId) {
-      setFlashRowId(paidId);
-      setTimeout(() => setFlashRowId(null), 1500);
-    }
   };
 
   const hasActiveFilters = searchTerm || statusFilter !== 'all' || agingFilter;
@@ -176,29 +128,9 @@ const AccountsReceivableReport = () => {
     setAgingFilter(null);
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" size="icon" onClick={() => navigate('/accounting-management')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-3xl font-bold">Cuentas por Cobrar</h1>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {[...Array(5)].map((_, i) => (
-            <Card key={i} className="animate-pulse dark:bg-slate-900 dark:border-slate-800">
-              <CardContent className="p-4">
-                <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-3/4 mb-2"></div>
-                <div className="h-6 bg-gray-200 dark:bg-slate-700 rounded w-1/2 mb-1"></div>
-                <div className="h-3 bg-gray-200 dark:bg-slate-700 rounded w-1/3"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
+  const buildWhatsAppMessage = (row) => {
+    return `Hola ${row.customerName}, le recordamos que tiene un saldo pendiente de ${formatCurrency(Number(row.balance))} correspondiente al pedido N° ${row.orderNumber}. Agradecemos su pronto pago. Gracias.`;
+  };
 
   if (error) {
     return (
@@ -209,8 +141,9 @@ const AccountsReceivableReport = () => {
           </Button>
           <h1 className="text-3xl font-bold">Cuentas por Cobrar</h1>
         </div>
-        <div className="bg-destructive/5 border border-red-200 rounded-lg p-4 dark:bg-red-950/20 dark:border-red-900/50">
-          <p className="text-destructive text-sm dark:text-red-400">Error: {error}</p>
+        <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4">
+          <p className="text-destructive text-sm">Error: {error}</p>
+          <Button variant="outline" size="sm" className="mt-2" onClick={fetchReport}>Reintentar</Button>
         </div>
       </div>
     );
@@ -220,20 +153,42 @@ const AccountsReceivableReport = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center space-x-4">
-        <Button variant="outline" size="icon" onClick={() => navigate('/accounting-management')}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="outline" size="icon" onClick={() => navigate('/accounting-management')}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Volver a Contabilidad</TooltipContent>
+        </Tooltip>
         <h1 className="text-3xl font-bold">Cuentas por Cobrar</h1>
       </div>
 
       {/* Summary Cards */}
-      <ARSummaryCards
-        data={reportData}
-        activeFilter={agingFilter}
-        onFilterChange={handleAgingFilterChange}
-      />
+      <ContentTransition
+        loading={loading}
+        skeleton={
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {[...Array(5)].map((_, i) => (
+              <Card key={i} className="animate-pulse">
+                <CardContent className="p-4">
+                  <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+                  <div className="h-7 bg-muted rounded w-1/2 mb-1" />
+                  <div className="h-3 bg-muted rounded w-1/3" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        }
+      >
+        <ARSummaryCards
+          data={reportData}
+          activeFilter={agingFilter}
+          onFilterChange={handleAgingFilterChange}
+        />
+      </ContentTransition>
 
-      {/* Filter Bar */}
+      {/* Filter Bar + Table */}
       <Card>
         <CardHeader>
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
@@ -241,7 +196,7 @@ const AccountsReceivableReport = () => {
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por cliente u orden..."
+                  placeholder="Buscar por cliente o N° de pedido..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9"
@@ -266,104 +221,136 @@ const AccountsReceivableReport = () => {
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Mostrando {filteredData.length} de {reportData.length} cuentas
+            {hasActiveFilters
+              ? `Mostrando ${filteredData.length} de ${reportData.length} cuentas (filtros activos)`
+              : `${reportData.length} cuentas por cobrar`
+            }
           </p>
         </CardHeader>
         <CardContent>
-          {filteredData.length === 0 ? (
-            <EmptyState
-              title="Sin cuentas por cobrar"
-              description={hasActiveFilters ? "No se encontraron cuentas con esos filtros" : "Todas las cuentas están al día"}
-              actionLabel={hasActiveFilters ? "Limpiar filtros" : undefined}
-              onAction={hasActiveFilters ? clearAllFilters : undefined}
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead># Orden</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Fecha Orden</TableHead>
-                  <TableHead>Fecha Vencimiento</TableHead>
-                  <TableHead className="text-right">Monto Total</TableHead>
-                  <TableHead className="text-right">Pagado</TableHead>
-                  <TableHead className="text-right">Saldo</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-center">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <AnimatedTableBody>
-                {paginatedData.map((row) => {
-                  const urgency = getUrgency(row.dueDate, row.status);
-                  const daysLabel = getDaysLabel(row.dueDate);
-                  const statusBadge = getStatusBadge(row.status, row.dueDate);
-                  const balance = Number(row.balance) || 0;
-                  const isPaid = balance <= 0;
+          <ContentTransition
+            loading={loading}
+            skeleton={<TableSkeleton rows={8} />}
+          >
+            {filteredData.length === 0 ? (
+              <EmptyState
+                title={hasActiveFilters ? "Sin resultados" : "Sin cuentas por cobrar"}
+                description={hasActiveFilters ? "No se encontraron cuentas con esos filtros" : "Todas las cuentas están al día"}
+                actionLabel={hasActiveFilters ? "Limpiar filtros" : undefined}
+                onAction={hasActiveFilters ? clearAllFilters : undefined}
+              />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>N° Pedido</TableHead>
+                    <TableHead>Fecha Venc.</TableHead>
+                    <TableHead className="text-right">Saldo</TableHead>
+                    <TableHead>Estado</TableHead>
+                    <TableHead className="text-center" />
+                  </TableRow>
+                </TableHeader>
+                <AnimatedTableBody>
+                  {paginatedData.map((row) => {
+                    const urgency = getUrgency(row.dueDate);
+                    const daysLabel = getDaysLabel(row.dueDate);
+                    const statusInfo = getARStatusInfo(row.status, row.dueDate);
+                    const balance = Number(row.balance) || 0;
+                    const isPaid = balance <= 0;
 
-                  return (
-                    <AnimatedTableRow
-                      key={row.orderNumber}
-                      className={cn(urgencyStyles[urgency])}
-                      animate={flashRowId === row.orderNumber
-                        ? { backgroundColor: ['rgba(16,185,129,0.3)', 'rgba(16,185,129,0)', 'transparent'] }
-                        : {}
-                      }
-                      transition={flashRowId === row.orderNumber ? { duration: 1.5 } : {}}
-                    >
-                      <TableCell className="font-medium">{row.orderNumber}</TableCell>
-                      <TableCell>{row.customerName}</TableCell>
-                      <TableCell>{new Date(row.orderDate).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          {row.dueDate ? new Date(row.dueDate).toLocaleDateString() : <span className="text-gray-400 italic">N/A</span>}
-                          {daysLabel && <span className={daysLabel.className}>{daysLabel.text}</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(Number(row.totalAmount))}</TableCell>
-                      <TableCell className="text-right text-success">{formatCurrency(Number(row.paidAmount))}</TableCell>
-                      <TableCell className="text-right font-semibold">{formatCurrency(balance)}</TableCell>
-                      <TableCell>
-                        <Badge variant={statusBadge.variant} className={statusBadge.className}>
-                          {statusBadge.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-1">
+                    return (
+                      <AnimatedTableRow
+                        key={row.orderNumber}
+                        className={cn(URGENCY_STYLES[urgency])}
+                      >
+                        <TableCell className="font-medium">{row.customerName}</TableCell>
+                        <TableCell className="text-muted-foreground">{row.orderNumber}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            {row.dueDate
+                              ? new Date(row.dueDate).toLocaleDateString()
+                              : <span className="text-muted-foreground">Sin definir</span>}
+                            {daysLabel && <span className={daysLabel.className}>{daysLabel.text}</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">
+                          <DataHighlight value={balance}>
+                            {formatCurrency(balance)}
+                          </DataHighlight>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusInfo.variant} className={statusInfo.color}>
+                            {statusInfo.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
                           {!isPaid && (
-                            <>
-                              <Button
-                                variant={urgency === 'overdue' ? 'destructive' : 'outline'}
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => {
-                                  setSelectedReceivable(row);
-                                  setIsPaymentDialogOpen(true);
-                                }}
-                                title="Registrar cobro"
-                              >
-                                <CreditCard className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20"
-                                onClick={() => sendWhatsAppReminder(row)}
-                                title="Enviar recordatorio por WhatsApp"
-                              >
-                                <MessageSquare className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </AnimatedTableRow>
-                  );
-                })}
-              </AnimatedTableBody>
-            </Table>
-          )}
+                            <div className="flex items-center justify-center gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant={urgency === 'overdue' ? 'destructive' : 'outline'}
+                                    size="sm"
+                                    className="h-8 gap-1"
+                                    onClick={() => {
+                                      setSelectedReceivable(row);
+                                      setIsPaymentDialogOpen(true);
+                                    }}
+                                  >
+                                    <CreditCard className="h-3.5 w-3.5" />
+                                    <span className="hidden sm:inline">Cobrar</span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Registrar cobro de este cliente</TooltipContent>
+                              </Tooltip>
 
-          {/* Pagination */}
+                              {/* WhatsApp with message preview */}
+                              <Popover>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+                                      >
+                                        <MessageSquare className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Enviar recordatorio por WhatsApp</TooltipContent>
+                                </Tooltip>
+                                <PopoverContent className="w-80" align="end">
+                                  <div className="space-y-3">
+                                    <p className="text-sm font-medium">Mensaje de recordatorio</p>
+                                    <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+                                      {buildWhatsAppMessage(row)}
+                                    </p>
+                                    <Button
+                                      size="sm"
+                                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                                      onClick={() => {
+                                        window.open(`https://wa.me/?text=${encodeURIComponent(buildWhatsAppMessage(row))}`, '_blank');
+                                      }}
+                                    >
+                                      <MessageSquare className="h-4 w-4 mr-2" />
+                                      Abrir WhatsApp
+                                    </Button>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                          )}
+                        </TableCell>
+                      </AnimatedTableRow>
+                    );
+                  })}
+                </AnimatedTableBody>
+              </Table>
+            )}
+          </ContentTransition>
+
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <p className="text-sm text-muted-foreground">
@@ -382,7 +369,6 @@ const AccountsReceivableReport = () => {
         </CardContent>
       </Card>
 
-      {/* Payment Dialog */}
       <RecordReceivablePaymentDialog
         isOpen={isPaymentDialogOpen}
         onClose={() => setIsPaymentDialogOpen(false)}

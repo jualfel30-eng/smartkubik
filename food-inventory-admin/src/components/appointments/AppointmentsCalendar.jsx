@@ -11,6 +11,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert.jsx';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, CalendarDays, CalendarRange, Calendar as CalendarIcon, Users, Clock, MapPin, RefreshCw, Plus } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { SPRING, STAGGER, listItem, scaleIn, pulseGlow } from '@/lib/motion';
 import { useDrag, useDrop, DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 
@@ -39,6 +41,36 @@ const STATUS_CONFIG = {
   no_show: { label: 'No asistió', color: 'bg-warning/10 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-700' },
 };
 
+// Professional color palette — fallback when resource.color is not set
+const PROFESSIONAL_COLORS = ['#6366f1','#ec4899','#10b981','#f59e0b','#3b82f6','#8b5cf6','#ef4444','#06b6d4'];
+function getResourceColor(apt, resources) {
+  const resId = apt.resourceId?._id || apt.resourceId;
+  if (!resId || !resources?.length) return null;
+  const idx = resources.findIndex(r => (r._id || r.id) === resId);
+  if (idx === -1) return null;
+  const res = resources[idx];
+  return res.color || PROFESSIONAL_COLORS[idx % PROFESSIONAL_COLORS.length];
+}
+
+// Reliable time/date helpers — locale-independent, no toLocaleTimeString quirks
+function getTimeStr(isoOrDate) {
+  const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function getLocalDateStr(isoOrDate) {
+  const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Snap a time to the enclosing 30-min slot: 10:15 → "10:00", 10:45 → "10:30"
+function getSlotStr(isoOrDate) {
+  const d = isoOrDate instanceof Date ? isoOrDate : new Date(isoOrDate);
+  const h = d.getHours();
+  const m = d.getMinutes() < 30 ? 0 : 30;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 // DnD item type constant
 const DND_ITEM_TYPE = 'APPOINTMENT';
 
@@ -54,7 +86,7 @@ function useIsMobile() {
   return isMobile;
 }
 
-// Draggable appointment chip
+// Draggable appointment chip — spring physics on drag
 function DraggableAppointmentChip({ apt, children, isMobile }) {
   const canDrag = !isMobile && ['pending', 'confirmed'].includes(apt.status);
   const [{ isDragging }, dragRef] = useDrag({
@@ -68,8 +100,12 @@ function DraggableAppointmentChip({ apt, children, isMobile }) {
     <div
       ref={canDrag ? dragRef : null}
       style={{
-        opacity: isDragging ? 0.35 : 1,
+        opacity: isDragging ? 0.85 : 1,
+        transform: isDragging ? 'scale(1.03)' : 'scale(1)',
+        boxShadow: isDragging ? '0 8px 24px rgba(0,0,0,0.25)' : undefined,
+        zIndex: isDragging ? 100 : undefined,
         cursor: canDrag ? 'grab' : 'default',
+        transition: 'opacity 150ms ease, transform 150ms ease, box-shadow 150ms ease',
       }}
     >
       {children}
@@ -94,9 +130,11 @@ function DroppableTimeCell({ droppableId, droppableData, onDrop, children, class
       className={className}
       style={{
         ...style,
-        backgroundColor: isOver && canDrop ? 'rgba(59,130,246,0.12)' : undefined,
-        transition: 'background-color 120ms ease',
-        outline: isOver && canDrop ? '2px dashed rgba(59,130,246,0.4)' : undefined,
+        backgroundColor: isOver && canDrop ? 'rgba(99,102,241,0.08)' : undefined,
+        borderColor: isOver && canDrop ? 'rgba(99,102,241,0.5)' : undefined,
+        transform: isOver && canDrop ? 'scaleY(1.02)' : undefined,
+        transition: 'all 120ms ease',
+        outline: isOver && canDrop ? '2px dashed rgba(99,102,241,0.4)' : undefined,
       }}
       onClick={onClick}
     >
@@ -189,10 +227,8 @@ function ResourceColumnsView({ resources, appointmentsByResource, labels, onAppo
             {resources.map((resource) => {
               const resourceAppointments = appointmentsByResource[resource._id] || [];
               const aptsAtThisTime = resourceAppointments.filter((apt) => {
-                const startTime = apt.startTime ? new Date(apt.startTime) : null;
-                if (!startTime) return false;
-                const aptTimeStr = `${String(startTime.getHours()).padStart(2, '0')}:${String(startTime.getMinutes()).padStart(2, '0')}`;
-                return aptTimeStr === timeSlot;
+                if (!apt.startTime) return false;
+                return getSlotStr(apt.startTime) === timeSlot;
               });
 
               return (
@@ -224,7 +260,7 @@ function ResourceColumnsView({ resources, appointmentsByResource, labels, onAppo
   );
 }
 
-export function AppointmentsCalendar({ resourceId, onCreateAppointment, onReschedule }) {
+export function AppointmentsCalendar({ resourceId, onCreateAppointment, onReschedule, calendarEndpoint, transformAppointment, onDayClick: onDayClickExternal, onAppointmentClick: onAppointmentClickExternal, navigateToDate }) {
   // Hooks para detección de perfil y labels adaptativos
   const { tenant } = useAuth();
   const labels = useVerticalLabels();
@@ -259,22 +295,73 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment, onResche
     };
   }, [profileKey]);
 
-  const [view, setView] = useState('month');
+  const [view, setView] = useState(() => {
+    try { return localStorage.getItem('sk:calendar:view') || 'month'; } catch { return 'month'; }
+  });
   const [currentDate, setCurrentDate] = useState(new Date());
 
-  // Filtrar TIME_SLOTS por horario de negocio (solo para week/day views)
-  const businessHours = tenant?.settings?.businessHours || { start: '00:00', end: '23:30' };
+  // Persist view preference
+  useEffect(() => {
+    try { localStorage.setItem('sk:calendar:view', view); } catch {}
+  }, [view]);
 
-  const filteredTimeSlots = useMemo(() => {
-    if (view === 'month') return TIME_SLOTS; // Month view muestra todo
+  // Sync calendar to externally-requested date (from Command Panel navigation)
+  useEffect(() => {
+    if (navigateToDate) {
+      const d = new Date(navigateToDate + 'T12:00:00');
+      if (!isNaN(d.getTime())) setCurrentDate(d);
+    }
+  }, [navigateToDate]);
 
+  // ─── Business hours per day ───────────────────────────────────────
+  const [perDayBusinessHours, setPerDayBusinessHours] = useState(null);
+
+  useEffect(() => {
+    // Load beautyConfig.businessHours from storefront config (per-day schedule)
+    fetchApi('/storefront/config').then(res => {
+      const config = res?.data || res;
+      if (config?.beautyConfig?.businessHours?.length) {
+        setPerDayBusinessHours(config.beautyConfig.businessHours);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const simpleFallback = tenant?.settings?.businessHours || { start: '08:00', end: '20:00' };
+
+  // Returns filtered time slots for a specific day of week (0=Sunday, 6=Saturday)
+  const getTimeSlotsForDay = useCallback((dayOfWeek) => {
+    if (perDayBusinessHours) {
+      const dayConfig = perDayBusinessHours.find(d => d.day === dayOfWeek);
+      if (dayConfig && !dayConfig.isOpen) return []; // Closed day
+      if (dayConfig) {
+        const startTime = dayConfig.start?.replace(':', '') || '0000';
+        const endTime = dayConfig.close?.replace(':', '') || dayConfig.end?.replace(':', '') || '2330';
+        return TIME_SLOTS.filter(slot => {
+          const slotTime = slot.replace(':', '');
+          return slotTime >= startTime && slotTime < endTime;
+        });
+      }
+    }
+    // Fallback to simple businessHours
+    const startTime = simpleFallback.start?.replace(':', '') || '0800';
+    const endTime = simpleFallback.end?.replace(':', '') || '2000';
     return TIME_SLOTS.filter(slot => {
-      const slotTime = slot.split(':').join('');
-      const startTime = businessHours.start.split(':').join('');
-      const endTime = businessHours.end.split(':').join('');
+      const slotTime = slot.replace(':', '');
       return slotTime >= startTime && slotTime <= endTime;
     });
-  }, [view, businessHours]);
+  }, [perDayBusinessHours, simpleFallback]);
+
+  const filteredTimeSlots = useMemo(() => {
+    if (view === 'month') return TIME_SLOTS;
+    // For day view, use the specific day's slots
+    if (view === 'day') return getTimeSlotsForDay(currentDate.getDay());
+    // For week view, use the union of all open days' slots (individual days handled in WeekView)
+    const allSlots = new Set();
+    for (let d = 0; d < 7; d++) {
+      getTimeSlotsForDay(d).forEach(s => allSlots.add(s));
+    }
+    return TIME_SLOTS.filter(s => allSlots.has(s));
+  }, [view, currentDate, getTimeSlotsForDay]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -330,18 +417,33 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment, onResche
         rangeEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
       }
 
+      // Send dates as YYYY-MM-DD strings so the backend interprets them as
+      // UTC midnight — beauty bookings store `date` as midnight UTC, so
+      // sending local-midnight ISO (e.g. 2026-04-27T04:00:00Z for UTC-4)
+      // misses bookings at 2026-04-27T00:00:00Z.  Plain date strings avoid
+      // the timezone mismatch.  Frontend filtering with getLocalDateStr()
+      // trims any edge cases.
+      //
+      // For the endDate we add +1 day so the range covers the full last day
+      // (the hospitality calendar endpoint uses $lte on startTime, and
+      // new Date("2026-04-27") = 00:00 UTC would miss appointments later
+      // that day).
+      const endPlusOne = new Date(rangeEnd);
+      endPlusOne.setDate(endPlusOne.getDate() + 1);
+
       const params = new URLSearchParams({
-        startDate: rangeStart.toISOString(),
-        endDate: rangeEnd.toISOString(),
+        startDate: getLocalDateStr(rangeStart),
+        endDate: getLocalDateStr(endPlusOne),
       });
 
       if (resourceId) {
         params.append('resourceId', resourceId);
       }
 
-      const data = await fetchApi(`/appointments/calendar?${params.toString()}`);
+      const endpoint = calendarEndpoint || '/appointments/calendar';
+      const data = await fetchApi(`${endpoint}?${params.toString()}`);
       const normalized = Array.isArray(data) ? data : data?.data || [];
-      setAppointments(normalized);
+      setAppointments(transformAppointment ? normalized.map(transformAppointment) : normalized);
     } catch (error) {
       console.error('Error loading appointments:', error);
       toast.error('Error al cargar el calendario', { description: error.message });
@@ -349,7 +451,7 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment, onResche
     } finally {
       setLoading(false);
     }
-  }, [currentDate, view, resourceId]);
+  }, [currentDate, view, resourceId, calendarEndpoint, transformAppointment]);
 
   useEffect(() => {
     loadAppointments();
@@ -487,9 +589,16 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment, onResche
 
   const handleDayClick = (dateStr) => {
     setSelectedDate(dateStr);
-    const aptsForDay = filteredAppointments.filter(apt => apt.startTime && apt.startTime.startsWith(dateStr));
+    const aptsForDay = filteredAppointments.filter(apt => {
+      if (!apt.startTime) return false;
+      return getLocalDateStr(apt.startTime) === dateStr;
+    });
     setDayAppointments(aptsForDay);
-    setShowDayPanel(true);
+    // Don't open internal Sheet — the Command Panel handles day details
+    if (!onDayClickExternal) {
+      setShowDayPanel(true);
+    }
+    onDayClickExternal?.(dateStr);
   };
 
   const formatDate = (dateStr) => {
@@ -544,10 +653,8 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment, onResche
 
     // Derive current values
     const originalResourceId = apt.resourceId?._id || apt.resourceId || null;
-    const originalTime = apt.startTime
-      ? `${String(new Date(apt.startTime).getHours()).padStart(2, '0')}:${String(new Date(apt.startTime).getMinutes()).padStart(2, '0')}`
-      : null;
-    const originalDate = apt.startTime ? apt.startTime.slice(0, 10) : null;
+    const originalTime = apt.startTime ? getTimeStr(apt.startTime) : null;
+    const originalDate = apt.startTime ? getLocalDateStr(apt.startTime) : null;
     const resolvedNewDate = newDateStr || originalDate;
 
     // No-op if nothing changed
@@ -565,8 +672,8 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment, onResche
       const aResourceId = a.resourceId?._id || a.resourceId;
       if (newResourceId && String(aResourceId) !== String(newResourceId)) return false;
       if (!a.startTime) return false;
-      const aTime = `${String(new Date(a.startTime).getHours()).padStart(2, '0')}:${String(new Date(a.startTime).getMinutes()).padStart(2, '0')}`;
-      const aDate = a.startTime.slice(0, 10);
+      const aTime = getTimeStr(a.startTime);
+      const aDate = getLocalDateStr(a.startTime);
       return aTime === newTime && aDate === resolvedNewDate;
     });
 
@@ -642,7 +749,7 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment, onResche
           <CardHeader>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <CardTitle className="text-2xl dark:text-gray-100">Calendario Hotelero</CardTitle>
+                <CardTitle className="text-2xl dark:text-gray-100">{labels.calendar?.tabLabel || 'Calendario'}</CardTitle>
                 <p className="text-sm text-muted-foreground dark:text-gray-400 mt-1">{getHeaderText()}</p>
               </div>
               <div className="flex gap-2">
@@ -744,7 +851,8 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment, onResche
                 onAppointmentClick={(apt) => {
                   setSelectedDate(new Date(apt.startTime).toDateString());
                   setDayAppointments([apt]);
-                  setShowDayPanel(true);
+                  if (!onAppointmentClickExternal) setShowDayPanel(true);
+                  onAppointmentClickExternal?.(apt);
                 }}
               />
             ) : (
@@ -757,6 +865,9 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment, onResche
                     timeSlots={filteredTimeSlots}
                     onDropAppointment={handleDropAppointment}
                     isMobile={isMobile}
+                    resources={resources}
+                    onAppointmentClick={onAppointmentClickExternal}
+                    onCreateAppointment={onCreateAppointment}
                   />
                 )}
                 {view === 'week' && (
@@ -765,8 +876,11 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment, onResche
                     appointments={filteredAppointments}
                     handleDayClick={handleDayClick}
                     timeSlots={filteredTimeSlots}
+                    getTimeSlotsForDay={getTimeSlotsForDay}
                     onDropAppointment={handleDropAppointment}
                     isMobile={isMobile}
+                    resources={resources}
+                    onAppointmentClick={onAppointmentClickExternal}
                   />
                 )}
                 {view === 'month' && (
@@ -774,6 +888,7 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment, onResche
                     currentDate={currentDate}
                     appointments={filteredAppointments}
                     handleDayClick={handleDayClick}
+                    resources={resources}
                   />
                 )}
               </>
@@ -906,18 +1021,44 @@ export function AppointmentsCalendar({ resourceId, onCreateAppointment, onResche
 }
 
 // Day View Component
-const DayView = ({ currentDate, appointments, handleDayClick, timeSlots, onDropAppointment, isMobile }) => {
-  const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+const DayView = ({ currentDate, appointments, handleDayClick, timeSlots, onDropAppointment, isMobile, resources = [], onAppointmentClick, onCreateAppointment }) => {
+  const dateStr = getLocalDateStr(currentDate);
+
+  // Count total appointments for this day
+  const dayAppts = appointments.filter(apt => apt.startTime && getLocalDateStr(apt.startTime) === dateStr);
+  const totalCount = dayAppts.length;
+  const pendingCount = dayAppts.filter(a => a.status === 'pending').length;
+  const confirmedCount = dayAppts.filter(a => a.status === 'confirmed').length;
 
   return (
     <div className="border dark:border-gray-700 rounded-lg overflow-hidden">
+      {/* Day summary bar */}
+      {totalCount > 0 && (
+        <div className="flex items-center gap-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/80 border-b dark:border-gray-700 text-sm">
+          <span className="font-semibold text-foreground">{totalCount} cita{totalCount !== 1 ? 's' : ''} hoy</span>
+          {confirmedCount > 0 && (
+            <span className="flex items-center gap-1 text-blue-700 dark:text-blue-300">
+              <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+              {confirmedCount} confirmada{confirmedCount !== 1 ? 's' : ''}
+            </span>
+          )}
+          {pendingCount > 0 && (
+            <span className="flex items-center gap-1 text-yellow-700 dark:text-yellow-300">
+              <span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" />
+              {pendingCount} pendiente{pendingCount !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      )}
       <div className="overflow-y-auto max-h-[600px]">
         {timeSlots.map((timeSlot) => {
           const aptsAtTime = appointments.filter(apt => {
-            if (!apt.startTime || !apt.startTime.startsWith(dateStr)) return false;
-            const aptTime = new Date(apt.startTime).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', hour12: false });
-            return aptTime === timeSlot;
+            if (!apt.startTime) return false;
+            if (getLocalDateStr(apt.startTime) !== dateStr) return false;
+            return getSlotStr(apt.startTime) === timeSlot;
           });
+
+          const hasApts = aptsAtTime.length > 0;
 
           return (
             <DroppableTimeCell
@@ -925,30 +1066,74 @@ const DayView = ({ currentDate, appointments, handleDayClick, timeSlots, onDropA
               droppableId={`day-${dateStr}-${timeSlot}`}
               droppableData={{ timeSlot, dateStr }}
               onDrop={onDropAppointment}
-              className="flex border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+              className={`flex border-b dark:border-gray-700 transition-colors cursor-pointer ${hasApts ? 'bg-blue-50/40 dark:bg-blue-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
               onClick={() => handleDayClick(dateStr)}
             >
               <div className="w-20 p-3 text-sm font-medium text-gray-600 dark:text-gray-400 border-r dark:border-gray-700 flex-shrink-0">
                 {timeSlot}
               </div>
               <div className="flex-1 p-2 min-h-[60px]">
-                <div className="flex flex-wrap gap-2">
+                {!hasApts && (
+                  <div className="h-full min-h-[44px] border border-dashed border-primary/15 rounded-lg flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group"
+                    onClick={(e) => { e.stopPropagation(); onCreateAppointment && onCreateAppointment(dateStr, timeSlot); }}
+                  >
+                    <span className="text-[11px] text-primary/50 group-hover:text-primary/80 transition-colors">+ Disponible</span>
+                  </div>
+                )}
+                <motion.div className="flex flex-col gap-2" variants={STAGGER(0.02)} initial="initial" animate="animate">
                   {aptsAtTime.map((apt) => {
                     const statusConfig = STATUS_CONFIG[apt.status] || STATUS_CONFIG.pending;
+                    const endTimeStr = apt.endTime ? getTimeStr(apt.endTime) : '';
+                    const proColor = getResourceColor(apt, resources);
                     return (
                       <DraggableAppointmentChip key={apt._id || apt.appointmentId} apt={apt} isMobile={isMobile}>
                         <div
-                          className={`text-xs p-2 rounded ${statusConfig.color} flex items-center gap-2`}
-                          onClick={(e) => e.stopPropagation()}
+                          className={`text-xs p-2.5 rounded-lg border ${statusConfig.color} shadow-sm transition-shadow hover:shadow-md hover:-translate-y-px`}
+                          style={proColor ? { borderLeftWidth: '3px', borderLeftColor: proColor } : undefined}
+                          onClick={(e) => { e.stopPropagation(); onAppointmentClick?.(apt); }}
                         >
-                          <Users className="h-3 w-3" />
-                          <span className="font-medium">{apt.serviceName}</span>
-                          <span>({apt.capacityUsed || 1}/{apt.capacity || 1})</span>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-semibold truncate">{apt.serviceName || 'Servicio'}</span>
+                            <div className="flex items-center gap-1">
+                              {apt.status === 'pending' && (
+                                <motion.span
+                                  className="inline-block w-2 h-2 rounded-full bg-amber-400"
+                                  animate={{ opacity: [0.4, 1, 0.4], scale: [1, 1.2, 1] }}
+                                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                                />
+                              )}
+                              <AnimatePresence mode="wait">
+                                <motion.span key={apt.status} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }} transition={SPRING.snappy}>
+                                  <Badge className={`text-[10px] px-1.5 py-0 ${statusConfig.color}`}>
+                                    {statusConfig.label}
+                                  </Badge>
+                                </motion.span>
+                              </AnimatePresence>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 text-[11px] opacity-80">
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {apt.customerName || 'Cliente'}
+                            </span>
+                            {endTimeStr && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {timeSlot} - {endTimeStr}
+                              </span>
+                            )}
+                            {apt.resourceName && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {apt.resourceName}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </DraggableAppointmentChip>
                     );
                   })}
-                </div>
+                </motion.div>
               </div>
             </DroppableTimeCell>
           );
@@ -959,7 +1144,7 @@ const DayView = ({ currentDate, appointments, handleDayClick, timeSlots, onDropA
 };
 
 // Week View Component
-const WeekView = ({ currentDate, appointments, handleDayClick, timeSlots, onDropAppointment, isMobile }) => {
+const WeekView = ({ currentDate, appointments, handleDayClick, timeSlots, getTimeSlotsForDay, onDropAppointment, isMobile, resources = [], onAppointmentClick }) => {
   const getWeekDates = () => {
     const start = new Date(currentDate);
     const day = start.getDay();
@@ -984,24 +1169,48 @@ const WeekView = ({ currentDate, appointments, handleDayClick, timeSlots, onDrop
     );
   };
 
+  // Count appointments per day for header badges
+  const aptCountByDate = useMemo(() => {
+    const counts = {};
+    weekDates.forEach(date => {
+      const ds = getLocalDateStr(date);
+      counts[ds] = appointments.filter(apt => apt.startTime && getLocalDateStr(apt.startTime) === ds).length;
+    });
+    return counts;
+  }, [weekDates, appointments]);
+
   return (
     <div className="border dark:border-gray-700 rounded-lg overflow-hidden">
       {/* Week header */}
       <div className="grid grid-cols-8 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
         <div className="p-2 text-sm font-medium text-gray-600 dark:text-gray-400"></div>
-        {weekDates.map((date, idx) => (
-          <div
-            key={idx}
-            className={`p-2 text-center border-l dark:border-gray-700 ${
-              isToday(date) ? 'bg-info-muted' : ''
-            }`}
-          >
-            <div className="text-xs text-gray-600 dark:text-gray-400">{DAYS_OF_WEEK[idx]}</div>
-            <div className={`text-sm font-semibold ${isToday(date) ? 'text-info' : 'dark:text-gray-200'}`}>
-              {date.getDate()}
+        {weekDates.map((date, idx) => {
+          const ds = getLocalDateStr(date);
+          const count = aptCountByDate[ds] || 0;
+          const daySlots = getTimeSlotsForDay ? getTimeSlotsForDay(date.getDay()) : timeSlots;
+          const isClosed = daySlots.length === 0;
+          return (
+            <div
+              key={idx}
+              className={`p-2 text-center border-l dark:border-gray-700 transition-colors ${
+                isClosed ? 'opacity-40' : 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700'
+              } ${isToday(date) ? 'bg-info-muted' : ''}`}
+              onClick={() => !isClosed && handleDayClick(ds)}
+            >
+              <div className="text-xs text-gray-600 dark:text-gray-400">{DAYS_OF_WEEK[idx]}</div>
+              <div className={`text-sm font-semibold ${isToday(date) ? 'text-info' : 'dark:text-gray-200'}`}>
+                {date.getDate()}
+              </div>
+              {isClosed ? (
+                <span className="text-[9px] text-muted-foreground">Cerrado</span>
+              ) : count > 0 ? (
+                <Badge variant="outline" className="text-[10px] mt-0.5 bg-info-muted border-info/40 text-blue-800 dark:text-blue-200">
+                  {count}
+                </Badge>
+              ) : null}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Time slots */}
@@ -1012,12 +1221,21 @@ const WeekView = ({ currentDate, appointments, handleDayClick, timeSlots, onDrop
               {timeSlot}
             </div>
             {weekDates.map((date, idx) => {
-              const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-              const aptsAtTime = appointments.filter(apt => {
-                if (!apt.startTime || !apt.startTime.startsWith(dateStr)) return false;
-                const aptTime = new Date(apt.startTime).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', hour12: false });
-                return aptTime === timeSlot;
-              });
+              const dateStr = getLocalDateStr(date);
+              const daySlots = getTimeSlotsForDay ? getTimeSlotsForDay(date.getDay()) : timeSlots;
+              const isOpenSlot = daySlots.includes(timeSlot);
+              const aptsAtTime = isOpenSlot ? appointments.filter(apt => {
+                if (!apt.startTime) return false;
+                if (getLocalDateStr(apt.startTime) !== dateStr) return false;
+                return getSlotStr(apt.startTime) === timeSlot;
+              }) : [];
+
+              // Closed slot — render dimmed cell
+              if (!isOpenSlot) {
+                return (
+                  <div key={idx} className="p-1 border-l dark:border-gray-700 min-h-[50px] bg-muted/10 dark:bg-gray-900/50" />
+                );
+              }
 
               return (
                 <DroppableTimeCell
@@ -1025,30 +1243,33 @@ const WeekView = ({ currentDate, appointments, handleDayClick, timeSlots, onDrop
                   droppableId={`week-${dateStr}-${timeSlot}`}
                   droppableData={{ timeSlot, dateStr }}
                   onDrop={onDropAppointment}
-                  className="p-1 border-l dark:border-gray-700 min-h-[50px] hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                  className={`p-1 border-l dark:border-gray-700 min-h-[50px] cursor-pointer transition-colors ${aptsAtTime.length > 0 ? 'bg-blue-50/40 dark:bg-blue-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                   onClick={() => handleDayClick(dateStr)}
                 >
                   <div className="flex flex-col gap-1">
                     {aptsAtTime.slice(0, 2).map((apt) => {
                       const statusConfig = STATUS_CONFIG[apt.status] || STATUS_CONFIG.pending;
+                      const proColor = getResourceColor(apt, resources);
                       return (
                         <DraggableAppointmentChip key={apt._id || apt.appointmentId} apt={apt} isMobile={isMobile}>
                           <div
-                            className={`text-xs p-1 rounded ${statusConfig.color} truncate`}
-                            title={`${apt.serviceName} (${apt.capacityUsed || 1}/${apt.capacity || 1})`}
-                            onClick={(e) => e.stopPropagation()}
+                            className={`text-xs p-1.5 rounded border ${statusConfig.color} truncate transition-shadow hover:shadow-md`}
+                            style={proColor ? { borderLeftWidth: '3px', borderLeftColor: proColor } : undefined}
+                            title={`${apt.customerName || 'Cliente'} — ${apt.serviceName || 'Servicio'} (${getTimeStr(apt.startTime)}${apt.endTime ? ' - ' + getTimeStr(apt.endTime) : ''})`}
+                            onClick={(e) => { e.stopPropagation(); onAppointmentClick?.(apt); }}
                           >
-                            <div className="flex items-center gap-1">
-                              <Users className="h-2 w-2" />
-                              <span className="truncate">{apt.serviceName}</span>
+                            <div className="font-medium truncate">{apt.customerName || apt.serviceName || 'Cita'}</div>
+                            <div className="flex items-center gap-1 opacity-70">
+                              <Clock className="h-2 w-2" />
+                              <span className="truncate">{apt.serviceName || ''}</span>
                             </div>
                           </div>
                         </DraggableAppointmentChip>
                       );
                     })}
                     {aptsAtTime.length > 2 && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                        +{aptsAtTime.length - 2}
+                      <div className="text-xs text-gray-500 dark:text-gray-400 text-center font-medium">
+                        +{aptsAtTime.length - 2} más
                       </div>
                     )}
                   </div>
@@ -1063,7 +1284,7 @@ const WeekView = ({ currentDate, appointments, handleDayClick, timeSlots, onDrop
 };
 
 // Month View Component
-const MonthView = ({ currentDate, appointments, handleDayClick }) => {
+const MonthView = ({ currentDate, appointments, handleDayClick, resources = [] }) => {
   const getDaysInMonth = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -1105,16 +1326,14 @@ const MonthView = ({ currentDate, appointments, handleDayClick }) => {
   const isMultiDayStart = (apt, day) => {
     if (!apt.startTime || !apt.endTime) return false;
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const startDateStr = apt.startTime.split('T')[0];
-    return dateStr === startDateStr;
+    return dateStr === getLocalDateStr(apt.startTime);
   };
 
   // Detectar si es un día intermedio o final de reserva multi-día
   const isMultiDayContinuation = (apt, day) => {
     if (!apt.startTime || !apt.endTime) return false;
     const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const startDateStr = apt.startTime.split('T')[0];
-    return dateStr !== startDateStr;
+    return dateStr !== getLocalDateStr(apt.startTime);
   };
 
   // Calcular duración en días
@@ -1198,11 +1417,13 @@ const MonthView = ({ currentDate, appointments, handleDayClick }) => {
                     <div className="space-y-1">
                       {aptsForDay.slice(0, 3).map((apt, idx) => {
                         const statusConfig = STATUS_CONFIG[apt.status] || STATUS_CONFIG.pending;
-                        const time = apt.startTime ? new Date(apt.startTime).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '';
+                        const time = apt.startTime ? getTimeStr(apt.startTime) : '';
                         const isMultiDay = getMultiDayDuration(apt) > 1;
                         const isStart = isMultiDayStart(apt, day);
                         const isContinuation = isMultiDayContinuation(apt, day);
                         const duration = getMultiDayDuration(apt);
+                        const displayName = apt.customerName || apt.serviceName || 'Cita';
+                        const proColor = getResourceColor(apt, resources);
 
                         return (
                           <div
@@ -1213,7 +1434,8 @@ const MonthView = ({ currentDate, appointments, handleDayClick }) => {
                               ${isMultiDay ? 'border-2 border-opacity-60' : ''}
                               ${isContinuation ? 'border-l-4 pl-2' : ''}
                             `}
-                            title={isMultiDay ? `Reserva de ${duration} días` : ''}
+                            style={proColor && !isContinuation ? { borderLeftWidth: '3px', borderLeftColor: proColor } : undefined}
+                            title={`${displayName}${apt.serviceName && apt.customerName ? ' — ' + apt.serviceName : ''} (${time})`}
                           >
                             {isStart && isMultiDay && (
                               <div className="absolute -top-1 -right-1 bg-warning text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] font-bold">
@@ -1228,11 +1450,11 @@ const MonthView = ({ currentDate, appointments, handleDayClick }) => {
                               )}
                               {isStart ? time : 'Continúa'}
                             </div>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <Users className="h-3 w-3" />
-                              {apt.capacityUsed || 1}/{apt.capacity || 1}
+                            <div className="flex items-center gap-1 mt-0.5 truncate">
+                              <Users className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{displayName}</span>
                               {isMultiDay && isStart && (
-                                <span className="ml-auto text-[10px] font-bold opacity-70">
+                                <span className="ml-auto text-[10px] font-bold opacity-70 flex-shrink-0">
                                   {duration}d
                                 </span>
                               )}

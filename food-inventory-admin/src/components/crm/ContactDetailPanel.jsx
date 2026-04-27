@@ -2,17 +2,17 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { SPRING } from '@/lib/motion';
 import { Button } from '@/components/ui/button.jsx';
-import { Badge } from '@/components/ui/badge.jsx';
-import { Card, CardContent } from '@/components/ui/card.jsx';
 import { ScrollArea } from '@/components/ui/scroll-area.jsx';
 import {
   X, Phone, Mail, MapPin, Building, DollarSign,
-  Calendar, ShoppingCart, MessageCircle, Edit, ExternalLink,
-  AlertTriangle,
+  Calendar, ShoppingCart, TrendingUp, MessageCircle,
+  Edit, ExternalLink, AlertTriangle,
 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
-import { getTierBadge, getContactTypeBadge } from './badges.jsx';
-import { AtRiskBadge, computeInactiveDays } from './AtRiskBadge.jsx';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
+import WhatsAppComposer from '@/components/shared/WhatsAppComposer.jsx';
+import { getContactTypeBadge } from './badges.jsx';
+import { computeInactiveDays } from './AtRiskBadge.jsx';
 
 const formatCurrency = (value) => {
   if (!value && value !== 0) return '$0.00';
@@ -20,13 +20,16 @@ const formatCurrency = (value) => {
 };
 
 const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
+  if (!dateString) return '—';
   return new Date(dateString).toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+    year: 'numeric', month: 'short', day: 'numeric',
   });
 };
+
+function getInitials(name) {
+  if (!name) return '?';
+  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+}
 
 export function ContactDetailPanel({ customer, onClose, onEdit, onViewFull }) {
   const [stats, setStats] = useState(null);
@@ -44,21 +47,15 @@ export function ContactDetailPanel({ customer, onClose, onEdit, onViewFull }) {
       setStats(statsRes?.data || statsRes || null);
       const txData = txRes?.data || txRes || [];
       setRecentTransactions(Array.isArray(txData) ? txData.slice(0, 5) : []);
-    } catch {
-      /* silent */
-    } finally {
+    } catch { /* silent */ } finally {
       setLoading(false);
     }
   }, [customer?._id]);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   useEffect(() => {
-    const handleEsc = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
+    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
   }, [onClose]);
@@ -70,10 +67,38 @@ export function ContactDetailPanel({ customer, onClose, onEdit, onViewFull }) {
     || customer.contacts?.find(c => c.isPrimary)?.value;
   const address = customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0];
   const inactiveDays = computeInactiveDays(customer);
+  const whatsappLink = phone ? `https://wa.me/${phone.replace(/[^0-9]/g, '')}` : null;
 
-  const whatsappLink = phone
-    ? `https://wa.me/${phone.replace(/[^0-9]/g, '')}`
-    : null;
+  const metrics = [
+    {
+      icon: DollarSign,
+      label: 'Gasto total',
+      value: formatCurrency(customer.metrics?.totalSpent),
+      iconBg: 'bg-success/10 dark:bg-success-muted',
+      iconColor: 'text-success',
+    },
+    {
+      icon: ShoppingCart,
+      label: 'Pedidos',
+      value: customer.metrics?.totalOrders || 0,
+      iconBg: 'bg-info/10 dark:bg-info-muted',
+      iconColor: 'text-info',
+    },
+    {
+      icon: Calendar,
+      label: 'Última visita',
+      value: formatDate(customer.metrics?.lastOrderDate || customer.lastVisit),
+      iconBg: inactiveDays >= 30 ? 'bg-warning/10 dark:bg-warning-muted' : 'bg-muted',
+      iconColor: inactiveDays >= 30 ? 'text-warning' : 'text-muted-foreground',
+    },
+    {
+      icon: TrendingUp,
+      label: 'Engagement',
+      value: `${customer.metrics?.engagementScore || 0}/100`,
+      iconBg: 'bg-primary/10',
+      iconColor: 'text-primary',
+    },
+  ];
 
   return (
     <motion.div
@@ -81,33 +106,98 @@ export function ContactDetailPanel({ customer, onClose, onEdit, onViewFull }) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 24 }}
       transition={SPRING.soft}
-      className="h-full"
+      className="h-full border-l border-border"
     >
       <ScrollArea className="h-full">
-        <div className="p-6 space-y-6">
-          {/* Header */}
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
-              <h2 className="text-xl font-bold text-foreground">{customer.name}</h2>
-              {customer.companyName && (
-                <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                  <Building className="h-3.5 w-3.5" />
-                  {customer.companyName}
+        <div className="p-6">
+
+          {/* ── Header ── */}
+          <div className="flex items-start justify-between mb-6">
+            <div className="flex items-center gap-4">
+              {/* Avatar with initials */}
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <span className="text-sm font-bold text-primary">{getInitials(customer.name)}</span>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-foreground leading-tight">{customer.name}</h2>
+                {customer.companyName && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-0.5">
+                    <Building className="h-3.5 w-3.5" />
+                    {customer.companyName}
+                  </div>
+                )}
+                <div className="flex items-center gap-2 mt-2">
+                  {getContactTypeBadge(customer.customerType)}
+                  {customer.taxInfo?.taxId && (
+                    <span className="text-xs text-muted-foreground">{customer.taxInfo.taxId}</span>
+                  )}
                 </div>
-              )}
-              <div className="flex items-center gap-2 mt-2">
-                {getTierBadge(customer.tier)}
-                {getContactTypeBadge(customer.customerType)}
-                <AtRiskBadge customer={customer} />
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0">
+            <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0 h-8 w-8">
               <X className="h-4 w-4" />
             </Button>
           </div>
 
-          {/* Contact Info */}
-          <div className="space-y-3">
+          {/* ── Quick Actions ── */}
+          <div className="flex gap-2 pb-6 border-b border-border">
+            {phone && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button size="sm" className="gap-2 bg-green-600 hover:bg-green-700 text-white">
+                    <MessageCircle className="h-4 w-4" />
+                    WhatsApp
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-0" align="start">
+                  <WhatsAppComposer contact={{ name: customer.name || customer.companyName, phone, _id: customer._id }} />
+                </PopoverContent>
+              </Popover>
+            )}
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => onEdit(customer)}>
+              <Edit className="h-4 w-4" />
+              Editar
+            </Button>
+            <Button variant="ghost" size="sm" className="gap-2" onClick={() => onViewFull(customer)}>
+              <ExternalLink className="h-4 w-4" />
+              Historial completo
+            </Button>
+          </div>
+
+          {/* ── At-Risk Reactivation CTA ── */}
+          {inactiveDays !== null && inactiveDays >= 30 && (
+            <div className="mt-6 rounded-lg p-4 bg-warning/5 border border-warning/20 dark:bg-warning-muted/20">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 rounded-lg bg-warning/10 dark:bg-warning-muted flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    {inactiveDays} días sin actividad
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Este contacto podría necesitar un seguimiento. Envía un mensaje de reactivación.
+                  </p>
+                  {phone && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="mt-3 gap-2 border-warning/30 text-warning hover:bg-warning/10">
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          Enviar mensaje
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72 p-0" align="start">
+                        <WhatsAppComposer contact={{ name: customer.name || customer.companyName, phone, _id: customer._id }} />
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Contact Info ── */}
+          <div className="mt-6 pb-6 border-b border-border space-y-3">
             {phone && (
               <div className="flex items-center gap-3 text-sm">
                 <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -128,125 +218,54 @@ export function ContactDetailPanel({ customer, onClose, onEdit, onViewFull }) {
                 </span>
               </div>
             )}
-          </div>
-
-          {/* Quick Actions */}
-          <div className="flex gap-2">
-            {whatsappLink && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => window.open(whatsappLink, '_blank')}
-              >
-                <MessageCircle className="h-4 w-4 text-green-600" />
-                WhatsApp
-              </Button>
+            {!phone && !email && !address?.street && (
+              <p className="text-sm text-muted-foreground italic">Sin datos de contacto</p>
             )}
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => onEdit(customer)}>
-              <Edit className="h-4 w-4" />
-              Editar
-            </Button>
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => onViewFull(customer)}>
-              <ExternalLink className="h-4 w-4" />
-              Ver completo
-            </Button>
           </div>
 
-          {/* At-risk reactivation CTA */}
-          {inactiveDays !== null && inactiveDays >= 30 && whatsappLink && (
-            <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
-              <CardContent className="p-3 flex items-center gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
-                <div className="flex-1 text-sm">
-                  <p className="font-medium text-amber-800 dark:text-amber-400">
-                    {inactiveDays} días sin actividad
-                  </p>
-                  <p className="text-amber-700 dark:text-amber-500 text-xs">
-                    Envía un mensaje de reactivación
-                  </p>
+          {/* ── Metrics Grid ── */}
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            {metrics.map((m) => (
+              <div key={m.label} className="glass-card-subtle rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={`h-6 w-6 rounded-md ${m.iconBg} flex items-center justify-center`}>
+                    <m.icon className={`h-3.5 w-3.5 ${m.iconColor}`} />
+                  </div>
+                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{m.label}</span>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0 border-amber-300 text-amber-800 dark:text-amber-400"
-                  onClick={() => window.open(whatsappLink, '_blank')}
-                >
-                  Reactivar
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Metrics */}
-          <div className="grid grid-cols-2 gap-3">
-            <Card className="border-none bg-muted/40 shadow-none">
-              <CardContent className="p-3">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">Gasto Total</div>
-                <div className="text-lg font-bold text-foreground mt-1">
-                  {formatCurrency(customer.metrics?.totalSpent)}
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-none bg-muted/40 shadow-none">
-              <CardContent className="p-3">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">Pedidos</div>
-                <div className="text-lg font-bold text-foreground mt-1">
-                  {customer.metrics?.totalOrders || 0}
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-none bg-muted/40 shadow-none">
-              <CardContent className="p-3">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">Última visita</div>
-                <div className="text-sm font-medium text-foreground mt-1">
-                  {formatDate(customer.metrics?.lastOrderDate || customer.lastVisit)}
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-none bg-muted/40 shadow-none">
-              <CardContent className="p-3">
-                <div className="text-xs text-muted-foreground uppercase tracking-wide">Engagement</div>
-                <div className="text-lg font-bold text-foreground mt-1">
-                  {customer.metrics?.engagementScore || 0}
-                  <span className="text-xs text-muted-foreground font-normal">/100</span>
-                </div>
-              </CardContent>
-            </Card>
+                <div className="text-lg font-bold text-foreground">{m.value}</div>
+              </div>
+            ))}
           </div>
 
-          {/* Recent Transactions */}
+          {/* ── Recent Transactions ── */}
           {recentTransactions.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-foreground">Transacciones recientes</h3>
-              <div className="space-y-2">
+            <div className="mt-6 pt-6 border-t border-border">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                Transacciones recientes
+              </h3>
+              <div className="space-y-1">
                 {recentTransactions.map((tx, i) => (
-                  <div key={tx._id || i} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <div key={tx._id || i} className="flex items-center justify-between py-2.5 border-b border-border/50 last:border-0">
                     <div>
-                      <div className="text-sm font-medium">{tx.type || 'Pedido'}</div>
+                      <div className="text-sm font-medium text-foreground">{tx.type || 'Pedido'}</div>
                       <div className="text-xs text-muted-foreground">{formatDate(tx.createdAt || tx.date)}</div>
                     </div>
-                    <div className="text-sm font-semibold">{formatCurrency(tx.total || tx.amount)}</div>
+                    <span className="text-sm font-semibold text-foreground">{formatCurrency(tx.total || tx.amount)}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Tax Info */}
-          {customer.taxInfo?.taxId && (
-            <div className="text-sm text-muted-foreground">
-              RIF: <span className="font-medium text-foreground">{customer.taxInfo.taxId}</span>
+          {/* ── Notes ── */}
+          {customer.notes && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Notas</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">{customer.notes}</p>
             </div>
           )}
 
-          {/* Notes */}
-          {customer.notes && (
-            <div className="space-y-1">
-              <h3 className="text-sm font-semibold text-foreground">Notas</h3>
-              <p className="text-sm text-muted-foreground">{customer.notes}</p>
-            </div>
-          )}
         </div>
       </ScrollArea>
     </motion.div>

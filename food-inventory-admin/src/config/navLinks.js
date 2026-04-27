@@ -178,12 +178,7 @@ export function getNavLinks(tenant) {
       permission: 'appointments_read',
       requiresVertical: ['SERVICES', 'HOSPITALITY'],
       dynamicLabel: true,
-      children: [
-        { name: 'Lista', href: 'appointments?tab=list', icon: List },
-        { name: 'Calendario', href: 'appointments?tab=calendar', icon: Calendar },
-      ]
     },
-    { name: 'Tablero de Piso', href: 'floor-view', icon: LayoutGrid, permission: 'appointments_read', requiresVertical: ['SERVICES', 'HOSPITALITY'] },
 
     // 2. Marketing y CRM
     {

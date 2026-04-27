@@ -56,13 +56,14 @@ import { ActivityTimeline } from './ActivityTimeline.jsx';
 import { RemindersWidget } from './RemindersWidget.jsx';
 import { HRNavigation } from '@/components/payroll/HRNavigation.jsx';
 import { useConfirm } from '@/hooks/use-confirm';
+import { PageLoading } from '@/components/ui/page-loading.jsx';
 // Extracted CRM sub-components
 import { ContactsTable } from './crm/ContactsTable.jsx';
 import { ContactDetailPanel } from './crm/ContactDetailPanel.jsx';
 import { ContactsSummaryCards } from './crm/ContactsSummaryCards.jsx';
 import { KanbanColumn } from './crm/KanbanColumn.jsx';
 import { KanbanCard } from './crm/KanbanCard.jsx';
-import { getTierBadge, getContactTypeBadge, renderEmployeeStatusBadge } from './crm/badges.jsx';
+import { getTierBadge, getContactTypeBadge, renderEmployeeStatusBadge, getStageColor, getStageBadge } from './crm/badges.jsx';
 import { CRMEmptyState } from './crm/CRMEmptyState.jsx';
 import { computeInactiveDays } from './crm/AtRiskBadge.jsx';
 import { useCRMMilestones } from '@/hooks/use-crm-milestones';
@@ -516,29 +517,27 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     { value: 'payroll-documents-reminder', label: 'Recordatorio de documentos faltantes' },
   ];
 
-  // Sincronizar filterType con searchParams cuando cambia la URL
-  // Only sync for valid contacts sub-tab filter types (not top-level tabs like pipeline/playbooks/reminders/settings)
-  const validContactsFilterTypes = ['all', 'individual', 'supplier', 'employee'];
+  // Guard effects — only handle forced/hidden employee tab edge cases.
+  // General URL↔filterType sync is handled by the effect at line 235 above.
   useEffect(() => {
     if (forceEmployeeTab && filterType !== 'employee') {
       setFilterType('employee');
       setSearchParams({ tab: 'employee' }, { replace: true });
-      return;
     }
-    const tabFromUrl = searchParams.get('tab');
-    if (tabFromUrl && tabFromUrl !== filterType && validContactsFilterTypes.includes(tabFromUrl) && !(hideEmployeeTab && tabFromUrl === 'employee')) {
-      setFilterType(tabFromUrl);
-    }
+  }, [forceEmployeeTab, filterType, setSearchParams]);
+
+  useEffect(() => {
     if (hideEmployeeTab && filterType === 'employee') {
       setFilterType('all');
       setSearchParams({ tab: 'all' }, { replace: true });
     }
-  }, [searchParams, filterType, forceEmployeeTab, hideEmployeeTab, setSearchParams]);
+  }, [hideEmployeeTab, filterType, setSearchParams]);
 
   // Manejador para cambiar tabs (actualiza estado y URL)
   const handleTabChange = (newTab) => {
     if (forceEmployeeTab) return;
     if (hideEmployeeTab && newTab === 'employee') return;
+    setSummaryFilter(null); // Clear summary filter on sub-tab change
     setFilterType(newTab);
     setSearchParams({ tab: newTab }, { replace: true });
   };
@@ -830,8 +829,10 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
       ? Math.max(manualPageLimitRef.current, SEARCH_PAGE_LIMIT)
       : manualPageLimitRef.current;
 
+    // Use the MAPPED customerType from currentFilters for cache comparison
+    // (must match what reloadCustomers stores in lastQueryRef)
     const normalizedSearch = committedSearch || '';
-    const normalizedCustomerType = filterType !== 'all' ? filterType : 'all';
+    const normalizedCustomerType = currentFilters.customerType || 'all';
 
     if (
       lastQueryRef.current.search === normalizedSearch &&
@@ -1651,15 +1652,36 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   };
 
   // --- RENDERIZADO ---
-  if (!isEmployeeTab && loading) return <div>Cargando CRM...</div>;
+  if (!isEmployeeTab && loading && crmData.length === 0) {
+    return <PageLoading variant="dashboard" />;
+  }
   if (isEmployeeTab && employeesLoading && employeesData.length === 0) {
-    return <div>Cargando empleados...</div>;
+    return <PageLoading variant="table" />;
   }
   if (!isEmployeeTab && error) {
-    return <div className="text-destructive">Error al cargar datos del CRM: {error}</div>;
+    return (
+      <div className="flex flex-col items-center py-16 text-center">
+        <div className="h-14 w-14 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-6 w-6 text-destructive" />
+        </div>
+        <h3 className="text-base font-semibold text-foreground">Error al cargar CRM</h3>
+        <p className="text-sm text-muted-foreground mt-1 max-w-sm">{error}</p>
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => reloadCustomers(1, pageLimit)}>
+          Reintentar
+        </Button>
+      </div>
+    );
   }
   if (isEmployeeTab && employeesError && employeesData.length === 0) {
-    return <div className="text-destructive">Error al cargar empleados: {employeesError}</div>;
+    return (
+      <div className="flex flex-col items-center py-16 text-center">
+        <div className="h-14 w-14 rounded-2xl bg-destructive/10 flex items-center justify-center mb-4">
+          <AlertTriangle className="h-6 w-6 text-destructive" />
+        </div>
+        <h3 className="text-base font-semibold text-foreground">Error al cargar empleados</h3>
+        <p className="text-sm text-muted-foreground mt-1 max-w-sm">{employeesError}</p>
+      </div>
+    );
   }
 
   /* DEBUG: Checking user role structure
@@ -2499,6 +2521,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                         <ContactsTable
                           filteredData={displayedData}
                           loading={loading}
+                          selectedCustomerId={selectedCustomer?._id}
                           onViewDetail={(customer) => setSelectedCustomer(customer)}
                           onEdit={handleOpenEditDialog}
                           onDelete={handleDeleteContact}
@@ -2870,132 +2893,127 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
             </CardHeader>
             <CardContent>
               {oppSummary?.byStage && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                  {oppSummary.byStage.map((row) => (
-                    <div key={row._id || 'sin-etapa'} className="rounded-md border p-3">
-                      <div className="text-sm font-semibold">{row._id || 'Sin etapa'}</div>
-                      <div className="text-2xl font-bold">{row.total || 0}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Prob promedio: {Math.round(row.avgProbability || 0)}% · Monto: {row.amount || 0}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  {oppSummary.byStage.map((row) => {
+                    const stageColor = getStageColor(row._id);
+                    return (
+                      <div key={row._id || 'sin-etapa'} className={`glass-card-subtle rounded-xl p-4 border-t-2 ${stageColor.border}`}>
+                        <div className={`text-xs font-medium uppercase tracking-wider ${stageColor.text} mb-1`}>{row._id || 'Sin etapa'}</div>
+                        <div className="text-2xl font-bold text-foreground">{row.total || 0}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {row.amount ? `$${Number(row.amount).toLocaleString()}` : '$0'} · {Math.round(row.avgProbability || 0)}% prob.
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  <div className="rounded-md border p-3 bg-amber-50 dark:bg-amber-950/30">
-                    <div className="text-sm font-semibold text-amber-900 dark:text-amber-400">Vence en ≤2 días</div>
-                    <div className="text-2xl font-bold text-amber-900 dark:text-amber-400">{slaAging.dueSoon}</div>
-                    <div className="text-xs text-amber-800 dark:text-amber-500">Next step cercano requiere acción.</div>
+                    );
+                  })}
+                  <div className="glass-card-subtle rounded-xl p-4 border-t-2 border-t-warning">
+                    <div className="text-xs font-medium uppercase tracking-wider text-warning mb-1">Vence en ≤2 días</div>
+                    <div className="text-2xl font-bold text-warning">{slaAging.dueSoon}</div>
+                    <div className="text-xs text-muted-foreground mt-1">Requiere acción inmediata</div>
                   </div>
-                  <div className="rounded-md border p-3 bg-destructive/10">
-                    <div className="text-sm font-semibold text-red-900 dark:text-red-400">Vencidos</div>
-                    <div className="text-2xl font-bold text-red-900 dark:text-red-400">{slaAging.overdue}</div>
-                    <div className="text-xs text-red-800 dark:text-destructive">Next step vencido (SLA roto).</div>
+                  <div className="glass-card-subtle rounded-xl p-4 border-t-2 border-t-destructive">
+                    <div className="text-xs font-medium uppercase tracking-wider text-destructive mb-1">Vencidos</div>
+                    <div className="text-2xl font-bold text-destructive">{slaAging.overdue}</div>
+                    <div className="text-xs text-muted-foreground mt-1">SLA superado</div>
                   </div>
                 </div>
               )}
               {pipelineView === 'table' ? (
-                <div className="rounded-md border">
+                <div className="rounded-xl border overflow-hidden">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead>Oportunidad</TableHead>
-                        <TableHead>Etapa</TableHead>
-                        <TableHead>Owner</TableHead>
-                        <TableHead>Monto</TableHead>
-                        <TableHead>Next step</TableHead>
-                        <TableHead>Vence</TableHead>
-                        <TableHead>Acciones</TableHead>
+                      <TableRow className="bg-muted/30">
+                        <TableHead className="font-semibold">Oportunidad</TableHead>
+                        <TableHead className="font-semibold">Etapa</TableHead>
+                        <TableHead className="font-semibold">Owner</TableHead>
+                        <TableHead className="font-semibold text-right">Monto</TableHead>
+                        <TableHead className="font-semibold">Next step</TableHead>
+                        <TableHead className="font-semibold">Vence</TableHead>
+                        <TableHead className="font-semibold text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
+                    <AnimatedTableBody>
                       {opportunitiesLoading && (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
-                            Cargando pipeline...
+                          <TableCell colSpan={7}>
+                            <PageLoading variant="table" />
                           </TableCell>
                         </TableRow>
                       )}
                       {!opportunitiesLoading && opportunities.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={7} className="text-center text-sm text-muted-foreground">
-                            Sin oportunidades aún.
+                          <TableCell colSpan={7}>
+                            <CRMEmptyState
+                              icon={DollarSign}
+                              title="Sin oportunidades"
+                              description="Crea tu primera oportunidad para comenzar a gestionar tu embudo de ventas."
+                              actionLabel="Crear oportunidad"
+                              onAction={() => setIsOpportunityDialogOpen(true)}
+                            />
                           </TableCell>
                         </TableRow>
                       )}
                       {!opportunitiesLoading &&
-                        opportunities.map((opp) => (
-                          <TableRow key={opp._id}>
+                        opportunities.map((opp) => {
+                          const oppDue = opp.nextStepDue ? new Date(opp.nextStepDue) : null;
+                          const oppDiff = oppDue ? Math.floor((oppDue - new Date()) / (1000 * 60 * 60 * 24)) : null;
+                          const oppUrgency = oppDiff !== null && oppDiff < 0 ? 'border-l-4 border-l-destructive' : oppDiff !== null && oppDiff <= 2 ? 'border-l-4 border-l-warning' : '';
+                          return (
+                          <AnimatedTableRow key={opp._id} className={oppUrgency}>
                             <TableCell>
-                              <div className="font-semibold">{opp.name || 'Sin nombre'}</div>
+                              <div className="font-semibold text-foreground">{opp.name || 'Sin nombre'}</div>
                               <div className="text-xs text-muted-foreground">
-                                Cliente: {opp.customerId?.name || opp.customerId?.companyName || opp.customerId || '—'}
+                                {opp.customerId?.name || opp.customerId?.companyName || '—'}
                               </div>
                             </TableCell>
-                            <TableCell>{opp.stage || '—'}</TableCell>
-                            <TableCell className="text-sm">
+                            <TableCell>{getStageBadge(opp.stage || '—')}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
                               {opp.ownerId?.name || opp.ownerId?.email || '—'}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-right">
                               {opp.amount ? (
-                                <>
-                                  {opp.amount} {opp.currency || 'USD'}
-                                </>
+                                <span className="font-semibold text-foreground">
+                                  ${Number(opp.amount).toLocaleString()} <span className="text-xs text-muted-foreground">{opp.currency || 'USD'}</span>
+                                </span>
                               ) : (
-                                '—'
+                                <span className="text-muted-foreground">—</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-sm">{opp.nextStep || '—'}</TableCell>
-                            <TableCell className="text-sm">
-                              {opp.nextStepDue ? new Date(opp.nextStepDue).toISOString().slice(0, 10) : '—'}
-                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{opp.nextStep || '—'}</TableCell>
                             <TableCell>
-                              <div className="flex gap-2 mb-2">
+                              {opp.nextStepDue ? (
+                                <span className={`text-sm ${oppDiff !== null && oppDiff < 0 ? 'text-destructive font-medium' : oppDiff !== null && oppDiff <= 2 ? 'text-warning font-medium' : 'text-muted-foreground'}`}>
+                                  {new Date(opp.nextStepDue).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+                                </span>
+                              ) : '—'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
                                 <Button
-                                  variant="outline"
-                                  size="sm"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
                                   onClick={() => {
                                     setActiveDetailOpp(opp);
                                     setIsDetailViewOpen(true);
                                   }}
+                                  title="Ver detalle"
                                 >
-                                  <Eye className="w-4 h-4" />
+                                  <Eye className="h-4 w-4" />
                                 </Button>
                                 <Button variant="outline" size="sm" onClick={() => openStageDialog(opp)}>
                                   Cambiar etapa
                                 </Button>
                               </div>
-                              <div className="mt-2 flex gap-2">
-                                <Button variant="secondary" size="xs" onClick={() => handleMqlDecision(opp._id, 'accepted')}>
-                                  MQL ✓
-                                </Button>
-                                <Button variant="destructive" size="xs" onClick={() => handleMqlDecision(opp._id, 'rejected')}>
-                                  MQL ×
-                                </Button>
-                                <Button variant="secondary" size="xs" onClick={() => handleSqlDecision(opp._id, 'accepted')}>
-                                  SQL ✓
-                                </Button>
-                                <Button variant="destructive" size="xs" onClick={() => handleSqlDecision(opp._id, 'rejected')}>
-                                  SQL ×
-                                </Button>
-                              </div>
                             </TableCell>
-                          </TableRow>
-                        ))}
-                    </TableBody>
+                          </AnimatedTableRow>
+                          );
+                        })}
+                    </AnimatedTableBody>
                   </Table>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Input
-                      placeholder="Agregar etapa personalizada"
-                      value={customStageInput}
-                      onChange={(e) => setCustomStageInput(e.target.value)}
-                      className="w-full sm:w-64"
-                    />
-                    <Button type="button" variant="outline" onClick={handleAddCustomStage}>
-                      Añadir etapa
-                    </Button>
-                  </div>
                   <DndProvider backend={HTML5Backend}>
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       {stageOptions.map((stage) => {
@@ -3019,67 +3037,6 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                       })}
                     </div>
                   </DndProvider>
-                  <div className="rounded-md border bg-background p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <div className="font-semibold">Catálogo de etapas</div>
-                        <p className="text-xs text-muted-foreground">
-                          Edita probabilidad/orden y elimina etapas del tenant.
-                        </p>
-                      </div>
-                      {stageDefinitionsLoading && (
-                        <Badge variant="outline">Cargando...</Badge>
-                      )}
-                    </div>
-                    <div className="space-y-2 max-h-[320px] overflow-auto pr-1">
-                      {(stageDefinitions || []).map((stage) => (
-                        <div key={stage._id} className="rounded border p-2 grid grid-cols-4 gap-2 text-sm">
-                          <div className="col-span-2">
-                            <div className="font-medium">{stage.name}</div>
-                            <div className="text-[11px] text-muted-foreground">
-                              Required: {(stage.requiredFields || []).join(', ') || '—'}
-                            </div>
-                          </div>
-                          <div>
-                            <Label className="text-[11px]">Prob (%)</Label>
-                            <Input
-                              type="number"
-                              value={stageEdits[stage._id]?.probability ?? stage.probability ?? 0}
-                              onChange={(e) =>
-                                handleStageFieldChange(stage._id, 'probability', Number(e.target.value))
-                              }
-                            />
-                          </div>
-                          <div>
-                            <Label className="text-[11px]">Orden</Label>
-                            <Input
-                              type="number"
-                              value={stageEdits[stage._id]?.order ?? stage.order ?? 0}
-                              onChange={(e) =>
-                                handleStageFieldChange(stage._id, 'order', Number(e.target.value))
-                              }
-                            />
-                          </div>
-                          <div className="col-span-4 flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleUpdateStage(stage._id)}
-                            >
-                              Guardar
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleDeleteStage(stage._id)}
-                            >
-                              Eliminar
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               )}
             </CardContent>

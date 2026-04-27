@@ -49,8 +49,11 @@ export const CrmProvider = ({ children }) => {
   });
   const employeeRoleIdRef = useRef(null);
   const employeesRefreshPromiseRef = useRef(null);
+  const customerRequestIdRef = useRef(0);
 
   const loadCustomers = useCallback(async (page = 1, limit = 25, filters = {}) => {
+    // Increment request counter — only the latest request applies its response
+    const requestId = ++customerRequestIdRef.current;
     try {
       setLoading(true);
       setError(null);
@@ -75,6 +78,9 @@ export const CrmProvider = ({ children }) => {
 
       const response = await fetchApi(`/customers?${params.toString()}`);
 
+      // Stale response guard — discard if a newer request was made while this one was in flight
+      if (requestId !== customerRequestIdRef.current) return;
+
       setCrmData(response.data?.customers || response.data || []);
       setTotalCustomers(response.pagination?.total || 0);
       setTotalPages(response.pagination?.totalPages || 0);
@@ -86,13 +92,16 @@ export const CrmProvider = ({ children }) => {
         filters: { ...filters },
       };
     } catch (err) {
+      if (requestId !== customerRequestIdRef.current) return;
       console.error("Error loading customers:", err.message);
       setCrmData([]);
       setTotalCustomers(0);
       setTotalPages(0);
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (requestId === customerRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, []);
 

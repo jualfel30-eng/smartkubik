@@ -19,8 +19,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
   'barbershop-salon': new Set([
     'dashboard',              // Panel de Control
     'subsidiaries',           // Mis Sedes (filtered by requiresSubsidiaries)
-    'appointments',           // Agenda (dynamicLabel)
-    'floor-view',             // Tablero de Piso (live status of professionals)
+    'appointments',           // Agenda (unified: calendar + floor panel + command panel)
     'services',               // Servicios
     'resources',              // Estaciones (dynamicLabel)
     'crm',                    // CRM — Clientes
@@ -60,8 +59,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
   'clinic-spa': new Set([
     'dashboard',              // Panel de Control
     'subsidiaries',           // Mis Sedes
-    'appointments',           // Consultas (dynamicLabel)
-    'floor-view',             // Tablero de Piso (live status of professionals)
+    'appointments',           // Consultas (unified: calendar + floor panel + command panel)
     'services',               // Servicios / Tratamientos
     'resources',              // Consultorios (dynamicLabel)
     'crm',                    // CRM — Pacientes/clientes

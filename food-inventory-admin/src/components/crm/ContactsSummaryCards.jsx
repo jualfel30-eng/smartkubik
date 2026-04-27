@@ -1,11 +1,14 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { SPRING, STAGGER, listItem } from '@/lib/motion';
 import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber.jsx';
 import { Users, UserPlus, AlertTriangle, Building } from 'lucide-react';
 import { computeInactiveDays } from './AtRiskBadge.jsx';
 
+/**
+ * ContactsSummaryCards — Premium glass KPI cards with hover, animated numbers,
+ * clickable filters, and trend indicators. Matches DashboardKpiCard styling.
+ */
 export function ContactsSummaryCards({
   filteredData,
   totalCustomers,
@@ -36,62 +39,94 @@ export function ContactsSummaryCards({
       icon: Users,
       label: 'Contactos',
       value: totalCustomers,
-      accent: null,
+      iconBg: 'bg-primary/10',
+      iconColor: 'text-primary',
+      valueColor: 'text-foreground',
     },
     {
       key: 'new',
       icon: UserPlus,
       label: 'Nuevos este mes',
       value: stats.newThisMonth,
-      accent: 'text-emerald-600',
+      iconBg: 'bg-success/10 dark:bg-success-muted',
+      iconColor: 'text-success',
+      valueColor: 'text-success',
       onClick: onFilterNew,
       active: activeFilter === 'new',
+      trend: stats.newThisMonth > 0 ? `+${stats.newThisMonth}` : null,
+      trendColor: 'text-success',
     },
     {
       key: 'atRisk',
       icon: AlertTriangle,
       label: 'En riesgo',
       value: stats.atRisk,
-      accent: stats.atRisk > 0 ? 'text-amber-600' : null,
+      iconBg: stats.atRisk > 0 ? 'bg-warning/10 dark:bg-warning-muted' : 'bg-muted',
+      iconColor: stats.atRisk > 0 ? 'text-warning' : 'text-muted-foreground',
+      valueColor: stats.atRisk > 0 ? 'text-warning' : 'text-foreground',
       onClick: onFilterAtRisk,
       active: activeFilter === 'atRisk',
+      subtitle: stats.atRisk > 0 ? 'sin actividad 30+ días' : 'todo al día',
     },
     {
       key: 'suppliers',
       icon: Building,
       label: 'Proveedores',
       value: stats.suppliers,
-      accent: null,
+      iconBg: 'bg-info/10 dark:bg-info-muted',
+      iconColor: 'text-info',
+      valueColor: 'text-foreground',
     },
   ];
 
   return (
     <motion.div
       className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
-      variants={STAGGER(0.05)}
+      variants={STAGGER(0.06)}
       initial="initial"
       animate="animate"
     >
       {cards.map((card) => (
-        <motion.div key={card.key} variants={listItem}>
-          <Card
-            className={`border-none bg-muted/40 shadow-none transition-all ${
-              card.onClick ? 'cursor-pointer hover:bg-muted/60' : ''
-            } ${card.active ? 'ring-2 ring-primary' : ''}`}
+        <motion.div
+          key={card.key}
+          variants={listItem}
+          whileHover={card.onClick ? { scale: 1.02 } : undefined}
+          whileTap={card.onClick ? { scale: 0.98 } : undefined}
+          transition={SPRING.snappy}
+        >
+          <div
+            className={`glass-card-subtle rounded-xl p-4 transition-all ${
+              card.onClick ? 'cursor-pointer' : ''
+            } ${card.active ? 'ring-2 ring-primary shadow-[var(--glow-primary)]' : ''}`}
             onClick={card.onClick}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {/* Header: icon + label */}
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 {card.label}
-              </CardTitle>
-              <card.icon className={`h-4 w-4 ${card.accent || 'text-muted-foreground'}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-semibold ${card.accent || 'text-foreground'}`}>
-                <AnimatedNumber value={card.value} />
+              </span>
+              <div className={`h-8 w-8 rounded-lg ${card.iconBg} flex items-center justify-center`}>
+                <card.icon className={`h-4 w-4 ${card.iconColor}`} />
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            {/* Value */}
+            <div className={`text-2xl font-bold ${card.valueColor}`}>
+              <AnimatedNumber value={card.value} />
+            </div>
+
+            {/* Trend or subtitle */}
+            {card.trend && (
+              <p className={`text-xs font-medium mt-1 ${card.trendColor}`}>
+                {card.trend} este mes
+              </p>
+            )}
+            {card.subtitle && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {card.subtitle}
+              </p>
+            )}
+          </div>
         </motion.div>
       ))}
     </motion.div>

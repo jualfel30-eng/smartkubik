@@ -1,22 +1,63 @@
 import { Button } from '@/components/ui/button.jsx';
+import { Badge } from '@/components/ui/badge.jsx';
 import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body.jsx';
 import { ContentTransition } from '@/components/ui/content-transition.jsx';
 import { PageLoading } from '@/components/ui/page-loading.jsx';
-import { Eye, Edit, Trash2, Mail, Phone } from 'lucide-react';
-import { getTierBadge, getContactTypeBadge } from './badges.jsx';
-import { AtRiskBadge } from './AtRiskBadge.jsx';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu.jsx';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
+import { Edit, Trash2, MessageCircle, MoreHorizontal, Users } from 'lucide-react';
+import WhatsAppComposer from '@/components/shared/WhatsAppComposer.jsx';
+import { getContactTypeBadge } from './badges.jsx';
 import { CRMEmptyState } from './CRMEmptyState.jsx';
-import { Users } from 'lucide-react';
+
+/**
+ * Compute human-readable "last activity" from customer data.
+ * Returns { text, daysAgo, urgency } where urgency is 'ok' | 'warning' | 'danger'
+ */
+function getLastActivity(customer) {
+  const lastDate = customer.metrics?.lastOrderDate || customer.lastVisit;
+  if (!lastDate) {
+    const days = customer.metrics?.daysSinceLastOrder;
+    if (days != null) {
+      return {
+        text: `hace ${days}d`,
+        daysAgo: days,
+        urgency: days >= 60 ? 'danger' : days >= 30 ? 'warning' : 'ok',
+      };
+    }
+    return { text: 'Sin actividad', daysAgo: null, urgency: 'ok' };
+  }
+  const diff = Math.floor((Date.now() - new Date(lastDate).getTime()) / (1000 * 60 * 60 * 24));
+  if (diff < 0) return { text: 'Hoy', daysAgo: 0, urgency: 'ok' };
+  if (diff === 0) return { text: 'Hoy', daysAgo: 0, urgency: 'ok' };
+  if (diff === 1) return { text: 'Ayer', daysAgo: 1, urgency: 'ok' };
+  if (diff < 7) return { text: `hace ${diff}d`, daysAgo: diff, urgency: 'ok' };
+  if (diff < 30) return { text: `hace ${diff}d`, daysAgo: diff, urgency: 'ok' };
+  if (diff < 60) return { text: `hace ${diff}d`, daysAgo: diff, urgency: 'warning' };
+  return { text: `hace ${diff}d`, daysAgo: diff, urgency: 'danger' };
+}
+
+const urgencyStyles = {
+  ok: '',
+  warning: 'border-l-4 border-l-warning',
+  danger: 'border-l-4 border-l-destructive',
+};
+
+const urgencyDotStyles = {
+  ok: 'bg-success',
+  warning: 'bg-warning',
+  danger: 'bg-destructive',
+};
 
 export function ContactsTable({
   filteredData,
   loading,
+  selectedCustomerId,
   onViewDetail,
   onEdit,
   onDelete,
   justCreatedId,
-  // Pagination
   totalCustomers,
   currentPage,
   totalPages,
@@ -25,89 +66,154 @@ export function ContactsTable({
   return (
     <>
       <ContentTransition loading={loading && filteredData.length === 0} skeleton={<PageLoading variant="table" />}>
-        <div className="rounded-md border">
+        <div className="rounded-xl border overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Contacto</TableHead>
-                <TableHead>Tier RFM</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Dirección</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Contacto Principal</TableHead>
-                <TableHead>Gastos Totales</TableHead>
-                <TableHead>Acciones</TableHead>
+              <TableRow className="bg-muted/30">
+                <TableHead className="font-semibold">Contacto</TableHead>
+                <TableHead className="font-semibold">Tipo</TableHead>
+                <TableHead className="font-semibold">Última actividad</TableHead>
+                <TableHead className="font-semibold text-right">Gasto total</TableHead>
+                <TableHead className="font-semibold text-center">Estado</TableHead>
+                <TableHead className="font-semibold text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <AnimatedTableBody>
               {filteredData.length === 0 && !loading && (
                 <TableRow>
-                  <TableCell colSpan={8}>
+                  <TableCell colSpan={6}>
                     <CRMEmptyState
                       icon={Users}
                       title="Sin contactos"
-                      description="Agrega tu primer contacto para comenzar a gestionar tu CRM."
+                      description="Agrega tu primer contacto para comenzar a gestionar relaciones con tus clientes."
+                      actionLabel="Agregar contacto"
                     />
                   </TableCell>
                 </TableRow>
               )}
               {filteredData.map((customer) => {
-                const primaryContact = customer.contacts?.find(c => c.isPrimary) || customer.contacts?.[0];
+                const activity = getLastActivity(customer);
+                const phone = customer.contacts?.find(c => c.type === 'phone')?.value
+                  || customer.contacts?.find(c => c.isPrimary && c.type !== 'email')?.value;
+                const isSelected = customer._id === selectedCustomerId;
+                const whatsappLink = phone ? `https://wa.me/${phone.replace(/[^0-9]/g, '')}` : null;
+
                 return (
                   <AnimatedTableRow
                     key={customer._id}
-                    className={`group/row cursor-pointer ${customer._id === justCreatedId ? 'animate-[glow-pulse_1.5s_ease-in-out]' : ''}`}
+                    className={`cursor-pointer transition-all ${urgencyStyles[activity.urgency]} ${
+                      isSelected
+                        ? 'bg-primary/5 dark:bg-primary/10'
+                        : ''
+                    } ${customer._id === justCreatedId ? 'animate-[glow-pulse_1.5s_ease-in-out]' : ''}`}
                     onClick={() => onViewDetail(customer)}
                   >
-                    <TableCell>
-                      <div className="font-medium">{customer.name}</div>
-                      <div className="text-sm text-muted-foreground">{customer.companyName}</div>
+                    {/* Contacto — Name + company */}
+                    <TableCell className="py-3">
+                      <div className="font-medium text-foreground">{customer.name}</div>
+                      {customer.companyName && (
+                        <div className="text-xs text-muted-foreground mt-0.5">{customer.companyName}</div>
+                      )}
                     </TableCell>
+
+                    {/* Tipo */}
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        {getTierBadge(customer.tier)}
-                        <AtRiskBadge customer={customer} />
+                      {getContactTypeBadge(customer.customerType)}
+                    </TableCell>
+
+                    {/* Última actividad — date + relative + urgency dot */}
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full shrink-0 ${urgencyDotStyles[activity.urgency]}`} />
+                        <span className={`text-sm ${
+                          activity.urgency === 'danger' ? 'text-destructive font-medium' :
+                          activity.urgency === 'warning' ? 'text-warning font-medium' :
+                          'text-muted-foreground'
+                        }`}>
+                          {activity.text}
+                        </span>
                       </div>
                     </TableCell>
-                    <TableCell>{getContactTypeBadge(customer.customerType)}</TableCell>
-                    <TableCell>
-                      <div className="text-sm max-w-[200px] truncate" title={customer.addresses?.find(a => a.isDefault)?.street || customer.addresses?.[0]?.street || ''}>
-                        {customer.addresses?.find(a => a.isDefault)?.street || customer.addresses?.[0]?.street || '-'}
-                      </div>
+
+                    {/* Gasto total */}
+                    <TableCell className="text-right">
+                      <span className="font-semibold text-foreground">
+                        ${customer.metrics?.totalSpent?.toFixed(2) || '0.00'}
+                      </span>
                     </TableCell>
-                    <TableCell>
-                      <div className="text-sm flex items-center gap-2">
-                        {customer.contacts?.find(c => c.type === 'email')?.value ? (
-                          <>
-                            <Mail className="h-3 w-3" />
-                            <span className="truncate max-w-[150px]" title={customer.contacts.find(c => c.type === 'email').value}>
-                              {customer.contacts.find(c => c.type === 'email').value}
-                            </span>
-                          </>
-                        ) : '-'}
-                      </div>
+
+                    {/* Estado — tier as colored dot */}
+                    <TableCell className="text-center">
+                      {customer.tier ? (
+                        <Badge className={`text-[11px] ${
+                          customer.tier === 'diamante' ? 'bg-info/10 text-info border-info/20' :
+                          customer.tier === 'oro' ? 'bg-warning/10 text-warning border-warning/20' :
+                          customer.tier === 'plata' ? 'bg-muted text-muted-foreground border-border' :
+                          'bg-muted text-muted-foreground border-border'
+                        } border`}>
+                          {customer.tier === 'diamante' ? '💎' :
+                           customer.tier === 'oro' ? '🥇' :
+                           customer.tier === 'plata' ? '🥈' : '🥉'}{' '}
+                          {customer.tier.charAt(0).toUpperCase() + customer.tier.slice(1)}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
-                    <TableCell>
-                      {primaryContact?.value && primaryContact.type !== 'email' ? (
-                        <div className="text-sm flex items-center gap-2"><Phone className="h-3 w-3" /> {primaryContact.value}</div>
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell><div className="font-medium">${customer.metrics?.totalSpent?.toFixed(2) || '0.00'}</div></TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2 opacity-0 group-hover/row:opacity-100 transition-opacity">
+
+                    {/* Acciones — ALWAYS visible, 2-3 icon buttons */}
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {phone && (
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30"
+                                onClick={(e) => e.stopPropagation()}
+                                title="Enviar WhatsApp"
+                              >
+                                <MessageCircle className="h-4 w-4" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-72 p-0" align="end" onClick={(e) => e.stopPropagation()}>
+                              <WhatsAppComposer
+                                contact={{ name: customer.name || customer.companyName, phone, _id: customer._id }}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        )}
                         <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onViewDetail(customer);
-                          }}
-                          title="Ver detalles y historial"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => { e.stopPropagation(); onEdit(customer); }}
+                          title="Editar contacto"
                         >
-                          <Eye className="h-4 w-4" />
+                          <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onEdit(customer); }}><Edit className="h-4 w-4" /></Button>
-                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); onDelete(customer._id); }} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onSelect={() => onDelete(customer._id)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Eliminar contacto
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </AnimatedTableRow>
@@ -117,34 +223,36 @@ export function ContactsTable({
           </Table>
         </div>
       </ContentTransition>
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mt-4">
-        <div>
-          Mostrando <span className="font-semibold">{filteredData.length}</span> de{' '}
-          <span className="font-semibold">{totalCustomers}</span> contactos
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-          >
-            Anterior
-          </Button>
-          <div className="text-sm text-muted-foreground">
-            Página <span className="font-semibold">{currentPage}</span> de{' '}
-            <span className="font-semibold">{totalPages}</span>
+
+      {/* Pagination */}
+      {filteredData.length > 0 && (
+        <div className="flex items-center justify-between mt-4 text-sm">
+          <span className="text-muted-foreground">
+            {totalCustomers} contactos total
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+            >
+              Anterior
+            </Button>
+            <span className="text-muted-foreground px-2">
+              {currentPage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+            >
+              Siguiente
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage === totalPages}
-          >
-            Siguiente
-          </Button>
         </div>
-      </div>
+      )}
     </>
   );
 }

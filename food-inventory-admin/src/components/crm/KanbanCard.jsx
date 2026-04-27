@@ -3,14 +3,21 @@ import { motion } from 'framer-motion';
 import { SPRING } from '@/lib/motion';
 import { Button } from '@/components/ui/button.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
-import { Eye } from 'lucide-react';
+import { Eye, DollarSign } from 'lucide-react';
 
-export function KanbanCard({ opp, onQuickMove, onMqlDecision, onSqlDecision, onOpenDetail, stageOptions }) {
+/**
+ * KanbanCard — Simplified opportunity card.
+ * Shows: name + amount, client, next step + due date.
+ * Single action: move to stage. Detail via eye icon.
+ * MQL/SQL removed from card (belongs in detail dialog).
+ */
+export function KanbanCard({ opp, onQuickMove, onOpenDetail, stageOptions }) {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: 'OPPORTUNITY_CARD',
     item: { opp },
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
   }), [opp]);
+
   const dueDate = opp.nextStepDue ? new Date(opp.nextStepDue) : null;
   const today = new Date();
   const diffDays = dueDate ? Math.floor((dueDate - today) / (1000 * 60 * 60 * 24)) : null;
@@ -20,63 +27,74 @@ export function KanbanCard({ opp, onQuickMove, onMqlDecision, onSqlDecision, onO
   return (
     <motion.div
       ref={drag}
-      className="rounded-md border bg-background p-2 shadow-sm space-y-1 cursor-grab active:cursor-grabbing"
-      style={{ opacity: isDragging ? 0.5 : 1 }}
+      className={`rounded-lg border bg-card p-3 space-y-2 cursor-grab active:cursor-grabbing transition-shadow ${
+        isDragging ? 'shadow-lg opacity-60' : 'shadow-sm hover:shadow-md'
+      }`}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       transition={SPRING.snappy}
       layout={!isDragging}
       layoutId={isDragging ? undefined : opp._id}
     >
-      <div className="flex justify-between items-start">
-        <div className="font-medium text-sm">{opp.name || 'Sin nombre'}</div>
-        <Button variant="ghost" size="xs" className="h-4 w-4 p-0" onClick={() => onOpenDetail && onOpenDetail(opp)}>
-          <Eye className="h-3 w-3" />
-        </Button>
-      </div>
-      <div className="text-xs text-muted-foreground">
-        Cliente: {opp.customerId?.name || opp.customerId?.companyName || '—'}
-      </div>
-      <div className="text-xs text-muted-foreground">
-        Owner: {opp.ownerId?.name || opp.ownerId?.email || '—'}
-      </div>
-      <div className="text-xs flex items-center gap-2">
-        <span>Next: {opp.nextStep || '—'}</span>
-        <span className={`px-1.5 py-0.5 rounded text-[10px] ${isOverdue ? 'bg-destructive/20 text-destructive dark:bg-destructive/30 dark:text-destructive' : isDueSoon ? 'bg-amber-200 text-amber-900 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-muted text-muted-foreground'}`}>
-          {opp.nextStepDue ? new Date(opp.nextStepDue).toISOString().slice(0, 10) : '—'}
+      {/* Line 1: Name + Amount */}
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-semibold text-sm text-foreground leading-tight">
+          {opp.name || 'Sin nombre'}
         </span>
+        <div className="flex items-center gap-1 shrink-0">
+          {opp.amount ? (
+            <span className="text-xs font-bold text-foreground">
+              ${opp.amount.toLocaleString()}
+            </span>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={(e) => { e.stopPropagation(); onOpenDetail?.(opp); }}
+            title="Ver detalle"
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
-      <Select
-        value={opp.stage}
-        onValueChange={(value) => onQuickMove(opp._id, value)}
-      >
-        <SelectTrigger>
+
+      {/* Line 2: Client */}
+      <p className="text-xs text-muted-foreground truncate">
+        {opp.customerId?.name || opp.customerId?.companyName || '—'}
+      </p>
+
+      {/* Line 3: Next step + due date */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground truncate flex-1">
+          {opp.nextStep || 'Sin próximo paso'}
+        </span>
+        {opp.nextStepDue && (
+          <span className={`text-[11px] px-1.5 py-0.5 rounded-md font-medium shrink-0 ${
+            isOverdue
+              ? 'bg-destructive/15 text-destructive'
+              : isDueSoon
+                ? 'bg-warning/15 text-warning'
+                : 'bg-muted text-muted-foreground'
+          }`}>
+            {dueDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
+          </span>
+        )}
+      </div>
+
+      {/* Quick move */}
+      <Select value={opp.stage} onValueChange={(value) => onQuickMove(opp._id, value)}>
+        <SelectTrigger className="h-7 text-xs">
           <SelectValue placeholder="Mover a" />
         </SelectTrigger>
         <SelectContent>
           {stageOptions.map((s) => (
-            <SelectItem key={s} value={s}>
+            <SelectItem key={s} value={s} className="text-xs">
               {s}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <div className="flex gap-2">
-        <Button
-          variant="secondary"
-          size="xs"
-          onClick={() => onMqlDecision && onMqlDecision(opp._id, 'accepted')}
-        >
-          MQL
-        </Button>
-        <Button
-          variant="secondary"
-          size="xs"
-          onClick={() => onSqlDecision && onSqlDecision(opp._id, 'accepted')}
-        >
-          SQL
-        </Button>
-      </div>
     </motion.div>
   );
 }

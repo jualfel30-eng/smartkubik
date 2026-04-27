@@ -1,17 +1,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card.jsx';
+import { Card, CardContent } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
 import { getPayablesSummary } from '@/lib/api';
-import { DollarSign, Clock, AlertTriangle, TrendingUp, CalendarClock, CheckCircle2 } from 'lucide-react';
+import { DollarSign, AlertTriangle, CalendarClock, CheckCircle2, ChevronDown, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CURRENCY_LABELS, CURRENCY_COLORS, CURRENCY_TEXT_COLORS, formatCurrency } from '@/lib/currency-utils';
-import { scaleIn, STAGGER } from '@/lib/motion';
+import { scaleIn, STAGGER, fadeUp } from '@/lib/motion';
 import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber';
 
 export default function PayablesSummaryCards({ onFilterChange, activeFilter, payables = [] }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   useEffect(() => {
     loadSummary();
@@ -21,9 +25,7 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter, pay
     try {
       setLoading(true);
       const response = await getPayablesSummary();
-      if (response.success) {
-        setSummary(response.data);
-      }
+      if (response.success) setSummary(response.data);
     } catch (err) {
       console.error('Error loading payables summary:', err);
       setError(err.message);
@@ -32,54 +34,38 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter, pay
     }
   };
 
-  // Compute "This Week" and "Paid This Month" from payables prop
-  const thisWeekAmount = useMemo(() => {
+  const thisWeekData = useMemo(() => {
     const now = new Date();
     const weekFromNow = new Date(now.getTime() + 7 * 86400000);
-    return payables
-      .filter(p => p.dueDate && !['paid', 'void'].includes(p.status))
-      .filter(p => {
-        const due = new Date(p.dueDate);
-        return due >= now && due <= weekFromNow;
-      })
-      .reduce((sum, p) => sum + (p.lines || []).reduce((s, l) => s + Number(l.amount || 0), 0), 0);
+    const items = payables.filter(p =>
+      p.dueDate && !['paid', 'void'].includes(p.status) &&
+      new Date(p.dueDate) >= now && new Date(p.dueDate) <= weekFromNow
+    );
+    return {
+      amount: items.reduce((sum, p) => sum + (p.lines || []).reduce((s, l) => s + Number(l.amount || 0), 0), 0),
+      count: items.length,
+    };
   }, [payables]);
 
-  const thisWeekCount = useMemo(() => {
-    const now = new Date();
-    const weekFromNow = new Date(now.getTime() + 7 * 86400000);
-    return payables
-      .filter(p => p.dueDate && !['paid', 'void'].includes(p.status))
-      .filter(p => {
-        const due = new Date(p.dueDate);
-        return due >= now && due <= weekFromNow;
-      }).length;
-  }, [payables]);
-
-  const paidThisMonthAmount = useMemo(() => {
+  const paidThisMonthData = useMemo(() => {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    return payables
-      .filter(p => p.status === 'paid' && p.updatedAt && new Date(p.updatedAt) >= startOfMonth)
-      .reduce((sum, p) => sum + (p.paidAmount || 0), 0);
-  }, [payables]);
-
-  const paidThisMonthCount = useMemo(() => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    return payables
-      .filter(p => p.status === 'paid' && p.updatedAt && new Date(p.updatedAt) >= startOfMonth).length;
+    const items = payables.filter(p => p.status === 'paid' && p.updatedAt && new Date(p.updatedAt) >= startOfMonth);
+    return {
+      amount: items.reduce((sum, p) => sum + (p.paidAmount || 0), 0),
+      count: items.length,
+    };
   }, [payables]);
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
-        {[...Array(6)].map((_, i) => (
-          <Card key={i} className="animate-pulse dark:bg-slate-900 dark:border-slate-800">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i} className="animate-pulse dark:bg-slate-900/50 dark:border-slate-800">
             <CardContent className="p-4">
-              <div className="h-4 bg-gray-200 dark:bg-slate-700 rounded w-3/4 mb-2"></div>
-              <div className="h-6 bg-gray-200 dark:bg-slate-700 rounded w-1/2 mb-1"></div>
-              <div className="h-3 bg-gray-200 dark:bg-slate-700 rounded w-1/3"></div>
+              <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+              <div className="h-7 bg-muted rounded w-1/2 mb-1" />
+              <div className="h-3 bg-muted rounded w-1/3" />
             </CardContent>
           </Card>
         ))}
@@ -89,8 +75,8 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter, pay
 
   if (error) {
     return (
-      <div className="bg-destructive/5 border border-red-200 rounded-lg p-4 mb-6 dark:bg-red-950/20 dark:border-red-900/50">
-        <p className="text-destructive text-sm dark:text-red-400">Error al cargar resumen: {error}</p>
+      <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4 mb-6">
+        <p className="text-destructive text-sm">Error al cargar resumen: {error}</p>
       </div>
     );
   }
@@ -102,256 +88,247 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter, pay
 
   return (
     <div className="space-y-4 mb-6">
-      {/* Primera fila: Total General + Esta Semana + Pagado Este Mes + por Moneda */}
+      {/* OVERDUE ALERT — FIRST THING USER SEES */}
+      {overdueCount > 0 && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div
+                className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-red-500/15 transition-colors"
+                onClick={() => onFilterChange({ overdue: true })}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-500/15">
+                    <AlertTriangle className="h-4.5 w-4.5 text-red-500 dark:text-red-400" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-red-600 dark:text-red-400">
+                      {overdueCount} {overdueCount === 1 ? 'factura vencida' : 'facturas vencidas'}
+                    </p>
+                    <p className="text-sm text-red-500/80 dark:text-red-400/70">
+                      Total vencido: <AnimatedNumber value={overdueTotal} format={(n) => formatCurrency(n)} className="inline font-medium" />
+                    </p>
+                  </div>
+                </div>
+                <span className="text-red-500 dark:text-red-400 text-sm font-medium">Ver todas →</span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>Haz clic para filtrar solo las facturas vencidas</TooltipContent>
+          </Tooltip>
+        </motion.div>
+      )}
+
+      {/* HERO ROW: Total + Overdue + This Week + Paid This Month */}
       <motion.div
-        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7 gap-4"
-        variants={STAGGER(0.06)}
+        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
+        variants={STAGGER(0.08)}
         initial="initial"
         animate="animate"
       >
-        {/* Total General */}
+        {/* HERO: Total por Pagar */}
         <motion.div variants={scaleIn}>
-          <Card
-            className={cn(
-              'cursor-pointer transition-all duration-200 border-2',
-              activeFilter === null
-                ? 'bg-gray-100 border-gray-400 ring-2 ring-gray-400 dark:bg-slate-800 dark:border-slate-600 dark:ring-slate-600'
-                : 'bg-white border-gray-200 hover:bg-gray-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-slate-800'
-            )}
-            onClick={() => onFilterChange(null)}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="h-4 w-4 text-gray-600 dark:text-slate-400" />
-                <span className="text-sm font-medium text-gray-600 dark:text-slate-400">Total por Pagar</span>
-              </div>
-              <AnimatedNumber
-                value={summary.total.amount}
-                format={(n) => formatCurrency(n)}
-                className="text-2xl font-bold text-gray-900 dark:text-slate-50"
-              />
-              <p className="text-xs text-gray-500 mt-1 dark:text-slate-500">
-                {summary.total.count} {summary.total.count === 1 ? 'factura' : 'facturas'} pendientes
-              </p>
-            </CardContent>
-          </Card>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card
+                className={cn(
+                  'glass-card-subtle cursor-pointer transition-all duration-200 border-2',
+                  activeFilter === null
+                    ? 'ring-2 ring-primary/50'
+                    : 'hover:scale-[1.02]'
+                )}
+                onClick={() => onFilterChange(null)}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <DollarSign className="h-4.5 w-4.5 text-foreground/60" />
+                    <span className="text-sm font-medium text-foreground/60">Total por Pagar</span>
+                  </div>
+                  <AnimatedNumber
+                    value={summary.total.amount}
+                    format={(n) => formatCurrency(n)}
+                    className="text-3xl font-bold text-foreground"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {summary.total.count} {summary.total.count === 1 ? 'factura pendiente' : 'facturas pendientes'}
+                  </p>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>Haz clic para ver todas las facturas</TooltipContent>
+          </Tooltip>
+        </motion.div>
+
+        {/* Vencido */}
+        <motion.div variants={scaleIn}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card
+                className={cn(
+                  'cursor-pointer transition-all duration-200 border-2',
+                  activeFilter?.overdue
+                    ? 'bg-red-500/10 border-red-500/30 ring-2 ring-red-500/40'
+                    : 'border-border hover:bg-red-500/5 hover:border-red-500/20'
+                )}
+                onClick={() => onFilterChange({ overdue: true })}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="h-4 w-4 text-red-500 dark:text-red-400" />
+                    <span className="text-sm font-medium text-red-600 dark:text-red-400">Vencido</span>
+                  </div>
+                  <AnimatedNumber
+                    value={overdueTotal}
+                    format={(n) => formatCurrency(n)}
+                    className="text-2xl font-bold text-red-600 dark:text-red-400"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {overdueCount} {overdueCount === 1 ? 'factura' : 'facturas'}
+                  </p>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>Haz clic para filtrar facturas vencidas</TooltipContent>
+          </Tooltip>
         </motion.div>
 
         {/* Esta Semana */}
         <motion.div variants={scaleIn}>
-          <Card className="border-2 bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CalendarClock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Esta Semana</span>
-              </div>
-              <AnimatedNumber
-                value={thisWeekAmount}
-                format={(n) => formatCurrency(n)}
-                className="text-2xl font-bold text-amber-700 dark:text-amber-300"
-              />
-              <p className="text-xs text-gray-500 mt-1 dark:text-slate-500">
-                {thisWeekCount} {thisWeekCount === 1 ? 'factura' : 'facturas'} por vencer
-              </p>
-            </CardContent>
-          </Card>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="border-2 border-border hover:bg-amber-500/5 hover:border-amber-500/20 transition-all duration-200">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CalendarClock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+                    <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Esta Semana</span>
+                  </div>
+                  <AnimatedNumber
+                    value={thisWeekData.amount}
+                    format={(n) => formatCurrency(n)}
+                    className="text-2xl font-bold text-amber-600 dark:text-amber-300"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {thisWeekData.count} {thisWeekData.count === 1 ? 'factura por vencer' : 'facturas por vencer'}
+                  </p>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>Facturas que vencen en los próximos 7 días</TooltipContent>
+          </Tooltip>
         </motion.div>
 
         {/* Pagado Este Mes */}
         <motion.div variants={scaleIn}>
-          <Card className="border-2 bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50">
-            <CardContent className="p-4">
+          <Card className="border-2 border-border hover:bg-emerald-500/5 hover:border-emerald-500/20 transition-all duration-200">
+            <CardContent className="p-5">
               <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
                 <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Pagado este mes</span>
               </div>
               <AnimatedNumber
-                value={paidThisMonthAmount}
+                value={paidThisMonthData.amount}
                 format={(n) => formatCurrency(n)}
-                className="text-2xl font-bold text-emerald-700 dark:text-emerald-300"
+                className="text-2xl font-bold text-emerald-600 dark:text-emerald-300"
               />
-              <p className="text-xs text-gray-500 mt-1 dark:text-slate-500">
-                {paidThisMonthCount} {paidThisMonthCount === 1 ? 'factura' : 'facturas'} pagadas
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Tarjetas por Moneda */}
-        {Object.entries(summary.byCurrency).map(([currency, data]) => (
-          <motion.div key={currency} variants={scaleIn}>
-            <Card
-              className={cn(
-                'cursor-pointer transition-all duration-200 border-2',
-                activeFilter?.expectedCurrency === currency
-                  ? `${CURRENCY_COLORS[currency]} ring-2 ring-offset-1 dark:ring-offset-slate-950`
-                  : `bg-white border-gray-200 hover:bg-gray-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-slate-800`
-              )}
-              onClick={() => onFilterChange({ expectedCurrency: currency })}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className={cn('h-4 w-4', CURRENCY_TEXT_COLORS[currency] || 'text-gray-600 dark:text-slate-400')} />
-                  <span className={cn('text-sm font-medium', CURRENCY_TEXT_COLORS[currency] || 'text-gray-600 dark:text-slate-400')}>
-                    {CURRENCY_LABELS[currency] || currency}
-                  </span>
-                </div>
-                <AnimatedNumber
-                  value={data.amount}
-                  format={(n) => formatCurrency(n, currency)}
-                  className={cn('text-2xl font-bold', CURRENCY_TEXT_COLORS[currency] || 'text-gray-900 dark:text-slate-50')}
-                />
-                <p className="text-xs text-gray-500 mt-1 dark:text-slate-500">
-                  {data.count} {data.count === 1 ? 'factura' : 'facturas'}
-                </p>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      {/* Segunda fila: Aging Report */}
-      <motion.div
-        className="grid grid-cols-2 md:grid-cols-4 gap-4"
-        variants={STAGGER(0.06, 0.1)}
-        initial="initial"
-        animate="animate"
-      >
-        {/* Al día */}
-        <motion.div variants={scaleIn}>
-          <Card
-            className={cn(
-              'cursor-pointer transition-all duration-200 border-2',
-              activeFilter?.aging === 'current'
-                ? 'bg-success/10 border-green-400 ring-2 ring-green-400 dark:bg-green-950/30 dark:border-green-900/50 dark:ring-green-800'
-                : 'bg-white border-gray-200 hover:bg-success/5 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-green-900/20'
-            )}
-            onClick={() => onFilterChange({ aging: 'current' })}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-4 w-4 text-success" />
-                <span className="text-sm font-medium text-success">Al día</span>
-              </div>
-              <AnimatedNumber
-                value={summary.aging.current.amount}
-                format={(n) => formatCurrency(n)}
-                className="text-xl font-bold text-success dark:text-success"
-              />
-              <p className="text-xs text-gray-500 mt-1 dark:text-slate-500">
-                {summary.aging.current.count} {summary.aging.current.count === 1 ? 'factura' : 'facturas'}
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* 1-30 días */}
-        <motion.div variants={scaleIn}>
-          <Card
-            className={cn(
-              'cursor-pointer transition-all duration-200 border-2',
-              activeFilter?.aging === 'days30'
-                ? 'bg-warning/10 border-yellow-400 ring-2 ring-yellow-400 dark:bg-yellow-950/30 dark:border-yellow-900/50 dark:ring-yellow-800'
-                : 'bg-white border-gray-200 hover:bg-yellow-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-yellow-900/20'
-            )}
-            onClick={() => onFilterChange({ aging: 'days30' })}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-4 w-4 text-warning-foreground" />
-                <span className="text-sm font-medium text-warning-foreground">1-30 días</span>
-              </div>
-              <AnimatedNumber
-                value={summary.aging.days30.amount}
-                format={(n) => formatCurrency(n)}
-                className="text-xl font-bold text-yellow-700 dark:text-yellow-300"
-              />
-              <p className="text-xs text-gray-500 mt-1 dark:text-slate-500">
-                {summary.aging.days30.count} {summary.aging.days30.count === 1 ? 'factura' : 'facturas'} vencidas
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* 31-60 días */}
-        <motion.div variants={scaleIn}>
-          <Card
-            className={cn(
-              'cursor-pointer transition-all duration-200 border-2',
-              activeFilter?.aging === 'days60'
-                ? 'bg-warning/10 border-orange-400 ring-2 ring-orange-400 dark:bg-orange-950/30 dark:border-orange-900/50 dark:ring-orange-800'
-                : 'bg-white border-gray-200 hover:bg-orange-50 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-orange-900/20'
-            )}
-            onClick={() => onFilterChange({ aging: 'days60' })}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="h-4 w-4 text-warning dark:text-orange-400" />
-                <span className="text-sm font-medium text-warning dark:text-orange-400">31-60 días</span>
-              </div>
-              <AnimatedNumber
-                value={summary.aging.days60.amount}
-                format={(n) => formatCurrency(n)}
-                className="text-xl font-bold text-orange-700 dark:text-orange-300"
-              />
-              <p className="text-xs text-gray-500 mt-1 dark:text-slate-500">
-                {summary.aging.days60.count} {summary.aging.days60.count === 1 ? 'factura' : 'facturas'} vencidas
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* 90+ días */}
-        <motion.div variants={scaleIn}>
-          <Card
-            className={cn(
-              'cursor-pointer transition-all duration-200 border-2',
-              activeFilter?.aging === 'days90plus'
-                ? 'bg-destructive/10 border-red-400 ring-2 ring-red-400 dark:bg-red-950/30 dark:border-red-900/50 dark:ring-red-800'
-                : 'bg-white border-gray-200 hover:bg-destructive/5 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-red-900/20'
-            )}
-            onClick={() => onFilterChange({ aging: 'days90plus' })}
-          >
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-                <span className="text-sm font-medium text-destructive">+90 días</span>
-              </div>
-              <AnimatedNumber
-                value={summary.aging.days90plus.amount}
-                format={(n) => formatCurrency(n)}
-                className="text-xl font-bold text-destructive dark:text-destructive"
-              />
-              <p className="text-xs text-gray-500 mt-1 dark:text-slate-500">
-                {summary.aging.days90plus.count} {summary.aging.days90plus.count === 1 ? 'factura' : 'facturas'} vencidas
+              <p className="text-xs text-muted-foreground mt-1">
+                {paidThisMonthData.count} {paidThisMonthData.count === 1 ? 'factura pagada' : 'facturas pagadas'}
               </p>
             </CardContent>
           </Card>
         </motion.div>
       </motion.div>
 
-      {/* Alerta de vencidas si hay */}
-      {overdueCount > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-destructive/5 border border-red-200 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-destructive/10 transition-colors dark:bg-red-950/20 dark:border-red-900/50 dark:hover:bg-red-900/40"
-          onClick={() => onFilterChange({ overdue: true })}
-        >
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-destructive" />
-            <div>
-              <p className="font-medium text-destructive dark:text-red-400">
-                {overdueCount} {overdueCount === 1 ? 'factura vencida' : 'facturas vencidas'}
-              </p>
-              <p className="text-sm text-destructive dark:text-destructive">
-                Total vencido: <AnimatedNumber value={overdueTotal} format={(n) => formatCurrency(n)} className="inline" />
-              </p>
-            </div>
+      {/* COLLAPSIBLE: Aging + Currency detail */}
+      <Collapsible open={detailOpen} onOpenChange={setDetailOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" size="sm" className="w-full justify-between text-muted-foreground hover:text-foreground">
+            <span>{detailOpen ? 'Ocultar' : 'Ver'} desglose por moneda y antigüedad</span>
+            <ChevronDown className={cn('h-4 w-4 transition-transform', detailOpen && 'rotate-180')} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="space-y-4 pt-2">
+            {/* Aging Row */}
+            <motion.div className="grid grid-cols-2 md:grid-cols-4 gap-3" variants={STAGGER(0.05)} initial="initial" animate="animate">
+              {[
+                { key: 'current', label: 'Al día', data: summary.aging.current, color: 'emerald' },
+                { key: 'days30', label: '1-30 días', data: summary.aging.days30, color: 'yellow' },
+                { key: 'days60', label: '31-60 días', data: summary.aging.days60, color: 'orange' },
+                { key: 'days90plus', label: '60+ días', data: summary.aging.days90plus, color: 'red' },
+              ].map(({ key, label, data, color }) => (
+                <motion.div key={key} variants={scaleIn}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Card
+                        className={cn(
+                          'cursor-pointer transition-all duration-200 border',
+                          activeFilter?.aging === key
+                            ? `bg-${color}-500/10 border-${color}-500/30 ring-2 ring-${color}-500/40`
+                            : `border-border hover:bg-${color}-500/5`
+                        )}
+                        onClick={() => onFilterChange({ aging: key })}
+                      >
+                        <CardContent className="p-3">
+                          <span className={`text-xs font-medium text-${color}-600 dark:text-${color}-400`}>{label}</span>
+                          <AnimatedNumber
+                            value={data.amount}
+                            format={(n) => formatCurrency(n)}
+                            className={`text-lg font-bold text-${color}-600 dark:text-${color}-300 block`}
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {data.count} {data.count === 1 ? 'factura' : 'facturas'}
+                          </span>
+                        </CardContent>
+                      </Card>
+                    </TooltipTrigger>
+                    <TooltipContent>Haz clic para filtrar por {label.toLowerCase()}</TooltipContent>
+                  </Tooltip>
+                </motion.div>
+              ))}
+            </motion.div>
+
+            {/* Currency Row */}
+            {Object.keys(summary.byCurrency).length > 0 && (
+              <motion.div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3" variants={STAGGER(0.05)} initial="initial" animate="animate">
+                {Object.entries(summary.byCurrency).map(([currency, data]) => (
+                  <motion.div key={currency} variants={scaleIn}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Card
+                          className={cn(
+                            'cursor-pointer transition-all duration-200 border',
+                            activeFilter?.expectedCurrency === currency
+                              ? `${CURRENCY_COLORS[currency]} ring-2 ring-offset-1 dark:ring-offset-background`
+                              : 'border-border hover:bg-muted/50'
+                          )}
+                          onClick={() => onFilterChange({ expectedCurrency: currency })}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <TrendingUp className={cn('h-3.5 w-3.5', CURRENCY_TEXT_COLORS[currency] || 'text-muted-foreground')} />
+                              <span className={cn('text-xs font-medium', CURRENCY_TEXT_COLORS[currency] || 'text-muted-foreground')}>
+                                {CURRENCY_LABELS[currency] || currency}
+                              </span>
+                            </div>
+                            <AnimatedNumber
+                              value={data.amount}
+                              format={(n) => formatCurrency(n, currency)}
+                              className={cn('text-lg font-bold block', CURRENCY_TEXT_COLORS[currency] || 'text-foreground')}
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              {data.count} {data.count === 1 ? 'factura' : 'facturas'}
+                            </span>
+                          </CardContent>
+                        </Card>
+                      </TooltipTrigger>
+                      <TooltipContent>Haz clic para filtrar por {CURRENCY_LABELS[currency] || currency}</TooltipContent>
+                    </Tooltip>
+                  </motion.div>
+                ))}
+              </motion.div>
+            )}
           </div>
-          <span className="text-destructive text-sm font-medium dark:text-red-400">Ver todas →</span>
-        </motion.div>
-      )}
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

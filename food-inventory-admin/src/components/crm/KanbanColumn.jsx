@@ -1,7 +1,9 @@
 import { useDrop } from 'react-dnd';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge.jsx';
+import { GripVertical } from 'lucide-react';
 import { KanbanCard } from './KanbanCard.jsx';
+import { getStageColor } from './badges.jsx';
 
 export function KanbanColumn({ stage, cards, onDrop, onQuickMove, onMqlDecision, onSqlDecision, onOpenDetail, stageOptions }) {
   const [{ isOver }, drop] = useDrop(
@@ -15,20 +17,40 @@ export function KanbanColumn({ stage, cards, onDrop, onQuickMove, onMqlDecision,
     [onDrop],
   );
 
+  const stageColor = getStageColor(stage);
+
+  // Sum total amount in this column
+  const totalAmount = cards.reduce((sum, opp) => sum + (opp.amount || 0), 0);
+
   return (
     <motion.div
       ref={drop}
-      className={`rounded-lg border bg-muted/40 p-3 ${isOver ? 'ring-2 ring-primary' : ''}`}
-      animate={{ backgroundColor: isOver ? 'rgba(59,130,246,0.08)' : 'transparent' }}
+      className={`rounded-xl border ${stageColor.bg} p-3 border-t-2 ${stageColor.border} transition-all ${
+        isOver ? 'ring-2 ring-primary bg-primary/5 dark:bg-primary/10' : ''
+      }`}
+      animate={{ scale: isOver ? 1.01 : 1 }}
       transition={{ duration: 0.15 }}
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="font-semibold">{stage}</div>
-        <Badge variant="outline">{cards.length}</Badge>
+      {/* Column header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className={`font-semibold text-sm ${stageColor.text}`}>{stage}</span>
+          <Badge variant="outline" className="text-[11px] px-1.5">{cards.length}</Badge>
+        </div>
+        {totalAmount > 0 && (
+          <span className="text-xs text-muted-foreground font-medium">
+            ${totalAmount.toLocaleString()}
+          </span>
+        )}
       </div>
-      <div className="space-y-2 max-h-[420px] overflow-auto pr-1">
+
+      {/* Cards */}
+      <div className="space-y-2 max-h-[480px] overflow-auto pr-1">
         {cards.length === 0 && (
-          <div className="text-sm text-muted-foreground">Sin oportunidades</div>
+          <div className="flex flex-col items-center py-6 text-center">
+            <GripVertical className="h-5 w-5 text-muted-foreground/30 mb-2" />
+            <p className="text-xs text-muted-foreground">Arrastra aquí</p>
+          </div>
         )}
         {cards.map((opp) => (
           <KanbanCard

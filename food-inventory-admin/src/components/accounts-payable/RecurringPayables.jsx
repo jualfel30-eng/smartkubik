@@ -117,7 +117,7 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
         return;
       }
       await createRecurringPayable(payload);
-      toast.success("Plantilla de pago recurrente creada con ��xito.");
+      toast.success("Plantilla de pago recurrente creada con éxito.");
       setNewTemplate(initialTemplateState);
       setSupplierSearchInput('');
       onSuccess();
@@ -196,8 +196,10 @@ const CreateRecurringPayableDialog = ({ isOpen, onOpenChange, accounts, supplier
             <Select name="type" value={newTemplate.type} onValueChange={(value) => handleSelectChange('type', value)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="purchase_order">Factura de Compra</SelectItem>
                 <SelectItem value="service_payment">Pago de Servicio</SelectItem>
                 <SelectItem value="utility_bill">Servicio Público</SelectItem>
+                <SelectItem value="payroll">Nómina</SelectItem>
                 <SelectItem value="other">Otro</SelectItem>
               </SelectContent>
             </Select>

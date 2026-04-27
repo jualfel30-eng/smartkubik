@@ -165,10 +165,11 @@ const PayablesManagement = () => {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="monthly">Cuentas por Pagar</TabsTrigger>
-              <TabsTrigger value="recurring">Pagos Recurrentes</TabsTrigger>
-              <TabsTrigger value="history">Historial de Pagos Pendientes</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="monthly">Pendientes</TabsTrigger>
+              <TabsTrigger value="recurring">Recurrentes</TabsTrigger>
+              <TabsTrigger value="history">Historial</TabsTrigger>
+              <TabsTrigger value="payments">Pagos Realizados</TabsTrigger>
             </TabsList>
             <AnimatePresence mode="wait">
               <motion.div key={activeTab} variants={fadeUp} initial="initial" animate="animate" exit="exit">
@@ -187,12 +188,14 @@ const PayablesManagement = () => {
                     <PayablesHistory payables={payables} fetchPayables={() => fetchPayables(activeFilter)} />
                   )}
                 </TabsContent>
+                <TabsContent value="payments" forceMount={activeTab === 'payments' ? true : undefined}>
+                  {activeTab === 'payments' && (
+                    <PaymentHistory />
+                  )}
+                </TabsContent>
               </motion.div>
             </AnimatePresence>
           </Tabs>
-          <div className="mt-6">
-            <PaymentHistory />
-          </div>
         </CardContent>
       </Card>
     </div>

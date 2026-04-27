@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Table, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../ui/tooltip';
 import { Eye, Trash2 } from 'lucide-react';
 import { deletePayable } from '@/lib/api';
 import { toast } from 'sonner';
@@ -13,21 +14,8 @@ import { AnimatedTableBody, AnimatedTableRow } from '../ui/animated-table-body';
 import { EmptyState } from '../ui/empty-state';
 import { useBcvRates } from '@/hooks/use-bcv-rates';
 import { cn } from '@/lib/utils';
-import { CURRENCY_LABELS } from '@/lib/currency-utils';
-
-const getUrgency = (dueDate) => {
-  if (!dueDate) return 'current';
-  const days = Math.floor((new Date() - new Date(dueDate)) / 86400000);
-  if (days > 0) return 'overdue';
-  if (days > -7) return 'due-soon';
-  return 'current';
-};
-
-const urgencyStyles = {
-  overdue: 'border-l-4 border-l-red-500 bg-red-500/5',
-  'due-soon': 'border-l-4 border-l-amber-500',
-  current: '',
-};
+import { formatCurrency, CURRENCY_LABELS } from '@/lib/currency-utils';
+import { URGENCY_STYLES, getUrgency, getPayableStatusInfo, getTotalAmount } from '@/lib/invoice-constants';
 
 const ViewPayableDialog = ({ isOpen, onOpenChange, payable }) => {
   const getTotalAmount = (lines) => {
@@ -167,34 +155,15 @@ export default function PayablesHistory({ payables, fetchPayables }) {
 
     try {
       await deletePayable(payableId);
-      toast.success('Payable eliminado exitosamente');
+      toast.success('Cuenta por pagar eliminada');
       fetchPayables();
     } catch (error) {
-      console.error('Error al eliminar el payable', error);
-      toast.error('Error al eliminar el payable', { description: error.message });
+      console.error('Error al eliminar cuenta por pagar:', error);
+      toast.error('Error al eliminar la cuenta por pagar', { description: error.message });
     }
   };
 
-  const getStatusBadgeVariant = (status) => {
-    switch (status) {
-      case 'paid': return 'default';
-      case 'partially_paid': return 'secondary';
-      case 'open': return 'outline';
-      case 'void': return 'destructive';
-      default: return 'outline';
-    }
-  };
-
-  const getStatusLabel = (status) => {
-    const labels = {
-      paid: 'Pagado',
-      partially_paid: 'Parcial',
-      open: 'Abierto',
-      void: 'Anulado',
-      draft: 'Borrador',
-    };
-    return labels[status] || status;
-  };
+  // Status now comes from shared constants
 
   const filteredPayables = useMemo(() => {
     if (!searchTerm.trim()) return payables;
@@ -212,16 +181,14 @@ export default function PayablesHistory({ payables, fetchPayables }) {
     return filteredPayables.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredPayables, currentPage]);
 
-  const getTotalAmount = (lines) => {
-    return lines.reduce((sum, line) => sum + Number(line.amount || 0), 0);
-  };
+  // getTotalAmount imported from invoice-constants
 
   return (
     <>
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Historial Completo de Payables</CardTitle>
+            <CardTitle>Historial de Cuentas por Pagar</CardTitle>
             <div className="w-1/3">
               <Input
                 placeholder="Buscar por proveedor, descripción..."
@@ -231,7 +198,7 @@ export default function PayablesHistory({ payables, fetchPayables }) {
             </div>
           </div>
           <p className="text-sm text-muted-foreground">
-            Mostrando {filteredPayables.length} de {payables.length} payables totales
+            Mostrando {filteredPayables.length} de {payables.length} registros
           </p>
         </CardHeader>
         <CardContent>
@@ -260,7 +227,7 @@ export default function PayablesHistory({ payables, fetchPayables }) {
                   const urgency = getUrgency(payable.dueDate);
 
                   return (
-                    <AnimatedTableRow key={payable._id} className={cn(urgencyStyles[urgency])}>
+                    <AnimatedTableRow key={payable._id} className={cn(URGENCY_STYLES[urgency])}>
                       <TableCell>{payable.payeeName || 'N/A'}</TableCell>
                       <TableCell>{new Date(payable.issueDate).toLocaleDateString()}</TableCell>
                       <TableCell>
@@ -275,8 +242,8 @@ export default function PayablesHistory({ payables, fetchPayables }) {
                       </TableCell>
                       <TableCell>${(payable.paidAmount || 0).toFixed(2)}</TableCell>
                       <TableCell>
-                        <Badge variant={getStatusBadgeVariant(payable.status)}>
-                          {getStatusLabel(payable.status)}
+                        <Badge variant={getPayableStatusInfo(payable.status).variant} className={getPayableStatusInfo(payable.status).color}>
+                          {getPayableStatusInfo(payable.status).label}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">

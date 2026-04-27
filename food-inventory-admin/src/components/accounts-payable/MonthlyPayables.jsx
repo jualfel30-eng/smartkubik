@@ -1,49 +1,26 @@
 import React, { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Table, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Badge } from '../ui/badge';
+import { Tooltip, TooltipTrigger, TooltipContent } from '../ui/tooltip';
 import { PlusCircle, Eye, CreditCard, CheckCircle } from 'lucide-react';
 import { PaymentDialog } from '../PaymentDialog';
 import { AnimatedTableBody, AnimatedTableRow } from '../ui/animated-table-body';
 import { EmptyState } from '../ui/empty-state';
+import { DataHighlight } from '../ui/data-highlight';
 import { useBcvRates } from '@/hooks/use-bcv-rates';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/currency-utils';
+import { URGENCY_STYLES, getUrgency, getDaysLabel, getPayableStatusInfo, getTotalAmount } from '@/lib/invoice-constants';
 import CreatePayableDialog from './CreatePayableDialog';
-
-const getUrgency = (dueDate) => {
-  if (!dueDate) return 'current';
-  const days = Math.floor((new Date() - new Date(dueDate)) / 86400000);
-  if (days > 0) return 'overdue';
-  if (days > -7) return 'due-soon';
-  return 'current';
-};
-
-const urgencyStyles = {
-  overdue: 'border-l-4 border-l-red-500 bg-red-500/5',
-  'due-soon': 'border-l-4 border-l-amber-500',
-  current: 'border-l-4 border-l-emerald-500/30',
-};
-
-const getDaysLabel = (dueDate) => {
-  if (!dueDate) return null;
-  const days = Math.floor((new Date() - new Date(dueDate)) / 86400000);
-  if (days > 0) return { text: `Vencida hace ${days} día${days === 1 ? '' : 's'}`, className: 'text-destructive text-xs' };
-  if (days === 0) return { text: 'Vence hoy', className: 'text-amber-600 dark:text-amber-400 text-xs' };
-  if (days > -7) return { text: `Vence en ${Math.abs(days)} día${Math.abs(days) === 1 ? '' : 's'}`, className: 'text-amber-600 dark:text-amber-400 text-xs' };
-  return null;
-};
-
-const getTotalAmount = (lines) => lines.reduce((acc, line) => acc + Number(line.amount || 0), 0);
 
 export default function MonthlyPayables({ suppliers, accounts, fetchPayables, payables, fetchSuppliers }) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedPayable, setSelectedPayable] = useState(null);
-  const [flashRowId, setFlashRowId] = useState(null);
   const { usdRate, eurRate } = useBcvRates();
 
   const pendingPayables = useMemo(() => {
@@ -61,13 +38,8 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
   };
 
   const handlePaymentSuccess = () => {
-    const paidId = selectedPayable?._id;
     setIsPaymentDialogOpen(false);
     fetchPayables();
-    if (paidId) {
-      setFlashRowId(paidId);
-      setTimeout(() => setFlashRowId(null), 1500);
-    }
   };
 
   return (
@@ -92,15 +64,11 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
               <TableHeader>
                 <TableRow>
                   <TableHead>Proveedor</TableHead>
-                  <TableHead>Fecha Emisión</TableHead>
-                  <TableHead>Monto Total</TableHead>
-                  <TableHead>Monto Pagado</TableHead>
-                  <TableHead>Forma de Pago</TableHead>
-                  <TableHead className="text-center">Crédito</TableHead>
-                  <TableHead>Fecha Pago</TableHead>
+                  <TableHead>Fecha Venc.</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="text-center">Ver</TableHead>
-                  <TableHead className="text-center">Pagar</TableHead>
+                  <TableHead className="text-right">Saldo</TableHead>
+                  <TableHead className="text-center" />
                 </TableRow>
               </TableHeader>
               <AnimatedTableBody>
@@ -112,75 +80,69 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
                   const bsAmount = isBcvUsd ? totalAmount * usdRate : totalAmount * eurRate;
                   const urgency = getUrgency(payable.dueDate);
                   const daysLabel = getDaysLabel(payable.dueDate);
+                  const statusInfo = getPayableStatusInfo(payable.status);
+                  const balance = totalAmount - (payable.paidAmount || 0);
 
                   return (
                     <AnimatedTableRow
                       key={payable._id}
-                      className={cn(urgencyStyles[urgency])}
-                      animate={flashRowId === payable._id
-                        ? { backgroundColor: ['rgba(16,185,129,0.3)', 'rgba(16,185,129,0)', 'transparent'] }
-                        : {}
-                      }
-                      transition={flashRowId === payable._id ? { duration: 1.5 } : {}}
+                      className={cn(URGENCY_STYLES[urgency])}
                     >
-                      <TableCell>{payable.payeeName || 'N/A'}</TableCell>
-                      <TableCell>{new Date(payable.issueDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="font-medium">{payable.payeeName || 'Sin definir'}</TableCell>
                       <TableCell>
                         <div className="flex flex-col">
-                          <span>${totalAmount.toFixed(2)}</span>
+                          {payable.dueDate
+                            ? new Date(payable.dueDate).toLocaleDateString()
+                            : <span className="text-muted-foreground">Sin definir</span>}
+                          {daysLabel && <span className={daysLabel.className}>{daysLabel.text}</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex flex-col items-end">
+                          <span>{formatCurrency(totalAmount)}</span>
                           {shouldShowBs && (
-                            <span className="text-xs text-success">
+                            <span className="text-xs text-emerald-600 dark:text-emerald-400">
                               Bs. {bsAmount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>${(payable.paidAmount || 0).toFixed(2)}</TableCell>
                       <TableCell>
-                        {payable.expectedPaymentMethods?.length > 0
-                          ? payable.expectedPaymentMethods.join(', ')
-                          : <span className="text-gray-400 italic">No def.</span>}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {payable.isCredit
-                          ? <Badge variant="outline" className="bg-success/5 text-success border-green-200">Sí</Badge>
-                          : <span className="text-gray-400">No</span>}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          {payable.dueDate
-                            ? new Date(payable.dueDate).toLocaleDateString()
-                            : <span className="text-gray-400 italic">N/A</span>}
-                          {daysLabel && <span className={daysLabel.className}>{daysLabel.text}</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={cn(
-                          payable.status === 'paid' ? 'bg-success/10 text-green-800' :
-                            payable.status === 'partial' ? 'bg-warning/10 text-yellow-800' :
-                              'bg-gray-100 text-gray-800'
-                        )}>
-                          {payable.status === 'paid' ? 'Pagado' :
-                            payable.status === 'partial' ? 'Parcial' :
-                              payable.status === 'draft' ? 'Borrador' : 'Pendiente'}
+                        <Badge variant={statusInfo.variant} className={statusInfo.color}>
+                          {statusInfo.label}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-center">
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenViewDialog(payable)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                      <TableCell className="text-right font-semibold">
+                        <DataHighlight value={balance}>
+                          {formatCurrency(balance)}
+                        </DataHighlight>
                       </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant={urgency === 'overdue' ? 'destructive' : urgency === 'due-soon' ? 'outline' : 'ghost'}
-                          size={urgency === 'overdue' ? 'sm' : 'icon'}
-                          onClick={() => handleOpenPaymentDialog(payable)}
-                          disabled={payable.status === 'paid'}
-                          className={cn(urgency === 'overdue' && 'gap-1')}
-                        >
-                          <CreditCard className="h-4 w-4" />
-                          {urgency === 'overdue' && <span>Pagar</span>}
-                        </Button>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenViewDialog(payable)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Ver detalles</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant={urgency === 'overdue' ? 'destructive' : 'outline'}
+                                size="sm"
+                                className="h-8 gap-1"
+                                onClick={() => handleOpenPaymentDialog(payable)}
+                                disabled={payable.status === 'paid'}
+                              >
+                                <CreditCard className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Pagar</span>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Registrar pago</TooltipContent>
+                          </Tooltip>
+                        </div>
                       </TableCell>
                     </AnimatedTableRow>
                   );
@@ -205,11 +167,11 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="text-muted-foreground">Nombre:</span>
-                    <p className="font-medium">{selectedPayable.payeeName || 'N/A'}</p>
+                    <p className="font-medium">{selectedPayable.payeeName || 'Sin definir'}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Tipo:</span>
-                    <p className="font-medium capitalize">{selectedPayable.payeeType || 'N/A'}</p>
+                    <p className="font-medium capitalize">{selectedPayable.payeeType || 'Sin definir'}</p>
                   </div>
                 </div>
               </div>
@@ -219,11 +181,13 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="text-muted-foreground">Tipo de Gasto:</span>
-                    <p className="font-medium capitalize">{selectedPayable.type?.replace(/_/g, ' ') || 'N/A'}</p>
+                    <p className="font-medium capitalize">{selectedPayable.type?.replace(/_/g, ' ') || 'Sin definir'}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Estado:</span>
-                    <p className="font-medium capitalize">{selectedPayable.status || 'N/A'}</p>
+                    <Badge variant={getPayableStatusInfo(selectedPayable.status).variant}>
+                      {getPayableStatusInfo(selectedPayable.status).label}
+                    </Badge>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Fecha de Emisión:</span>
@@ -231,8 +195,20 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
                   </div>
                   <div>
                     <span className="text-muted-foreground">Fecha de Vencimiento:</span>
-                    <p className="font-medium">{selectedPayable.dueDate ? new Date(selectedPayable.dueDate).toLocaleDateString() : 'No definida'}</p>
+                    <p className="font-medium">{selectedPayable.dueDate ? new Date(selectedPayable.dueDate).toLocaleDateString() : 'Sin definir'}</p>
                   </div>
+                  {selectedPayable.expectedPaymentMethods?.length > 0 && (
+                    <div>
+                      <span className="text-muted-foreground">Forma de Pago:</span>
+                      <p className="font-medium">{selectedPayable.expectedPaymentMethods.join(', ')}</p>
+                    </div>
+                  )}
+                  {selectedPayable.isCredit && (
+                    <div>
+                      <span className="text-muted-foreground">Crédito:</span>
+                      <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">Sí</Badge>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -240,7 +216,7 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
                 <h3 className="font-semibold text-base">Líneas del Gasto</h3>
                 <div className="space-y-2">
                   {selectedPayable.lines?.map((line, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-muted rounded text-sm">
+                    <div key={index} className="flex justify-between items-center p-2 bg-muted/50 rounded text-sm">
                       <div className="flex-1">
                         <p className="font-medium">{line.description || 'Sin descripción'}</p>
                         {line.accountId && (
@@ -249,27 +225,27 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
                           </p>
                         )}
                       </div>
-                      <p className="font-semibold">${Number(line.amount || 0).toFixed(2)}</p>
+                      <p className="font-semibold">{formatCurrency(Number(line.amount || 0))}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="p-4 border rounded-lg space-y-2 bg-muted/50">
+              <div className="p-4 border rounded-lg space-y-2 bg-muted/30">
                 <h3 className="font-semibold text-base">Resumen</h3>
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Monto Total:</span>
-                    <span className="font-semibold">${getTotalAmount(selectedPayable.lines).toFixed(2)}</span>
+                    <span className="font-semibold">{formatCurrency(getTotalAmount(selectedPayable.lines))}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Monto Pagado:</span>
-                    <span className="font-semibold text-success">${(selectedPayable.paidAmount || 0).toFixed(2)}</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(selectedPayable.paidAmount || 0)}</span>
                   </div>
                   <div className="flex justify-between pt-2 border-t">
                     <span className="font-semibold">Saldo Pendiente:</span>
-                    <span className="font-bold text-lg text-warning">
-                      ${(getTotalAmount(selectedPayable.lines) - (selectedPayable.paidAmount || 0)).toFixed(2)}
+                    <span className="font-bold text-lg text-amber-600 dark:text-amber-400">
+                      {formatCurrency(getTotalAmount(selectedPayable.lines) - (selectedPayable.paidAmount || 0))}
                     </span>
                   </div>
                 </div>

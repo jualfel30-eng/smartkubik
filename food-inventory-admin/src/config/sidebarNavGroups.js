@@ -17,7 +17,6 @@ export const SIDEBAR_NAV_GROUPS = [
     label: 'Operaciones',
     hrefs: [
       'appointments',
-      'floor-view',
       'services',
       'resources',
       'orders',

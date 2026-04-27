@@ -119,7 +119,10 @@ export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) =>
 
     try {
       await createPayment(payload);
-      toast.success('Pago registrado con éxito.');
+      const remaining = remainingAmount - Number(amount);
+      toast.success(`Pago de $${Number(amount).toFixed(2)} registrado`, {
+        description: `${payable.payeeName} — Saldo restante: $${remaining.toFixed(2)}`
+      });
       setBankAccountId('');
       setReferenceNumber('');
       onPaymentSuccess();
@@ -183,24 +186,30 @@ export const PaymentDialog = ({ isOpen, onClose, payable, onPaymentSuccess }) =>
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Monto a Pagar</Label>
+              <Label className="text-right">Monto a Pagar <span className="text-destructive">*</span></Label>
               <div className="col-span-3">
-                <div className="p-3 bg-muted rounded-md">
-                  <p className="text-lg font-semibold">
-                    {isVesMethod(paymentMethod)
-                      ? `Bs ${remainingAmountVes.toFixed(2)}`
-                      : `$${remainingAmount.toFixed(2)}`
-                    }
-                  </p>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={isVesMethod(paymentMethod) ? remainingAmountVes : remainingAmount}
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  Saldo pendiente: {isVesMethod(paymentMethod)
+                    ? `Bs ${remainingAmountVes.toFixed(2)}`
+                    : `$${remainingAmount.toFixed(2)}`
+                  }
                   {paymentMethod && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {isVesMethod(paymentMethod)
+                    <span className="ml-2">
+                      ({isVesMethod(paymentMethod)
                         ? `≈ $${remainingAmount.toFixed(2)} USD`
                         : `≈ Bs ${remainingAmountVes.toFixed(2)}`
-                      }
-                    </p>
+                      })
+                    </span>
                   )}
-                </div>
+                </p>
               </div>
             </div>
 

@@ -125,7 +125,7 @@ export default function RecordReceivablePaymentDialog({ isOpen, onClose, receiva
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="method" className="text-right">Método de Pago</Label>
+              <Label htmlFor="method" className="text-right">Método de Pago <span className="text-destructive">*</span></Label>
               <Select value={paymentMethod} onValueChange={(value) => { setPaymentMethod(value); setBankAccountId(''); }}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Seleccione método" />
@@ -164,7 +164,7 @@ export default function RecordReceivablePaymentDialog({ isOpen, onClose, receiva
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Monto</Label>
+              <Label className="text-right">Monto <span className="text-destructive">*</span></Label>
               <div className="col-span-3">
                 <Input
                   type="number"
@@ -203,6 +203,7 @@ export default function RecordReceivablePaymentDialog({ isOpen, onClose, receiva
             </div>
 
             {error && <p className="text-destructive text-sm col-span-4 text-center">{error}</p>}
+            <p className="text-xs text-muted-foreground"><span className="text-destructive">*</span> Campo obligatorio</p>
           </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
