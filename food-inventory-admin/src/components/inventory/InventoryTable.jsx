@@ -124,12 +124,12 @@ export function InventoryTable({
   return (
     <ContentTransition loading={loading} skeleton={<TableSkeleton columns={6} />}>
       <div className="rounded-md border">
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
               {visibleColumns.sku && (
                 <TableHead
-                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[100px]"
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[8%]"
                   onClick={() => handleColumnSort('sku', 'asc')}
                 >
                   <div className="flex items-center space-x-1">
@@ -142,7 +142,7 @@ export function InventoryTable({
               )}
               {visibleColumns.product && (
                 <TableHead
-                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[30%] min-w-[280px]"
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[28%]"
                   onClick={() => handleColumnSort('productName', 'asc')}
                 >
                   <div className="flex items-center space-x-1">
@@ -153,10 +153,10 @@ export function InventoryTable({
                   </div>
                 </TableHead>
               )}
-              {visibleColumns.category && <TableHead className="w-[110px]">Categoria</TableHead>}
+              {visibleColumns.category && <TableHead className="w-[8%]">Categoria</TableHead>}
               {visibleColumns.available && (
                 <TableHead
-                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[12%]"
                   onClick={() => handleColumnSort('availableQuantity', 'desc')}
                 >
                   <div className="flex items-center space-x-1">
@@ -169,7 +169,7 @@ export function InventoryTable({
               )}
               {visibleColumns.cost && (
                 <TableHead
-                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[9%]"
                   onClick={() => handleColumnSort('cost', 'desc')}
                 >
                   <div className="flex items-center space-x-1">
@@ -180,13 +180,13 @@ export function InventoryTable({
                   </div>
                 </TableHead>
               )}
-              {visibleColumns.sellingPrice && <TableHead>Precio Venta</TableHead>}
-              {visibleColumns.totalValue && <TableHead>Valor Total</TableHead>}
-              {multiWarehouseEnabled && binLocations.length > 0 && visibleColumns.location && <TableHead>Ubicacion</TableHead>}
-              {visibleColumns.expiration && <TableHead>Vencimiento (1er Lote)</TableHead>}
-              {visibleColumns.lots && <TableHead>Lotes</TableHead>}
-              {visibleColumns.status && <TableHead>Estado</TableHead>}
-              {visibleColumns.actions && <TableHead>Acciones</TableHead>}
+              {visibleColumns.sellingPrice && <TableHead className="w-[8%]">Precio Venta</TableHead>}
+              {visibleColumns.totalValue && <TableHead className="w-[8%]">Valor Total</TableHead>}
+              {multiWarehouseEnabled && binLocations.length > 0 && visibleColumns.location && <TableHead className="w-[8%]">Ubicacion</TableHead>}
+              {visibleColumns.expiration && <TableHead className="w-[10%]">Vencimiento</TableHead>}
+              {visibleColumns.lots && <TableHead className="w-[7%]">Lotes</TableHead>}
+              {visibleColumns.status && <TableHead className="w-[7%]">Estado</TableHead>}
+              {visibleColumns.actions && <TableHead className="w-[12%]">Acciones</TableHead>}
             </TableRow>
           </TableHeader>
           <AnimatedTableBody>

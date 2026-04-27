@@ -3808,12 +3808,12 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         <CardContent>
           <div className="rounded-md border relative">
             {loading && <div className="absolute inset-0 bg-background/60 z-10 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
                   {visibleColumns.sku && (
                     <TableHead
-                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[100px]"
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[8%]"
                       onClick={() => {
                         if (sortBy === 'sku') {
                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -3833,7 +3833,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   )}
                   {visibleColumns.name && (
                     <TableHead
-                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[30%] min-w-[280px]"
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[30%]"
                       onClick={() => {
                         if (sortBy === 'name') {
                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -3853,7 +3853,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   )}
                   {visibleColumns.brand && (
                     <TableHead
-                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[100px]"
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[8%]"
                       onClick={() => {
                         if (sortBy === 'brand') {
                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -3873,7 +3873,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   )}
                   {visibleColumns.category && (
                     <TableHead
-                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[120px]"
+                      className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[9%]"
                       onClick={() => {
                         if (sortBy === 'category') {
                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -3891,10 +3891,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       </div>
                     </TableHead>
                   )}
-                  {!isNonFoodRetailVertical && visibleColumns.isSoldByWeight && <TableHead className="text-center">Por peso</TableHead>}
+                  {!isNonFoodRetailVertical && visibleColumns.isSoldByWeight && <TableHead className="text-center w-[6%]">Por peso</TableHead>}
                   {showSalesFields && visibleColumns.price && (
                     <TableHead
-                      className="text-right cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      className="text-right cursor-pointer select-none hover:bg-muted/50 transition-colors w-[9%]"
                       onClick={() => {
                         if (sortBy === 'price') {
                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -3914,7 +3914,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   )}
                   {visibleColumns.cost && (
                     <TableHead
-                      className="text-right cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                      className="text-right cursor-pointer select-none hover:bg-muted/50 transition-colors w-[7%]"
                       onClick={() => {
                         if (sortBy === 'cost') {
                           setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -3932,11 +3932,11 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       </div>
                     </TableHead>
                   )}
-                  {showSalesFields && visibleColumns.wholesalePrice && <TableHead className="text-right">P. Mayor</TableHead>}
-                  {visibleColumns.variants && <TableHead>Variantes</TableHead>}
-                  {showSalesFields && visibleColumns.promotion && <TableHead>Promoción</TableHead>}
-                  {visibleColumns.status && <TableHead>Estado</TableHead>}
-                  {visibleColumns.actions && <TableHead>Acciones</TableHead>}
+                  {showSalesFields && visibleColumns.wholesalePrice && <TableHead className="text-right w-[7%]">P. Mayor</TableHead>}
+                  {visibleColumns.variants && <TableHead className="w-[7%]">Variantes</TableHead>}
+                  {showSalesFields && visibleColumns.promotion && <TableHead className="w-[7%]">Promocion</TableHead>}
+                  {visibleColumns.status && <TableHead className="w-[6%]">Estado</TableHead>}
+                  {visibleColumns.actions && <TableHead className="w-[7%]">Acciones</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -3954,12 +3954,12 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     )}
                     {visibleColumns.name && (
                       <TableCell>
-                        <div className="flex flex-col gap-1 w-[200px]">
+                        <div className="flex flex-col gap-1">
                           <InlineEditableCell
                             value={product.name}
                             type="text"
                             onSave={(val) => handleInlineUpdate(product._id, 'name', val)}
-                            className="font-medium text-slate-800 dark:text-slate-100 truncate"
+                            className="font-medium text-slate-800 dark:text-slate-100"
                           />
                           <span className="text-[10px] text-slate-400 font-mono sm:hidden">{product.brand}</span>
                         </div>
