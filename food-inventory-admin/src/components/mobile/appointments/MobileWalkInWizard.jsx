@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { SPRING, STAGGER, DUR, EASE, listItem } from '@/lib/motion';
 import haptics from '@/lib/haptics';
 import { emitBadgeUpdate } from '@/lib/badge-events';
+import { useAuth } from '@/hooks/use-auth';
+import WheelTimePicker from '@/components/shared/WheelTimePicker.jsx';
 
 // ─── slide transition variants ───────────────────────────────────────────────
 const slideVariants = {
@@ -275,8 +277,9 @@ function StepClient({
   customerName, setCustomerName,
   customerPhone, setCustomerPhone,
   recentClients,
-  startAt, setStartAt,
-  quickTimes,
+  selectedTime, onTimeChange,
+  timeSlots, occupiedSlots,
+  totalDuration, endAt,
   query, setQuery,
 }) {
   const [customers, setCustomers] = useState([]);
@@ -385,29 +388,20 @@ function StepClient({
         )}
       </section>
 
-      {/* Start time */}
+      {/* Start time — wheel picker */}
       <section>
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-2">
           <Clock size={12} /> Hora de inicio
         </p>
-        <div className="flex flex-wrap gap-2">
-          {quickTimes.map((q) => {
-            const active = format(q.at, 'HH:mm') === format(startAt, 'HH:mm');
-            return (
-              <button
-                key={q.label}
-                type="button"
-                onClick={() => { haptics.select(); setStartAt(q.at); }}
-                className={cn(
-                  'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
-                  active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border',
-                )}
-              >
-                {q.label}
-              </button>
-            );
-          })}
-        </div>
+        <WheelTimePicker
+          slots={timeSlots}
+          value={selectedTime}
+          onChange={onTimeChange}
+          occupiedSlots={occupiedSlots}
+        />
+        <p className="mt-1 text-xs text-muted-foreground text-center">
+          {selectedTime} — {endAt ? format(endAt, 'HH:mm') : ''} ({totalDuration}min)
+        </p>
       </section>
     </div>
   );
@@ -418,6 +412,7 @@ export default function MobileWalkInWizard({
   initialProfessionalId,
   onClose,
 }) {
+  const { tenant } = useAuth();
   const { profStatuses, loading: floorLoading, refresh: refreshFloor } = useFloorViewData();
 
   const [step, setStep] = useState(1);
@@ -430,8 +425,46 @@ export default function MobileWalkInWizard({
   const [customerPhone, setCustomerPhone] = useState('');
   const [clientQuery, setClientQuery] = useState('');
   const [startAt, setStartAt] = useState(nextQuarterHour(new Date()));
+  const [selectedTime, setSelectedTime] = useState(() => format(nextQuarterHour(new Date()), 'HH:mm'));
+  const [occupiedSlots, setOccupiedSlots] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [loadingServices, setLoadingServices] = useState(true);
+
+  // Generate time slots from business hours
+  const timeSlots = useMemo(() => {
+    const startH = parseInt(tenant?.settings?.businessHours?.start?.split(':')[0] || '8', 10);
+    const endH = parseInt(tenant?.settings?.businessHours?.end?.split(':')[0] || '20', 10);
+    const slots = [];
+    for (let h = startH; h < endH; h++) {
+      slots.push(`${String(h).padStart(2, '0')}:00`);
+      slots.push(`${String(h).padStart(2, '0')}:30`);
+    }
+    return slots;
+  }, [tenant]);
+
+  // Load occupied slots for today + selected professional
+  useEffect(() => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const params = new URLSearchParams({ startDate: today, endDate: today, limit: '100' });
+    if (selectedProfessional?._id) params.append('professionalId', selectedProfessional._id);
+    fetchApi(`/beauty-bookings?${params}`).then(res => {
+      const items = Array.isArray(res) ? res : res?.data || res?.items || [];
+      const occupied = new Set();
+      items.forEach(apt => {
+        if (apt.status === 'cancelled') return;
+        const start = apt.startTime || '';
+        const timeStr = start.includes('T') ? new Date(start).toTimeString().slice(0, 5) : start.slice(0, 5);
+        const duration = apt.totalDuration || 30;
+        const [h, m] = timeStr.split(':').map(Number);
+        if (isNaN(h)) return;
+        for (let offset = 0; offset < duration; offset += 30) {
+          const totalMin = h * 60 + m + offset;
+          occupied.add(`${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`);
+        }
+      });
+      setOccupiedSlots([...occupied]);
+    }).catch(() => setOccupiedSlots([]));
+  }, [selectedProfessional]);
 
   // Load services and recent clients
   useEffect(() => {
@@ -503,6 +536,15 @@ export default function MobileWalkInWizard({
     setSelectedProfessional(prof);
     goNext();
   };
+
+  const handleTimeChange = useCallback((slot) => {
+    setSelectedTime(slot);
+    const [h, m] = slot.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    setStartAt(d);
+    haptics.select();
+  }, []);
 
   const toggleService = (id) => {
     setSelectedServiceIds((prev) =>
@@ -701,9 +743,12 @@ export default function MobileWalkInWizard({
               customerPhone={customerPhone}
               setCustomerPhone={setCustomerPhone}
               recentClients={recentClients}
-              startAt={startAt}
-              setStartAt={setStartAt}
-              quickTimes={quickTimes}
+              selectedTime={selectedTime}
+              onTimeChange={handleTimeChange}
+              timeSlots={timeSlots}
+              occupiedSlots={occupiedSlots}
+              totalDuration={totalDuration}
+              endAt={endAt}
               query={clientQuery}
               setQuery={setClientQuery}
             />

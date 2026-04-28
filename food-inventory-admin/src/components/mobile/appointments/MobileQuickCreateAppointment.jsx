@@ -8,9 +8,11 @@ import { toast } from '@/lib/toast';
 import { trackEvent } from '@/lib/analytics';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import { cn } from '@/lib/utils';
-import { SPRING, DUR, EASE } from '@/lib/motion';
+import { SPRING, DUR, EASE, STAGGER, listItem } from '@/lib/motion';
 import haptics from '@/lib/haptics';
 import { emitBadgeUpdate } from '@/lib/badge-events';
+import { useAuth } from '@/hooks/use-auth';
+import WheelTimePicker from '@/components/shared/WheelTimePicker.jsx';
 
 const toTimeInputValue = (d) => format(d, "yyyy-MM-dd'T'HH:mm");
 
@@ -81,6 +83,57 @@ export default function MobileQuickCreateAppointment({
   const [submitting, setSubmitting] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [conflictWarning, setConflictWarning] = useState(null);
+  const [step, setStep] = useState(1);
+  const [direction, setDirection] = useState(1);
+  const TOTAL_STEPS = 4;
+  const { tenant } = useAuth();
+  const [selectedTime, setSelectedTime] = useState(() => format(initialStart ? new Date(initialStart) : nextQuarterHour(new Date()), 'HH:mm'));
+  const [occupiedSlots, setOccupiedSlots] = useState([]);
+
+  // Generate time slots from business hours
+  const timeSlots = useMemo(() => {
+    const startH = parseInt(tenant?.settings?.businessHours?.start?.split(':')[0] || '8', 10);
+    const endH = parseInt(tenant?.settings?.businessHours?.end?.split(':')[0] || '20', 10);
+    const slots = [];
+    for (let h = startH; h < endH; h++) {
+      slots.push(`${String(h).padStart(2, '0')}:00`);
+      slots.push(`${String(h).padStart(2, '0')}:30`);
+    }
+    return slots;
+  }, [tenant]);
+
+  // Load occupied slots for selected date + resource
+  useEffect(() => {
+    const dateStr = format(date || new Date(), 'yyyy-MM-dd');
+    const params = new URLSearchParams({ startDate: dateStr, endDate: dateStr, limit: '100' });
+    if (resourceId) params.append(isBeauty ? 'professionalId' : 'resourceId', resourceId);
+    fetchApi(`${endpoint}?${params}`).then(res => {
+      const items = Array.isArray(res) ? res : res?.data || res?.items || [];
+      const occupied = new Set();
+      items.forEach(apt => {
+        if (apt.status === 'cancelled') return;
+        const start = apt.startTime || '';
+        const timeStr = start.includes('T') ? new Date(start).toTimeString().slice(0, 5) : start.slice(0, 5);
+        const dur = apt.totalDuration || 30;
+        const [h, m] = timeStr.split(':').map(Number);
+        if (isNaN(h)) return;
+        for (let offset = 0; offset < dur; offset += 30) {
+          const totalMin = h * 60 + m + offset;
+          occupied.add(`${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`);
+        }
+      });
+      setOccupiedSlots([...occupied]);
+    }).catch(() => setOccupiedSlots([]));
+  }, [date, resourceId, isBeauty, endpoint]);
+
+  const handleTimeChange = useCallback((slot) => {
+    setSelectedTime(slot);
+    const [h, m] = slot.split(':').map(Number);
+    const d = new Date(date || new Date());
+    d.setHours(h, m, 0, 0);
+    setStartAt(d);
+    haptics.select();
+  }, [date]);
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurrenceFrequency, setRecurrenceFrequency] = useState('weekly');
   const [recurrenceCount, setRecurrenceCount] = useState(4);
@@ -376,17 +429,33 @@ export default function MobileQuickCreateAppointment({
     }
   };
 
+  // Wizard navigation
+  const goNext = () => { setDirection(1); setStep(s => Math.min(s + 1, TOTAL_STEPS)); };
+  const goBack = () => { setDirection(-1); setStep(s => Math.max(s - 1, 1)); };
+  const canGoNext =
+    (step === 1 && (customerName || query.trim().length >= 2)) ||
+    (step === 2 && selectedServiceIds.length > 0) ||
+    (step === 3) ||
+    (step === 4);
+
+  const slideVariants = {
+    enter: (dir) => ({ x: dir > 0 ? 80 : -80, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (dir) => ({ x: dir > 0 ? -80 : 80, opacity: 0 }),
+  };
+
   const stickyFooter = (
     <div className="px-4 pt-3 pb-4 bg-card border-t border-border">
-      {conflictWarning && (
+      {/* Step 4 warnings */}
+      {step === TOTAL_STEPS && conflictWarning && (
         <div className="mb-2 rounded-[var(--mobile-radius-md)] bg-amber-500/10 border border-amber-500/30 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
           ⚠ {conflictWarning.name} ya tiene una cita de {conflictWarning.startStr} a {conflictWarning.endStr}. Toca "Guardar" para continuar.
         </div>
       )}
-      {showWaitlistOption && (
+      {step === TOTAL_STEPS && showWaitlistOption && (
         <div className="mb-3 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
           <p className="text-sm text-amber-600 dark:text-amber-400 mb-2">
-            No hay disponibilidad en ese horario. ¿Agregar a lista de espera?
+            No hay disponibilidad. ¿Agregar a lista de espera?
           </p>
           <div className="space-y-2 mb-2">
             <p className="text-xs text-muted-foreground">Rango horario flexible:</p>
@@ -401,14 +470,32 @@ export default function MobileQuickCreateAppointment({
           </button>
         </div>
       )}
-      <button
-        type="button"
-        disabled={submitting || noShowWarning?.level === 'blacklisted'}
-        onClick={submit}
-        className="w-full rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground py-4 text-base font-semibold no-tap-highlight disabled:opacity-60"
-      >
-        {submitting ? 'Guardando…' : conflictWarning ? 'Guardar de todas formas' : selectedServiceIds.length > 1 ? `Guardar ${selectedServiceIds.length} servicios` : 'Guardar cita'}
-      </button>
+      {/* Summary line */}
+      {step >= 2 && selectedServiceIds.length > 0 && (
+        <p className="text-xs text-muted-foreground mb-2 text-center">
+          {selectedServiceIds.length} servicio{selectedServiceIds.length > 1 ? 's' : ''} · {totalDuration} min
+          {totalPrice > 0 ? ` · $${totalPrice.toFixed(2)}` : ''}
+        </p>
+      )}
+      <div className="flex gap-3">
+        {step > 1 && (
+          <button type="button" onClick={goBack}
+            className="px-4 py-3.5 rounded-[var(--mobile-radius-md)] border border-border text-sm font-medium no-tap-highlight">
+            Atrás
+          </button>
+        )}
+        {step < TOTAL_STEPS ? (
+          <button type="button" disabled={!canGoNext} onClick={goNext}
+            className="flex-1 py-3.5 rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground text-sm font-semibold no-tap-highlight disabled:opacity-40">
+            Siguiente
+          </button>
+        ) : (
+          <button type="button" disabled={submitting || noShowWarning?.level === 'blacklisted'} onClick={submit}
+            className="flex-1 py-3.5 rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground text-sm font-semibold no-tap-highlight disabled:opacity-40">
+            {submitting ? 'Guardando…' : conflictWarning ? 'Guardar de todas formas' : isRecurring ? `Crear ${recurrenceCount} citas` : 'Confirmar cita'}
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -416,354 +503,274 @@ export default function MobileQuickCreateAppointment({
     <MobileActionSheet
       open
       onClose={() => onClose?.(false)}
-      title="Nueva cita"
+      title="Agendar cita"
       footer={stickyFooter}
     >
-      <div className="space-y-4 pb-4">
-
-        {/* Cliente */}
-        <section>
-          <label className="text-xs font-medium text-muted-foreground">Cliente</label>
-          {customerName ? (
-            <div className="mt-1 flex items-center justify-between rounded-[var(--mobile-radius-md)] bg-muted px-3 py-3">
-              <div className="flex items-center gap-2">
-                <User size={16} className="text-muted-foreground" />
-                <div>
-                  <p className="font-medium">{customerName}</p>
-                  {customerPhone && <p className="text-xs text-muted-foreground">{customerPhone}</p>}
-                </div>
-              </div>
-              <button
-                type="button"
-                aria-label="Quitar"
-                onClick={clearCustomer}
-                className="tap-target no-tap-highlight text-muted-foreground"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* Recent clients chips */}
-              {recentClients.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1.5">
-                  {recentClients.map((c) => (
-                    <button
-                      key={c.name}
-                      type="button"
-                      onClick={() => handlePickCustomer(c)}
-                      className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium no-tap-highlight border border-border"
-                    >
-                      {c.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {/* Search */}
-              <div className="mt-1.5 flex items-center gap-2 rounded-[var(--mobile-radius-md)] bg-muted px-3">
-                <Search size={16} className="text-muted-foreground shrink-0" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Buscar o escribir nombre…"
-                  className="flex-1 bg-transparent py-3 text-base outline-none"
-                />
-              </div>
-              {customers.length > 0 && (
-                <ul className="mt-1 rounded-[var(--mobile-radius-md)] border border-border overflow-hidden">
-                  {customers.map((c) => (
-                    <li key={c._id || c.id}>
-                      <button
-                        type="button"
-                        onClick={() => handlePickCustomer(c)}
-                        className="w-full text-left px-3 py-3 flex items-center justify-between hover:bg-muted no-tap-highlight"
-                      >
-                        <div>
-                          <p className="font-medium">{c.name || c.companyName || c.fullName}</p>
-                          {(c.phone || c.mobile) && (
-                            <p className="text-xs text-muted-foreground">{c.phone || c.mobile}</p>
-                          )}
-                        </div>
-                        <ChevronRight size={14} className="text-muted-foreground shrink-0" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {query.length >= 2 && customers.length === 0 && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Se registrará como nuevo cliente al confirmar
-                </p>
-              )}
-            </>
-          )}
-        </section>
-
-        {/* No-show warning */}
-        {noShowWarning && (
-          <div className={`p-3 rounded-lg border text-sm ${
-            noShowWarning.level === 'blacklisted' ? 'bg-red-50 border-red-200 text-red-800' :
-            noShowWarning.level === 'deposit' ? 'bg-orange-50 border-orange-200 text-orange-800' :
-            'bg-yellow-50 border-yellow-200 text-yellow-800'
-          }`}>
-            {noShowWarning.level === 'blacklisted' && '🚫 Este cliente está bloqueado. No se puede crear la cita.'}
-            {noShowWarning.level === 'deposit' && '⚠ Este cliente requiere depósito para confirmar.'}
-            {noShowWarning.level === 'warning' && `⚠ Este cliente tiene ${noShowWarning.count} inasistencia(s).`}
-          </div>
-        )}
-
-        {/* Paquetes (solo beauty, si hay paquetes) */}
-        {isBeauty && packages.length > 0 && (
-          <section>
-            <label className="text-xs font-medium text-muted-foreground">Paquetes</label>
-            <div className="mt-1 space-y-2">
-              {packages.map((pkg) => {
-                const pkgId = String(pkg._id || pkg.id);
-                const active = selectedPackageId === pkgId;
-                const savings = Number(pkg.savings || 0);
-                return (
-                  <button
-                    key={pkgId}
-                    type="button"
-                    onClick={() => selectPackage(pkg)}
-                    className={cn(
-                      'w-full text-left rounded-[var(--mobile-radius-md)] border px-3 py-3 no-tap-highlight transition-colors',
-                      active ? 'bg-primary/10 border-primary' : 'bg-card border-border',
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-sm">{pkg.name}</span>
-                      <div className="flex items-center gap-2">
-                        {savings > 0 && (
-                          <span className="text-[10px] bg-emerald-500/10 text-emerald-600 rounded-full px-2 py-0.5 font-medium">
-                            Ahorras ${savings.toFixed(2)}
-                          </span>
-                        )}
-                        <span className={cn('font-bold text-sm', active ? 'text-primary' : '')}>
-                          ${Number(pkg.price?.amount ?? 0).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                    {pkg.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{pkg.description}</p>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* Servicio — multi-select chips */}
-        <section>
-          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-            <Scissors size={12} /> {isBeauty && packages.length > 0 ? 'Servicios individuales' : 'Servicios'}
-          </label>
-          <div className="mt-1 flex flex-wrap gap-2">
-            {services.slice(0, 12).map((s) => {
-              const id = String(s._id || s.id);
-              const active = selectedServiceIds.includes(id);
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => toggleService(id)}
-                  className={cn(
-                    'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight transition-colors',
-                    active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground',
-                  )}
-                >
-                  {s.name}
-                </button>
-              );
-            })}
-            {loadingData && services.length === 0 && (
-              <div className="flex gap-2 animate-pulse">
-                {[1, 2, 3].map(i => <div key={i} className="h-9 w-24 bg-muted rounded-full" />)}
-              </div>
-            )}
-            {!loadingData && services.length === 0 && (
-              <span className="text-sm text-muted-foreground">Sin servicios configurados</span>
-            )}
-          </div>
-          {/* Summary row */}
-          {selectedServiceIds.length > 0 && (
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              {selectedServiceIds.length} servicio{selectedServiceIds.length > 1 ? 's' : ''} · {totalDuration} min
-              {totalPrice > 0 ? ` · $${totalPrice.toFixed(2)}` : ''}
-            </p>
-          )}
-        </section>
-
-        {/* Hora */}
-        <section>
-          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-            <Clock size={12} /> Hora
-          </label>
-          <div className="mt-1 flex flex-wrap gap-2">
-            {quickTimes.map((q) => {
-              const active = format(q.at, 'HH:mm') === format(startAt, 'HH:mm');
-              return (
-                <button
-                  key={q.label}
-                  type="button"
-                  onClick={() => { haptics.select(); setStartAt(q.at); }}
-                  className={cn(
-                    'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
-                    active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border',
-                  )}
-                >
-                  {q.label}
-                </button>
-              );
-            })}
-          </div>
-          <input
-            type="datetime-local"
-            value={toTimeInputValue(startAt)}
-            onChange={(e) => setStartAt(new Date(e.target.value))}
-            className="mt-2 w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-3 text-base"
+      {/* Step indicator */}
+      <div className="flex items-center gap-2 px-4 py-2 shrink-0">
+        {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+          <motion.div
+            key={i}
+            className={cn('h-1.5 rounded-full flex-1', i < step ? 'bg-primary' : 'bg-muted')}
+            animate={{ scaleX: i < step ? 1 : 0.9 }}
+            transition={SPRING.snappy}
           />
-          <p className="mt-1 text-xs text-muted-foreground">
-            Duración: {totalDuration} min · Termina a las {format(endAt, 'HH:mm')}
-          </p>
-        </section>
-
-        {/* Recurso/Profesional */}
-        {resources.length > 0 && (
-          <section>
-            <label className="text-xs font-medium text-muted-foreground">Profesional</label>
-            <div className="mt-1 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => { haptics.select(); setResourceId(''); }}
-                className={cn(
-                  'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
-                  !resourceId ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border',
-                )}
-              >
-                Sin asignar
-              </button>
-              {resources.map((r) => {
-                const id = String(r._id || r.id);
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => { haptics.select(); setResourceId(id); }}
-                    className={cn(
-                      'rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
-                      resourceId === id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border',
-                    )}
-                  >
-                    {r.name || r.fullName}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* Notas — collapsed by default to save space */}
-        <CollapsibleSection title="Notas (opcional)">
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2 text-sm"
-            placeholder="Preferencias, observaciones…"
-          />
-        </CollapsibleSection>
-
-        {/* Recurring toggle — collapsed by default, solo beauty */}
-        {isBeauty && (
-          <CollapsibleSection title="Repetir esta cita">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Activar recurrencia</p>
-                  <p className="text-xs text-muted-foreground">Misma hora y profesional</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsRecurring(r => !r)}
-                  className={cn(
-                    'relative w-11 h-6 rounded-full transition-colors',
-                    isRecurring ? 'bg-primary' : 'bg-muted-foreground/30',
-                  )}
-                >
-                  <motion.span
-                    className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow"
-                    animate={{ x: isRecurring ? 20 : 0 }}
-                    transition={SPRING.snappy}
-                  />
-                </button>
-              </div>
-
-              <AnimatePresence initial={false}>
-                {isRecurring && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: DUR.base, ease: EASE.out }}
-                    className="overflow-hidden"
-                  >
-                    <div className="space-y-3 pt-1">
-                      {/* Frequency */}
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-1.5">Frecuencia</p>
-                        <div className="flex gap-2">
-                          {[
-                            { value: 'weekly', label: 'Semanal' },
-                            { value: 'biweekly', label: 'Cada 2 sem.' },
-                            { value: 'monthly', label: 'Mensual' },
-                          ].map(opt => (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => setRecurrenceFrequency(opt.value)}
-                              className={cn(
-                                'flex-1 py-1.5 text-xs rounded-lg border transition-colors',
-                                recurrenceFrequency === opt.value
-                                  ? 'bg-primary text-primary-foreground border-primary'
-                                  : 'border-input hover:bg-accent',
-                              )}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* End after N occurrences */}
-                      <div className="flex items-center gap-3">
-                        <p className="text-xs text-muted-foreground">Número de citas:</p>
-                        <div className="flex items-center gap-2">
-                          <button type="button" onClick={() => setRecurrenceCount(c => Math.max(2, c - 1))}
-                            className="w-7 h-7 rounded border flex items-center justify-center text-sm">−</button>
-                          <span className="w-6 text-center text-sm font-medium">{recurrenceCount}</span>
-                          <button type="button" onClick={() => setRecurrenceCount(c => Math.min(12, c + 1))}
-                            className="w-7 h-7 rounded border flex items-center justify-center text-sm">+</button>
-                        </div>
-                      </div>
-
-                      {/* Summary */}
-                      <p className="text-xs text-muted-foreground bg-muted rounded-lg p-2">
-                        Se crearán <strong>{recurrenceCount} citas</strong> {
-                          recurrenceFrequency === 'weekly' ? 'cada semana' :
-                          recurrenceFrequency === 'biweekly' ? 'cada 2 semanas' : 'cada mes'
-                        }. Mismo profesional y horario.
-                      </p>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </CollapsibleSection>
-        )}
+        ))}
+        <span className="text-xs text-muted-foreground shrink-0 ml-1">{step}/{TOTAL_STEPS}</span>
       </div>
 
+      {/* Summary breadcrumb */}
+      {step > 1 && (customerName || selectedServiceIds.length > 0) && (
+        <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2 text-xs text-muted-foreground">
+          {customerName && <span className="bg-muted px-2 py-0.5 rounded-full">{customerName}</span>}
+          {step > 2 && selectedServiceIds.length > 0 && (
+            <span>· {selectedServiceIds.length} servicio{selectedServiceIds.length > 1 ? 's' : ''}</span>
+          )}
+          {step > 3 && selectedTime && <span>· {selectedTime}</span>}
+        </div>
+      )}
+
+      <AnimatePresence mode="wait" custom={direction}>
+        <motion.div
+          key={step}
+          custom={direction}
+          variants={slideVariants}
+          initial="enter"
+          animate="center"
+          exit="exit"
+          transition={SPRING.soft}
+        >
+          {/* ── STEP 1: Cliente ── */}
+          {step === 1 && (
+            <div className="space-y-4 px-4 pb-4">
+              <p className="text-sm font-medium">¿Para quién es la cita?</p>
+              {customerName ? (
+                <div className="flex items-center justify-between rounded-[var(--mobile-radius-md)] bg-muted px-3 py-3">
+                  <div className="flex items-center gap-2">
+                    <User size={16} className="text-muted-foreground" />
+                    <div>
+                      <p className="font-medium">{customerName}</p>
+                      {customerPhone && <p className="text-xs text-muted-foreground">{customerPhone}</p>}
+                    </div>
+                  </div>
+                  <button type="button" aria-label="Quitar" onClick={clearCustomer}
+                    className="tap-target no-tap-highlight text-muted-foreground">
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {recentClients.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {recentClients.map((c) => (
+                        <button key={c.name} type="button" onClick={() => handlePickCustomer(c)}
+                          className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium no-tap-highlight border border-border">
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 rounded-[var(--mobile-radius-md)] bg-muted px-3">
+                    <Search size={16} className="text-muted-foreground shrink-0" />
+                    <input value={query} onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Buscar o escribir nombre…"
+                      className="flex-1 bg-transparent py-3 text-base outline-none" />
+                  </div>
+                  {customers.length > 0 && (
+                    <ul className="rounded-[var(--mobile-radius-md)] border border-border overflow-hidden">
+                      {customers.map((c) => (
+                        <li key={c._id || c.id}>
+                          <button type="button" onClick={() => handlePickCustomer(c)}
+                            className="w-full text-left px-3 py-3 flex items-center justify-between hover:bg-muted no-tap-highlight">
+                            <div>
+                              <p className="font-medium">{c.name || c.companyName || c.fullName}</p>
+                              {(c.phone || c.mobile) && <p className="text-xs text-muted-foreground">{c.phone || c.mobile}</p>}
+                            </div>
+                            <ChevronRight size={14} className="text-muted-foreground shrink-0" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {query.length >= 2 && customers.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Se registrará como nuevo cliente al confirmar</p>
+                  )}
+                </>
+              )}
+              {noShowWarning && (
+                <div className={`p-3 rounded-lg border text-sm ${
+                  noShowWarning.level === 'blacklisted' ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950 dark:border-red-800 dark:text-red-300' :
+                  noShowWarning.level === 'deposit' ? 'bg-orange-50 border-orange-200 text-orange-800 dark:bg-orange-950 dark:border-orange-800 dark:text-orange-300' :
+                  'bg-yellow-50 border-yellow-200 text-yellow-800 dark:bg-yellow-950 dark:border-yellow-800 dark:text-yellow-300'
+                }`}>
+                  {noShowWarning.level === 'blacklisted' && 'Este cliente está bloqueado.'}
+                  {noShowWarning.level === 'deposit' && 'Este cliente requiere depósito.'}
+                  {noShowWarning.level === 'warning' && `Este cliente tiene ${noShowWarning.count} inasistencia(s).`}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── STEP 2: Servicios + Paquetes ── */}
+          {step === 2 && (
+            <div className="space-y-4 px-4 pb-4">
+              <p className="text-sm font-medium">¿Qué servicio{services.length > 1 ? 's' : ''}?</p>
+              {isBeauty && packages.length > 0 && (
+                <section>
+                  <label className="text-xs font-medium text-muted-foreground mb-1">Paquetes</label>
+                  <div className="space-y-2">
+                    {packages.map((pkg) => {
+                      const pkgId = String(pkg._id || pkg.id);
+                      const active = selectedPackageId === pkgId;
+                      const savings = Number(pkg.savings || 0);
+                      return (
+                        <button key={pkgId} type="button" onClick={() => selectPackage(pkg)}
+                          className={cn('w-full text-left rounded-[var(--mobile-radius-md)] border px-3 py-3 no-tap-highlight transition-colors',
+                            active ? 'bg-primary/10 border-primary' : 'bg-card border-border')}>
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-sm">{pkg.name}</span>
+                            <div className="flex items-center gap-2">
+                              {savings > 0 && <span className="text-[10px] bg-emerald-500/10 text-emerald-600 rounded-full px-2 py-0.5 font-medium">-${savings.toFixed(2)}</span>}
+                              <span className={cn('font-bold text-sm', active ? 'text-primary' : '')}>${Number(pkg.price?.amount ?? 0).toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {services.slice(0, 12).map((s) => {
+                  const id = String(s._id || s.id);
+                  const active = selectedServiceIds.includes(id);
+                  return (
+                    <button key={id} type="button" onClick={() => toggleService(id)}
+                      className={cn('rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight transition-colors',
+                        active ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground')}>
+                      {s.name}
+                    </button>
+                  );
+                })}
+                {loadingData && services.length === 0 && (
+                  <div className="flex gap-2 animate-pulse">
+                    {[1, 2, 3].map(i => <div key={i} className="h-9 w-24 bg-muted rounded-full" />)}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 3: Cuándo + Con quién ── */}
+          {step === 3 && (
+            <div className="space-y-4 px-4 pb-4">
+              <p className="text-sm font-medium">¿Cuándo?</p>
+              <input type="date" value={format(startAt, 'yyyy-MM-dd')} min={format(new Date(), 'yyyy-MM-dd')}
+                onChange={(e) => {
+                  if (!e.target.value) return;
+                  const [y, mo, d] = e.target.value.split('-').map(Number);
+                  const next = new Date(startAt);
+                  next.setFullYear(y, mo - 1, d);
+                  setStartAt(next);
+                }}
+                className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-3 text-base" />
+
+              <WheelTimePicker slots={timeSlots} value={selectedTime} onChange={handleTimeChange} occupiedSlots={occupiedSlots} />
+              <p className="text-xs text-muted-foreground text-center">
+                {selectedTime} — {format(endAt, 'HH:mm')} ({totalDuration}min)
+              </p>
+
+              {resources.length > 0 && (
+                <section>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">¿Con quién?</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => { haptics.select(); setResourceId(''); }}
+                      className={cn('rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
+                        !resourceId ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
+                      Sin preferencia
+                    </button>
+                    {resources.map((r) => {
+                      const id = String(r._id || r.id);
+                      return (
+                        <button key={id} type="button" onClick={() => { haptics.select(); setResourceId(id); }}
+                          className={cn('rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
+                            resourceId === id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
+                          {r.name || r.fullName}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
+
+          {/* ── STEP 4: Extras ── */}
+          {step === 4 && (
+            <div className="space-y-4 px-4 pb-4">
+              <p className="text-sm font-medium">Detalles adicionales</p>
+
+              <section>
+                <label className="text-xs font-medium text-muted-foreground">Notas (opcional)</label>
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+                  className="mt-1 w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2 text-sm"
+                  placeholder="Preferencias, observaciones…" />
+              </section>
+
+              {isBeauty && (
+                <section className="border rounded-[var(--mobile-radius-md)] border-border p-3 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">Cita recurrente</p>
+                      <p className="text-xs text-muted-foreground">Misma hora y profesional</p>
+                    </div>
+                    <button type="button" onClick={() => setIsRecurring(r => !r)}
+                      className={cn('relative w-11 h-6 rounded-full transition-colors', isRecurring ? 'bg-primary' : 'bg-muted-foreground/30')}>
+                      <motion.span className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow"
+                        animate={{ x: isRecurring ? 20 : 0 }} transition={SPRING.snappy} />
+                    </button>
+                  </div>
+                  <AnimatePresence initial={false}>
+                    {isRecurring && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }} transition={{ duration: DUR.base, ease: EASE.out }} className="overflow-hidden">
+                        <div className="space-y-3 pt-1">
+                          <div className="flex gap-2">
+                            {[{ value: 'weekly', label: 'Semanal' }, { value: 'biweekly', label: 'Cada 2 sem.' }, { value: 'monthly', label: 'Mensual' }].map(opt => (
+                              <button key={opt.value} type="button" onClick={() => setRecurrenceFrequency(opt.value)}
+                                className={cn('flex-1 py-1.5 text-xs rounded-lg border transition-colors',
+                                  recurrenceFrequency === opt.value ? 'bg-primary text-primary-foreground border-primary' : 'border-input hover:bg-accent')}>
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <p className="text-xs text-muted-foreground">Citas:</p>
+                            <div className="flex items-center gap-2">
+                              <button type="button" onClick={() => setRecurrenceCount(c => Math.max(2, c - 1))} className="w-7 h-7 rounded border flex items-center justify-center text-sm">−</button>
+                              <span className="w-6 text-center text-sm font-medium">{recurrenceCount}</span>
+                              <button type="button" onClick={() => setRecurrenceCount(c => Math.min(12, c + 1))} className="w-7 h-7 rounded border flex items-center justify-center text-sm">+</button>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </section>
+              )}
+
+              {/* Summary */}
+              <div className="rounded-[var(--mobile-radius-md)] bg-muted p-3 space-y-1 text-xs">
+                <p className="font-medium text-foreground">Resumen</p>
+                <p className="text-muted-foreground">{customerName || query} · {selectedServices.map(s => s.name).join(', ') || 'Servicio'}</p>
+                <p className="text-muted-foreground">{format(startAt, "EEEE d 'de' MMMM", { locale: es })} a las {selectedTime}</p>
+                {totalPrice > 0 && <p className="text-emerald-400 font-medium">${totalPrice.toFixed(2)} · {totalDuration}min</p>}
+                {isRecurring && <p className="text-primary">Recurrente × {recurrenceCount}</p>}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </MobileActionSheet>
   );
 }
