@@ -23,6 +23,7 @@ import { StorefrontConfigService } from "./storefront-config.service";
 import {
   CreateStorefrontConfigDto,
   UpdateThemeDto,
+  UpdateBeautyConfigDto,
 } from "./dto/create-storefront-config.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
@@ -91,6 +92,21 @@ export class StorefrontConfigController {
     return this.storefrontConfigService.updateTheme(
       req.user.tenantId,
       updateThemeDto,
+    );
+  }
+
+  /**
+   * PUT /api/v1/storefront/beauty-config
+   * Actualizar configuración de beauty (noShowPolicy, etc.)
+   */
+  @Put("beauty-config")
+  async updateBeautyConfig(
+    @Request() req,
+    @Body() dto: UpdateBeautyConfigDto,
+  ) {
+    return this.storefrontConfigService.updateBeautyConfig(
+      req.user.tenantId,
+      dto,
     );
   }
 

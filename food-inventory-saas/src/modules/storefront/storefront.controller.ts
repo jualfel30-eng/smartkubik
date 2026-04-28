@@ -160,6 +160,23 @@ export class StorefrontController {
     };
   }
 
+  @Put("beauty-config")
+  @Permissions("storefront_update")
+  @ApiOperation({
+    summary: "Actualizar configuración de beauty (noShowPolicy, etc.)",
+  })
+  async updateBeautyConfig(@Body() body: any, @Request() req) {
+    const config = await this.storefrontService.updateBeautyConfig(
+      body,
+      req.user,
+    );
+    return {
+      success: true,
+      data: config,
+      message: "Configuración de beauty actualizada exitosamente",
+    };
+  }
+
   @Post("reset")
   @Permissions("storefront_update")
   @ApiOperation({

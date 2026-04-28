@@ -12,6 +12,7 @@ import {
 import {
   CreateStorefrontConfigDto,
   UpdateThemeDto,
+  UpdateBeautyConfigDto,
 } from "./dto/create-storefront-config.dto";
 
 @Injectable()
@@ -94,6 +95,36 @@ export class StorefrontConfigService {
     }
 
     Object.assign(config.theme, updateThemeDto);
+    return config.save();
+  }
+
+  /**
+   * Actualizar la configuración de beauty (noShowPolicy, etc.)
+   */
+  async updateBeautyConfig(
+    tenantId: string,
+    dto: UpdateBeautyConfigDto,
+  ): Promise<StorefrontConfigDocument> {
+    const config = await this.getConfig(tenantId);
+
+    if (!config) {
+      throw new NotFoundException(
+        "No se encontró configuración del storefront para este tenant",
+      );
+    }
+
+    const beauty = config.beautyConfig || ({} as any);
+
+    if (dto.noShowPolicy) {
+      beauty.noShowPolicy = {
+        ...beauty.noShowPolicy,
+        ...dto.noShowPolicy,
+      };
+    }
+
+    config.beautyConfig = beauty;
+
+    config.markModified("beautyConfig");
     return config.save();
   }
 

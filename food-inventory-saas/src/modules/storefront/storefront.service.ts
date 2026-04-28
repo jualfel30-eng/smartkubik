@@ -231,6 +231,37 @@ export class StorefrontService {
   }
 
   /**
+   * Actualizar configuración de beauty (noShowPolicy, etc.)
+   */
+  async updateBeautyConfig(
+    dto: any,
+    user: any,
+  ): Promise<StorefrontConfigDocument> {
+    const config = await this.storefrontConfigModel.findOne({
+      tenantId: user.tenantId,
+    });
+
+    if (!config) {
+      throw new NotFoundException(
+        "No se encontró configuración de storefront para este tenant",
+      );
+    }
+
+    const beauty = config.beautyConfig || ({} as any);
+
+    if (dto.noShowPolicy) {
+      beauty.noShowPolicy = {
+        ...beauty.noShowPolicy,
+        ...dto.noShowPolicy,
+      };
+    }
+
+    config.beautyConfig = beauty;
+    config.markModified("beautyConfig");
+    return config.save();
+  }
+
+  /**
    * Actualizar configuración parcialmente (PATCH)
    */
   async updatePartial(

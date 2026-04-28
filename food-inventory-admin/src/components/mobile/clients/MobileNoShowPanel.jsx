@@ -107,9 +107,9 @@ function PolicyConfig() {
   const save = async () => {
     try {
       setSaving(true);
-      await fetchApi('/storefront/config', {
-        method: 'POST',
-        body: JSON.stringify({ beautyConfig: { noShowPolicy: policy } }),
+      await fetchApi('/storefront/beauty-config', {
+        method: 'PUT',
+        body: JSON.stringify({ noShowPolicy: policy }),
       });
       haptics.success();
       toast.success('Politica guardada');

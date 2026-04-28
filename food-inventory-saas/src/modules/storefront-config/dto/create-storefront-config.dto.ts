@@ -3,6 +3,9 @@ import {
   IsBoolean,
   IsOptional,
   IsEnum,
+  IsNumber,
+  Min,
+  Max,
   ValidateNested,
   IsArray,
   Matches,
@@ -145,6 +148,45 @@ export class UpdateStorefrontConfigDto {
   @ValidateNested()
   @Type(() => ContactInfoConfigDto)
   contactInfo?: ContactInfoConfigDto;
+}
+
+class NoShowPolicyDto {
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  warningThreshold?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  depositThreshold?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  blacklistThreshold?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  resetAfterDays?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  depositPercentage?: number;
+}
+
+export class UpdateBeautyConfigDto {
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => NoShowPolicyDto)
+  noShowPolicy?: NoShowPolicyDto;
 }
 
 export class UpdateThemeDto {
