@@ -937,6 +937,11 @@ function PainCard({ item, i, activeIdx }) {
   const videoRef = useRef(null);
   const backVideoRef = useRef(null);
 
+  // Auto-unflip when card leaves focus
+  useEffect(() => {
+    if (i !== activeIdx && flipped) setFlipped(false);
+  }, [activeIdx, i, flipped]);
+
   // Only play front videos on focused card ± 1 neighbor
   useEffect(() => {
     const vid = videoRef.current;
