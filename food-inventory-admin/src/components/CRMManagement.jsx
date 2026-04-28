@@ -193,8 +193,9 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   const initialTab = hideEmployeeTab && initialTabRaw === 'employee' ? 'all' : initialTabRaw;
   /* const isPipelineTab = initialTab === 'pipeline'; // REMOVED UNUSED */
 
-  // Calculate initial top tab
+  // Calculate initial top tab — beauty profiles always start on contacts
   const getInitialTopTab = () => {
+    if (isBeautyProfile) return 'contacts';
     if (initialTab === 'pipeline') return 'pipeline';
     if (initialTab === 'settings') return 'settings';
     if (initialTab === 'playbooks') return 'playbooks';
@@ -1694,10 +1695,11 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     <div className="space-y-6">
       {forceEmployeeTab && <HRNavigation />}
       <Tabs value={activeTopTab} onValueChange={handleTopTabChange} className="w-full">
-        {!forceEmployeeTab && (
-          <TabsList className={`grid w-full ${isBeautyProfile ? 'grid-cols-4' : 'grid-cols-5'} max-w-[1000px]`}>
+        {/* Beauty profiles: no top tabs — only Contacts is relevant */}
+        {!forceEmployeeTab && !isBeautyProfile && (
+          <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-5' : 'grid-cols-4'} max-w-[1000px]`}>
             <TabsTrigger value="contacts">Contactos</TabsTrigger>
-            {!isBeautyProfile && <TabsTrigger value="pipeline">Embudo de Ventas</TabsTrigger>}
+            <TabsTrigger value="pipeline">Embudo de Ventas</TabsTrigger>
             <TabsTrigger value="playbooks">Playbooks</TabsTrigger>
             <TabsTrigger value="reminders">Recordatorios</TabsTrigger>
             {isAdmin && <TabsTrigger value="settings">Configuración</TabsTrigger>}
@@ -1705,7 +1707,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
         )}
         <TabsContent value="contacts" className="space-y-6">
 
-          {showCommunicationsIntelligence && !isEmployeeTab && (
+          {showCommunicationsIntelligence && !isEmployeeTab && !isBeautyProfile && (
             <Card>
               <CardHeader>
                 <CardTitle>Inteligencia de comunicaciones</CardTitle>
