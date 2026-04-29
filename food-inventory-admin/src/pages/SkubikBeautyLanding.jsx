@@ -49,8 +49,8 @@ const BEAUTY_DATA = {
       {
         num: '01',
         kicker: 'Agenda 24/7',
-        title: 'Tus clientas reservan mientras duermes.',
-        body: 'Link personalizado que compartes en Instagram, WhatsApp o pegas en Google Maps. Ellas eligen servicio, estilista y hora. Tú recibes la confirmación.',
+        title: 'Tus clientes reservan sin que tú muevas un dedo.',
+        body: 'Link personalizado de tu página que compartes en IG, WhatsApp o pegas en Google Maps. Tus clientes eligen servicio, estilista, día y hora disponible.',
         outcome: '+47%',
         outcomeLabel: 'reservas fuera de horario en el primer mes',
       },
@@ -1336,7 +1336,7 @@ function SBenefits({ D }) {
         <div className="s-ben-sticky">
           <div className="s-ben-head">
             <span className="s-eyebrow">Tres actos</span>
-            <h2>Lo que <em>cambia</em> el día que migras.</h2>
+            <h2>¿Qué cambia cuando <em>hacemos equipo?</em></h2>
           </div>
           <div className="s-ben-content">
             <div className="s-ben-text" key={currentIdx}>
