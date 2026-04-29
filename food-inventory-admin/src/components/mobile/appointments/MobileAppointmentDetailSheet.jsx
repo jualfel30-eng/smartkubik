@@ -12,6 +12,7 @@ import { toast } from '@/lib/toast';
 import haptics from '@/lib/haptics';
 import { useFabContext } from '@/contexts/FabContext';
 import { emitBadgeUpdate } from '@/lib/badge-events';
+import WhatsAppComposer from '@/components/shared/WhatsAppComposer.jsx';
 
 const STATUS_LABELS = {
   pending: 'Pendiente',
@@ -38,6 +39,7 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
   const [rescheduling, setRescheduling] = useState(false);
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
   const [showCommissionPrompt, setShowCommissionPrompt] = useState(false);
+  const [waComposerOpen, setWaComposerOpen] = useState(false);
 
   // Register FAB context action based on appointment status
   useEffect(() => {
@@ -238,15 +240,14 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
                     <Phone size={16} /> Llamar
                   </a>
                 )}
-                {whatsAppLink && (
-                  <a
-                    href={whatsAppLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                {phone && (
+                  <button
+                    type="button"
+                    onClick={() => setWaComposerOpen(true)}
                     className="tap-target rounded-[var(--mobile-radius-md)] bg-emerald-600 text-white flex items-center justify-center gap-2 py-3 font-medium text-sm no-tap-highlight"
                   >
                     <MessageCircle size={16} /> WhatsApp
-                  </a>
+                  </button>
                 )}
               </div>
             )}
@@ -391,6 +392,28 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
         onClose={() => setShowCommissionPrompt(false)}
       />
       <ConfirmDialog />
+
+      {/* WhatsApp Composer Sheet */}
+      <MobileActionSheet
+        open={waComposerOpen}
+        onClose={() => setWaComposerOpen(false)}
+        title="Enviar WhatsApp"
+      >
+        <div className="pb-4">
+          <WhatsAppComposer
+            contact={{
+              name: appointment.customerName || appointment.client?.name || 'Cliente',
+              phone,
+              _id: appointment.customerId || appointment.client?._id,
+            }}
+            context={{
+              serviceName: appointment.serviceName || appointment.services?.map(s => s.name).join(', '),
+              startTime: appointment.startTime,
+            }}
+            onClose={() => setWaComposerOpen(false)}
+          />
+        </div>
+      </MobileActionSheet>
     </>
   );
 }
