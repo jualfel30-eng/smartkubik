@@ -413,27 +413,27 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-ben-visual { align-self: center; }
 @media (max-width: 900px) {
   .s-ben-stage { height: 650vh; }
-  .s-ben-sticky { padding: 0 16px; }
-  .s-ben-head { padding-top: 8px; margin-bottom: 0; }
-  .s-ben-head .s-eyebrow { font-size: 9px; }
-  .s-ben-head h2 { font-size: 22px; margin: 6px 0; }
-  .s-ben-content { grid-template-columns: 1fr; gap: 0; position: relative; }
-  /* Text floats compact at top, overlapping the phone area */
-  .s-ben-text { padding: 8px 4px 0; position: relative; z-index: 5; }
+  .s-ben-sticky { padding: 0 16px; justify-content: flex-start; }
+  .s-ben-head { display: none; }
+  .s-ben-content { display: flex !important; flex-direction: column; width: 100%; flex: 1; min-height: 0; }
+  .s-ben-text { flex-shrink: 0; padding: 8px 0 0; }
   .s-ben-kicker { font-size: 9px; }
-  .s-ben-text h3 { font-size: 18px; margin: 4px 0; }
-  .s-ben-body { display: none; }
-  .s-ben-outcome { padding: 6px 14px; margin-top: 4px; }
-  .s-ben-outcome-v { font-size: 18px; }
-  .s-ben-outcome-l { font-size: 9px; }
-  /* Phone fills the remaining space */
-  .s-ben-visual { height: auto; flex: 1; min-height: 0; padding: 0; align-self: center; }
-  .s-iphone { width: 220px; height: 460px; border-radius: 42px; }
+  .s-ben-text h3 { font-size: 17px; margin: 4px 0; }
+  .s-ben-body { display: none !important; }
+  .s-ben-outcome { padding: 6px 12px; margin-top: 4px; }
+  .s-ben-outcome-v { font-size: 16px; }
+  .s-ben-outcome-l { font-size: 8px; }
+  /* Visual fills all remaining space */
+  .s-ben-visual { flex: 1; min-height: 0; height: 0; padding: 0; display: flex; align-items: stretch; justify-content: center; overflow: visible; position: relative; }
+  /* iPhone — fill available space */
+  .s-iphone { width: 72vw !important; height: auto !important; aspect-ratio: 9/19.5 !important; max-height: calc(100% - 16px) !important; border-radius: 42px !important; margin: 0 0 16px !important; }
   .s-iphone-island { width: 76px; height: 22px; top: 8px; }
   .s-iphone-screen { border-radius: 39px; }
   .s-app-statusbar { height: 36px; padding: 10px 20px 0; }
   .s-app-header { padding: 4px 12px 6px; }
   .s-app-logo { font-size: 8px; }
+  /* Indicator — vertical, right side of visual area */
+  .s-ben-indicator { display: flex !important; position: absolute !important; right: 4px !important; top: 50% !important; left: auto !important; transform: translateY(-50%) !important; flex-direction: column !important; gap: 6px !important; z-index: 10 !important; }
 }
 .s-ben-text h3 { font-size: clamp(32px, 4.5vw, 56px); margin: 16px 0; }
 .s-ben-text h3 em { color: var(--s-accent); font-style: italic; }
@@ -447,7 +447,6 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 
 /* iPhone 16 Pro mockup frame */
 .s-iphone { position: relative; width: 280px; height: 580px; border-radius: 52px; background: #1c1c1e; border: 3px solid #38383a; box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06); overflow: hidden; }
-@media (max-width: 600px) { .s-iphone { width: 240px; height: 500px; border-radius: 46px; } }
 /* Dynamic Island */
 .s-iphone-island { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 96px; height: 28px; background: #000; border-radius: 20px; z-index: 10; }
 @media (max-width: 600px) { .s-iphone-island { width: 84px; height: 24px; top: 8px; } }
