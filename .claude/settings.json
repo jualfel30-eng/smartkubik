@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit *)",
+            "command": "zsh scripts/wiki-change-detector.sh",
+            "timeout": 10,
+            "statusMessage": "Detectando cambios en wiki..."
+          }
+        ]
+      }
+    ]
+  }
+}
