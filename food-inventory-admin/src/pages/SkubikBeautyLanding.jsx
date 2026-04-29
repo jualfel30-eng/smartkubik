@@ -411,7 +411,30 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-ben-content { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; max-width: 1280px; width: 100%; flex: 1; min-height: 0; }
 .s-ben-text { padding-top: 24px; }
 .s-ben-visual { align-self: center; }
-@media (max-width: 900px) { .s-ben-stage { height: 650vh; } .s-ben-sticky { padding: 12px 20px 0; } .s-ben-head { margin-bottom: 10px; } .s-ben-head h2 { font-size: 28px; margin: 8px 0; } .s-ben-content { grid-template-columns: 1fr; gap: 12px; } .s-ben-kicker { font-size: 9px; } .s-ben-text h3 { font-size: 22px; margin: 8px 0; } .s-ben-body { font-size: 14px; margin: 8px 0 12px; } .s-ben-outcome { padding: 10px 16px; } .s-ben-outcome-v { font-size: 22px; } .s-ben-outcome-l { font-size: 10px; } .s-ben-visual { height: 380px; padding: 16px; } }
+@media (max-width: 900px) {
+  .s-ben-stage { height: 650vh; }
+  .s-ben-sticky { padding: 0 16px; }
+  .s-ben-head { padding-top: 8px; margin-bottom: 0; }
+  .s-ben-head .s-eyebrow { font-size: 9px; }
+  .s-ben-head h2 { font-size: 22px; margin: 6px 0; }
+  .s-ben-content { grid-template-columns: 1fr; gap: 0; position: relative; }
+  /* Text floats compact at top, overlapping the phone area */
+  .s-ben-text { padding: 8px 4px 0; position: relative; z-index: 5; }
+  .s-ben-kicker { font-size: 9px; }
+  .s-ben-text h3 { font-size: 18px; margin: 4px 0; }
+  .s-ben-body { display: none; }
+  .s-ben-outcome { padding: 6px 14px; margin-top: 4px; }
+  .s-ben-outcome-v { font-size: 18px; }
+  .s-ben-outcome-l { font-size: 9px; }
+  /* Phone fills the remaining space */
+  .s-ben-visual { height: auto; flex: 1; min-height: 0; padding: 0; align-self: center; }
+  .s-iphone { width: 220px; height: 460px; border-radius: 42px; }
+  .s-iphone-island { width: 76px; height: 22px; top: 8px; }
+  .s-iphone-screen { border-radius: 39px; }
+  .s-app-statusbar { height: 36px; padding: 10px 20px 0; }
+  .s-app-header { padding: 4px 12px 6px; }
+  .s-app-logo { font-size: 8px; }
+}
 .s-ben-text h3 { font-size: clamp(32px, 4.5vw, 56px); margin: 16px 0; }
 .s-ben-text h3 em { color: var(--s-accent); font-style: italic; }
 .s-ben-kicker { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--s-accent2); }
