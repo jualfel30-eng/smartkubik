@@ -404,11 +404,13 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 /* === BENEFITS STICKY === */
 .s-benefits { position: relative; }
 .s-ben-stage { position: relative; height: 600vh; }
-.s-ben-sticky { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; padding: 24px 32px 0; overflow: hidden; }
-.s-ben-head { text-align: center; margin-bottom: 20px; }
+.s-ben-sticky { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0 32px; overflow: hidden; }
+.s-ben-head { text-align: center; margin-bottom: 0; flex-shrink: 0; padding-top: 12px; }
 .s-ben-head h2 { font-size: clamp(36px, 5vw, 64px); margin: 16px 0; }
 .s-ben-head h2 em { font-style: italic; color: var(--s-accent); }
-.s-ben-content { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; max-width: 1280px; width: 100%; }
+.s-ben-content { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; max-width: 1280px; width: 100%; flex: 1; min-height: 0; }
+.s-ben-text { padding-top: 24px; }
+.s-ben-visual { align-self: center; }
 @media (max-width: 900px) { .s-ben-stage { height: 650vh; } .s-ben-sticky { padding: 12px 20px 0; } .s-ben-head { margin-bottom: 10px; } .s-ben-head h2 { font-size: 28px; margin: 8px 0; } .s-ben-content { grid-template-columns: 1fr; gap: 12px; } .s-ben-kicker { font-size: 9px; } .s-ben-text h3 { font-size: 22px; margin: 8px 0; } .s-ben-body { font-size: 14px; margin: 8px 0 12px; } .s-ben-outcome { padding: 10px 16px; } .s-ben-outcome-v { font-size: 22px; } .s-ben-outcome-l { font-size: 10px; } .s-ben-visual { height: 380px; padding: 16px; } }
 .s-ben-text h3 { font-size: clamp(32px, 4.5vw, 56px); margin: 16px 0; }
 .s-ben-text h3 em { color: var(--s-accent); font-style: italic; }
@@ -1192,8 +1194,8 @@ function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
     // Convert horizontal scroll (deltaX) into vertical scroll within the section
     // Vertical scroll (deltaY) flows naturally — it already drives the carousel
     const onWheel = (e) => {
-      // Only act on horizontal scroll
-      if (Math.abs(e.deltaX) < 2) return;
+      // Only act on predominantly horizontal scroll (trackpad gesture)
+      if (Math.abs(e.deltaX) < 5 || Math.abs(e.deltaY) > Math.abs(e.deltaX)) return;
       // Only while sticky is pinned
       const stickyRect = sticky.getBoundingClientRect();
       const wrapRect = wrap.getBoundingClientRect();
@@ -1201,7 +1203,6 @@ function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
       if (!isInSection) return;
 
       const p = progressRef.current;
-      // At boundaries, release
       if ((p <= 0 && e.deltaX < 0) || (p >= 1 && e.deltaX > 0)) return;
 
       e.preventDefault();
@@ -1297,7 +1298,12 @@ function IPhoneMockup({ progress }) {
     const cards = el.querySelectorAll('.s-app-appt.visible');
     if (cards.length > 0) {
       const last = cards[cards.length - 1];
-      last.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const containerTop = el.getBoundingClientRect().top;
+      const cardBottom = last.getBoundingClientRect().bottom;
+      const overflow = cardBottom - containerTop - el.clientHeight;
+      if (overflow > 0) {
+        el.scrollTo({ top: el.scrollTop + overflow + 20, behavior: 'smooth' });
+      }
     }
   }, [visible]);
 
