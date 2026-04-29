@@ -417,7 +417,66 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-ben-outcome { display: inline-flex; align-items: baseline; gap: 10px; padding: 14px 20px; background: var(--s-accent); color: #fff; border-radius: 99px; }
 .s-ben-outcome-v { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 500; font-style: italic; }
 .s-ben-outcome-l { font-size: 12px; opacity: 0.9; }
-.s-ben-visual { height: 500px; background: var(--s-bg2); border: 1px solid var(--s-line); border-radius: 24px; padding: 24px; position: relative; overflow: hidden; }
+.s-ben-visual { height: 500px; background: transparent; border: none; border-radius: 24px; padding: 0; position: relative; overflow: visible; display: flex; align-items: center; justify-content: center; }
+@media (max-width: 900px) { .s-ben-visual { height: auto; min-height: 380px; } }
+
+/* iPhone 16 Pro mockup frame */
+.s-iphone { position: relative; width: 280px; height: 580px; border-radius: 52px; background: #1c1c1e; border: 3px solid #38383a; box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06); overflow: hidden; }
+@media (max-width: 600px) { .s-iphone { width: 240px; height: 500px; border-radius: 46px; } }
+/* Dynamic Island */
+.s-iphone-island { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 96px; height: 28px; background: #000; border-radius: 20px; z-index: 10; }
+@media (max-width: 600px) { .s-iphone-island { width: 84px; height: 24px; top: 8px; } }
+.s-iphone-screen { position: absolute; inset: 3px; border-radius: 49px; overflow: hidden; background: #0a0e1a; display: flex; flex-direction: column; }
+@media (max-width: 600px) { .s-iphone-screen { border-radius: 43px; } }
+
+/* App header inside phone */
+/* Status bar above header */
+.s-app-statusbar { flex-shrink: 0; height: 44px; padding: 14px 24px 0; display: flex; justify-content: space-between; align-items: center; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--s-fg); font-weight: 600; }
+.s-app-statusbar-right { display: flex; align-items: center; gap: 4px; }
+.s-app-statusbar-batt { width: 18px; height: 9px; border: 1px solid var(--s-fg); border-radius: 2px; position: relative; }
+.s-app-statusbar-batt::after { content: ''; position: absolute; inset: 1px; right: 3px; background: var(--s-fg); border-radius: 1px; }
+.s-app-statusbar-batt::before { content: ''; position: absolute; right: -3px; top: 2px; width: 2px; height: 4px; background: var(--s-fg); border-radius: 0 1px 1px 0; }
+.s-app-header { padding: 8px 16px 10px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.s-app-logo { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--s-fg); text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; }
+
+/* Date bar */
+.s-app-datebar { padding: 8px 16px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.s-app-date-label { font-size: 12px; font-weight: 600; color: var(--s-fg); }
+.s-app-date-sub { font-size: 9px; color: var(--s-muted); font-family: 'JetBrains Mono', monospace; }
+
+/* Week strip */
+.s-app-week { display: flex; gap: 4px; padding: 6px 16px 10px; flex-shrink: 0; }
+.s-app-day { flex: 1; text-align: center; font-size: 9px; color: var(--s-muted); font-family: 'JetBrains Mono', monospace; }
+.s-app-day-num { font-size: 13px; font-weight: 600; color: var(--s-fg); margin-top: 2px; }
+.s-app-day.today .s-app-day-num { background: #3b82f6; color: #fff; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; margin: 2px auto 0; }
+
+/* Appointment slots */
+.s-app-slots { flex: 1; overflow: hidden; padding: 0 12px 16px; }
+.s-app-time { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--s-dim); padding: 8px 4px 4px; }
+.s-app-appt { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; opacity: 0; transform: translateY(16px) scale(0.97); transition: all 0.5s cubic-bezier(0.22,1,0.36,1); }
+.s-app-appt.visible { opacity: 1; transform: none; }
+.s-app-appt-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.s-app-appt-status { font-family: 'JetBrains Mono', monospace; font-size: 8px; text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 4px; }
+.s-app-appt-status.confirmed { color: #4ade80; }
+.s-app-appt-status.pending { color: #fbbf24; }
+.s-app-appt-price { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--s-fg); font-weight: 600; }
+.s-app-appt-name { font-size: 13px; font-weight: 600; color: var(--s-fg); margin-bottom: 2px; }
+.s-app-appt-svc { font-size: 10px; color: var(--s-muted); }
+.s-app-appt-pro { font-size: 9px; color: var(--s-dim); margin-top: 3px; display: flex; align-items: center; gap: 4px; }
+
+/* Appointment action panel */
+.s-app-appt-actions { max-height: 0; overflow: hidden; transition: max-height 0.35s cubic-bezier(0.22,1,0.36,1), padding 0.35s, opacity 0.25s; opacity: 0; padding: 0 0; }
+.s-app-appt.expanded .s-app-appt-actions { max-height: 80px; opacity: 1; padding: 10px 0 4px; }
+.s-app-appt-actions-row { display: flex; gap: 6px; }
+.s-app-appt-action { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); font-size: 8px; color: var(--s-muted); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; transition: background 0.2s; }
+.s-app-appt-action:hover { background: rgba(255,255,255,0.08); }
+.s-app-appt-action.green { color: #4ade80; }
+.s-app-appt-action.blue { color: #3b82f6; }
+.s-app-appt-action.amber { color: #fbbf24; }
+.s-app-appt-action.red { color: #ef4444; }
+
+/* Non-iphone visuals keep original container */
+.s-ben-visual-box { height: 100%; width: 100%; background: var(--s-bg2); border: 1px solid var(--s-line); border-radius: 24px; padding: 24px; position: relative; overflow: hidden; }
 .s-ben-indicator { position: absolute; top: 32px; right: 32px; display: flex; flex-direction: column; gap: 6px; z-index: 5; }
 .s-ben-indicator-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--s-dim); transition: all 0.3s; }
 .s-ben-indicator-dot.active { background: var(--s-accent); height: 18px; border-radius: 3px; }
@@ -1199,48 +1258,153 @@ function SPain({ D }) {
 }
 
 // ---- Benefits ----
-function CalendarFilling({ progress }) {
-  const total = 12;
-  const filled = Math.floor(progress * total);
-  const data = [
-    { name: 'Karina', svc: '9am', t: '02:14am' },
-    { name: 'Jesús', svc: '11am', t: '11:47pm' },
-    { name: 'Vanessa', svc: '2pm', t: '05:22am' },
-    { name: 'Paola', svc: '4pm', t: '07:08am' },
-    { name: 'Andrea', svc: '10am', t: '01:30am' },
-    { name: 'Luisa', svc: '3pm', t: '06:12am' },
-    { name: 'Emilia', svc: '12pm', t: '08:44pm' },
-    { name: 'Rebeca', svc: '9am', t: '10:15pm' },
-    { name: 'Moraima', svc: '5pm', t: '03:18am' },
-    { name: 'Daniela', svc: '11am', t: '09:50pm' },
-    { name: 'Fiorella', svc: '1pm', t: '12:02am' },
-    { name: 'Greta', svc: '4pm', t: '06:54am' },
+const MOCK_APPTS = [
+  { time: '09:00', name: 'Karina Rodríguez', svc: 'Corte + Brushing', pro: 'Carlos "El Pulpo" Ramírez', price: 25, status: 'confirmed' },
+  { time: '10:00', name: 'Vanessa Méndez', svc: 'Balayage + Toner', pro: 'Ana María López', price: 65, status: 'confirmed' },
+  { time: '11:30', name: 'Jesús Torres', svc: 'Corte + Barba', pro: 'Carlos "El Pulpo" Ramírez', price: 15, status: 'pending' },
+  { time: '13:00', name: 'Paola Gutiérrez', svc: 'Mani + Pedi + Gel', pro: 'Luisa Fernández', price: 35, status: 'confirmed' },
+  { time: '14:00', name: 'Andrea Villamizar', svc: 'Extensiones', pro: 'Ana María López', price: 120, status: 'pending' },
+  { time: '15:00', name: 'Pedro García', svc: 'Corte + Barba', pro: 'Carlos "El Pulpo" Ramírez', price: 15, status: 'confirmed' },
+  { time: '16:00', name: 'Gonzalo Montero', svc: 'Black Mask + Limpieza Facial', pro: 'Carlos "El Pulpo" Ramírez', price: 27, status: 'pending' },
+];
+
+// SVG icons for phone mockup (lucide style, 14px)
+const IC = {
+  moon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>,
+  sparkle: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3Z"/></svg>,
+  gear: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2m0 18v2m-9-11h2m18 0h2m-3.3-6.7-1.4 1.4M4.7 19.3l1.4-1.4m0-11.2L4.7 4.7m14.6 14.6-1.4-1.4"/></svg>,
+  logout: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+  chevL: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>,
+  chevR: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>,
+  home: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  cal: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
+  users: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  more: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>,
+  user: <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  list: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>,
+  filter: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
+  refresh: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>,
+};
+
+function IPhoneMockup({ progress }) {
+  const visible = Math.floor(progress * (MOCK_APPTS.length + 1));
+  const [expanded, setExpanded] = useState(-1);
+  const slotsRef = useRef(null);
+
+  useEffect(() => {
+    const el = slotsRef.current;
+    if (!el) return;
+    const cards = el.querySelectorAll('.s-app-appt.visible');
+    if (cards.length > 0) {
+      const last = cards[cards.length - 1];
+      last.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [visible]);
+
+  const days = [
+    { d: 'L', n: '28' }, { d: 'M', n: '29', today: true }, { d: 'M', n: '30' },
+    { d: 'J', n: '1' }, { d: 'V', n: '2' }, { d: 'S', n: '3' },
   ];
+
   return (
-    <div style={{ padding: 20, background: 'var(--s-bg)', border: '1px solid var(--s-line)', borderRadius: 16, height: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 12, borderBottom: '1px solid var(--s-line)' }}>
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11, color: 'var(--s-muted)', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Reservas nocturnas · 24h</div>
-        <div style={{ fontFamily: 'Fraunces, serif', fontSize: 28, fontStyle: 'italic', color: 'var(--s-accent)' }}>{filled}</div>
-      </div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden' }}>
-        {data.map((d, i) => (
-          <div key={i} style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '10px 14px', borderRadius: 8,
-            background: i < filled ? 'rgba(255,90,44,0.12)' : 'var(--s-bg2)',
-            borderLeft: i < filled ? '3px solid var(--s-accent)' : '3px solid transparent',
-            opacity: i < filled ? 1 : 0.3,
-            transform: i < filled ? 'translateX(0)' : 'translateX(-10px)',
-            transition: 'all 0.4s cubic-bezier(0.2,0.8,0.2,1)',
-            fontSize: 13,
-          }}>
-            <div>
-              <strong>{d.name}</strong>
-              <span style={{ color: 'var(--s-muted)', marginLeft: 8, fontFamily: 'JetBrains Mono, monospace', fontSize: 11 }}>{d.svc}</span>
-            </div>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: i < filled ? 'var(--s-accent2)' : 'var(--s-muted)' }}>{d.t}</span>
+    <div className="s-iphone">
+      <div className="s-iphone-island" />
+      <div className="s-iphone-screen">
+        {/* Status bar */}
+        <div className="s-app-statusbar">
+          <span>9:41</span>
+          <div className="s-app-statusbar-right">
+            <svg width="12" height="10" viewBox="0 0 16 12" fill="var(--s-fg)"><path d="M1 8h2v4H1zM5 5h2v7H5zM9 2h2v10H9zM13 0h2v12h-2z" opacity=".9"/></svg>
+            <svg width="12" height="10" viewBox="0 0 16 12" fill="var(--s-fg)"><path d="M8 2.5A7.5 7.5 0 0 0 .5 10l1.4 1.4A5.6 5.6 0 0 1 8 8a5.6 5.6 0 0 1 6.1 3.4L15.5 10A7.5 7.5 0 0 0 8 2.5z" opacity=".9"/></svg>
+            <div className="s-app-statusbar-batt"></div>
           </div>
-        ))}
+        </div>
+
+        {/* App header */}
+        <div className="s-app-header">
+          <div className="s-app-logo">SmartKubik</div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', color: 'var(--s-muted)' }}>
+            {IC.moon}{IC.sparkle}{IC.gear}{IC.logout}
+          </div>
+        </div>
+
+        {/* Date bar */}
+        <div className="s-app-datebar">
+          <span style={{ color: 'var(--s-muted)' }}>{IC.chevL}</span>
+          <div style={{ flex: 1 }}>
+            <div className="s-app-date-label">Martes 29 De Abr</div>
+            <div className="s-app-date-sub">29 abr 2026</div>
+          </div>
+          <span style={{ color: 'var(--s-muted)' }}>{IC.chevR}</span>
+          <div style={{ display: 'flex', gap: 8, marginLeft: 8, color: 'var(--s-muted)' }}>
+            {IC.list}{IC.filter}
+            <span style={{ color: '#3b82f6' }}>{IC.users}</span>
+            {IC.refresh}
+          </div>
+        </div>
+
+        {/* Week strip */}
+        <div className="s-app-week">
+          {days.map((d, i) => (
+            <div key={i} className={`s-app-day ${d.today ? 'today' : ''}`}>
+              <div>{d.d}</div>
+              <div className="s-app-day-num">{d.n}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Appointment slots — auto-scrolls, clickable */}
+        <div className="s-app-slots" ref={slotsRef}>
+          {MOCK_APPTS.map((a, i) => (
+            <div key={i}>
+              <div className="s-app-time">{a.time}</div>
+              <div
+                className={`s-app-appt ${i < visible ? 'visible' : ''} ${expanded === i ? 'expanded' : ''}`}
+                style={{ transitionDelay: `${i * 0.08}s`, cursor: 'pointer' }}
+                onClick={(e) => { e.stopPropagation(); setExpanded(expanded === i ? -1 : i); }}
+              >
+                <div className="s-app-appt-row">
+                  <div className={`s-app-appt-status ${a.status}`}>
+                    <span style={{ fontSize: 6 }}>●</span> {a.status === 'confirmed' ? 'Confirmada' : 'Pendiente'}
+                  </div>
+                  <div className="s-app-appt-price">${a.price.toFixed(2)}</div>
+                </div>
+                <div className="s-app-appt-name">{a.name}</div>
+                <div className="s-app-appt-svc">{a.svc}</div>
+                <div className="s-app-appt-pro">{IC.user} {a.pro}</div>
+                <div className="s-app-appt-actions">
+                  <div className="s-app-appt-actions-row">
+                    <div className="s-app-appt-action green">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                      Cobrar
+                    </div>
+                    <div className="s-app-appt-action blue">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                      Reagendar
+                    </div>
+                    <div className="s-app-appt-action amber">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.5 14.4c-.3-.2-1.8-.9-2-1-.3-.1-.5-.2-.7.1-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5 0-.1-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.3 5.2 4.6 2.6 1 3.1.8 3.7.8.6-.1 1.8-.7 2-1.5.2-.7.2-1.4.2-1.5-.1-.2-.3-.3-.6-.4zM12 2a10 10 0 00-8.5 15.3L2 22l4.9-1.3A10 10 0 1012 2z"/></svg>
+                      WhatsApp
+                    </div>
+                    <div className="s-app-appt-action red">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
+                      Cancelar
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom nav — real icons */}
+        <div style={{ flexShrink: 0, padding: '6px 16px 20px', display: 'flex', justifyContent: 'space-around', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <span style={{ color: 'var(--s-dim)' }}>{IC.home}</span>
+          <span style={{ color: '#3b82f6' }}>{IC.cal}</span>
+          <span style={{ width: 38, height: 38, borderRadius: '50%', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 300 }}>+</span>
+          <span style={{ color: 'var(--s-dim)' }}>{IC.users}</span>
+          <span style={{ color: 'var(--s-dim)', position: 'relative' }}>{IC.more}<span style={{ position: 'absolute', top: -2, right: -4, width: 6, height: 6, borderRadius: '50%', background: 'var(--s-accent)' }}></span></span>
+        </div>
       </div>
     </div>
   );
@@ -1316,9 +1480,9 @@ function ExportFlow({ progress }) {
 }
 
 function BenefitVisual({ idx, progress }) {
-  if (idx === 0) return <CalendarFilling progress={progress} />;
-  if (idx === 1) return <MoneyCounter progress={progress} />;
-  return <ExportFlow progress={progress} />;
+  if (idx === 0) return <IPhoneMockup progress={progress} />;
+  if (idx === 1) return <div className="s-ben-visual-box"><MoneyCounter progress={progress} /></div>;
+  return <div className="s-ben-visual-box"><ExportFlow progress={progress} /></div>;
 }
 
 function SBenefits({ D }) {
