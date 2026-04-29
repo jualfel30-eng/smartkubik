@@ -1,7 +1,7 @@
 ---
 title: "¿Qué es un ERP y Por Qué tu Negocio lo Necesita en 2025?"
 description: "Guía completa sobre sistemas ERP: qué son, cómo funcionan, beneficios y cómo elegir el mejor ERP para pequeñas y medianas empresas."
-category: "general"
+category: "recursos"
 slug: "que-es-erp"
 keywords: ["qué es un ERP", "sistema ERP", "ERP para pymes", "software de gestión empresarial", "ERP cloud", "beneficios ERP"]
 author: "Equipo SmartKubik"

@@ -1,7 +1,7 @@
 ---
 title: "Gestión de Almacén y Logística: Cómo Optimizar tu Centro de Distribución"
 description: "Guía completa para optimizar la gestión de almacenes con sistema ERP. Mejora picking, reduce errores y aumenta eficiencia logística."
-category: "logistica"
+category: "recursos"
 slug: "gestion-almacen"
 keywords: ["gestión de almacén", "WMS", "centro de distribución", "optimizar almacén", "logística ERP", "picking eficiente"]
 author: "Equipo SmartKubik"

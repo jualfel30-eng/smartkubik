@@ -1,7 +1,7 @@
 ---
 title: "FIFO vs FEFO: Qué son, Diferencias y Cuál Usar en tu Negocio"
 description: "Guía completa sobre métodos FIFO y FEFO de rotación de inventario. Aprende cuál usar según tu industria y cómo implementarlos correctamente."
-category: "general"
+category: "recursos"
 slug: "fifo-vs-fefo"
 keywords: ["FIFO", "FEFO", "rotación de inventario", "gestión de inventario", "control de caducidad", "almacén"]
 author: "Equipo SmartKubik"

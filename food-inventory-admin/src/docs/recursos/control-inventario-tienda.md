@@ -1,7 +1,7 @@
 ---
 title: "Control de Inventario para Tiendas y Supermercados: Guía Completa 2025"
 description: "Aprende cómo implementar un sistema ERP para controlar inventario en retail, reducir pérdidas por robo y mejorar la rotación de productos."
-category: "retail"
+category: "recursos"
 slug: "control-inventario-tienda"
 keywords: ["control de inventario retail", "sistema para tiendas", "ERP supermercado", "inventario tienda ropa", "punto de venta con inventario"]
 author: "Equipo SmartKubik"

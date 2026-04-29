@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, MessageCircle } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
 import SmartKubikLogoDark from '@/assets/logo-smartkubik.png';
 import SmartKubikLogoLight from '@/assets/logo-smartkubik-light.png';
@@ -58,7 +58,18 @@ const DocsHeader = () => {
           </nav>
 
           {/* Actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* WhatsApp Support — visible on all screens for frustrated users */}
+            <a
+              href="https://wa.me/584121234567"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950 rounded-lg transition-colors"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Soporte</span>
+            </a>
+
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg hover:bg-accent transition-colors"

@@ -1,7 +1,7 @@
 ---
 title: "Cómo Reducir el Desperdicio de Alimentos en tu Restaurante hasta un 30%"
 description: "Descubre cómo SmartKubik ayuda a restaurantes a reducir el desperdicio de alimentos, controlar inventarios y aumentar rentabilidad con tecnología ERP."
-category: "restaurantes"
+category: "recursos"
 slug: "reducir-desperdicio-alimentos"
 keywords: ["desperdicio de alimentos restaurante", "control de inventario restaurante", "reducir costos restaurante", "ERP para restaurantes", "merma restaurante"]
 author: "Equipo SmartKubik"
