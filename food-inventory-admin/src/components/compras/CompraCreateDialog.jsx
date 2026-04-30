@@ -330,6 +330,18 @@ export default function CompraCreateDialog({
   // attentional model — Wickens). User can re-expand any time via header.
   const [supplierExpanded, setSupplierExpanded] = useState(true);
   const hasAutoCollapsedRef = useRef(false);
+
+  // Reset to expanded EVERY time the sheet opens. The component stays
+  // mounted between purchases, so without this reset the section would
+  // stay collapsed from the previous purchase session.
+  useEffect(() => {
+    if (isOpen) {
+      setSupplierExpanded(true);
+      hasAutoCollapsedRef.current = false;
+      setTouched({});
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (po.items.length > 0 && !hasAutoCollapsedRef.current) {
       hasAutoCollapsedRef.current = true;
