@@ -35,11 +35,8 @@ const BEAUTY_DATA = {
       { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'La Esclavitud', video: '/videos/late-night-scroll.webm', backVideo: '/videos/late-night-back.webm', backVideoBg: '#ef4444' },
       { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'El Embarque', video: '/videos/no-show.webm' },
-      { q: 'Pago nómina pero nunca me entero de cuánto produjo cada estilista. Pago igual a quién trabaja el doble y a quién me llega tarde tres veces por semana.', a: 'Comisiones automáticas por profesional. Sabes exactamente quién produce qué.', tag: '"Pero se pagó!"', video: '/videos/commissions.webm' },
+      { q: '"Ni idea de cuánto vendí el mes pasado, cuál de mis estilistas produjo menos, ni quién es mi mejor clienta activa"', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Viviendo al Límite', video: '/videos/reports.webm' },
       { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'La Traición', video: '/videos/data-loss.webm' },
-      { q: 'Quieres reactivar a clientes que no vienen hace 2 meses, pero no tienes forma de saber quiénes son.', a: 'Skubik detecta clientas inactivas automáticamente y te avisa para reactivarlas.', tag: '"Yo Ahorita Lo Anoto"', video: '/videos/retention.webm' },
-      { q: 'Tienes las fotos de antes/después regadas en 3 teléfonos distintos.', a: 'Portafolio digital por clienta y servicio. Organizado, accesible, listo para Instagram.', tag: 'El Desorden', video: '/videos/portfolio.webm' },
-      { q: 'No sé cuánto vendí el mes pasado. Ni quién es mi mejor clienta.', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Viviendo al Límite', video: '/videos/reports.webm' },
     ],
   },
 
@@ -50,9 +47,9 @@ const BEAUTY_DATA = {
         num: '01',
         kicker: 'Agenda 24/7',
         title: 'Tus clientes reservan sin que tú muevas un dedo.',
-        body: 'Link personalizado de tu página que compartes en IG, WhatsApp o pegas en Google Maps. Tus clientes eligen servicio, estilista, día y hora disponible.',
-        outcome: '+47%',
-        outcomeLabel: 'reservas fuera de horario en el primer mes',
+        body: 'Ofrece una experiencia lujosa y profesional a tus clientes. Comparte el link de tu página en IG, WhatsApp o Tiktok. En segundos reservan servicio, estilista, día y hora.',
+        outcome: '46%',
+        outcomeLabel: 'de reservas son fuera de horario',
       },
       {
         num: '02',
@@ -421,8 +418,9 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
   .s-ben-text h3 { font-size: 17px; margin: 4px 0; }
   .s-ben-body { display: none !important; }
   .s-ben-outcome { padding: 6px 12px; margin-top: 4px; }
-  .s-ben-outcome-v { font-size: 16px; }
-  .s-ben-outcome-l { font-size: 8px; }
+  .s-ben-outcome { white-space: nowrap; }
+  .s-ben-outcome-v { font-size: 13px; font-style: normal; font-family: 'Inter Tight', sans-serif; font-weight: 700; }
+  .s-ben-outcome-l { font-size: 13px; }
   /* Visual fills all remaining space */
   .s-ben-visual { flex: 1; min-height: 0; height: 0; padding: 0; display: flex; align-items: stretch; justify-content: center; overflow: visible; position: relative; }
   /* iPhone — fill available space */
@@ -443,6 +441,9 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-ben-outcome-v { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 500; font-style: italic; }
 .s-ben-outcome-l { font-size: 12px; opacity: 0.9; }
 .s-ben-visual { height: 500px; background: transparent; border: none; border-radius: 24px; padding: 0; position: relative; overflow: visible; display: flex; align-items: center; justify-content: center; }
+/* Floating badge over the visual */
+.s-ben-outcome-float { position: absolute; bottom: 33%; left: 50%; z-index: 20; pointer-events: none; display: none; }
+@media (max-width: 900px) { .s-ben-outcome-float { display: block; } .s-ben-outcome-desktop { display: none !important; } }
 @media (max-width: 900px) { .s-ben-visual { height: auto; min-height: 380px; } }
 
 /* iPhone 16 Pro mockup frame */
@@ -488,16 +489,43 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-app-appt-svc { font-size: 10px; color: var(--s-muted); }
 .s-app-appt-pro { font-size: 9px; color: var(--s-dim); margin-top: 3px; display: flex; align-items: center; gap: 4px; }
 
-/* Appointment action panel */
-.s-app-appt-actions { max-height: 0; overflow: hidden; transition: max-height 0.35s cubic-bezier(0.22,1,0.36,1), padding 0.35s, opacity 0.25s; opacity: 0; padding: 0 0; }
-.s-app-appt.expanded .s-app-appt-actions { max-height: 80px; opacity: 1; padding: 10px 0 4px; }
-.s-app-appt-actions-row { display: flex; gap: 6px; }
-.s-app-appt-action { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); font-size: 8px; color: var(--s-muted); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; transition: background 0.2s; }
-.s-app-appt-action:hover { background: rgba(255,255,255,0.08); }
-.s-app-appt-action.green { color: #4ade80; }
-.s-app-appt-action.blue { color: #3b82f6; }
-.s-app-appt-action.amber { color: #fbbf24; }
-.s-app-appt-action.red { color: #ef4444; }
+/* Bottom sheet — appointment detail */
+.s-app-sheet-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 30; opacity: 0; pointer-events: none; transition: opacity 0.3s; border-radius: inherit; }
+.s-app-sheet-overlay.open { opacity: 1; pointer-events: auto; }
+.s-app-sheet { position: absolute; bottom: 0; left: 0; right: 0; background: #1c1e23; border-radius: 16px 16px 0 0; z-index: 31; transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.22,1,0.36,1); padding: 0 16px 20px; max-height: 85%; overflow-y: auto; }
+.s-app-sheet.open { transform: translateY(0); }
+.s-app-sheet-handle { width: 36px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; margin: 10px auto 14px; }
+.s-app-sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.s-app-sheet-title { font-size: 14px; font-weight: 600; color: var(--s-fg); }
+.s-app-sheet-close { width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.06); border: none; color: var(--s-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; }
+.s-app-sheet-status { font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.s-app-sheet-status.pending { color: #fbbf24; }
+.s-app-sheet-status.confirmed { color: #4ade80; }
+.s-app-sheet-name { font-size: 16px; font-weight: 700; color: var(--s-fg); margin-bottom: 4px; }
+.s-app-sheet-date { font-size: 11px; color: var(--s-muted); display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+.s-app-sheet-info { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; }
+.s-app-sheet-info-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 11px; }
+.s-app-sheet-info-label { color: var(--s-muted); }
+.s-app-sheet-info-val { color: var(--s-fg); font-weight: 500; text-align: right; max-width: 60%; }
+.s-app-sheet-info-val.price { font-weight: 700; color: var(--s-fg); }
+.s-app-sheet-btns { display: flex; gap: 8px; margin-bottom: 8px; }
+.s-app-sheet-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 10px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: var(--s-fg); }
+.s-app-sheet-btn.primary { background: #3b82f6; border-color: #3b82f6; color: #fff; }
+.s-app-sheet-btn.wa { background: #25d366; border-color: #25d366; color: #fff; }
+.s-app-sheet-btn.danger { border-color: rgba(239,68,68,0.4); color: #ef4444; }
+
+/* WhatsApp popup sheet — stacks on top of detail sheet */
+.s-app-wa-sheet { position: absolute; bottom: 0; left: 0; right: 0; background: #1c1e23; border-radius: 16px 16px 0 0; z-index: 35; transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.22,1,0.36,1); padding: 0 16px 20px; max-height: 70%; overflow-y: auto; }
+.s-app-wa-sheet.open { transform: translateY(0); }
+.s-app-wa-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 0 12px; }
+.s-app-wa-title { font-size: 14px; font-weight: 700; color: var(--s-fg); }
+.s-app-wa-sub { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 11px; }
+.s-app-wa-sub-label { color: var(--s-muted); }
+.s-app-wa-sub-link { color: #3b82f6; font-weight: 600; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.s-app-wa-option { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: border-color 0.2s; }
+.s-app-wa-option:hover { border-color: #25d366; }
+.s-app-wa-option-title { font-size: 12px; font-weight: 600; color: var(--s-fg); margin-bottom: 3px; }
+.s-app-wa-option-preview { font-size: 10px; color: var(--s-muted); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Non-iphone visuals keep original container */
 .s-ben-visual-box { height: 100%; width: 100%; background: var(--s-bg2); border: 1px solid var(--s-line); border-radius: 24px; padding: 24px; position: relative; overflow: hidden; }
@@ -1282,12 +1310,22 @@ function SPain({ D }) {
 
 // ---- Benefits ----
 const MOCK_APPTS = [
+  { time: '08:00', name: 'María Fernández', svc: 'Brushing + Planchado', pro: 'Ana María López', price: 20, status: 'confirmed' },
+  { time: '08:30', name: 'Luisa Martínez', svc: 'Corte de Puntas', pro: 'Carlos "El Pulpo" Ramírez', price: 12, status: 'confirmed' },
+  { time: '08:00', name: 'María Fernández', svc: 'Brushing + Planchado', pro: 'Ana María López', price: 20, status: 'confirmed' },
+  { time: '08:30', name: 'Luisa Martínez', svc: 'Corte de Puntas', pro: 'Carlos "El Pulpo" Ramírez', price: 12, status: 'confirmed' },
   { time: '09:00', name: 'Karina Rodríguez', svc: 'Corte + Brushing', pro: 'Carlos "El Pulpo" Ramírez', price: 25, status: 'confirmed' },
+  { time: '09:30', name: 'Daniela Rojas', svc: 'Tinte Raíz', pro: 'Ana María López', price: 40, status: 'confirmed' },
   { time: '10:00', name: 'Vanessa Méndez', svc: 'Balayage + Toner', pro: 'Ana María López', price: 65, status: 'confirmed' },
+  { time: '10:30', name: 'Carolina Pérez', svc: 'Mechas + Matizado', pro: 'Ana María López', price: 55, status: 'confirmed' },
+  { time: '11:00', name: 'Isabel Paredes', svc: 'Keratina', pro: 'Luisa Fernández', price: 80, status: 'pending' },
   { time: '11:30', name: 'Jesús Torres', svc: 'Corte + Barba', pro: 'Carlos "El Pulpo" Ramírez', price: 15, status: 'pending' },
+  { time: '12:00', name: 'Rebeca Gómez', svc: 'Uñas Acrílicas', pro: 'Luisa Fernández', price: 30, status: 'confirmed' },
   { time: '13:00', name: 'Paola Gutiérrez', svc: 'Mani + Pedi + Gel', pro: 'Luisa Fernández', price: 35, status: 'confirmed' },
+  { time: '13:30', name: 'Gabriela Suárez', svc: 'Depilación Facial', pro: 'Luisa Fernández', price: 15, status: 'confirmed' },
   { time: '14:00', name: 'Andrea Villamizar', svc: 'Extensiones', pro: 'Ana María López', price: 120, status: 'pending' },
   { time: '15:00', name: 'Pedro García', svc: 'Corte + Barba', pro: 'Carlos "El Pulpo" Ramírez', price: 15, status: 'confirmed' },
+  { time: '15:30', name: 'Sofía Mendoza', svc: 'Alisado Progresivo', pro: 'Ana María López', price: 90, status: 'pending' },
   { time: '16:00', name: 'Gonzalo Montero', svc: 'Black Mask + Limpieza Facial', pro: 'Carlos "El Pulpo" Ramírez', price: 27, status: 'pending' },
 ];
 
@@ -1310,10 +1348,31 @@ const IC = {
 };
 
 function IPhoneMockup({ progress }) {
-  const visible = Math.floor(progress * (MOCK_APPTS.length + 1));
+  const [visible, setVisible] = useState(4);
+  const [paused, setPaused] = useState(false);
   const [expanded, setExpanded] = useState(-1);
+  const [waOpen, setWaOpen] = useState(false);
   const slotsRef = useRef(null);
+  const timerRef = useRef(null);
 
+  // Autoplay: add one appointment every 1.5s, pause on interaction
+  useEffect(() => {
+    if (paused) return;
+    timerRef.current = setInterval(() => {
+      setVisible(v => {
+        if (v >= MOCK_APPTS.length) {
+          // Reset: scroll back to top, then restart
+          const el = slotsRef.current;
+          if (el) el.scrollTo({ top: 0, behavior: 'smooth' });
+          return 0;
+        }
+        return v + 1;
+      });
+    }, 1500);
+    return () => clearInterval(timerRef.current);
+  }, [paused]);
+
+  // Auto-scroll to keep new appointments visible
   useEffect(() => {
     const el = slotsRef.current;
     if (!el) return;
@@ -1328,6 +1387,13 @@ function IPhoneMockup({ progress }) {
       }
     }
   }, [visible]);
+
+  // Resume after 3s of no interaction
+  const pauseAndResume = () => {
+    setPaused(true);
+    clearTimeout(timerRef.current);
+    setTimeout(() => setPaused(false), 3000);
+  };
 
   const days = [
     { d: 'L', n: '28' }, { d: 'M', n: '29', today: true }, { d: 'M', n: '30' },
@@ -1381,15 +1447,16 @@ function IPhoneMockup({ progress }) {
           ))}
         </div>
 
-        {/* Appointment slots — auto-scrolls, clickable */}
+        {/* Appointment slots */}
         <div className="s-app-slots" ref={slotsRef}>
           {MOCK_APPTS.map((a, i) => (
             <div key={i}>
               <div className="s-app-time">{a.time}</div>
               <div
-                className={`s-app-appt ${i < visible ? 'visible' : ''} ${expanded === i ? 'expanded' : ''}`}
+                className={`s-app-appt ${i < visible ? 'visible' : ''}`}
                 style={{ transitionDelay: `${i * 0.08}s`, cursor: 'pointer' }}
-                onClick={(e) => { e.stopPropagation(); setExpanded(expanded === i ? -1 : i); }}
+                onClick={(e) => { e.stopPropagation(); setExpanded(i); pauseAndResume(); }}
+                onPointerEnter={pauseAndResume}
               >
                 <div className="s-app-appt-row">
                   <div className={`s-app-appt-status ${a.status}`}>
@@ -1400,38 +1467,111 @@ function IPhoneMockup({ progress }) {
                 <div className="s-app-appt-name">{a.name}</div>
                 <div className="s-app-appt-svc">{a.svc}</div>
                 <div className="s-app-appt-pro">{IC.user} {a.pro}</div>
-                <div className="s-app-appt-actions">
-                  <div className="s-app-appt-actions-row">
-                    <div className="s-app-appt-action green">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                      Cobrar
-                    </div>
-                    <div className="s-app-appt-action blue">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                      Reagendar
-                    </div>
-                    <div className="s-app-appt-action amber">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17.5 14.4c-.3-.2-1.8-.9-2-1-.3-.1-.5-.2-.7.1-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5 0-.1-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.3 5.2 4.6 2.6 1 3.1.8 3.7.8.6-.1 1.8-.7 2-1.5.2-.7.2-1.4.2-1.5-.1-.2-.3-.3-.6-.4zM12 2a10 10 0 00-8.5 15.3L2 22l4.9-1.3A10 10 0 1012 2z"/></svg>
-                      WhatsApp
-                    </div>
-                    <div className="s-app-appt-action red">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
-                      Cancelar
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Bottom nav — real icons */}
+        {/* Bottom nav */}
         <div style={{ flexShrink: 0, padding: '6px 16px 20px', display: 'flex', justifyContent: 'space-around', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <span style={{ color: 'var(--s-dim)' }}>{IC.home}</span>
           <span style={{ color: '#3b82f6' }}>{IC.cal}</span>
           <span style={{ width: 38, height: 38, borderRadius: '50%', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 300 }}>+</span>
           <span style={{ color: 'var(--s-dim)' }}>{IC.users}</span>
           <span style={{ color: 'var(--s-dim)', position: 'relative' }}>{IC.more}<span style={{ position: 'absolute', top: -2, right: -4, width: 6, height: 6, borderRadius: '50%', background: 'var(--s-accent)' }}></span></span>
+        </div>
+
+        {/* Bottom sheet — appointment detail */}
+        <div className={`s-app-sheet-overlay ${expanded >= 0 ? 'open' : ''}`} onClick={() => { setExpanded(-1); setWaOpen(false); }} />
+        <div className={`s-app-sheet ${expanded >= 0 ? 'open' : ''}`} onClick={() => { if (waOpen) return; }}>
+          {expanded >= 0 && (() => {
+            const a = MOCK_APPTS[expanded];
+            return (<>
+              <div className="s-app-sheet-handle" />
+              <div className="s-app-sheet-head">
+                <div className="s-app-sheet-title">Detalle de la cita</div>
+                <button className="s-app-sheet-close" onClick={() => { setExpanded(-1); setWaOpen(false); }}>✕</button>
+              </div>
+              <div className={`s-app-sheet-status ${a.status}`}>
+                {a.status === 'confirmed' ? 'CONFIRMADA' : 'PENDIENTE'}
+              </div>
+              <div className="s-app-sheet-name">{a.name}</div>
+              <div className="s-app-sheet-date">
+                {IC.cal} martes 29 de abr · {a.time}
+              </div>
+              <div className="s-app-sheet-info">
+                <div className="s-app-sheet-info-row">
+                  <span className="s-app-sheet-info-label">Servicio</span>
+                  <span className="s-app-sheet-info-val">{a.svc}</span>
+                </div>
+                <div className="s-app-sheet-info-row">
+                  <span className="s-app-sheet-info-label">Profesional</span>
+                  <span className="s-app-sheet-info-val">{a.pro}</span>
+                </div>
+                <div className="s-app-sheet-info-row">
+                  <span className="s-app-sheet-info-label">Total</span>
+                  <span className="s-app-sheet-info-val price">${a.price.toFixed(2)}</span>
+                </div>
+              </div>
+              <div className="s-app-sheet-btns">
+                <div className="s-app-sheet-btn">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  Llamar
+                </div>
+                <div className="s-app-sheet-btn wa" onClick={(e) => { e.stopPropagation(); setWaOpen(true); }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.2-1.8-.9-2-1-.3-.1-.5-.2-.7.1-.2.3-.8 1-1 1.2-.2.2-.4.2-.7.1-.3-.2-1.3-.5-2.5-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5 0-.1-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.3 5.2 4.6 2.6 1 3.1.8 3.7.8.6-.1 1.8-.7 2-1.5.2-.7.2-1.4.2-1.5-.1-.2-.3-.3-.6-.4zM12 2a10 10 0 00-8.5 15.3L2 22l4.9-1.3A10 10 0 1012 2z"/></svg>
+                  WhatsApp
+                </div>
+              </div>
+              <div className="s-app-sheet-btn primary" style={{ marginBottom: 8 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                Confirmar
+              </div>
+              <div className="s-app-sheet-btns">
+                <div className="s-app-sheet-btn">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                  Reagendar
+                </div>
+                <div className="s-app-sheet-btn danger">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" x2="9" y1="9" y2="15"/><line x1="9" x2="15" y1="9" y2="15"/></svg>
+                  Cancelar
+                </div>
+              </div>
+            </>);
+          })()}
+        </div>
+
+        {/* WhatsApp message picker sheet */}
+        <div className={`s-app-wa-sheet ${waOpen ? 'open' : ''}`}>
+          <div className="s-app-sheet-handle" />
+          <div className="s-app-wa-head">
+            <div className="s-app-wa-title">Enviar WhatsApp</div>
+            <button className="s-app-sheet-close" onClick={() => setWaOpen(false)}>✕</button>
+          </div>
+          <div className="s-app-wa-sub">
+            <span className="s-app-wa-sub-label">Enviar WhatsApp</span>
+            <span className="s-app-wa-sub-link">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Personalizado
+            </span>
+          </div>
+          {expanded >= 0 && (() => {
+            const a = MOCK_APPTS[expanded];
+            return (<>
+              <div className="s-app-wa-option" onClick={() => setWaOpen(false)}>
+                <div className="s-app-wa-option-title">Confirmación</div>
+                <div className="s-app-wa-option-preview">Hola {a.name.split(' ')[0]}, te confirmamos tu cita de {a.svc}...</div>
+              </div>
+              <div className="s-app-wa-option" onClick={() => setWaOpen(false)}>
+                <div className="s-app-wa-option-title">Recordatorio</div>
+                <div className="s-app-wa-option-preview">Hola {a.name.split(' ')[0]}, te recordamos que tienes cita de {a.svc}...</div>
+              </div>
+              <div className="s-app-wa-option" onClick={() => setWaOpen(false)}>
+                <div className="s-app-wa-option-title">Reagendamiento</div>
+                <div className="s-app-wa-option-preview">Hola {a.name.split(' ')[0]}, necesitamos reagendar tu cita de {a.svc}...</div>
+              </div>
+            </>);
+          })()}
         </div>
       </div>
     </div>
@@ -1516,8 +1656,7 @@ function BenefitVisual({ idx, progress }) {
 function SBenefits({ D }) {
   const stageRef = useRef(null);
   const progress = useSectionProgress(stageRef);
-  // Acts complete at 75% scroll, last 25% holds act 3 with full animation
-  const p = Math.min(progress / 0.75, 1); // remap 0-0.75 → 0-1
+  const p = Math.min(progress / 0.75, 1);
   const currentIdx = Math.min(2, Math.floor(p * 3));
   const localP = Math.max(0, Math.min(1, (p * 3) - currentIdx));
   const ben = D.benefits.items[currentIdx];
@@ -1535,16 +1674,26 @@ function SBenefits({ D }) {
               <div className="s-ben-kicker">Acto {ben.num} · {ben.kicker}</div>
               <h3 dangerouslySetInnerHTML={{ __html: ben.title.replace(/\b(duermes|plantones|tuyas)\b/g, '<em>$1</em>') }} />
               <p className="s-ben-body">{ben.body}</p>
-              <div className="s-ben-outcome">
+              <div className="s-ben-outcome s-ben-outcome-desktop">
                 <span className="s-ben-outcome-v">{ben.outcome}</span>
                 <span className="s-ben-outcome-l">{ben.outcomeLabel}</span>
               </div>
             </div>
-            <div className="s-ben-visual">
+            <div className="s-ben-visual" style={{ position: 'relative' }}>
               <div className="s-ben-indicator">
                 {[0,1,2].map(i => <div key={i} className={`s-ben-indicator-dot ${i === currentIdx ? 'active' : ''}`}></div>)}
               </div>
               <BenefitVisual idx={currentIdx} progress={localP} />
+              {/* Floating badge — appears after 40% progress, rises into position */}
+              <div className="s-ben-outcome-float" style={{
+                transform: `translateX(-50%) translateY(${localP < 0.4 ? 80 : 80 - ((localP - 0.4) / 0.6) * 80}px) scale(${localP < 0.4 ? 0.85 : 0.85 + ((localP - 0.4) / 0.6) * 0.15})`,
+                opacity: localP < 0.4 ? 0 : Math.min(((localP - 0.4) / 0.6) * 2, 1),
+              }}>
+                <div className="s-ben-outcome" style={{ boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}>
+                  <span className="s-ben-outcome-v">{ben.outcome}</span>
+                  <span className="s-ben-outcome-l">{ben.outcomeLabel}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
