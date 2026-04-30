@@ -12,7 +12,7 @@
  */
 import { useState } from 'react';
 import { PlusCircle, Trash2, CalendarIcon, Camera, Loader2, X, AlertCircle, Check, Receipt, FileText } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
 import { Label } from '@/components/ui/label.jsx';
@@ -313,18 +313,21 @@ export default function CompraCreateDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => onOpenChange(open)}>
-      <DialogTrigger asChild>
+    <Sheet open={isOpen} onOpenChange={(open) => onOpenChange(open)}>
+      <SheetTrigger asChild>
         <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white w-full md:w-auto">
           <PlusCircle className="mr-2 h-5 w-5" /> Añadir Inventario
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-7xl max-h-[92vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
+      </SheetTrigger>
+      <SheetContent
+        side="right"
+        className="!inset-4 !top-4 !bottom-4 !right-4 !h-auto !w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] sm:!max-w-[calc(100vw-2rem)] rounded-xl border overflow-hidden flex flex-col p-0"
+      >
+        <SheetHeader className="px-6 pt-6 pb-4 border-b">
+          <div className="flex items-center justify-between pr-8">
             <div>
-              <DialogTitle>Nueva Compra</DialogTitle>
-              <DialogDescription>Registra una nueva compra para reabastecer tu inventario.</DialogDescription>
+              <SheetTitle className="text-lg">Nueva Compra</SheetTitle>
+              <SheetDescription>Registra una nueva compra para reabastecer tu inventario.</SheetDescription>
             </div>
             <div className="flex-shrink-0 ml-4">
               <input
@@ -350,10 +353,10 @@ export default function CompraCreateDialog({
               </Button>
             </div>
           </div>
-        </DialogHeader>
+        </SheetHeader>
 
         {/* TWO-COLUMN LAYOUT: form (scrolls) + sticky summary panel */}
-        <div className="flex-1 overflow-hidden flex">
+        <div className="flex-1 overflow-hidden flex px-6 pb-6 pt-2">
           {/* LEFT: Form sections (scrollable) */}
           <div className="flex-1 overflow-y-auto p-1 pr-3 space-y-5">
             {scanResult && (
@@ -523,13 +526,22 @@ export default function CompraCreateDialog({
                       <TableHeader>
                         <TableRow>
                           <TableHead className="min-w-[200px]">Producto</TableHead>
-                          <TableHead className="w-[100px]">Cantidad</TableHead>
-                          <TableHead className="w-[120px]">Costo unit.</TableHead>
-                          <TableHead className="w-[90px]">Desc. %</TableHead>
-                          <TableHead className="w-[110px]">Precio final</TableHead>
-                          <TableHead className="w-[140px]">Lote</TableHead>
-                          <TableHead className="w-[150px]">Vencimiento</TableHead>
-                          <TableHead className="w-[110px]">Total</TableHead>
+                          <TableHead className="w-[90px]">Cantidad</TableHead>
+                          <TableHead className="w-[110px]">Costo unit.</TableHead>
+                          <TableHead className="w-[80px]">Desc. %</TableHead>
+                          <TableHead className="w-[100px]">Precio final</TableHead>
+                          <TableHead className="w-[170px]">
+                            <span className="flex items-center gap-1">
+                              Trazabilidad
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <AlertCircle className="h-3 w-3 text-muted-foreground/60" />
+                                </TooltipTrigger>
+                                <TooltipContent className="text-xs">Lote y fecha de vencimiento (solo perecederos)</TooltipContent>
+                              </Tooltip>
+                            </span>
+                          </TableHead>
+                          <TableHead className="w-[100px]">Total</TableHead>
                           <TableHead className="w-[40px]"></TableHead>
                         </TableRow>
                       </TableHeader>
@@ -570,33 +582,23 @@ export default function CompraCreateDialog({
                                 <span className="text-xs text-success block">-{item.discount}%</span>
                               )}
                             </TableCell>
-                            {/* Lot — always visible, disabled for non-perishable */}
+                            {/* Trazabilidad — Lote + Vencimiento stacked */}
                             <TableCell>
                               {item.isPerishable ? (
-                                <Input
-                                  placeholder="Lote"
-                                  className="w-32 h-9"
-                                  value={item.lotNumber || ''}
-                                  onChange={e => updateItemField(index, 'lotNumber', e.target.value)}
-                                />
-                              ) : (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <div className="text-xs text-muted-foreground/40 italic px-2">— N/A —</div>
-                                  </TooltipTrigger>
-                                  <TooltipContent>Solo para productos perecederos</TooltipContent>
-                                </Tooltip>
-                              )}
-                            </TableCell>
-                            {/* Expiration — same pattern */}
-                            <TableCell>
-                              {item.isPerishable ? (
-                                <Input
-                                  type="date"
-                                  className="w-36 h-9"
-                                  value={item.expirationDate || ''}
-                                  onChange={e => updateItemField(index, 'expirationDate', e.target.value)}
-                                />
+                                <div className="flex flex-col gap-1">
+                                  <Input
+                                    placeholder="Nº Lote"
+                                    className="h-8 text-xs"
+                                    value={item.lotNumber || ''}
+                                    onChange={e => updateItemField(index, 'lotNumber', e.target.value)}
+                                  />
+                                  <Input
+                                    type="date"
+                                    className="h-8 text-xs"
+                                    value={item.expirationDate || ''}
+                                    onChange={e => updateItemField(index, 'expirationDate', e.target.value)}
+                                  />
+                                </div>
                               ) : (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
@@ -676,7 +678,7 @@ export default function CompraCreateDialog({
             validationErrors={validationErrors}
           />
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
