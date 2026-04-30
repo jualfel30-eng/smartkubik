@@ -455,10 +455,8 @@ export default function CompraCreateDialog({
                         )}
                       </div>
                     </div>
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-foreground transition-colors shrink-0 ml-2">
-                      <Pencil className="h-3 w-3" />
-                      Editar
-                    </span>
+                    <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 ml-2" />
+                    <span className="sr-only">Expandir sección de proveedor</span>
                   </button>
                 )}
               </div>
