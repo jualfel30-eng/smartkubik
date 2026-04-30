@@ -10,8 +10,8 @@
  * 6. Inline validation on required fields (red border + message on blur)
  * 7. Smart defaults from supplier history (currency, credit terms, methods)
  */
-import { useState } from 'react';
-import { PlusCircle, Trash2, CalendarIcon, Camera, Loader2, X, AlertCircle, Check, Receipt, FileText } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { PlusCircle, Trash2, CalendarIcon, Camera, Loader2, X, AlertCircle, Check, Receipt, FileText, ChevronDown, Pencil } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Input } from '@/components/ui/input.jsx';
@@ -326,6 +326,21 @@ export default function CompraCreateDialog({
   const [touched, setTouched] = useState({});
   const markTouched = (field) => setTouched(prev => ({ ...prev, [field]: true }));
 
+  // Supplier section auto-collapses when the first product is added (focus
+  // attentional model — Wickens). User can re-expand any time via header.
+  const [supplierExpanded, setSupplierExpanded] = useState(true);
+  const hasAutoCollapsedRef = useRef(false);
+  useEffect(() => {
+    if (po.items.length > 0 && !hasAutoCollapsedRef.current) {
+      hasAutoCollapsedRef.current = true;
+      setSupplierExpanded(false);
+    }
+    // Reset when items go back to 0 (e.g., user removes all)
+    if (po.items.length === 0) {
+      hasAutoCollapsedRef.current = false;
+    }
+  }, [po.items.length]);
+
   // Inline validation — only show error if field is touched OR submission attempted
   const errors = {
     supplierName: !po.supplierName ? 'Selecciona o crea un proveedor' : null,
@@ -413,70 +428,116 @@ export default function CompraCreateDialog({
               </div>
             )}
 
-            {/* SECTION 1: PROVEEDOR */}
-            <section className="p-4 border rounded-lg space-y-4">
+            {/* SECTION 1: PROVEEDOR (collapsible — auto-collapses on first item) */}
+            <section className={cn(
+              'border rounded-lg transition-all',
+              supplierExpanded ? 'p-4 space-y-4' : 'p-3'
+            )}>
+              {/* Header — always visible. Click to expand/collapse when collapsed. */}
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">1</span>
-                <h3 className="text-base font-semibold">Proveedor</h3>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold shrink-0">1</span>
+                {supplierExpanded ? (
+                  <h3 className="text-base font-semibold">Proveedor</h3>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setSupplierExpanded(true)}
+                    className="flex-1 flex items-center justify-between text-left group hover:bg-muted/30 -mx-2 px-2 py-1 rounded transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <h3 className="text-base font-semibold shrink-0">Proveedor:</h3>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm font-medium truncate">{po.supplierName || 'Sin nombre'}</span>
+                        {po.supplierRif && (
+                          <span className="text-xs text-muted-foreground font-mono shrink-0">
+                            ({po.taxType}-{po.supplierRif})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-foreground transition-colors shrink-0 ml-2">
+                      <Pencil className="h-3 w-3" />
+                      Editar
+                    </span>
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <Label>RIF / C.I. <span className="text-destructive">*</span></Label>
-                  <RifInput
-                    value={po.supplierRif}
-                    taxType={po.taxType}
-                    onChange={handleRifChange}
-                    onTaxTypeChange={(value) => handleFieldChange('taxType', value)}
-                    suggestions={rifSuggestions}
-                    dropdownOpen={rifDropdownOpen}
-                    setDropdownOpen={setRifDropdownOpen}
-                    onSuggestionSelect={handleRifDropdownSelect}
-                    inputRef={rifInputRef}
-                    dropdownRef={rifDropdownRef}
-                    error={touched.supplierRif ? errors.supplierRif : null}
-                    onBlur={() => markTouched('supplierRif')}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Nombre o Razón Social <span className="text-destructive">*</span></Label>
-                  <SearchableSelect
-                    asyncSearch={true}
-                    loadOptions={loadSupplierOptions}
-                    minSearchLength={2}
-                    debounceMs={300}
-                    onSelection={handleSupplierSelection}
-                    onInputChange={handleSupplierNameInputChange}
-                    value={po.supplierName ? { value: po.supplierId || po.supplierName, label: po.supplierName } : null}
-                    placeholder="Buscar proveedor (mín. 2 caracteres)..."
-                    isCreatable={true}
-                  />
-                  {touched.supplierName && errors.supplierName && (
-                    <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.supplierName}</p>
+              {supplierExpanded && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <Label>RIF / C.I. <span className="text-destructive">*</span></Label>
+                    <RifInput
+                      value={po.supplierRif}
+                      taxType={po.taxType}
+                      onChange={handleRifChange}
+                      onTaxTypeChange={(value) => handleFieldChange('taxType', value)}
+                      suggestions={rifSuggestions}
+                      dropdownOpen={rifDropdownOpen}
+                      setDropdownOpen={setRifDropdownOpen}
+                      onSuggestionSelect={handleRifDropdownSelect}
+                      inputRef={rifInputRef}
+                      dropdownRef={rifDropdownRef}
+                      error={touched.supplierRif ? errors.supplierRif : null}
+                      onBlur={() => markTouched('supplierRif')}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Nombre o Razón Social <span className="text-destructive">*</span></Label>
+                    <SearchableSelect
+                      asyncSearch={true}
+                      loadOptions={loadSupplierOptions}
+                      minSearchLength={2}
+                      debounceMs={300}
+                      onSelection={handleSupplierSelection}
+                      onInputChange={handleSupplierNameInputChange}
+                      value={po.supplierName ? { value: po.supplierId || po.supplierName, label: po.supplierName } : null}
+                      placeholder="Buscar proveedor (mín. 2 caracteres)..."
+                      isCreatable={true}
+                    />
+                    {touched.supplierName && errors.supplierName && (
+                      <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" />{errors.supplierName}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Contacto</Label>
+                    <Input value={po.contactName} onChange={e => handleFieldChange('contactName', e.target.value)} placeholder="Nombre del contacto" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-muted-foreground">Teléfono</Label>
+                    <Input value={po.contactPhone} onChange={e => handleFieldChange('contactPhone', e.target.value)} placeholder="0414-1234567" />
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <Label className="text-muted-foreground">Email</Label>
+                    <Input value={po.contactEmail} onChange={e => handleFieldChange('contactEmail', e.target.value)} placeholder="email@ejemplo.com" />
+                  </div>
+                  <div className="space-y-1 col-span-2">
+                    <Label className="text-muted-foreground">Dirección</Label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <Input placeholder="Ciudad" value={po.supplierAddress.city} onChange={e => setPo(prev => ({ ...prev, supplierAddress: { ...prev.supplierAddress, city: e.target.value } }))} />
+                      <Input placeholder="Estado" value={po.supplierAddress.state} onChange={e => setPo(prev => ({ ...prev, supplierAddress: { ...prev.supplierAddress, state: e.target.value } }))} />
+                      <Input placeholder="Calle, Av, Local..." value={po.supplierAddress.street} onChange={e => setPo(prev => ({ ...prev, supplierAddress: { ...prev.supplierAddress, street: e.target.value } }))} />
+                    </div>
+                  </div>
+
+                  {/* Collapse hint when expanded with items already added */}
+                  {po.items.length > 0 && (
+                    <div className="col-span-2 flex justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSupplierExpanded(false)}
+                        className="text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <ChevronDown className="h-3 w-3 rotate-180" />
+                        Colapsar
+                      </Button>
+                    </div>
                   )}
                 </div>
-
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground">Contacto</Label>
-                  <Input value={po.contactName} onChange={e => handleFieldChange('contactName', e.target.value)} placeholder="Nombre del contacto" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-muted-foreground">Teléfono</Label>
-                  <Input value={po.contactPhone} onChange={e => handleFieldChange('contactPhone', e.target.value)} placeholder="0414-1234567" />
-                </div>
-                <div className="space-y-1 col-span-2">
-                  <Label className="text-muted-foreground">Email</Label>
-                  <Input value={po.contactEmail} onChange={e => handleFieldChange('contactEmail', e.target.value)} placeholder="email@ejemplo.com" />
-                </div>
-                <div className="space-y-1 col-span-2">
-                  <Label className="text-muted-foreground">Dirección</Label>
-                  <div className="grid grid-cols-3 gap-3">
-                    <Input placeholder="Ciudad" value={po.supplierAddress.city} onChange={e => setPo(prev => ({ ...prev, supplierAddress: { ...prev.supplierAddress, city: e.target.value } }))} />
-                    <Input placeholder="Estado" value={po.supplierAddress.state} onChange={e => setPo(prev => ({ ...prev, supplierAddress: { ...prev.supplierAddress, state: e.target.value } }))} />
-                    <Input placeholder="Calle, Av, Local..." value={po.supplierAddress.street} onChange={e => setPo(prev => ({ ...prev, supplierAddress: { ...prev.supplierAddress, street: e.target.value } }))} />
-                  </div>
-                </div>
-              </div>
+              )}
             </section>
 
             {/* SECTION 2: PRODUCTOS */}
