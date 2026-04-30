@@ -73,6 +73,7 @@ import { PromotionsModule } from "./modules/promotions/promotions.module";
 import { HospitalityIntegrationsModule } from "./modules/hospitality-integrations/hospitality-integrations.module";
 import { LocationsModule } from "./modules/locations/locations.module";
 import { HealthModule } from "./modules/health/health.module";
+import { WikiMaintenanceModule } from "./modules/wiki-maintenance/wiki-maintenance.module";
 import { ConsumablesModule } from "./modules/consumables/consumables.module";
 import { SuppliesModule } from "./modules/supplies/supplies.module";
 import { UnitConversionsModule } from "./modules/unit-conversions/unit-conversions.module";
@@ -457,6 +458,7 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     FeatureFlagsModule,
     CountryPluginModule,
     HealthModule,
+    WikiMaintenanceModule,
     AuthModule,
     OnboardingModule,
     ProductsModule,

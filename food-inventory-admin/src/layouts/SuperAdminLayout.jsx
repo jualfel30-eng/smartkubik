@@ -13,6 +13,7 @@ import {
   X,
   Link2,
   Activity,
+  BookOpen,
 } from 'lucide-react';
 import { Toaster } from '@/components/ui/sonner';
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -28,6 +29,7 @@ import SuperAdminSettings from '@/components/super-admin/SuperAdminSettings';
 import KnowledgeBaseManagement from '@/components/super-admin/KnowledgeBaseManagement';
 import SuperAdminAssistant from '@/components/super-admin/SuperAdminAssistant';
 import SuperAdminMaintenance from '@/components/super-admin/SuperAdminMaintenance';
+import SuperAdminDocumentation from '@/components/super-admin/SuperAdminDocumentation';
 import LinkManager from '@/components/LinkManager';
 
 const navItems = [
@@ -38,6 +40,7 @@ const navItems = [
   { to: '/super-admin/knowledge-base', icon: BrainCircuit, label: 'Base de Conocimiento' },
   { to: '/super-admin/assistant', icon: Sparkles, label: 'Asistente IA' },
   { to: '/super-admin/maintenance', icon: Activity, label: 'Mantenimiento' },
+  { to: '/super-admin/documentation', icon: BookOpen, label: 'Documentación' },
   { to: '/super-admin/settings', icon: Settings, label: 'Ajustes' },
 ];
 
@@ -148,6 +151,7 @@ function SuperAdminLayout() {
               <Route path="knowledge-base" element={<KnowledgeBaseManagement />} />
               <Route path="assistant" element={<SuperAdminAssistant />} />
               <Route path="maintenance" element={<SuperAdminMaintenance />} />
+              <Route path="documentation" element={<SuperAdminDocumentation />} />
               <Route path="audit-logs" element={<AuditLogView />} />
               <Route path="*" element={<Navigate to="tenants" />} />
             </Routes>

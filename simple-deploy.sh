@@ -157,6 +157,16 @@ if $DEPLOY_BACKEND; then
   # PM2 runs from ~/smartkubik/api/dist/ — sync there too
   rsync -avz --delete $BACKEND_LOCAL/dist/ $SERVER:~/smartkubik/api/dist/
   echo -e "${GREEN}✅ Backend uploaded${NC}"
+
+  # Step 3.1: Upload wiki content (read by WikiMaintenanceService)
+  if [ -d "./docs/wiki" ]; then
+    echo -e "${YELLOW}📚 Uploading wiki documentation...${NC}"
+    ssh $SERVER "mkdir -p ~/smartkubik/docs/wiki"
+    # The backend resolves WIKI_PATH or falls back to ../docs/wiki from cwd.
+    # PM2 runs from ~/smartkubik/api/, so ../docs/wiki = ~/smartkubik/docs/wiki ✓
+    rsync -avz --delete ./docs/wiki/ $SERVER:~/smartkubik/docs/wiki/
+    echo -e "${GREEN}✅ Wiki uploaded${NC}"
+  fi
 fi
 
 # Step 4: Upload frontend dist
