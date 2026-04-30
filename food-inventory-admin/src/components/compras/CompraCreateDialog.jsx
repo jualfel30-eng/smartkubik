@@ -144,7 +144,7 @@ function InlineVariantPicker({ variantSelection, updateVariantSelectionRow, conf
 }
 
 // ─── Sticky Summary Panel ───────────────────────────────────────────────
-function StickySummary({ po, poTotals, setPo, isCreating, onCancel, onSubmit, validationErrors }) {
+function StickySummary({ po, poTotals, setPo, isCreating, onCancel, onSubmit, validationErrors, purchaseDateOpen, setPurchaseDateOpen, touched, markTouched, errors }) {
   const itemCount = po.items.length;
   const hasItems = itemCount > 0;
   const dueDate = po.paymentTerms?.paymentDueDate;
@@ -164,7 +164,41 @@ function StickySummary({ po, poTotals, setPo, isCreating, onCancel, onSubmit, va
           <span className="text-xs text-muted-foreground">{itemCount} {itemCount === 1 ? 'item' : 'items'}</span>
         </div>
 
-        {/* Document Type — moved here because it affects taxes */}
+        {/* Purchase Date — moved here as part of document metadata */}
+        <div className="space-y-1.5">
+          <Label className="text-xs">Fecha de compra <span className="text-destructive">*</span></Label>
+          <Popover open={purchaseDateOpen} onOpenChange={setPurchaseDateOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  'w-full justify-start text-left font-normal h-9 text-sm',
+                  touched.purchaseDate && errors.purchaseDate ? 'border-destructive' : ''
+                )}
+                onBlur={() => markTouched('purchaseDate')}
+              >
+                <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                {po.purchaseDate ? format(po.purchaseDate, "dd MMM yyyy") : <span className="text-muted-foreground">Selecciona</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={po.purchaseDate}
+                onSelect={(date) => {
+                  if (date) {
+                    setPo(prev => ({ ...prev, purchaseDate: date }));
+                    setTimeout(() => setPurchaseDateOpen(false), 0);
+                  }
+                }}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Document Type — affects taxes */}
         <div className="space-y-1.5">
           <Label className="text-xs">Tipo de documento <span className="text-destructive">*</span></Label>
           <Select value={po.documentType} onValueChange={(val) => setPo(prev => ({ ...prev, documentType: val }))}>
@@ -445,50 +479,10 @@ export default function CompraCreateDialog({
               </div>
             </section>
 
-            {/* SECTION 2: FECHA */}
-            <section className="p-4 border rounded-lg space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">2</span>
-                <h3 className="text-base font-semibold">Fecha de compra</h3>
-              </div>
-
-              <div className="space-y-1 max-w-sm">
-                <Label className="text-muted-foreground">Fecha <span className="text-destructive">*</span></Label>
-                <Popover open={purchaseDateOpen} onOpenChange={setPurchaseDateOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full justify-start text-left font-normal',
-                        touched.purchaseDate && errors.purchaseDate ? 'border-destructive' : ''
-                      )}
-                      onBlur={() => markTouched('purchaseDate')}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {po.purchaseDate ? format(po.purchaseDate, "PPP") : <span>Selecciona una fecha</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={po.purchaseDate}
-                      onSelect={(date) => {
-                        if (date) {
-                          setPo(prev => ({ ...prev, purchaseDate: date }));
-                          setTimeout(() => setPurchaseDateOpen(false), 0);
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </section>
-
-            {/* SECTION 3: PRODUCTOS */}
+            {/* SECTION 2: PRODUCTOS */}
             <section className="p-4 border rounded-lg space-y-4">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">3</span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">2</span>
                 <h3 className="text-base font-semibold">Productos</h3>
               </div>
 
@@ -628,7 +622,7 @@ export default function CompraCreateDialog({
             {/* SECTION 4: TÉRMINOS DE PAGO (moved AFTER products — natural mental model) */}
             <section className="space-y-2">
               <div className="flex items-center gap-2 pl-4">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">4</span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">3</span>
                 <h3 className="text-base font-semibold">Términos de pago</h3>
               </div>
               <CompraPaymentSection
@@ -650,7 +644,7 @@ export default function CompraCreateDialog({
             {/* SECTION 5: NOTAS */}
             <section className="p-4 border rounded-lg space-y-3">
               <div className="flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-bold">5</span>
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-bold">4</span>
                 <h3 className="text-base font-semibold">Notas</h3>
                 <span className="text-xs text-muted-foreground">(opcional)</span>
               </div>
@@ -676,6 +670,11 @@ export default function CompraCreateDialog({
               handlePoSubmit();
             }}
             validationErrors={validationErrors}
+            purchaseDateOpen={purchaseDateOpen}
+            setPurchaseDateOpen={setPurchaseDateOpen}
+            touched={touched}
+            markTouched={markTouched}
+            errors={errors}
           />
         </div>
       </SheetContent>
