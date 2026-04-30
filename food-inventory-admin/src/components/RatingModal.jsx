@@ -11,7 +11,14 @@ import { es } from 'date-fns/locale';
 import { Calendar } from '@/components/ui/calendar.jsx';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
 
-export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }) {
+/**
+ * RatingModal — used in two contexts:
+ * 1. Manual receive flow from Purchase History (legacy)
+ * 2. Auto-receive flow right after PO creation (simple mode default)
+ *
+ * Pass `mode="post-creation"` to show the "Recibir despues" close button label.
+ */
+export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder, mode = 'manual' }) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [reason, setReason] = useState('');
@@ -65,8 +72,17 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Calificar Compra #{purchaseOrder?.poNumber}</DialogTitle>
+          <DialogTitle>
+            {mode === 'post-creation'
+              ? `Recibir y calificar — Compra #${purchaseOrder?.poNumber}`
+              : `Calificar Compra #${purchaseOrder?.poNumber}`}
+          </DialogTitle>
           <DialogDescription>
+            {mode === 'post-creation' && (
+              <span className="block mb-2 text-sm text-muted-foreground">
+                Si ya recibiste la mercancia, registra la recepcion ahora. Si llegara despues, puedes "Recibir despues" y hacerlo desde el Historial.
+              </span>
+            )}
             Proveedor: {purchaseOrder?.supplierName}
             {purchaseOrder?.documentType && (
               <span className="block mt-1 text-sm">
@@ -164,9 +180,11 @@ export default function RatingModal({ isOpen, onClose, onSubmit, purchaseOrder }
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+          <Button variant="outline" onClick={handleClose}>
+            {mode === 'post-creation' ? 'Recibir despues' : 'Cancelar'}
+          </Button>
           <Button onClick={handleSubmit} disabled={!canSubmit}>
-            Enviar Calificación y Recibir Orden
+            {mode === 'post-creation' ? 'Recibir y calificar' : 'Enviar Calificación y Recibir Orden'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -42,6 +42,13 @@ export function useComprasData() {
   // Snapshot of selected supplier's original data — used to detect edits
   // and persist them via PATCH /customers/:id when the PO is saved
   const originalSupplierRef = useRef(null);
+
+  // Auto-receive flow: after a PO is created in "simple mode" (default for SMBs),
+  // open a unified Receive+Rate dialog so the user doesn't have to navigate to
+  // Purchase History. Tenants with separation of roles can opt into advanced
+  // mode to disable this and require explicit receipt later.
+  const [poForReceiveRate, setPoForReceiveRate] = useState(null);
+  const [isReceiveRateOpen, setIsReceiveRateOpen] = useState(false);
   const [supplierNameInput, setSupplierNameInput] = useState('');
   const [supplierRifInput, setSupplierRifInput] = useState('');
   const [rifDropdownOpen, setRifDropdownOpen] = useState(false);
@@ -1347,7 +1354,8 @@ export function useComprasData() {
     }
 
     try {
-      await fetchApi('/purchases', { method: 'POST', body: JSON.stringify(dto) });
+      const response = await fetchApi('/purchases', { method: 'POST', body: JSON.stringify(dto) });
+      const createdPo = response?.data || response;
       toast.success('Compra creada exitosamente');
 
       if (po.supplierId && allPaymentMethods.length > 0) {
@@ -1360,6 +1368,28 @@ export function useComprasData() {
       }
 
       setIsNewPurchaseDialogOpen(false);
+
+      // Simple mode (default): immediately open Receive+Rate dialog with the
+      // just-created PO. Advanced mode users skip this and use Purchase History.
+      const advancedMode = (() => {
+        try { return localStorage.getItem('smartkubik_advanced_receive_mode') === 'true'; }
+        catch { return false; }
+      })();
+
+      if (!advancedMode && createdPo?._id) {
+        // Build a minimal PO object compatible with RatingModal's expectations
+        setPoForReceiveRate({
+          _id: createdPo._id,
+          poNumber: createdPo.poNumber,
+          supplierId: createdPo.supplierId,
+          supplierName: createdPo.supplierName || po.supplierName,
+          documentType: createdPo.documentType || po.documentType,
+          items: createdPo.items || po.items,
+          totalAmount: createdPo.totalAmount,
+        });
+        setIsReceiveRateOpen(true);
+      }
+
       setPo(initialPoState);
       setSupplierNameInput('');
       setSupplierRifInput('');
@@ -1370,6 +1400,35 @@ export function useComprasData() {
     } finally {
       setPoLoading(false);
     }
+  };
+
+  /**
+   * Submits rating + receive in one atomic flow (mirrors PurchaseHistory's logic).
+   * Called from the unified Receive+Rate dialog opened automatically after PO creation.
+   */
+  const handleReceiveAndRate = async (ratingData) => {
+    try {
+      await fetchApi('/ratings', { method: 'POST', body: JSON.stringify(ratingData) });
+      await fetchApi(`/purchases/${ratingData.purchaseOrderId}/receive`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          receivedBy: ratingData.receivedBy,
+          invoiceDate: ratingData.invoiceDate,
+        }),
+      });
+      toast.success('Compra recibida e inventario actualizado');
+      setIsReceiveRateOpen(false);
+      setPoForReceiveRate(null);
+      fetchData();
+    } catch (err) {
+      toast.error('Error al procesar recepcion', { description: err.message });
+    }
+  };
+
+  const handleSkipReceive = () => {
+    setIsReceiveRateOpen(false);
+    setPoForReceiveRate(null);
+    toast.info('Puedes recibir esta compra desde el Historial cuando llegue la mercancia');
   };
 
   /**
@@ -1589,6 +1648,13 @@ export function useComprasData() {
     handleActualPaymentMethodChange,
     handleCreatePoFromAlert,
     handleRifDropdownSelect,
+
+    // Auto receive + rate flow (simple mode default)
+    poForReceiveRate,
+    isReceiveRateOpen,
+    setIsReceiveRateOpen,
+    handleReceiveAndRate,
+    handleSkipReceive,
 
     // Variant selection
     variantSelection,
