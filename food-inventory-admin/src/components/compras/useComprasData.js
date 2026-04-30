@@ -39,6 +39,9 @@ export function useComprasData() {
 
   const [suppliers, setSuppliers] = useState([]);
   const [poLoading, setPoLoading] = useState(false);
+  // Snapshot of selected supplier's original data — used to detect edits
+  // and persist them via PATCH /customers/:id when the PO is saved
+  const originalSupplierRef = useRef(null);
   const [supplierNameInput, setSupplierNameInput] = useState('');
   const [supplierRifInput, setSupplierRifInput] = useState('');
   const [rifDropdownOpen, setRifDropdownOpen] = useState(false);
@@ -716,6 +719,7 @@ export function useComprasData() {
     }
     if (selectedOption.__isNew__) {
       setSupplierNameInput('');
+      originalSupplierRef.current = null;
       setPo(prev => ({ ...prev, supplierId: '', supplierName: selectedOption.label }));
     } else {
       setSupplierNameInput('');
@@ -726,6 +730,22 @@ export function useComprasData() {
       );
       const addr = supplier.addresses?.find(a => a.isDefault) || supplier.addresses?.[0];
       setSupplierRifInput(rifNumber);
+
+      // Snapshot original values to detect edits later
+      originalSupplierRef.current = {
+        _id: supplier._id,
+        contactName: supplier.contacts?.[0]?.name || supplier.name || '',
+        contactPhone: supplier.contacts?.find(c => c.type === 'phone')?.value || '',
+        contactEmail: supplier.contacts?.find(c => c.type === 'email')?.value || '',
+        addresses: supplier.addresses || [],
+        contacts: supplier.contacts || [],
+        address: {
+          city: addr?.city || '',
+          state: addr?.state || '',
+          street: addr?.street || '',
+        },
+      };
+
       setPo(prev => ({
         ...prev,
         supplierId: supplier._id,
@@ -788,6 +808,21 @@ export function useComprasData() {
       const addr = customer.addresses?.find(a => a.isDefault) || customer.addresses?.[0];
       const supplierNameToSet = customer.companyName || customer.name;
       console.log('🔍 DEBUG RIF - Will set supplierName to:', supplierNameToSet);
+
+      // Snapshot original values to detect edits later
+      originalSupplierRef.current = {
+        _id: customer._id,
+        contactName: customer.contacts?.[0]?.name || customer.name || '',
+        contactPhone: customer.contacts?.find(c => c.type === 'phone')?.value || '',
+        contactEmail: customer.contacts?.find(c => c.type === 'email')?.value || '',
+        addresses: customer.addresses || [],
+        contacts: customer.contacts || [],
+        address: {
+          city: addr?.city || '',
+          state: addr?.state || '',
+          street: addr?.street || '',
+        },
+      };
 
       setSupplierRifInput(rifNumber);
       setSupplierNameInput('');
@@ -1319,15 +1354,94 @@ export function useComprasData() {
         await syncPaymentMethodsToSupplier(po.supplierId, allPaymentMethods);
       }
 
+      // If editing an existing supplier, persist any field changes back to the supplier
+      if (po.supplierId && originalSupplierRef.current?._id === po.supplierId) {
+        await syncSupplierEdits(po, originalSupplierRef.current);
+      }
+
       setIsNewPurchaseDialogOpen(false);
       setPo(initialPoState);
       setSupplierNameInput('');
       setSupplierRifInput('');
+      originalSupplierRef.current = null;
       fetchData();
     } catch (error) {
       toast.error('Error al crear la Compra', { description: error.message });
     } finally {
       setPoLoading(false);
+    }
+  };
+
+  /**
+   * Detects edits made to an existing supplier during PO creation and
+   * persists them via PATCH /customers/:id. Non-blocking: failures are
+   * logged but don't stop the PO flow.
+   */
+  const syncSupplierEdits = async (currentPo, snapshot) => {
+    try {
+      const updates = {};
+      let needsUpdate = false;
+
+      // Address: compare normalized strings
+      const norm = (s) => (s || '').trim();
+      const addrChanged =
+        norm(currentPo.supplierAddress?.city) !== norm(snapshot.address.city) ||
+        norm(currentPo.supplierAddress?.state) !== norm(snapshot.address.state) ||
+        norm(currentPo.supplierAddress?.street) !== norm(snapshot.address.street);
+
+      if (addrChanged) {
+        // Preserve other addresses if any; replace the default one
+        const other = (snapshot.addresses || []).filter(a => !a.isDefault && (snapshot.addresses.length > 1));
+        const defaultAddr = (snapshot.addresses || []).find(a => a.isDefault) || snapshot.addresses?.[0] || {};
+        updates.addresses = [
+          {
+            type: defaultAddr.type || 'billing',
+            street: norm(currentPo.supplierAddress?.street) || undefined,
+            city: norm(currentPo.supplierAddress?.city) || undefined,
+            state: norm(currentPo.supplierAddress?.state) || undefined,
+            isDefault: true,
+          },
+          ...other.map(a => ({
+            type: a.type || 'billing',
+            street: a.street,
+            city: a.city,
+            municipality: a.municipality,
+            state: a.state,
+            isDefault: false,
+          })),
+        ];
+        needsUpdate = true;
+      }
+
+      // Contact phone/email: rebuild contacts array if anything changed
+      const phoneChanged = norm(currentPo.contactPhone) !== norm(snapshot.contactPhone);
+      const emailChanged = norm(currentPo.contactEmail) !== norm(snapshot.contactEmail);
+
+      if (phoneChanged || emailChanged) {
+        const contacts = [];
+        const phone = norm(currentPo.contactPhone);
+        const email = norm(currentPo.contactEmail);
+        if (phone) contacts.push({ type: 'phone', value: phone, isPrimary: true });
+        if (email) contacts.push({ type: 'email', value: email, isPrimary: !phone });
+
+        // Preserve any other contact types (e.g., whatsapp) we don't manage here
+        const preserved = (snapshot.contacts || []).filter(
+          c => c.type !== 'phone' && c.type !== 'email'
+        );
+        updates.contacts = [...contacts, ...preserved];
+        needsUpdate = true;
+      }
+
+      if (!needsUpdate) return;
+
+      await fetchApi(`/customers/${snapshot._id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+      toast.info('Datos del proveedor actualizados');
+    } catch (err) {
+      // Non-blocking: PO is already created
+      console.warn('Failed to sync supplier edits:', err);
     }
   };
 
