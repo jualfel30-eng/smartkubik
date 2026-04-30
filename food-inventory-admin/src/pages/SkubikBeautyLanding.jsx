@@ -54,8 +54,8 @@ const BEAUTY_DATA = {
       {
         num: '02',
         kicker: 'Anticipos que se cobran solos',
-        title: 'No más plantones. No más "se me olvidó".',
-        body: 'Configura el % de anticipo por servicio. El sistema cobra por Zelle, Pago Móvil, tarjeta o Binance antes de confirmar. Si no pagan, no reservan.',
+        title: 'No más embarques. No más pérdida de tiempo y dinero.',
+        body: 'Configura tus métodos de pago y el % de anticipo por servicio. El sistema cobra antes de confirmar. Si no pagan, no reservan.',
         outcome: '–38%',
         outcomeLabel: 'cancelaciones de último minuto',
       },
@@ -406,7 +406,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-ben-head h2 { font-size: clamp(36px, 5vw, 64px); margin: 16px 0; }
 .s-ben-head h2 em { font-style: italic; color: var(--s-accent); }
 .s-ben-content { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; max-width: 1280px; width: 100%; flex: 1; min-height: 0; }
-.s-ben-text { padding-top: 24px; }
+.s-ben-text { align-self: center; }
 .s-ben-visual { align-self: center; }
 @media (max-width: 900px) {
   .s-ben-stage { height: 650vh; }
@@ -526,6 +526,47 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-app-wa-option:hover { border-color: #25d366; }
 .s-app-wa-option-title { font-size: 12px; font-weight: 600; color: var(--s-fg); margin-bottom: 3px; }
 .s-app-wa-option-preview { font-size: 10px; color: var(--s-muted); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Config flow screens */
+.s-cfg-wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; padding-bottom: 60px; }
+.s-cfg-screen { position: absolute; inset: 0; transition: transform 0.5s cubic-bezier(0.22,1,0.36,1), opacity 0.3s; display: flex; flex-direction: column; overflow: hidden; }
+.s-cfg-screen-inner { transition: transform 0.5s cubic-bezier(0.22,1,0.36,1); will-change: transform; }
+.s-cfg-screen.out-left { transform: translateX(-100%); opacity: 0; }
+.s-cfg-screen.out-right { transform: translateX(100%); opacity: 0; }
+.s-cfg-screen.active { transform: translateX(0); opacity: 1; }
+.s-cfg-title { font-size: 16px; font-weight: 700; color: var(--s-fg); padding: 8px 16px 12px; }
+.s-cfg-back { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--s-fg); padding: 8px 16px 4px; }
+.s-cfg-section { font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--s-muted); padding: 12px 16px 6px; }
+.s-cfg-card { margin: 0 12px 2px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; overflow: hidden; }
+.s-cfg-row { display: flex; align-items: center; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; color: var(--s-fg); gap: 10px; }
+.s-cfg-row:last-child { border-bottom: none; }
+.s-cfg-row-icon { color: var(--s-muted); flex-shrink: 0; }
+.s-cfg-row-label { flex: 1; }
+.s-cfg-row-chev { color: var(--s-dim); }
+.s-cfg-row.highlight { background: rgba(59,130,246,0.08); }
+/* Toggle */
+.s-cfg-toggle { width: 34px; height: 18px; border-radius: 9px; background: rgba(255,255,255,0.15); position: relative; flex-shrink: 0; transition: background 0.3s; }
+.s-cfg-toggle.on { background: #3b82f6; }
+.s-cfg-toggle-dot { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform 0.3s; }
+.s-cfg-toggle.on .s-cfg-toggle-dot { transform: translateX(16px); }
+.s-cfg-toggle-label { color: #3b82f6; font-size: 9px; font-weight: 600; margin-left: 4px; }
+/* Input fields */
+.s-cfg-input { width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 8px 10px; font-size: 10px; color: var(--s-muted); margin: 4px 14px 6px; font-family: 'Inter Tight', sans-serif; }
+.s-cfg-input-label { font-size: 9px; color: var(--s-dim); padding: 6px 14px 0; }
+/* Deposit config */
+.s-cfg-deposit-val { font-size: 20px; font-weight: 700; color: var(--s-fg); padding: 4px 14px; display: flex; align-items: baseline; gap: 4px; }
+.s-cfg-deposit-val span { font-size: 12px; color: var(--s-muted); }
+/* Save button */
+.s-cfg-save { margin: 10px 12px; padding: 10px; background: #3b82f6; border-radius: 10px; color: #fff; font-size: 12px; font-weight: 600; text-align: center; }
+/* Dashboard card */
+.s-cfg-dash-card { margin: 8px 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 14px; }
+.s-cfg-dash-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--s-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+.s-cfg-dash-amount { font-family: 'Fraunces', serif; font-size: 32px; color: var(--s-accent2); font-variant-numeric: tabular-nums; }
+.s-cfg-dash-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 11px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.s-cfg-dash-row:last-child { border-bottom: none; }
+.s-cfg-dash-name { color: var(--s-fg); }
+.s-cfg-dash-deposit { color: var(--s-accent2); font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+.s-cfg-dash-status { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #4ade80; text-transform: uppercase; letter-spacing: 0.05em; }
 
 /* Non-iphone visuals keep original container */
 .s-ben-visual-box { height: 100%; width: 100%; background: var(--s-bg2); border: 1px solid var(--s-line); border-radius: 24px; padding: 24px; position: relative; overflow: hidden; }
@@ -1578,6 +1619,197 @@ function IPhoneMockup({ progress }) {
   );
 }
 
+function ConfigFlowMockup({ progress }) {
+  // 3 screens: 0=settings, 1=payments+deposits, 2=dashboard
+  const screen = progress < 0.12 ? 0 : progress < 0.7 ? 1 : 2;
+  const lp = screen === 0 ? progress / 0.12
+    : screen === 1 ? (progress - 0.12) / 0.58
+    : (progress - 0.7) / 0.3;
+
+  const toggleOn = (threshold) => lp > threshold;
+
+  // Translate the inner content based on lp — entire page scrolls as a block
+  // lp 0.0-0.50: stays at top (toggles + accordion expansion visible)
+  // lp 0.50-0.62: slides up to reveal Depósitos section
+  // lp 0.62-1.0: stays scrolled (Depósitos visible, save button)
+  let translateY = 0;
+  if (screen === 1) {
+    if (lp < 0.5) translateY = 0;
+    else if (lp < 0.62) translateY = -((lp - 0.5) / 0.12) * 280;
+    else translateY = -280;
+  }
+
+  // Dashboard deposits amount
+  const dashAmount = screen === 2 ? Math.round(lp * 485) : 0;
+
+  const deposits = [
+    { name: 'Karina R.', svc: 'Corte + Brushing', amt: 7.50 },
+    { name: 'Vanessa M.', svc: 'Balayage', amt: 19.50 },
+    { name: 'Andrea V.', svc: 'Extensiones', amt: 36.00 },
+    { name: 'Paola G.', svc: 'Mani + Pedi', amt: 10.50 },
+    { name: 'Isabel P.', svc: 'Keratina', amt: 24.00 },
+  ];
+
+  return (
+    <div className="s-iphone">
+      <div className="s-iphone-island" />
+      <div className="s-iphone-screen">
+        <div className="s-app-statusbar">
+          <span>9:41</span>
+          <div className="s-app-statusbar-right">
+            <svg width="12" height="10" viewBox="0 0 16 12" fill="var(--s-fg)"><path d="M1 8h2v4H1zM5 5h2v7H5zM9 2h2v10H9zM13 0h2v12h-2z" opacity=".9"/></svg>
+            <svg width="12" height="10" viewBox="0 0 16 12" fill="var(--s-fg)"><path d="M8 2.5A7.5 7.5 0 0 0 .5 10l1.4 1.4A5.6 5.6 0 0 1 8 8a5.6 5.6 0 0 1 6.1 3.4L15.5 10A7.5 7.5 0 0 0 8 2.5z" opacity=".9"/></svg>
+            <div className="s-app-statusbar-batt"></div>
+          </div>
+        </div>
+        <div className="s-app-header">
+          <div className="s-app-logo">SmartKubik</div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', color: 'var(--s-muted)' }}>
+            {IC.moon}{IC.sparkle}
+            <span style={{ color: screen === 0 ? '#3b82f6' : 'var(--s-muted)', border: screen === 0 ? '1px solid #3b82f6' : 'none', borderRadius: 6, padding: 2 }}>{IC.gear}</span>
+            {IC.logout}
+          </div>
+        </div>
+
+        <div className="s-cfg-wrap">
+        {/* Screen 0: Settings main */}
+        <div className={`s-cfg-screen ${screen === 0 ? 'active' : 'out-left'}`}>
+          <div className="s-cfg-title">Configuración</div>
+          <div className="s-cfg-section">General</div>
+          <div className="s-cfg-card">
+            <div className="s-cfg-row"><span className="s-cfg-row-icon">{IC.home}</span><span className="s-cfg-row-label">Datos del negocio</span><span className="s-cfg-row-chev">{IC.chevR}</span></div>
+            <div className="s-cfg-row"><span className="s-cfg-row-icon">{IC.moon}</span><span className="s-cfg-row-label">Horarios de atención</span><span className="s-cfg-row-chev">{IC.chevR}</span></div>
+            <div className={`s-cfg-row ${progress > 0.06 ? 'highlight' : ''}`}><span className="s-cfg-row-icon" style={{ color: progress > 0.06 ? '#3b82f6' : '' }}>$</span><span className="s-cfg-row-label">Monedas y métodos de pago</span><span className="s-cfg-row-chev">{IC.chevR}</span></div>
+          </div>
+          <div className="s-cfg-section">Servicios</div>
+          <div className="s-cfg-card">
+            <div className="s-cfg-row"><span className="s-cfg-row-icon">{IC.sparkle}</span><span className="s-cfg-row-label">Servicios y precios</span><span className="s-cfg-row-chev">{IC.chevR}</span></div>
+          </div>
+          <div className="s-cfg-section">Notificaciones</div>
+          <div className="s-cfg-card">
+            <div className="s-cfg-row"><span className="s-cfg-row-icon">{IC.sparkle}</span><span className="s-cfg-row-label">Push y recordatorios</span><span className="s-cfg-row-chev">{IC.chevR}</span></div>
+            <div className="s-cfg-row"><span className="s-cfg-row-icon">{IC.sparkle}</span><span className="s-cfg-row-label">WhatsApp automático</span><span className="s-cfg-row-chev">{IC.chevR}</span></div>
+          </div>
+          <div className="s-cfg-section">Avanzado</div>
+          <div className="s-cfg-card">
+            <div className="s-cfg-row"><span className="s-cfg-row-icon">{IC.sparkle}</span><span className="s-cfg-row-label">Penalizaciones No-Show</span><span className="s-cfg-row-chev">{IC.chevR}</span></div>
+            <div className="s-cfg-row"><span className="s-cfg-row-icon">{IC.sparkle}</span><span className="s-cfg-row-label">Usuarios y permisos</span><span className="s-cfg-row-chev">{IC.chevR}</span></div>
+          </div>
+        </div>
+
+        {/* Screen 1: Métodos de pago + Depósitos (single scrollable screen) */}
+        <div className={`s-cfg-screen ${screen === 1 ? 'active' : screen < 1 ? 'out-right' : 'out-left'}`}>
+          <div className="s-cfg-screen-inner" style={{ transform: `translateY(${translateY}px)` }}>
+          <div className="s-cfg-back">{IC.chevL} Métodos de pago</div>
+          <div className="s-cfg-section">Métodos de pago</div>
+          <div className="s-cfg-card">
+            <div className="s-cfg-row"><span className="s-cfg-row-label">Efectivo (USD)</span><div className={`s-cfg-toggle ${toggleOn(0.08) ? 'on' : ''}`}><div className="s-cfg-toggle-dot"/></div></div>
+            <div className="s-cfg-row"><span className="s-cfg-row-label">Transferencia (USD)</span><div className="s-cfg-toggle"><div className="s-cfg-toggle-dot"/></div></div>
+            <div className="s-cfg-row"><span className="s-cfg-row-label">Zelle (USD)</span><div className="s-cfg-toggle"><div className="s-cfg-toggle-dot"/></div></div>
+            <div className="s-cfg-row"><span className="s-cfg-row-label">Efectivo (VES)</span><div className={`s-cfg-toggle ${toggleOn(0.15) ? 'on' : ''}`}><div className="s-cfg-toggle-dot"/></div></div>
+            <div className="s-cfg-row" style={{ flexWrap: 'wrap' }}>
+              <span className="s-cfg-row-label">Pago Móvil (VES)</span>
+              <div className={`s-cfg-toggle ${toggleOn(0.22) ? 'on' : ''}`}><div className="s-cfg-toggle-dot"/></div>
+              {toggleOn(0.22) && <span className="s-cfg-toggle-label">Detalles</span>}
+            </div>
+            {/* Accordion: Pago Móvil details expand inline */}
+            {/* Accordion: open 0.30→0.50, then collapses */}
+            {lp > 0.30 && lp < 0.52 && (
+              <div style={{ padding: '6px 14px 10px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div className="s-cfg-input-label" style={{ padding: '2px 0' }}>Banco</div>
+                <div className="s-cfg-input" style={{ margin: '2px 0 6px', color: toggleOn(0.33) ? 'var(--s-fg)' : 'var(--s-dim)' }}>
+                  {toggleOn(0.33) ? 'Banesco' : 'Ej: Banesco'}
+                </div>
+                {toggleOn(0.35) && <>
+                  <div className="s-cfg-input-label" style={{ padding: '2px 0' }}>Teléfono</div>
+                  <div className="s-cfg-input" style={{ margin: '2px 0 6px', color: toggleOn(0.37) ? 'var(--s-fg)' : 'var(--s-dim)' }}>
+                    {toggleOn(0.37) ? '0414-1234567' : 'Ej: 0414-1234567'}
+                  </div>
+                </>}
+                {toggleOn(0.39) && <>
+                  <div className="s-cfg-input-label" style={{ padding: '2px 0' }}>Cédula / RIF</div>
+                  <div className="s-cfg-input" style={{ margin: '2px 0 6px', color: toggleOn(0.41) ? 'var(--s-fg)' : 'var(--s-dim)' }}>
+                    {toggleOn(0.41) ? 'J-12345678' : 'Ej: J-12345678'}
+                  </div>
+                </>}
+                {toggleOn(0.43) && <>
+                  <div className="s-cfg-input-label" style={{ padding: '2px 0' }}>Instrucciones para el cliente</div>
+                  <div className="s-cfg-input" style={{ margin: '2px 0', color: toggleOn(0.45) ? 'var(--s-fg)' : 'var(--s-dim)' }}>
+                    {toggleOn(0.45) ? 'Transferir a cuenta corriente' : 'Ej: Transferir a cuenta...'}
+                  </div>
+                </>}
+              </div>
+            )}
+            <div className="s-cfg-row"><span className="s-cfg-row-label">Punto de Venta (VES)</span><div className={`s-cfg-toggle ${toggleOn(0.22) ? 'on' : ''}`}><div className="s-cfg-toggle-dot"/></div></div>
+            <div className="s-cfg-row"><span className="s-cfg-row-label">Tarjeta (VES)</span><div className="s-cfg-toggle"><div className="s-cfg-toggle-dot"/></div></div>
+            <div className="s-cfg-row"><span className="s-cfg-row-label">Pago Mixto</span><div className={`s-cfg-toggle ${toggleOn(0.28) ? 'on' : ''}`}><div className="s-cfg-toggle-dot"/></div></div>
+          </div>
+
+          {/* Depósitos y Políticas — visible after accordion collapses */}
+          <div className="s-cfg-section">Depósitos y Políticas</div>
+          <div className="s-cfg-card">
+            <div className="s-cfg-row">
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--s-fg)' }}>Requiere depósito</div>
+                <div style={{ fontSize: 9, color: 'var(--s-muted)', marginTop: 2 }}>Solicitar depósito anticipado al agendar</div>
+              </div>
+              <div className={`s-cfg-toggle ${toggleOn(0.58) ? 'on' : ''}`}><div className="s-cfg-toggle-dot"/></div>
+            </div>
+          </div>
+          {toggleOn(0.62) && (<>
+            <div className="s-cfg-input-label">Porcentaje de depósito</div>
+            <div className="s-cfg-deposit-val">{toggleOn(0.7) ? '30' : '25'} <span>%</span></div>
+          </>)}
+          {toggleOn(0.72) && (<>
+            <div className="s-cfg-input-label">Ventana de cancelación (horas)</div>
+            <div className="s-cfg-deposit-val">24</div>
+          </>)}
+          {toggleOn(0.8) && (
+            <div className="s-cfg-save" style={{ opacity: toggleOn(0.88) ? 0.7 : 1 }}>
+              {toggleOn(0.88) ? '✓ Guardado' : 'Guardar'}
+            </div>
+          )}
+          </div>{/* close s-cfg-screen-inner */}
+        </div>
+
+        {/* Screen 2: Dashboard — deposits coming in */}
+        <div className={`s-cfg-screen ${screen === 2 ? 'active' : 'out-right'}`}>
+          <div className="s-cfg-title">Panel de Control</div>
+          <div className="s-cfg-dash-card">
+            <div className="s-cfg-dash-label">Depósitos cobrados hoy</div>
+            <div className="s-cfg-dash-amount">${dashAmount.toLocaleString('es-VE')}</div>
+          </div>
+          <div className="s-cfg-section">Reservas con depósito</div>
+          <div className="s-cfg-card">
+            {deposits.map((d, i) => (
+              <div key={i} className="s-cfg-dash-row" style={{ opacity: lp > (i + 1) * 0.18 ? 1 : 0.2, transition: 'opacity 0.4s' }}>
+                <div>
+                  <div className="s-cfg-dash-name">{d.name}</div>
+                  <div style={{ fontSize: 9, color: 'var(--s-muted)' }}>{d.svc}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div className="s-cfg-dash-deposit">+${d.amt.toFixed(2)}</div>
+                  <div className="s-cfg-dash-status">● Depósito cobrado</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        </div>{/* close s-cfg-wrap */}
+
+        {/* Bottom nav — absolute so it doesn't steal space from cfg-wrap */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '6px 16px 20px', display: 'flex', justifyContent: 'space-around', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#0a0e1a', zIndex: 5 }}>
+          <span style={{ color: screen === 2 ? '#3b82f6' : 'var(--s-dim)' }}>{IC.home}</span>
+          <span style={{ color: 'var(--s-dim)' }}>{IC.cal}</span>
+          <span style={{ width: 38, height: 38, borderRadius: '50%', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 300 }}>+</span>
+          <span style={{ color: 'var(--s-dim)' }}>{IC.users}</span>
+          <span style={{ color: 'var(--s-dim)' }}>{IC.more}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MoneyCounter({ progress }) {
   const steps = Math.floor(progress * 40);
   const target = steps * 50;
@@ -1649,7 +1881,7 @@ function ExportFlow({ progress }) {
 
 function BenefitVisual({ idx, progress }) {
   if (idx === 0) return <IPhoneMockup progress={progress} />;
-  if (idx === 1) return <div className="s-ben-visual-box"><MoneyCounter progress={progress} /></div>;
+  if (idx === 1) return <ConfigFlowMockup progress={progress} />;
   return <div className="s-ben-visual-box"><ExportFlow progress={progress} /></div>;
 }
 

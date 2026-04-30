@@ -1,8 +1,23 @@
-import { Controller, Get, Headers } from "@nestjs/common";
+import { Controller, Get, Headers, UseGuards } from "@nestjs/common";
 import { Public } from "../../decorators/public.decorator";
+import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
+import { SystemMapService } from "./system-map.service";
 
 @Controller("health")
 export class HealthController {
+  constructor(private readonly systemMapService: SystemMapService) {}
+
+  /**
+   * System Map Health Check — returns node/connection status for all modules.
+   * Protected: requires valid JWT (admin access).
+   */
+  @UseGuards(JwtAuthGuard)
+  @Get("system-map")
+  async getSystemMap() {
+    const result = await this.systemMapService.runFullCheck();
+    return { success: true, data: result };
+  }
+
   @Public()
   @Get("debug-token")
   debugToken(@Headers("authorization") authHeader: string) {

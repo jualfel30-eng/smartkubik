@@ -49,11 +49,11 @@ export default function CompraPaymentSection({
               <SelectValue placeholder="Selecciona moneda" />
             </SelectTrigger>
             <SelectContent className="dark:bg-slate-900 dark:border-slate-700">
-              <SelectItem value="bolivares_bcv" className="dark:text-gray-100 focus:dark:bg-slate-800">$ BCV (Tasa BCV)</SelectItem>
+              <SelectItem value="USD_BCV" className="dark:text-gray-100 focus:dark:bg-slate-800">$ BCV (Tasa BCV)</SelectItem>
               <SelectItem value="USD" className="dark:text-gray-100 focus:dark:bg-slate-800">USD ($)</SelectItem>
               <SelectItem value="VES" className="dark:text-gray-100 focus:dark:bg-slate-800">Bolivares (Bs)</SelectItem>
               <SelectItem value="EUR" className="dark:text-gray-100 focus:dark:bg-slate-800">Euros (€)</SelectItem>
-              <SelectItem value="euro_bcv" className="dark:text-gray-100 focus:dark:bg-slate-800">€ BCV (Tasa BCV)</SelectItem>
+              <SelectItem value="EUR_BCV" className="dark:text-gray-100 focus:dark:bg-slate-800">€ BCV (Tasa BCV)</SelectItem>
             </SelectContent>
           </Select>
         </div>

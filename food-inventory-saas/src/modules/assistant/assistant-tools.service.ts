@@ -2,6 +2,7 @@ import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { SuperAdminService } from "../super-admin/super-admin.service";
+import { HelpDocsService } from "./help-docs.service";
 import { Product, ProductDocument } from "../../schemas/product.schema";
 import { Inventory, InventoryDocument } from "../../schemas/inventory.schema";
 import { Service, ServiceDocument } from "../../schemas/service.schema";
@@ -162,6 +163,7 @@ export class AssistantToolsService {
     private readonly readTools: ReadToolsService,
     private readonly intelligenceService: IntelligenceService,
     private readonly tenantEventService: TenantEventService,
+    private readonly helpDocsService: HelpDocsService,
   ) { }
 
   async executeTool(
@@ -271,6 +273,16 @@ export class AssistantToolsService {
           return await this.readTools.getDailySummary(tenantId);
         case "get_ai_intelligence_summary":
           return await this.intelligenceService.getIntelligenceSummary(tenantId);
+
+        case "search_help_docs": {
+          const query = rawArgs.query as string;
+          const content = this.helpDocsService.searchForAssistant(query);
+          return {
+            ok: true,
+            message: "Documentación encontrada",
+            data: content,
+          };
+        }
 
         default:
           this.logger.warn(`Tool "${toolName}" is not implemented.`);

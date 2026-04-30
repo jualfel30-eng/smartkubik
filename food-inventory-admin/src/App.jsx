@@ -159,7 +159,8 @@ const RecipesPage = lazy(() => import('./pages/RecipesPage.jsx'));
 const PurchaseOrdersPage = lazy(() => import('./pages/PurchaseOrdersPage.jsx'));
 const MarketingPage = lazy(() => import('./pages/MarketingPage.jsx'));
 const WasteManagementPage = lazy(() => import('./pages/WasteManagementPage.jsx'));
-const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx')); // <-- Componente de WhatsApp añadido
+const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox.jsx'));
+const SystemMapPage = lazy(() => import('./pages/SystemMapPage.jsx'));
 const AssistantChatPanel = lazy(() => import('@/components/AssistantChatWidget.jsx'));
 const AssistantPage = lazy(() => import('@/components/AssistantPage.jsx'));
 const PaymentsManagementDashboard = lazy(() => import('@/components/hospitality/PaymentsManagementDashboard.jsx'));
@@ -726,6 +727,7 @@ function TenantLayout() {
                 <Route path="data-import" element={<DataImportPage />} />
                 <Route path="reports" element={<ReportsRouteGate />} />
                 <Route path="assistant" element={<AssistantPage />} />
+                <Route path="system-map" element={<SystemMapPage />} />
                 <Route path="mas" element={<MobileMoreMenu />} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>

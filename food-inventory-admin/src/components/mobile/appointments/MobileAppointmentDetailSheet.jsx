@@ -252,69 +252,83 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-2">
-              {appointment.status !== 'in_progress' && appointment.status !== 'completed' && (
-                <button
-                  type="button"
-                  onClick={() => updateStatus('in_progress')}
-                  className="tap-target rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
-                >
-                  <PlayCircle size={18} /> Iniciar
-                </button>
-              )}
-              {appointment.status !== 'completed' && (
-                <button
-                  type="button"
-                  onClick={() => updateStatus('completed')}
-                  className="tap-target rounded-[var(--mobile-radius-md)] bg-emerald-600 text-white flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
-                >
-                  <CheckCircle2 size={18} /> Completar
-                </button>
-              )}
-              {appointment.paymentStatus === 'paid' ? (
-                <div className="rounded-[var(--mobile-radius-md)] border border-emerald-500/30 bg-emerald-500/10 flex flex-col items-center justify-center gap-1 py-3 px-2">
-                  <div className="flex items-center gap-1.5 text-emerald-600 font-semibold text-sm">
-                    <CheckCircle2 size={16} /> Pagado
-                  </div>
-                  <span className="text-xs text-emerald-600/80">
-                    ${Number(appointment.amountPaid || appointment.totalPrice || 0).toFixed(2)} — {appointment.paymentMethod || 'N/A'}
-                  </span>
+            {/* Progressive action button — guides the user through the appointment lifecycle */}
+            {(() => {
+              const status = appointment.status;
+              const isPaid = appointment.paymentStatus === 'paid';
+
+              // Define the progressive action based on current status
+              // Walk-ins skip "Confirmar" — the client is already present
+              const isWalkIn = appointment.source === 'walk-in';
+              let progressiveAction = null;
+              if (status === 'pending' && isWalkIn) {
+                progressiveAction = { label: 'Iniciar', icon: PlayCircle, next: 'in_progress', bg: 'bg-primary text-primary-foreground' };
+              } else if (status === 'pending') {
+                progressiveAction = { label: 'Confirmar', icon: CheckCircle2, next: 'confirmed', bg: 'bg-blue-600 text-white' };
+              } else if (status === 'confirmed') {
+                progressiveAction = { label: 'Iniciar', icon: PlayCircle, next: 'in_progress', bg: 'bg-primary text-primary-foreground' };
+              } else if (status === 'in_progress') {
+                progressiveAction = { label: 'Completar', icon: CheckCircle2, next: 'completed', bg: 'bg-emerald-600 text-white' };
+              } else if (status === 'completed' && !isPaid) {
+                progressiveAction = { label: 'Cobrar', icon: Receipt, action: () => setPosOpen(true), bg: 'bg-amber-600 text-white' };
+              }
+
+              return (
+                <div className="space-y-2">
+                  {/* Progressive action — full width, prominent */}
+                  {progressiveAction && (
+                    <button
+                      type="button"
+                      onClick={() => progressiveAction.action ? progressiveAction.action() : updateStatus(progressiveAction.next)}
+                      className={`w-full tap-target rounded-[var(--mobile-radius-md)] ${progressiveAction.bg} flex items-center justify-center gap-2 py-4 font-semibold text-base no-tap-highlight`}
+                    >
+                      <progressiveAction.icon size={20} /> {progressiveAction.label}
+                    </button>
+                  )}
+
+                  {/* Paid badge */}
+                  {status === 'completed' && isPaid && (
+                    <div className="rounded-[var(--mobile-radius-md)] border border-emerald-500/30 bg-emerald-500/10 flex flex-col items-center justify-center gap-1 py-3 px-2">
+                      <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold text-sm">
+                        <CheckCircle2 size={16} /> Pagado
+                      </div>
+                      <span className="text-xs text-emerald-600/80 dark:text-emerald-400/70">
+                        ${Number(appointment.amountPaid || appointment.totalPrice || 0).toFixed(2)} — {appointment.paymentMethod || 'N/A'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Secondary actions — Reagendar + Cancelar */}
+                  {appointment.status !== 'completed' && appointment.status !== 'cancelled' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {canReschedule && (
+                        <button
+                          type="button"
+                          onClick={() => { haptics.tap(); setRescheduleOpen(true); }}
+                          className="tap-target rounded-[var(--mobile-radius-md)] border border-border flex items-center justify-center gap-2 py-3 font-medium text-sm no-tap-highlight"
+                        >
+                          <CalendarClock size={16} /> Reagendar
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const ok = await confirmDialog({
+                            title: '¿Cancelar esta cita?',
+                            description: 'La cita será marcada como cancelada.',
+                            destructive: true,
+                          });
+                          if (ok) updateStatus('cancelled');
+                        }}
+                        className="tap-target rounded-[var(--mobile-radius-md)] border border-destructive/30 text-destructive flex items-center justify-center gap-2 py-3 font-medium text-sm no-tap-highlight"
+                      >
+                        <XCircle size={16} /> Cancelar
+                      </button>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setPosOpen(true)}
-                  className="tap-target rounded-[var(--mobile-radius-md)] border border-border flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
-                >
-                  <Receipt size={18} /> Cobrar
-                </button>
-              )}
-              {canReschedule && (
-                <button
-                  type="button"
-                  onClick={() => { haptics.tap(); setRescheduleOpen(true); }}
-                  className="tap-target rounded-[var(--mobile-radius-md)] border border-border flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
-                >
-                  <CalendarClock size={18} /> Reagendar
-                </button>
-              )}
-              {appointment.status !== 'cancelled' && (
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const ok = await confirmDialog({
-                      title: '¿Cancelar esta cita?',
-                      description: 'La cita será marcada como cancelada.',
-                      destructive: true,
-                    });
-                    if (ok) updateStatus('cancelled');
-                  }}
-                  className="tap-target rounded-[var(--mobile-radius-md)] border border-destructive/30 text-destructive flex items-center justify-center gap-2 py-3 font-semibold text-sm no-tap-highlight"
-                >
-                  <XCircle size={18} /> Cancelar
-                </button>
-              )}
-            </div>
+              );
+            })()}
 
             {/* Waitlist status */}
             {appointment?.status === 'waitlisted' && (

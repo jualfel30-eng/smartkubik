@@ -50,6 +50,7 @@ import { InventoryToolsService } from "./tools/inventory-tools.service";
 import { PurchaseToolsService } from "./tools/purchase-tools.service";
 import { RecipeToolsService } from "./tools/recipe-tools.service";
 import { ReadToolsService } from "./tools/read-tools.service";
+import { HelpDocsService } from "./help-docs.service";
 
 @Module({
   imports: [
@@ -93,6 +94,7 @@ import { ReadToolsService } from "./tools/read-tools.service";
     PurchaseToolsService,
     RecipeToolsService,
     ReadToolsService,
+    HelpDocsService,
   ],
   controllers: [AssistantController],
   exports: [AssistantService],

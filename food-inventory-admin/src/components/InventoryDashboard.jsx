@@ -130,7 +130,7 @@ export default function InventoryDashboard() {
       const [invRes, alertRes, poRes, toRes] = await Promise.allSettled([
         fetchApi('/inventory?limit=1'),
         fetchApi('/inventory-alerts?limit=1'),
-        fetchApi('/purchase-orders?status=pending&limit=1'),
+        fetchApi('/purchases?status=pending&limit=1'),
         fetchApi('/transfer-orders?status=in_transit&limit=1'),
       ]);
       setKpiData({

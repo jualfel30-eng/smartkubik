@@ -769,6 +769,27 @@ export class AssistantService {
   ): ChatCompletionTool[] {
     const tools: ChatCompletionTool[] = [];
 
+    // --- DOCUMENTACIÓN DE AYUDA (disponible para todos) ---
+    tools.push({
+      type: "function",
+      function: {
+        name: "search_help_docs",
+        description:
+          "Busca en la documentación de ayuda de SmartKubik para encontrar guías paso a paso, soluciones a problemas comunes, y explicaciones de cómo usar cada función del sistema. OBLIGATORIO usar esta herramienta cuando el usuario pregunta: '¿cómo hago X?', '¿dónde está X?', 'no puedo hacer X', 'no funciona X', 'cómo se configura X', o cualquier pregunta sobre cómo usar el software. La documentación cubre: inventario, ventas, POS, compras, proveedores, contabilidad, facturación, transferencias, CRM, configuración, restaurantes, salones de belleza, producción, marketing, nómina, y más.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description:
+                "Término de búsqueda en lenguaje natural. Ejemplos: 'ajustar stock', 'crear orden de compra', 'cierre de caja', 'agregar profesional', 'no me deja completar la orden'. Usa las mismas palabras que el usuario.",
+            },
+          },
+          required: ["query"],
+        },
+      },
+    });
+
     // --- HERRAMIENTAS ADMINISTRATIVAS (Solo Empleados) ---
     if (user) {
       tools.push({

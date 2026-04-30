@@ -130,7 +130,7 @@ export const initialNewProductState = {
     paymentDueDate: null,
     paymentMethods: [],
     customPaymentMethod: '',
-    expectedCurrency: 'bolivares_bcv',
+    expectedCurrency: 'USD_BCV',
     requiresAdvancePayment: false,
     advancePaymentPercentage: 0,
   }
@@ -159,7 +159,7 @@ export const initialPoState = {
     paymentDueDate: null,
     paymentMethods: [],
     customPaymentMethod: '',
-    expectedCurrency: 'bolivares_bcv',
+    expectedCurrency: 'USD_BCV',
     requiresAdvancePayment: false,
     advancePaymentPercentage: 0,
   }

@@ -311,10 +311,13 @@ export function useComprasData() {
   };
 
   const handleAddProduct = async () => {
-    // Payment methods are optional at PO creation time
-    const allPaymentMethods = [...(newProduct.paymentTerms.paymentMethods || [])];
+    // Payment methods are optional at PO creation time — default if empty
+    let allPaymentMethods = [...(newProduct.paymentTerms.paymentMethods || [])];
     if (newProduct.paymentTerms.customPaymentMethod?.trim()) {
       allPaymentMethods.push(newProduct.paymentTerms.customPaymentMethod.trim());
+    }
+    if (allPaymentMethods.length === 0) {
+      allPaymentMethods = ['bolivares_bcv'];
     }
 
     const normalizedSku = (newProduct.sku || '').trim();
@@ -1201,9 +1204,13 @@ export function useComprasData() {
 
     // Payment methods are now optional at PO creation time
     // (configured in supplier profile or at payment time in Accounts Payable)
-    const allPaymentMethods = [...(po.paymentTerms.paymentMethods || [])];
+    // Backend still requires at least 1 method — default to 'bolivares_bcv' (most common in VE)
+    let allPaymentMethods = [...(po.paymentTerms.paymentMethods || [])];
     if (po.paymentTerms.customPaymentMethod?.trim()) {
       allPaymentMethods.push(po.paymentTerms.customPaymentMethod.trim());
+    }
+    if (allPaymentMethods.length === 0) {
+      allPaymentMethods = ['bolivares_bcv'];
     }
 
     setPoLoading(true);
