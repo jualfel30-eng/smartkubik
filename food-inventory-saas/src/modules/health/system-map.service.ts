@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
+import { FRONTENDS, MODULES } from './module-graph.config';
 
 interface ConnectionCheck {
   id: string;
@@ -124,6 +125,9 @@ export class SystemMapService {
 
     // --- EXTERNAL SERVICES ---
     await this.checkExternalServices(nodes, connections);
+
+    // --- MODULE & FRONTEND TOPOLOGY (derived layer) ---
+    this.addModuleAndFrontendLayer(nodes, connections);
 
     // Calculate summary
     const passed = connections.filter(c => c.status === 'ok').length;
@@ -395,6 +399,125 @@ export class SystemMapService {
       nodes.push({ id: 'resend', name: 'Email (Resend)', group: 'external', status: 'ok', details: 'API key configured' });
     } else {
       nodes.push({ id: 'resend', name: 'Email (Resend)', group: 'external', status: 'warning', details: 'No API key' });
+    }
+  }
+
+  /**
+   * Adds backend module nodes and frontend nodes to the topology, deriving
+   * status from the underlying collection nodes.
+   *
+   * Layers introduced:
+   *   Frontend → Module → Collection → MongoDB
+   *
+   * Module status is the worst status among its collections:
+   *   any error => error, any warning => warning, else ok.
+   * Frontend status is the worst status among the modules it uses.
+   */
+  private addModuleAndFrontendLayer(
+    nodes: NodeStatus[],
+    connections: ConnectionCheck[],
+  ) {
+    const collectionStatusMap = new Map<string, NodeStatus['status']>();
+    nodes.forEach((n) => collectionStatusMap.set(n.id, n.status));
+
+    const worstStatus = (
+      statuses: NodeStatus['status'][],
+    ): NodeStatus['status'] => {
+      if (statuses.includes('error')) return 'error';
+      if (statuses.includes('warning')) return 'warning';
+      return 'ok';
+    };
+
+    const moduleStatusMap = new Map<string, NodeStatus['status']>();
+
+    // 1. Build module nodes
+    for (const mod of MODULES) {
+      const collectionStatuses = mod.collections
+        .map((c) => collectionStatusMap.get(c))
+        .filter((s): s is NodeStatus['status'] => Boolean(s));
+
+      // If no checked collections, default to ok (we have no failure signal)
+      const status =
+        collectionStatuses.length === 0
+          ? 'ok'
+          : worstStatus(collectionStatuses);
+      moduleStatusMap.set(mod.id, status);
+
+      const collectionDetail =
+        mod.collections.length === 0
+          ? 'sin colecciones monitoreadas'
+          : `${mod.collections.length} colección${mod.collections.length === 1 ? '' : 'es'}`;
+
+      nodes.push({
+        id: mod.id,
+        name: mod.name,
+        group: 'modules',
+        status,
+        details: collectionDetail,
+      });
+
+      // Module → Collection edges (one per owned collection)
+      for (const col of mod.collections) {
+        const colStatus = collectionStatusMap.get(col);
+        if (!colStatus) continue;
+        connections.push({
+          id: `${mod.id}-${col}`,
+          name: `${mod.name} → ${col}`,
+          source: mod.id,
+          target: col,
+          status: colStatus,
+          latencyMs: 0,
+          details: 'owns/queries collection',
+        });
+      }
+
+      // Module → Module edges (forwardRef dependencies)
+      for (const dep of mod.dependsOn) {
+        connections.push({
+          id: `${mod.id}-${dep}`,
+          name: `${mod.name} → ${dep.replace('module-', '')}`,
+          source: mod.id,
+          target: dep,
+          status: 'ok',
+          latencyMs: 0,
+          details: 'module dependency (forwardRef)',
+        });
+      }
+    }
+
+    // 2. Build frontend nodes
+    for (const fe of FRONTENDS) {
+      const moduleStatuses = fe.usesModules
+        .map((m) => moduleStatusMap.get(m))
+        .filter((s): s is NodeStatus['status'] => Boolean(s));
+
+      const status =
+        moduleStatuses.length === 0 ? 'ok' : worstStatus(moduleStatuses);
+
+      nodes.push({
+        id: fe.id,
+        name: fe.name,
+        group: 'frontends',
+        status,
+        details:
+          fe.usesModules.length === 0
+            ? 'standalone'
+            : `usa ${fe.usesModules.length} módulos`,
+      });
+
+      // Frontend → Module edges
+      for (const moduleId of fe.usesModules) {
+        const modStatus = moduleStatusMap.get(moduleId) || 'ok';
+        connections.push({
+          id: `${fe.id}-${moduleId}`,
+          name: `${fe.name} → ${moduleId.replace('module-', '')}`,
+          source: fe.id,
+          target: moduleId,
+          status: modStatus,
+          latencyMs: 0,
+          details: 'frontend → backend module',
+        });
+      }
     }
   }
 }

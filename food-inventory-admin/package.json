@@ -14,6 +14,7 @@
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.0.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@fullcalendar/core": "^6.1.19",
@@ -58,6 +59,7 @@
     "@tailwindcss/vite": "^4.1.7",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.23",
+    "@xyflow/react": "^12.10.2",
     "@zxing/browser": "^0.1.5",
     "axios": "^1.13.2",
     "class-variance-authority": "^0.7.1",
