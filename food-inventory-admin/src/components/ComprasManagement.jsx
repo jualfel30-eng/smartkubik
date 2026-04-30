@@ -14,7 +14,6 @@ import { Info } from 'lucide-react';
 import { useComprasData } from './compras/useComprasData';
 import CompraCreateDialog from './compras/CompraCreateDialog.jsx';
 import CompraNewProductDialog from './compras/CompraNewProductDialog.jsx';
-import CompraVariantSelectionDialog from './compras/CompraVariantSelectionDialog.jsx';
 import ComprasAlertCards from './compras/ComprasAlertCards.jsx';
 import RatingModal from './RatingModal.jsx';
 
@@ -94,6 +93,10 @@ export default function ComprasManagement() {
           handleScanInvoice={data.handleScanInvoice}
           handleClearScan={data.handleClearScan}
           initialPoState={data.initialPoState}
+          variantSelection={data.variantSelection}
+          closeVariantSelection={data.closeVariantSelection}
+          updateVariantSelectionRow={data.updateVariantSelectionRow}
+          confirmVariantSelection={data.confirmVariantSelection}
         />
 
         {/* "Compra de Producto Nuevo" Dialog */}
@@ -132,14 +135,6 @@ export default function ComprasManagement() {
           variantSectionDescription={data.variantSectionDescription}
           showLotFields={data.showLotFields}
           showExpirationFields={data.showExpirationFields}
-        />
-
-        {/* Variant Selection Dialog (for multi-variant products) */}
-        <CompraVariantSelectionDialog
-          variantSelection={data.variantSelection}
-          closeVariantSelection={data.closeVariantSelection}
-          updateVariantSelectionRow={data.updateVariantSelectionRow}
-          confirmVariantSelection={data.confirmVariantSelection}
         />
       </div>
 

@@ -1121,6 +1121,9 @@ export function useComprasData() {
         ? preferredMethod : null;
       const methodToUse = lastMethod || validPreferredMethod || acceptedMethods[0] || 'efectivo_usd';
 
+      // Smart default: currency from last purchase with this supplier
+      const lastCurrency = loadLastCurrency(supplierId);
+
       setPo(prev => ({
         ...prev,
         actualPaymentMethod: methodToUse,
@@ -1130,7 +1133,8 @@ export function useComprasData() {
           isCredit: acceptsCredit,
           paymentDueDate: paymentDueDate,
           requiresAdvancePayment: requiresAdvancePayment,
-          advancePaymentPercentage: advancePaymentPercentage
+          advancePaymentPercentage: advancePaymentPercentage,
+          ...(lastCurrency && { expectedCurrency: lastCurrency }),
         }
       }));
 
@@ -1165,6 +1169,19 @@ export function useComprasData() {
       console.error('Error cargando último método de pago:', error);
       return null;
     }
+  };
+
+  // Smart default: remember last currency used per supplier
+  const saveLastCurrency = (supplierId, currency) => {
+    if (!supplierId || !currency) return;
+    try { localStorage.setItem(`lastCurrency_${supplierId}`, currency); }
+    catch { /* ignore */ }
+  };
+
+  const loadLastCurrency = (supplierId) => {
+    if (!supplierId) return null;
+    try { return localStorage.getItem(`lastCurrency_${supplierId}`); }
+    catch { return null; }
   };
 
   const handleActualPaymentMethodChange = (method) => {
@@ -1360,6 +1377,11 @@ export function useComprasData() {
 
       if (po.supplierId && allPaymentMethods.length > 0) {
         await syncPaymentMethodsToSupplier(po.supplierId, allPaymentMethods);
+      }
+
+      // Smart default: remember currency used for next purchase with this supplier
+      if (po.supplierId && po.paymentTerms?.expectedCurrency) {
+        saveLastCurrency(po.supplierId, po.paymentTerms.expectedCurrency);
       }
 
       // If editing an existing supplier, persist any field changes back to the supplier
