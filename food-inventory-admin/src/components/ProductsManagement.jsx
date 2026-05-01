@@ -4393,54 +4393,54 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   </div>
                 )}
 
-                <div className="flex items-center justify-between rounded-md border px-3 py-2 col-span-2">
-                  <div>
-                    <Label htmlFor="edit-isActive" className="text-sm font-medium">Estado del producto</Label>
-                    <p className="text-xs text-muted-foreground">Los productos inactivos no aparecen en ventas ni en búsquedas de compras</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm ${editingProduct.isActive ?? true ? 'text-success' : 'text-muted-foreground'}`}>
-                      {editingProduct.isActive ?? true ? 'Activo' : 'Inactivo'}
-                    </span>
-                    <Switch
-                      id="edit-isActive"
-                      checked={editingProduct.isActive ?? true}
-                      onCheckedChange={(checked) => setEditingProduct({ ...editingProduct, isActive: checked })}
-                    />
+                {/* Configuración operativa: IVA + Vendido por Peso + Estado */}
+                <div className="col-span-2 grid grid-cols-3 gap-4 items-end">
+                  {!isNonFoodRetailVertical && (
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-ivaRate">IVA Aplicable</Label>
+                      <Select
+                        value={String(editingProduct.ivaRate ?? (editingProduct.ivaApplicable ? 16 : 0))}
+                        onValueChange={(value) =>
+                          setEditingProduct({
+                            ...editingProduct,
+                            ivaRate: Number(value),
+                            ivaApplicable: Number(value) > 0
+                          })
+                        }
+                      >
+                        <SelectTrigger id="edit-ivaRate">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0">Exento (0%)</SelectItem>
+                          <SelectItem value="8">Reducido (8%)</SelectItem>
+                          <SelectItem value="16">Normal (16%)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {verticalConfig?.allowsWeight && (
+                    <div className="flex items-center space-x-2 rounded-md border px-3 py-2 h-10">
+                      <Checkbox id="edit-isSoldByWeight" checked={editingProduct.isSoldByWeight} onCheckedChange={(checked) => setEditingProduct({ ...editingProduct, isSoldByWeight: checked })} />
+                      <Label htmlFor="edit-isSoldByWeight" className="cursor-pointer">Vendido por Peso</Label>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between rounded-md border px-3 py-2 h-10">
+                    <Label htmlFor="edit-isActive" className="text-sm font-medium cursor-pointer">Estado</Label>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs ${editingProduct.isActive ?? true ? 'text-success' : 'text-muted-foreground'}`}>
+                        {editingProduct.isActive ?? true ? 'Activo' : 'Inactivo'}
+                      </span>
+                      <Switch
+                        id="edit-isActive"
+                        checked={editingProduct.isActive ?? true}
+                        onCheckedChange={(checked) => setEditingProduct({ ...editingProduct, isActive: checked })}
+                      />
+                    </div>
                   </div>
                 </div>
-
-                {!isNonFoodRetailVertical && (
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-ivaRate">IVA Aplicable</Label>
-                    <Select
-                      value={String(editingProduct.ivaRate ?? (editingProduct.ivaApplicable ? 16 : 0))}
-                      onValueChange={(value) =>
-                        setEditingProduct({
-                          ...editingProduct,
-                          ivaRate: Number(value),
-                          ivaApplicable: Number(value) > 0
-                        })
-                      }
-                    >
-                      <SelectTrigger id="edit-ivaRate">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">Exento (0%)</SelectItem>
-                        <SelectItem value="8">Reducido (8%)</SelectItem>
-                        <SelectItem value="16">Normal (16%)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {verticalConfig?.allowsWeight && (
-                  <div className="flex items-center space-x-2 rounded-md border px-3 py-2 self-end h-10">
-                    <Checkbox id="edit-isSoldByWeight" checked={editingProduct.isSoldByWeight} onCheckedChange={(checked) => setEditingProduct({ ...editingProduct, isSoldByWeight: checked })} />
-                    <Label htmlFor="edit-isSoldByWeight" className="cursor-pointer">Vendido por Peso</Label>
-                  </div>
-                )}
 
                 {/* Quick Pricing — visible inline when product has only the
                     auto-created "Estándar" variant. For products with real
