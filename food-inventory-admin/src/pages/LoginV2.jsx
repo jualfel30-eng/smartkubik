@@ -147,7 +147,7 @@ function EmailField({ value, onChange, autoFocus, hint }) {
 
 function TrustFooter({ onContactSales }) {
   return (
-    <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-[11px] text-gray-500 dark:text-gray-400">
+    <div className="mt-8 flex flex-wrap items-center justify-center gap-5 text-[11px] text-gray-500 dark:text-gray-400">
       <span className="inline-flex items-center gap-1.5">
         <ShieldCheck className="h-3.5 w-3.5" /> Cumplimiento SENIAT
       </span>
@@ -508,14 +508,15 @@ function ReturningLayout(props) {
   return (
     <div className="flex min-h-screen items-center justify-center px-6 py-20">
       <div className="w-full max-w-md">
-        <div className="mb-6">
+        <div className="rounded-2xl border border-gray-200/70 bg-white/90 px-10 py-12 shadow-xl backdrop-blur-md dark:border-slate-700/60 dark:bg-slate-900/60">
+        <div className="mb-7">
           <Logo />
-          <div className="mt-6">
+          <div className="mt-7">
             <LoginGreeting
               firstName={cachedUser.firstName}
               vertical={cachedUser.vertical}
             />
-            <div className="mt-2 flex justify-center">
+            <div className="mt-3 flex justify-center">
               <StreakIndicator days={streak} />
             </div>
           </div>
@@ -542,7 +543,7 @@ function ReturningLayout(props) {
           variants={STAGGER(0.06, 0.2)}
           initial="initial"
           animate="animate"
-          className="mt-6 space-y-4"
+          className="mt-8 space-y-5"
         >
           <motion.div variants={fadeUp}>
             <EmailField
@@ -606,7 +607,7 @@ function ReturningLayout(props) {
           </motion.div>
         </motion.form>
 
-        <div className="mt-5 text-center text-xs text-gray-500 dark:text-gray-400">
+        <div className="mt-8 text-center text-xs text-gray-500 dark:text-gray-400">
           ¿No es tu cuenta?{' '}
           <button
             type="button"
@@ -615,6 +616,7 @@ function ReturningLayout(props) {
           >
             Cambiar
           </button>
+        </div>
         </div>
 
         <TrustFooter onContactSales={onContactSales} />
@@ -689,13 +691,14 @@ function FirstTimeLayout(props) {
 
       {/* Form — 60% */}
       <div className="flex w-full items-center justify-center px-6 py-12 lg:w-[60%] lg:px-16">
-        <div className="w-full max-w-md rounded-2xl border border-gray-200/70 bg-white/90 p-8 shadow-xl backdrop-blur-md dark:border-slate-700/60 dark:bg-slate-900/60">
+        <div className="w-full max-w-lg">
+        <div className="w-full rounded-2xl border border-gray-200/70 bg-white/90 px-10 py-12 shadow-xl backdrop-blur-md dark:border-slate-700/60 dark:bg-slate-900/60">
           <Logo />
           <motion.h2
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: DUR.base, ease: EASE.out, delay: 0.1 }}
-            className="mt-5 text-center text-2xl font-bold text-gray-900 dark:text-white"
+            className="mt-7 text-center text-2xl font-bold text-gray-900 dark:text-white"
             style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}
           >
             Inicia sesión
@@ -706,7 +709,7 @@ function FirstTimeLayout(props) {
             variants={STAGGER(0.06, 0.2)}
             initial="initial"
             animate="animate"
-            className="mt-6 space-y-4"
+            className="mt-8 space-y-5"
           >
             <motion.div variants={fadeUp}>
               <EmailField value={email} onChange={setEmail} autoFocus />
@@ -752,12 +755,12 @@ function FirstTimeLayout(props) {
               <LoginButton status={status} errorKey={errorKey} />
             </motion.div>
 
-            <motion.div variants={fadeUp} className="relative my-2">
+            <motion.div variants={fadeUp} className="relative py-2">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-gray-300 dark:border-slate-700" />
               </div>
               <div className="relative flex justify-center text-[11px] uppercase">
-                <span className="bg-white px-2 text-gray-500 dark:bg-slate-900 dark:text-gray-400">
+                <span className="bg-white px-3 text-gray-500 dark:bg-slate-900 dark:text-gray-400">
                   o
                 </span>
               </div>
@@ -768,7 +771,7 @@ function FirstTimeLayout(props) {
             </motion.div>
           </motion.form>
 
-          <div className="mt-5 text-center text-sm text-gray-600 dark:text-gray-300">
+          <div className="mt-8 text-center text-sm text-gray-600 dark:text-gray-300">
             ¿No tienes cuenta?{' '}
             <Link
               to="/register"
@@ -777,8 +780,9 @@ function FirstTimeLayout(props) {
               Crear cuenta gratis →
             </Link>
           </div>
+        </div>
 
-          <TrustFooter onContactSales={onContactSales} />
+        <TrustFooter onContactSales={onContactSales} />
         </div>
       </div>
     </div>
