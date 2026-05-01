@@ -193,8 +193,8 @@ function Logo() {
       transition={{ duration: DUR.base, ease: EASE.out }}
       className="flex justify-center"
     >
-      <img src={logoSmartKubik} alt="SmartKubik" className="h-9 w-auto hidden dark:block" />
-      <img src={logoSmartKubikLight} alt="SmartKubik" className="h-9 w-auto block dark:hidden" />
+      <img src={logoSmartKubik} alt="SmartKubik" className="h-6 w-auto hidden dark:block" />
+      <img src={logoSmartKubikLight} alt="SmartKubik" className="h-6 w-auto block dark:hidden" />
     </motion.div>
   );
 }
@@ -508,10 +508,10 @@ function ReturningLayout(props) {
   return (
     <div className="flex min-h-screen items-center justify-center px-6 py-20">
       <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-gray-200/70 bg-white/90 px-10 py-12 shadow-xl backdrop-blur-md dark:border-slate-700/60 dark:bg-slate-900/60">
-        <div className="mb-7">
+        <div className="rounded-2xl border border-gray-200/70 bg-white/90 px-10 py-16 shadow-xl backdrop-blur-md dark:border-slate-700/60 dark:bg-slate-900/60">
+        <div className="mb-10">
           <Logo />
-          <div className="mt-7">
+          <div className="mt-9">
             <LoginGreeting
               firstName={cachedUser.firstName}
               vertical={cachedUser.vertical}
@@ -543,7 +543,7 @@ function ReturningLayout(props) {
           variants={STAGGER(0.06, 0.2)}
           initial="initial"
           animate="animate"
-          className="mt-8 space-y-5"
+          className="mt-10 space-y-6"
         >
           <motion.div variants={fadeUp}>
             <EmailField
@@ -602,12 +602,12 @@ function ReturningLayout(props) {
             />
           </motion.div>
 
-          <motion.div variants={fadeUp} className="pt-1">
+          <motion.div variants={fadeUp} className="pt-2">
             <GoogleButton />
           </motion.div>
         </motion.form>
 
-        <div className="mt-8 text-center text-xs text-gray-500 dark:text-gray-400">
+        <div className="mt-10 text-center text-xs text-gray-500 dark:text-gray-400">
           ¿No es tu cuenta?{' '}
           <button
             type="button"
@@ -692,13 +692,13 @@ function FirstTimeLayout(props) {
       {/* Form — 60% */}
       <div className="flex w-full items-center justify-center px-6 py-12 lg:w-[60%] lg:px-16">
         <div className="w-full max-w-lg">
-        <div className="w-full rounded-2xl border border-gray-200/70 bg-white/90 px-10 py-12 shadow-xl backdrop-blur-md dark:border-slate-700/60 dark:bg-slate-900/60">
+        <div className="w-full rounded-2xl border border-gray-200/70 bg-white/90 px-10 py-16 shadow-xl backdrop-blur-md dark:border-slate-700/60 dark:bg-slate-900/60">
           <Logo />
           <motion.h2
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: DUR.base, ease: EASE.out, delay: 0.1 }}
-            className="mt-7 text-center text-2xl font-bold text-gray-900 dark:text-white"
+            className="mt-9 text-center text-2xl font-bold text-gray-900 dark:text-white"
             style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}
           >
             Inicia sesión
@@ -709,7 +709,7 @@ function FirstTimeLayout(props) {
             variants={STAGGER(0.06, 0.2)}
             initial="initial"
             animate="animate"
-            className="mt-8 space-y-5"
+            className="mt-10 space-y-6"
           >
             <motion.div variants={fadeUp}>
               <EmailField value={email} onChange={setEmail} autoFocus />
@@ -771,7 +771,7 @@ function FirstTimeLayout(props) {
             </motion.div>
           </motion.form>
 
-          <div className="mt-8 text-center text-sm text-gray-600 dark:text-gray-300">
+          <div className="mt-10 text-center text-sm text-gray-600 dark:text-gray-300">
             ¿No tienes cuenta?{' '}
             <Link
               to="/register"

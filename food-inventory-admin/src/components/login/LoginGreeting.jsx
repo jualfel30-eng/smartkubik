@@ -41,7 +41,7 @@ export default function LoginGreeting({ firstName, vertical }) {
         className="font-display text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-tight"
         style={{ fontFamily: '"Plus Jakarta Sans", sans-serif' }}
       >
-        {greeting}{name ? `, ${name}` : ''} <span className="inline-block">👋</span>
+        {greeting}{name ? `, ${name}` : ''}
       </motion.h1>
       <motion.p
         initial={{ opacity: 0, y: 6 }}

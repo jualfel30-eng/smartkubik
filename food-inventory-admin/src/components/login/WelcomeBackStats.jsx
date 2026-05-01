@@ -46,14 +46,12 @@ export default function WelcomeBackStats({ lastLoginAt, stats }) {
         </div>
       )}
       {stats?.salesText && (
-        <div className="mt-1 flex items-center gap-2">
-          <span className="opacity-70">💰</span>
+        <div className="mt-1.5 pl-5">
           <span>{stats.salesText}</span>
         </div>
       )}
       {stats?.servicesText && (
-        <div className="mt-1 flex items-center gap-2">
-          <span className="opacity-70">✂️</span>
+        <div className="mt-1 pl-5">
           <span>{stats.servicesText}</span>
         </div>
       )}
