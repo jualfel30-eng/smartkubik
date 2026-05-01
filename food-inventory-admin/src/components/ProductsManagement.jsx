@@ -4348,12 +4348,12 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     ⚠️ Cambiar el SKU actualizará todo el historial de inventario. Asegúrese de que el nuevo SKU sea único.
                   </p>
                 </div>
-                <div className="col-span-2 space-y-2">
+                <div className={isNonFoodRetailVertical ? "col-span-2 space-y-2" : "space-y-2"}>
                   <Label htmlFor="edit-description">Descripción</Label>
                   <Textarea id="edit-description" value={editingProduct.description} onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} />
                 </div>
                 {!isNonFoodRetailVertical && (
-                  <div className="col-span-2 space-y-2">
+                  <div className="space-y-2">
                     <Label htmlFor="edit-ingredients">{ingredientLabel}</Label>
                     <Textarea
                       id="edit-ingredients"
@@ -4409,13 +4409,6 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   </div>
                 </div>
 
-                {verticalConfig?.allowsWeight && (
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Checkbox id="edit-isSoldByWeight" checked={editingProduct.isSoldByWeight} onCheckedChange={(checked) => setEditingProduct({ ...editingProduct, isSoldByWeight: checked })} />
-                    <Label htmlFor="edit-isSoldByWeight">Vendido por Peso</Label>
-                  </div>
-                )}
-
                 {!isNonFoodRetailVertical && (
                   <div className="space-y-2">
                     <Label htmlFor="edit-ivaRate">IVA Aplicable</Label>
@@ -4438,6 +4431,13 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         <SelectItem value="16">Normal (16%)</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
+
+                {verticalConfig?.allowsWeight && (
+                  <div className="flex items-center space-x-2 rounded-md border px-3 py-2 self-end h-10">
+                    <Checkbox id="edit-isSoldByWeight" checked={editingProduct.isSoldByWeight} onCheckedChange={(checked) => setEditingProduct({ ...editingProduct, isSoldByWeight: checked })} />
+                    <Label htmlFor="edit-isSoldByWeight" className="cursor-pointer">Vendido por Peso</Label>
                   </div>
                 )}
 
