@@ -4324,7 +4324,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       value={editingProduct.sku}
                       onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
                     />
-                    <p className="text-xs text-warning-foreground font-medium">
+                    <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
                       ⚠️ Cambiar el SKU actualizará todo el historial de inventario. Asegúrese de que el nuevo SKU sea único.
                     </p>
                   </div>
