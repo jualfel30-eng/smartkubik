@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth.jsx";
 import { fetchApi } from "@/lib/api";
@@ -624,6 +624,20 @@ const PayrollRunsDashboard = () => {
   useEffect(() => {
     loadRuns();
   }, [loadRuns]);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightRunId = searchParams.get("id");
+
+  useEffect(() => {
+    if (!highlightRunId || runs.length === 0) return;
+    const match = runs.find((r) => r._id === highlightRunId);
+    if (!match) return;
+    openDetail(match);
+    const next = new URLSearchParams(searchParams);
+    next.delete("id");
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightRunId, runs]);
 
   useEffect(() => {
     loadConcepts();

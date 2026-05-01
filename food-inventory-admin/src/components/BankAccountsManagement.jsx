@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -54,6 +54,8 @@ const STANDARD_PAYMENT_METHODS = [
 export default function BankAccountsManagement() {
   const [ConfirmDialog, confirm] = useConfirm();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightId = searchParams.get('id');
   const [accounts, setAccounts] = useState([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
@@ -227,11 +229,21 @@ export default function BankAccountsManagement() {
     setIsAdjustDialogOpen(true);
   };
 
-  const openMovementsDialog = async (account) => {
+  const openMovementsDialog = useCallback(async (account) => {
     setSelectedAccountForMovements(account);
     setIsMovementsDialogOpen(true);
     await fetchMovements(account._id, 1);
-  };
+  }, [fetchMovements]);
+
+  useEffect(() => {
+    if (!highlightId || accounts.length === 0) return;
+    const match = accounts.find((a) => a._id === highlightId);
+    if (!match) return;
+    openMovementsDialog(match);
+    const next = new URLSearchParams(searchParams);
+    next.delete('id');
+    setSearchParams(next, { replace: true });
+  }, [highlightId, accounts, openMovementsDialog, searchParams, setSearchParams]);
 
   const handleMovementsPageChange = async (direction) => {
     if (!selectedAccountForMovements) return;

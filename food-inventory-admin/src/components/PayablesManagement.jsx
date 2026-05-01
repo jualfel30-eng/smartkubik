@@ -29,6 +29,7 @@ const PayablesManagement = () => {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useLocalStorageState('ap-active-filter', null);
   const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
+  const highlightId = searchParams.get('id');
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
@@ -36,6 +37,23 @@ const PayablesManagement = () => {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams, activeTab]);
+
+  // When arriving via deep-link with ?id=, route to the right tab based on payable status
+  useEffect(() => {
+    if (!highlightId || payables.length === 0) return;
+    if (searchParams.get('tab')) return; // explicit tab wins
+    const target = payables.find((p) => p._id === highlightId);
+    if (!target) return;
+    const targetTab = ['paid', 'void'].includes(target.status) ? 'history' : 'monthly';
+    if (targetTab !== activeTab) setActiveTab(targetTab);
+  }, [highlightId, payables, searchParams, activeTab]);
+
+  const clearHighlight = () => {
+    if (!searchParams.has('id')) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete('id');
+    setSearchParams(next, { replace: true });
+  };
 
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
@@ -175,7 +193,7 @@ const PayablesManagement = () => {
               <motion.div key={activeTab} variants={fadeUp} initial="initial" animate="animate" exit="exit">
                 <TabsContent value="monthly" forceMount={activeTab === 'monthly' ? true : undefined}>
                   {activeTab === 'monthly' && (
-                    <MonthlyPayables payables={payables} fetchPayables={() => fetchPayables(activeFilter)} suppliers={suppliers} accounts={accounts} fetchSuppliers={fetchSuppliers} />
+                    <MonthlyPayables payables={payables} fetchPayables={() => fetchPayables(activeFilter)} suppliers={suppliers} accounts={accounts} fetchSuppliers={fetchSuppliers} highlightId={highlightId} onHighlightConsumed={clearHighlight} />
                   )}
                 </TabsContent>
                 <TabsContent value="recurring" forceMount={activeTab === 'recurring' ? true : undefined}>
@@ -185,7 +203,7 @@ const PayablesManagement = () => {
                 </TabsContent>
                 <TabsContent value="history" forceMount={activeTab === 'history' ? true : undefined}>
                   {activeTab === 'history' && (
-                    <PayablesHistory payables={payables} fetchPayables={() => fetchPayables(activeFilter)} />
+                    <PayablesHistory payables={payables} fetchPayables={() => fetchPayables(activeFilter)} highlightId={highlightId} onHighlightConsumed={clearHighlight} />
                   )}
                 </TabsContent>
                 <TabsContent value="payments" forceMount={activeTab === 'payments' ? true : undefined}>

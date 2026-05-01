@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
@@ -16,7 +16,7 @@ import { formatCurrency } from '@/lib/currency-utils';
 import { URGENCY_STYLES, getUrgency, getDaysLabel, getPayableStatusInfo, getTotalAmount } from '@/lib/invoice-constants';
 import CreatePayableDialog from './CreatePayableDialog';
 
-export default function MonthlyPayables({ suppliers, accounts, fetchPayables, payables, fetchSuppliers }) {
+export default function MonthlyPayables({ suppliers, accounts, fetchPayables, payables, fetchSuppliers, highlightId, onHighlightConsumed }) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -26,6 +26,15 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
   const pendingPayables = useMemo(() => {
     return payables.filter(payable => !['paid', 'void'].includes(payable.status));
   }, [payables]);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const match = pendingPayables.find((p) => p._id === highlightId);
+    if (!match) return;
+    setSelectedPayable(match);
+    setIsViewDialogOpen(true);
+    onHighlightConsumed?.();
+  }, [highlightId, pendingPayables, onHighlightConsumed]);
 
   const handleOpenPaymentDialog = (payable) => {
     setSelectedPayable(payable);

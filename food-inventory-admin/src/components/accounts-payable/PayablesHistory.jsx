@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useConfirm } from '@/hooks/use-confirm';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -131,7 +131,7 @@ const ViewPayableDialog = ({ isOpen, onOpenChange, payable }) => {
   );
 };
 
-export default function PayablesHistory({ payables, fetchPayables }) {
+export default function PayablesHistory({ payables, fetchPayables, highlightId, onHighlightConsumed }) {
   const [ConfirmDialog, confirm] = useConfirm();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPayable, setSelectedPayable] = useState(null);
@@ -144,6 +144,15 @@ export default function PayablesHistory({ payables, fetchPayables }) {
     setSelectedPayable(payable);
     setIsViewDialogOpen(true);
   };
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const match = payables.find((p) => p._id === highlightId);
+    if (!match) return;
+    setSelectedPayable(match);
+    setIsViewDialogOpen(true);
+    onHighlightConsumed?.();
+  }, [highlightId, payables, onHighlightConsumed]);
 
   const handleDeletePayable = async (payableId) => {
     const ok = await confirm({
