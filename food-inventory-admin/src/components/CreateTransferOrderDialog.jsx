@@ -64,12 +64,23 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
 
         let mode = null;
 
-        // Try multi-sede mode
+        // Try multi-sede mode. Include the parent (CD/HQ) as a valid
+        // destination when the current tenant is a subsidiary so that
+        // returns and excess inventory can flow back to the central warehouse.
         try {
           const subsResponse = await getSubsidiaries();
           const sedes = subsResponse?.data || [];
-          if (sedes.length > 0 || subsResponse?.isParent || subsResponse?.isSubsidiary) {
-            setSubsidiaries(sedes);
+          const parentTenant = subsResponse?.parentTenant;
+          const isSubsidiary = subsResponse?.isSubsidiary;
+
+          // If we're a subsidiary, prepend the parent to the destination list
+          // (marked so the UI can label it as "Centro de distribucion")
+          const destinations = isSubsidiary && parentTenant
+            ? [{ ...parentTenant, isParentTenant: true }, ...sedes]
+            : sedes;
+
+          if (destinations.length > 0 || subsResponse?.isParent || isSubsidiary) {
+            setSubsidiaries(destinations);
             mode = 'sedes';
           }
         } catch (err) {
@@ -558,6 +569,9 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
                           <SelectItem key={id} value={id} disabled={isCurrent}>
                             <div className="flex items-center gap-2">
                               <span>{sede.name}</span>
+                              {sede.isParentTenant && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 border-blue-500/40 text-blue-500">Centro de distribucion</Badge>
+                              )}
                               {isCurrent && (
                                 <Badge variant="secondary" className="text-[9px] px-1 py-0">Actual</Badge>
                               )}
