@@ -9,6 +9,13 @@ export class NotificationCenterListener {
 
   constructor(private readonly notificationService: NotificationCenterService) { }
 
+  private formatDate(value: Date | string | undefined | null): string {
+    if (!value) return "";
+    const d = value instanceof Date ? value : new Date(value);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("es");
+  }
+
   // ================== SALES EVENTS ==================
 
   @OnEvent("order.created")
@@ -231,13 +238,13 @@ export class NotificationCenterListener {
   @OnEvent("employee.created")
   async handleEmployeeCreated(payload: {
     employeeId: string;
-    firstName: string;
-    lastName: string;
+    employeeName?: string;
+    position?: string;
+    department?: string;
     tenantId: string;
   }) {
-    this.logger.log(
-      `Handling employee.created for ${payload.firstName} ${payload.lastName}`,
-    );
+    const employeeName = payload.employeeName || "Empleado";
+    this.logger.log(`Handling employee.created for ${employeeName}`);
 
     try {
       await this.notificationService.create(
@@ -245,14 +252,17 @@ export class NotificationCenterListener {
           category: "hr",
           type: NOTIFICATION_TYPES.EMPLOYEE_CREATED,
           title: "Nuevo empleado registrado",
-          message: `${payload.firstName} ${payload.lastName}`,
+          message: payload.position
+            ? `${employeeName} - ${payload.position}`
+            : employeeName,
           priority: "low",
           entityType: "employee",
           entityId: payload.employeeId,
           navigateTo: `/payroll/employees?id=${payload.employeeId}`,
           metadata: {
-            firstName: payload.firstName,
-            lastName: payload.lastName,
+            employeeName,
+            position: payload.position,
+            department: payload.department,
           },
         },
         payload.tenantId,
@@ -267,31 +277,41 @@ export class NotificationCenterListener {
 
   @OnEvent("payroll.run.pending")
   async handlePayrollPending(payload: {
-    payrollRunId: string;
-    periodStart: string;
-    periodEnd: string;
-    employeeCount: number;
+    runId: string;
+    label?: string;
+    periodStart: Date | string;
+    periodEnd: Date | string;
+    totalEmployees?: number;
+    netPay?: number;
+    currency?: string;
     tenantId: string;
   }) {
-    this.logger.log(
-      `Handling payroll.run.pending for period ${payload.periodStart} - ${payload.periodEnd}`,
-    );
+    const periodLabel =
+      payload.label ||
+      `${this.formatDate(payload.periodStart)} - ${this.formatDate(payload.periodEnd)}`;
+    this.logger.log(`Handling payroll.run.pending for period ${periodLabel}`);
 
     try {
+      const employeeCount = payload.totalEmployees ?? 0;
+      const netPay = payload.netPay ?? 0;
+      const currency = payload.currency || "VES";
       await this.notificationService.create(
         {
           category: "hr",
           type: NOTIFICATION_TYPES.PAYROLL_PENDING,
           title: "Nomina pendiente de procesamiento",
-          message: `Periodo: ${payload.periodStart} - ${payload.periodEnd} (${payload.employeeCount} empleados)`,
+          message: `${periodLabel} - ${employeeCount} empleados - ${netPay.toFixed(2)} ${currency}`,
           priority: "high",
           entityType: "payrollRun",
-          entityId: payload.payrollRunId,
-          navigateTo: `/payroll/runs/${payload.payrollRunId}`,
+          entityId: payload.runId,
+          navigateTo: `/payroll/runs?id=${payload.runId}`,
           metadata: {
+            label: payload.label,
             periodStart: payload.periodStart,
             periodEnd: payload.periodEnd,
-            employeeCount: payload.employeeCount,
+            totalEmployees: employeeCount,
+            netPay,
+            currency,
           },
         },
         payload.tenantId,
@@ -306,33 +326,41 @@ export class NotificationCenterListener {
 
   @OnEvent("payroll.run.completed")
   async handlePayrollCompleted(payload: {
-    payrollRunId: string;
-    periodStart: string;
-    periodEnd: string;
-    totalAmount: number;
-    employeeCount: number;
+    runId: string;
+    label?: string;
+    periodStart: Date | string;
+    periodEnd: Date | string;
+    totalEmployees?: number;
+    netPay?: number;
+    currency?: string;
     tenantId: string;
   }) {
-    this.logger.log(
-      `Handling payroll.run.completed for period ${payload.periodStart} - ${payload.periodEnd}`,
-    );
+    const periodLabel =
+      payload.label ||
+      `${this.formatDate(payload.periodStart)} - ${this.formatDate(payload.periodEnd)}`;
+    this.logger.log(`Handling payroll.run.completed for period ${periodLabel}`);
 
     try {
+      const employeeCount = payload.totalEmployees ?? 0;
+      const netPay = payload.netPay ?? 0;
+      const currency = payload.currency || "VES";
       await this.notificationService.create(
         {
           category: "hr",
           type: NOTIFICATION_TYPES.PAYROLL_COMPLETED,
           title: "Nomina procesada exitosamente",
-          message: `Total: $${payload.totalAmount.toFixed(2)} (${payload.employeeCount} empleados)`,
+          message: `${periodLabel} - ${netPay.toFixed(2)} ${currency} (${employeeCount} empleados)`,
           priority: "medium",
           entityType: "payrollRun",
-          entityId: payload.payrollRunId,
-          navigateTo: `/payroll/runs/${payload.payrollRunId}`,
+          entityId: payload.runId,
+          navigateTo: `/payroll/runs?id=${payload.runId}`,
           metadata: {
+            label: payload.label,
             periodStart: payload.periodStart,
             periodEnd: payload.periodEnd,
-            totalAmount: payload.totalAmount,
-            employeeCount: payload.employeeCount,
+            totalEmployees: employeeCount,
+            netPay,
+            currency,
           },
         },
         payload.tenantId,
@@ -350,30 +378,33 @@ export class NotificationCenterListener {
   @OnEvent("payable.due.approaching")
   async handlePayableDue(payload: {
     payableId: string;
-    supplierName: string;
-    amount: number;
-    dueDate: Date;
+    payableNumber?: string;
+    payeeName?: string;
+    totalAmount?: number;
+    dueDate: Date | string;
     tenantId: string;
   }) {
-    this.logger.log(
-      `Handling payable.due.approaching for ${payload.supplierName}`,
-    );
+    const payeeName = payload.payeeName || "Proveedor";
+    this.logger.log(`Handling payable.due.approaching for ${payeeName}`);
 
     try {
-      const amount = payload.amount ?? 0;
+      const amount = payload.totalAmount ?? 0;
+      const dueDateStr = this.formatDate(payload.dueDate);
+      const refNumber = payload.payableNumber ? ` #${payload.payableNumber}` : "";
       await this.notificationService.create(
         {
           category: "finance",
           type: NOTIFICATION_TYPES.PAYABLE_DUE,
-          title: "Pago proximo a vencer",
-          message: `${payload.supplierName} - $${amount.toFixed(2)} (Vence: ${new Date(payload.dueDate).toLocaleDateString("es")})`,
+          title: `Pago proximo a vencer${refNumber}`,
+          message: `${payeeName} - $${amount.toFixed(2)} (Vence: ${dueDateStr})`,
           priority: "high",
           entityType: "payable",
           entityId: payload.payableId,
-          navigateTo: `/accounting/payables/${payload.payableId}`,
+          navigateTo: `/accounts-payable?id=${payload.payableId}`,
           metadata: {
-            supplierName: payload.supplierName,
-            amount: amount,
+            payableNumber: payload.payableNumber,
+            payeeName,
+            totalAmount: amount,
             dueDate: payload.dueDate,
           },
         },
@@ -400,20 +431,22 @@ export class NotificationCenterListener {
     this.logger.log(`Handling bank.balance.low for ${payload.bankName}`);
 
     try {
+      const currentBalance = payload.currentBalance ?? 0;
+      const minimumBalance = payload.minimumBalance ?? 0;
       await this.notificationService.create(
         {
           category: "finance",
           type: NOTIFICATION_TYPES.BANK_LOW_BALANCE,
           title: `Saldo bajo: ${payload.bankName}`,
-          message: `Saldo actual: ${payload.currentBalance.toFixed(2)} ${payload.currency} (Minimo: ${payload.minimumBalance.toFixed(2)})`,
+          message: `Saldo actual: ${currentBalance.toFixed(2)} ${payload.currency} (Minimo: ${minimumBalance.toFixed(2)})`,
           priority: "high",
           entityType: "bankAccount",
           entityId: payload.accountId,
-          navigateTo: `/accounting/bank-accounts/${payload.accountId}`,
+          navigateTo: `/bank-accounts?id=${payload.accountId}`,
           metadata: {
             bankName: payload.bankName,
-            currentBalance: payload.currentBalance,
-            minimumBalance: payload.minimumBalance,
+            currentBalance,
+            minimumBalance,
             currency: payload.currency,
           },
         },
@@ -430,10 +463,11 @@ export class NotificationCenterListener {
   @OnEvent("billing.document.issued")
   async handleBillingIssued(payload: {
     documentId: string;
-    documentType: string;
+    type?: string;
     documentNumber: string;
     customerName?: string;
-    amount: number;
+    total?: number;
+    currency?: string;
     tenantId: string;
   }) {
     this.logger.log(
@@ -441,23 +475,28 @@ export class NotificationCenterListener {
     );
 
     try {
+      const total = payload.total ?? 0;
+      const currency = payload.currency || "USD";
+      const docType = payload.type || "documento";
+      const totalLabel = currency === "USD" ? `$${total.toFixed(2)}` : `${total.toFixed(2)} ${currency}`;
       await this.notificationService.create(
         {
           category: "finance",
           type: NOTIFICATION_TYPES.BILLING_ISSUED,
-          title: `Documento emitido: ${payload.documentType} #${payload.documentNumber}`,
+          title: `Documento emitido: ${docType} #${payload.documentNumber}`,
           message: payload.customerName
-            ? `${payload.customerName} - $${payload.amount.toFixed(2)}`
-            : `Total: $${payload.amount.toFixed(2)}`,
+            ? `${payload.customerName} - ${totalLabel}`
+            : `Total: ${totalLabel}`,
           priority: "low",
           entityType: "billingDocument",
           entityId: payload.documentId,
-          navigateTo: `/billing/${payload.documentId}`,
+          navigateTo: `/billing/documents/${payload.documentId}`,
           metadata: {
-            documentType: payload.documentType,
+            type: docType,
             documentNumber: payload.documentNumber,
             customerName: payload.customerName,
-            amount: payload.amount,
+            total,
+            currency,
           },
         },
         payload.tenantId,
@@ -492,7 +531,7 @@ export class NotificationCenterListener {
           priority: "medium",
           entityType: "campaign",
           entityId: payload.campaignId,
-          navigateTo: `/marketing/campaigns/${payload.campaignId}`,
+          navigateTo: `/marketing?tab=campaigns&id=${payload.campaignId}`,
           metadata: {
             campaignName: payload.campaignName,
             recipientCount: payload.recipientCount,
@@ -533,7 +572,7 @@ export class NotificationCenterListener {
           priority: "medium",
           entityType: "campaign",
           entityId: payload.campaignId,
-          navigateTo: `/marketing/campaigns/${payload.campaignId}`,
+          navigateTo: `/marketing?tab=campaigns&id=${payload.campaignId}`,
           metadata: {
             campaignName: payload.campaignName,
             responseType: payload.responseType,
