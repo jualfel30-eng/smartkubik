@@ -4440,6 +4440,94 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     </Select>
                   </div>
                 )}
+
+                {/* Quick Pricing — visible inline when product has only the
+                    auto-created "Estándar" variant. For products with real
+                    variants (size/color), show a hint pointing to Avanzado. */}
+                {(() => {
+                  const variants = editingProduct.variants || [];
+                  const hasMultipleVariants = variants.length > 1;
+                  const v = variants[0];
+
+                  if (hasMultipleVariants) {
+                    return (
+                      <div className="col-span-2 border-t pt-4 mt-2">
+                        <div className="flex items-start gap-3 p-3 rounded-md bg-muted/40 border border-border/50">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">Precios por variante</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Este producto tiene {variants.length} variantes. Configura precios individuales en la pestaña <span className="font-medium">Avanzado</span>.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (!v) return null;
+
+                  const cost = Number(v.costPrice) || 0;
+                  const price = Number(v.basePrice) || 0;
+                  const isAutoCalculated =
+                    v.pricingStrategy?.mode !== 'manual' &&
+                    v.pricingStrategy?.autoCalculate;
+                  const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
+                  const markup = cost > 0 ? ((price - cost) / cost) * 100 : 0;
+
+                  return (
+                    <div className="col-span-2 border-t pt-4 mt-2">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-base font-medium">Precios</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Para listas, descuentos por volumen o sucursal: pestaña <span className="font-medium">Precios</span>
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-quick-costPrice">Precio costo ($)</Label>
+                          <Input
+                            id="edit-quick-costPrice"
+                            type="number"
+                            value={v.costPrice ?? ''}
+                            onChange={(e) => handleEditVariantFieldChange(0, 'costPrice', e.target.value)}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-quick-basePrice" className="flex items-center gap-2">
+                            Precio venta ($)
+                            {isAutoCalculated && (
+                              <Badge variant="secondary" className="text-xs">Calculado</Badge>
+                            )}
+                          </Label>
+                          <Input
+                            id="edit-quick-basePrice"
+                            type="number"
+                            value={v.basePrice ?? ''}
+                            onChange={(e) => handleEditVariantFieldChange(0, 'basePrice', e.target.value)}
+                            placeholder="0.00"
+                            disabled={isAutoCalculated}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-muted-foreground">Margen / Markup</Label>
+                          <div className="px-3 py-2 rounded-md border bg-muted/30 text-sm">
+                            {cost > 0 && price > 0 ? (
+                              <span>
+                                <span className="font-medium">{margin.toFixed(1)}%</span>
+                                <span className="text-muted-foreground"> margen · </span>
+                                <span className="font-medium">{markup.toFixed(1)}%</span>
+                                <span className="text-muted-foreground"> markup</span>
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Ingresa costo y precio</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
                   </div>
                 </TabsContent>
 
