@@ -4349,26 +4349,11 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     helpText="Escribe una sub-categoría y presiona coma (,) o Enter para agregar. Esto facilita la búsqueda sin necesidad de ser experto."
                   />
                 </div>
-                <div className={isNonFoodRetailVertical ? "col-span-2 space-y-2" : "space-y-2"}>
-                  <Label htmlFor="edit-description">Descripción</Label>
-                  <Textarea id="edit-description" value={editingProduct.description} onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} />
-                </div>
-                {!isNonFoodRetailVertical && (
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-ingredients">{ingredientLabel}</Label>
-                    <Textarea
-                      id="edit-ingredients"
-                      value={editingProduct.ingredients}
-                      onChange={(e) => setEditingProduct({ ...editingProduct, ingredients: e.target.value })}
-                      placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
-                    />
-                  </div>
-                )}
                 {productAttributes.length > 0 && (
-                  <div className="col-span-2 border-t pt-4 mt-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-lg font-medium">Atributos del Producto</h4>
-                      <p className="text-sm text-muted-foreground">
+                  <div className="col-span-2">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-base font-medium">Atributos del Producto</h4>
+                      <p className="text-xs text-muted-foreground">
                         Se guardarán en la ficha del producto.
                       </p>
                     </div>
@@ -4390,6 +4375,21 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+                <div className={isNonFoodRetailVertical ? "col-span-2 space-y-2" : "space-y-2"}>
+                  <Label htmlFor="edit-description">Descripción</Label>
+                  <Textarea id="edit-description" value={editingProduct.description} onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} />
+                </div>
+                {!isNonFoodRetailVertical && (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-ingredients">{ingredientLabel}</Label>
+                    <Textarea
+                      id="edit-ingredients"
+                      value={editingProduct.ingredients}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, ingredients: e.target.value })}
+                      placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
+                    />
                   </div>
                 )}
 
