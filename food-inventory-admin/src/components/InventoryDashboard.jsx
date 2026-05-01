@@ -111,6 +111,14 @@ export default function InventoryDashboard() {
     }
   }, [searchParams, activeTab]);
 
+  // Deep-link from notification: ?productId= forces the inventory tab
+  const highlightProductId = searchParams.get('productId');
+  useEffect(() => {
+    if (highlightProductId && activeTab !== 'inventory') {
+      setActiveTab('inventory');
+    }
+  }, [highlightProductId, activeTab]);
+
   // Navigate to a tab
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
@@ -304,7 +312,7 @@ export default function InventoryDashboard() {
                 {PRODUCT_SUB_TABS.includes(activeTab) && (
                   <ProductsManagementWithTabs activeSubTab={activeTab} />
                 )}
-                {activeTab === 'inventory' && <InventoryManagement />}
+                {activeTab === 'inventory' && <InventoryManagement highlightProductId={highlightProductId} />}
                 {activeTab === 'inventory-movements' && <InventoryMovementsPanel />}
                 {activeTab === 'inventory-alerts' && <InventoryAlertsPanel />}
                 {activeTab === 'inventory-reports' && <InventoryReportsPanel />}

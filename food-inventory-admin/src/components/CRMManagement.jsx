@@ -950,6 +950,20 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     setIsEmployeeDrawerOpen(true);
   }, []);
 
+  // Deep-link: when arriving with ?id= on /payroll/employees, open the drawer
+  const highlightEmployeeId = forceEmployeeTab ? searchParams.get('id') : null;
+  useEffect(() => {
+    if (!highlightEmployeeId) return;
+    const fromList = employeesData?.employees?.find?.((e) => e._id === highlightEmployeeId);
+    setSelectedEmployeeId(highlightEmployeeId);
+    setSelectedEmployeeSnapshot(fromList || null);
+    setIsEmployeeDrawerOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete('id');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightEmployeeId, employeesData?.employees]);
+
   const closeEmployeeDrawer = useCallback(() => {
     setIsEmployeeDrawerOpen(false);
     setSelectedEmployeeId(null);

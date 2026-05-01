@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { fetchApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -135,6 +136,37 @@ export function CalendarView({ mode = 'events' }) {
   useEffect(() => {
     fetchEvents();
   }, [fetchEvents]);
+
+  // Deep-link: when arriving with ?eventId=, fetch and open the event dialog
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightEventId = searchParams.get('eventId');
+
+  useEffect(() => {
+    if (!highlightEventId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetchApi(`/events/${highlightEventId}`);
+        const event = response?.data || response;
+        if (cancelled || !event) return;
+        const target = new Date(event.start);
+        if (!isNaN(target.getTime())) setCurrentDate(target);
+        openEditDialog(event);
+      } catch (error) {
+        console.error('No se pudo abrir el evento de la notificación:', error);
+      } finally {
+        if (!cancelled) {
+          const next = new URLSearchParams(searchParams);
+          next.delete('eventId');
+          setSearchParams(next, { replace: true });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightEventId]);
 
   const allCalendarEvents = useMemo(() => {
     // Filtrar eventos por calendarios seleccionados

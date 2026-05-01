@@ -1,4 +1,5 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
 import { ExportOptionsDialog } from './ExportOptionsDialog';
 import { ShelfLabelWizard } from './inventory/ShelfLabelWizard';
@@ -19,13 +20,45 @@ import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 import { useConfirm } from '@/hooks/use-confirm';
 
-function InventoryManagement() {
+function InventoryManagement({ highlightProductId } = {}) {
   const [ConfirmDialog, confirm] = useConfirm();
   const { flags } = useFeatureFlags();
   const multiWarehouseEnabled = flags.MULTI_WAREHOUSE;
   const verticalConfig = useVerticalConfig();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const inv = useInventoryData({ multiWarehouseEnabled, verticalConfig });
+
+  // Deep-link from notification: hydrate the product's SKU into the search box
+  // so the user lands on the inventory list filtered by that exact product.
+  const consumedHighlightRef = useRef(null);
+  useEffect(() => {
+    if (!highlightProductId || consumedHighlightRef.current === highlightProductId) return;
+    consumedHighlightRef.current = highlightProductId;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetchApi(`/products/${highlightProductId}`);
+        const product = response?.data || response;
+        const term = product?.sku || product?.name;
+        if (!cancelled && term) {
+          inv.setSearchTerm(term);
+        }
+      } catch (error) {
+        console.error('No se pudo cargar el producto de la notificación:', error);
+      } finally {
+        if (!cancelled) {
+          const next = new URLSearchParams(searchParams);
+          next.delete('productId');
+          setSearchParams(next, { replace: true });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightProductId]);
 
   // --- Export / Import handlers (use XLSX, so kept in orchestrator) ---
 
