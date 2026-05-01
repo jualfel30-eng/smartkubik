@@ -4307,9 +4307,27 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 </TabsList>
                 <TabsContent value="esencial" className="flex-1 overflow-y-auto mt-0">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 px-6">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-name">Nombre del Producto</Label>
-                  <Input id="edit-name" value={editingProduct.name} onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} />
+                {/* Identidad del producto: Nombre (50%) + Marca (25%) + SKU (25%) */}
+                <div className="col-span-2 grid grid-cols-4 gap-x-6 gap-y-4">
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="edit-name">Nombre del Producto</Label>
+                    <Input id="edit-name" value={editingProduct.name} onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} />
+                  </div>
+                  <div className="space-y-2 col-span-1">
+                    <Label htmlFor="edit-brand">Marca</Label>
+                    <Input id="edit-brand" value={editingProduct.brand} onChange={(e) => setEditingProduct({ ...editingProduct, brand: e.target.value })} />
+                  </div>
+                  <div className="space-y-2 col-span-1">
+                    <Label htmlFor="edit-sku">SKU base</Label>
+                    <Input
+                      id="edit-sku"
+                      value={editingProduct.sku}
+                      onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
+                    />
+                    <p className="text-xs text-warning-foreground font-medium">
+                      ⚠️ Cambiar el SKU actualizará todo el historial de inventario. Asegúrese de que el nuevo SKU sea único.
+                    </p>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-category">Categoría</Label>
@@ -4330,23 +4348,6 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     placeholder="Ej: Gaseosas, Refrescos"
                     helpText="Escribe una sub-categoría y presiona coma (,) o Enter para agregar. Esto facilita la búsqueda sin necesidad de ser experto."
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-brand">Marca</Label>
-                  <Input id="edit-brand" value={editingProduct.brand} onChange={(e) => setEditingProduct({ ...editingProduct, brand: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-sku">SKU base</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="edit-sku"
-                      value={editingProduct.sku}
-                      onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
-                    />
-                  </div>
-                  <p className="text-xs text-warning-foreground font-medium">
-                    ⚠️ Cambiar el SKU actualizará todo el historial de inventario. Asegúrese de que el nuevo SKU sea único.
-                  </p>
                 </div>
                 <div className={isNonFoodRetailVertical ? "col-span-2 space-y-2" : "space-y-2"}>
                   <Label htmlFor="edit-description">Descripción</Label>
