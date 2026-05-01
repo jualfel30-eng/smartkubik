@@ -4298,7 +4298,15 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 <SheetTitle>Editar Producto: {editingProduct.name}</SheetTitle>
                 <SheetDescription>Modifica la información del producto y sus precios.</SheetDescription>
               </SheetHeader>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 px-6 overflow-y-auto flex-1">
+              <Tabs defaultValue="esencial" className="flex-1 overflow-hidden flex flex-col">
+                <TabsList className="mx-6 mt-4 self-start">
+                  <TabsTrigger value="esencial">Esencial</TabsTrigger>
+                  <TabsTrigger value="inventario">Inventario</TabsTrigger>
+                  <TabsTrigger value="precios">Precios</TabsTrigger>
+                  <TabsTrigger value="avanzado">Avanzado</TabsTrigger>
+                </TabsList>
+                <TabsContent value="esencial" className="flex-1 overflow-y-auto mt-0">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 px-6">
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Nombre del Producto</Label>
                   <Input id="edit-name" value={editingProduct.name} onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} />
@@ -4432,6 +4440,11 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     </Select>
                   </div>
                 )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="inventario" className="flex-1 overflow-y-auto mt-0">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 px-6">
 
                 {!isNonFoodRetailVertical && (
                   <div className="flex items-center space-x-2 pt-2">
@@ -4596,18 +4609,28 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     </div>
                   </div>
                 )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="precios" className="flex-1 overflow-y-auto mt-0">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 px-6">
 
                 {/* Precios y Descuentos — Accordion unificado (Edit) */}
-                <div className="col-span-2 border-t pt-4 mt-4">
+                <div className="col-span-2">
                   <ProductPricingAccordion
                     product={editingProduct}
                     onProductChange={setEditingProduct}
                     useInputForNumbers={true}
                   />
                 </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="avanzado" className="flex-1 overflow-y-auto mt-0">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 px-6">
 
                 {!isNonFoodRetailVertical && (
-                  <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="col-span-2">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex-1">
                         <h4 className="text-lg font-medium">Unidades de Venta Múltiples</h4>
@@ -5211,7 +5234,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     </div>
                   ))}
                 </div>
-              </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
               <div className="flex justify-end gap-2 px-6 py-4 border-t bg-card">
                 <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
                 <Button onClick={handleUpdateProduct}>Guardar Cambios</Button>
