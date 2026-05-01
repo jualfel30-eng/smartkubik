@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet.jsx';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs.jsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu.jsx';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -4287,13 +4289,16 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       {/* Edit Product Dialog */}
       {
         editingProduct && (
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
-              <DialogHeader>
-                <DialogTitle>Editar Producto: {editingProduct.name}</DialogTitle>
-                <DialogDescription>Modifica la información del producto y sus precios.</DialogDescription>
-              </DialogHeader>
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 overflow-y-auto pr-2">
+          <Sheet open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <SheetContent
+              side="right"
+              className="!inset-4 !top-4 !bottom-4 !right-4 !h-auto !w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] sm:!max-w-[calc(100vw-2rem)] rounded-xl border overflow-hidden flex flex-col p-0"
+            >
+              <SheetHeader className="px-6 pt-6 pb-4 border-b">
+                <SheetTitle>Editar Producto: {editingProduct.name}</SheetTitle>
+                <SheetDescription>Modifica la información del producto y sus precios.</SheetDescription>
+              </SheetHeader>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 px-6 overflow-y-auto flex-1">
                 <div className="space-y-2">
                   <Label htmlFor="edit-name">Nombre del Producto</Label>
                   <Input id="edit-name" value={editingProduct.name} onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} />
@@ -5207,12 +5212,12 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   ))}
                 </div>
               </div>
-              <DialogFooter>
+              <div className="flex justify-end gap-2 px-6 py-4 border-t bg-card">
                 <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
                 <Button onClick={handleUpdateProduct}>Guardar Cambios</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </div>
+            </SheetContent>
+          </Sheet>
         )
       }
 
