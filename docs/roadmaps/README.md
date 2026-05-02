@@ -23,23 +23,24 @@ Si un roadmap no se revisa en 90 días, debería revisarse o moverse a archive.
 ### Expansión geográfica
 - [ROADMAP_FASE_2_ARQUITECTURA_MULTI_PAIS.md](./ROADMAP_FASE_2_ARQUITECTURA_MULTI_PAIS.md) — soporte multi-país (después de Venezuela)
 - [ROADMAP_FASE_3_EXPANSION.md](./ROADMAP_FASE_3_EXPANSION.md) — expansión internacional fase 3
+- [INTERNATIONALIZATION-ROADMAP.md](./INTERNATIONALIZATION-ROADMAP.md) — i18n general (declarado "Planning Phase" sin avance verificado)
 
 ### CRM y ventas
 - [ROADMAP_CRM_FUNNEL.md](./ROADMAP_CRM_FUNNEL.md) — embudo de ventas CRM
 - [PASO1_TALLER_VALIDACION_CRM_FUNNEL.md](./PASO1_TALLER_VALIDACION_CRM_FUNNEL.md) — taller validación CRM
+- [BACKLOG_CRM_FUNNEL.md](./BACKLOG_CRM_FUNNEL.md) — backlog técnico CRM ⚠️ **PARTIAL ~45%** (verificado 2026-05-02):
+    - Epic 1 (Datos): 80% — schemas core OK (StageHistory, nextStep/nextStepDue, validación 14d), faltan modelos maestros Territory/Team/Queue + flag strategicAccount + índices StageHistory
+    - Epic 3 (SLA): 50% — job aging diario + alertas 7/14/21d implementados, faltan alerta nextStepDue 48h, SLA MQL 24h, dashboard SLA por equipo
+    - Epic 2 (Dedupe contactos): 0% — no normalización email/phone, no endpoint duplicates, no UI merge
+    - Epic 4 (Migraciones): 0% — no scripts backfill nextStep/nextStepDue ni reasonLost
+    - Epic 5 (Feature flags CRM): 0% — feature-flags.service no tiene flags `crm.*`
+    - **Bloqueadores**: definir modelos Territory/Team/Queue + agregar flags CRM + ejecutar migraciones de backfill ANTES de habilitar dedupe en prod
 
 ### Analytics y KPIs
 - [ROADMAP-KPI-FINANCIEROS.md](./ROADMAP-KPI-FINANCIEROS.md) — KPIs financieros customizables
 
-## Roadmaps que viven en otra parte
+### Productos
+- [PROMPT_PRODUCT_DEDUPLICATION.md](./PROMPT_PRODUCT_DEDUPLICATION.md) — dedup & merge de productos duplicados (NOT_IMPLEMENTED, feature aún no priorizada)
 
-Estos planes vigentes están fuera de esta carpeta por razones específicas:
-
-- `INTERNATIONALIZATION-ROADMAP.md` (root del repo) — sigue vinculado al sistema de deploy y onboarding
-- `ANALYTICS_ROADMAP.md` (parent V1.03) — pendiente de revisión humana sobre status implementación parcial
-- `PROMPT_PRODUCT_DEDUPLICATION.md` (parent V1.03) — feature aún no priorizada
-- `CONTEXTO_MIGRACION_HOMEPAGE.md` (parent V1.03) — homepage marketing futura
-- `BACKLOG_CRM_FUNNEL.md` (parent V1.03) — backlog técnico del CRM, requiere review de tickets cerrados
-- `ROADMAP_MOBILE_UX_BEAUTY.md` (parent V1.03) — Fase 1 declarada en curso, verificar avance
-- `FASE_3_INSTRUCCIONES.md` (parent V1.03) — beauty storefront, status ambiguo
-- `COMMISSION_MODULE_ROADMAP.md` (parent V1.03) — scope ambiguo
+### Marketing / Landing
+- [CONTEXTO_MIGRACION_HOMEPAGE.md](./CONTEXTO_MIGRACION_HOMEPAGE.md) — context + design system para construir homepage marketing (NOT_IMPLEMENTED)
