@@ -1,5 +1,31 @@
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Edit(food-inventory-saas/src/modules/**/*.service.ts) || Edit(food-inventory-saas/src/modules/**/*.schema.ts) || Edit(food-inventory-saas/src/modules/**/*.controller.ts)",
+            "command": "node .claude/skills/preflight-tenant-safety/scan.js",
+            "timeout": 15,
+            "statusMessage": "preflight-tenant-safety: escaneando patterns de bug..."
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Write(food-inventory-saas/src/modules/**/*.service.ts) || Write(food-inventory-saas/src/modules/**/*.schema.ts) || Write(food-inventory-saas/src/modules/**/*.controller.ts)",
+            "command": "node .claude/skills/preflight-tenant-safety/scan.js",
+            "timeout": 15,
+            "statusMessage": "preflight-tenant-safety: escaneando patterns de bug..."
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Bash",
@@ -10,6 +36,13 @@
             "command": "zsh scripts/wiki-change-detector.sh",
             "timeout": 10,
             "statusMessage": "Detectando cambios en wiki..."
+          },
+          {
+            "type": "command",
+            "if": "Bash(git commit *)",
+            "command": "node .claude/skills/wiki-sync/sync.js",
+            "timeout": 30,
+            "statusMessage": "wiki-sync: revisando módulos modificados..."
           }
         ]
       }
