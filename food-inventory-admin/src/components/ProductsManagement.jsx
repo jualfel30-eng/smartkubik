@@ -463,6 +463,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  // Tracks which variants have the "advanced pricing" toggle expanded.
+  // Keyed by variant SKU. Auto-set true on dialog open if variant already
+  // has advanced data (preserves visibility when editing existing config).
+  const [advancedPricingExpanded, setAdvancedPricingExpanded] = useState({});
   const dragImageIndex = useRef(null);
   const manualPageLimitRef = useRef(DEFAULT_PAGE_LIMIT);
 
@@ -4223,6 +4227,16 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                             const unit = productToEdit.shelfLifeUnit || 'days';
                             productToEdit.shelfLifeUnit = unit;
                             productToEdit.shelfLifeValue = shelfLifeDaysToValue(productToEdit.shelfLifeDays, unit);
+                            // Auto-expand advanced pricing for variants that already have data
+                            const initialExpanded = {};
+                            (productToEdit.variants || []).forEach((v) => {
+                              const hasData =
+                                (v.customPrices?.length > 0) ||
+                                (v.volumeDiscounts?.length > 0) ||
+                                (v.locationPricing?.length > 0);
+                              if (hasData && v.sku) initialExpanded[v.sku] = true;
+                            });
+                            setAdvancedPricingExpanded(initialExpanded);
                             setEditingProduct(productToEdit);
                             setIsEditDialogOpen(true);
                           }}><Edit className="h-4 w-4" /></Button>
@@ -5236,56 +5250,90 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         </div>
                       )}
 
-                      {/* Pricing Managers — operate at VARIANT level (vs ProductPricingAccordion in Tab Precios which operates at PRODUCT level) */}
-                      {showSalesFields && variant.sku && (
-                        <div className="mt-6 p-3 rounded-md bg-blue-500/5 border border-blue-500/20">
-                          <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
-                            <strong>Precios específicos de esta variante.</strong> Los descuentos por volumen, listas de precios y precios por sucursal definidos aquí <strong>solo aplican a esta variante</strong>. Para reglas que apliquen a todas las variantes del producto, usa la pestaña <strong>Precios</strong>.
-                          </p>
-                        </div>
-                      )}
+                      {/* Advanced pricing per variant — collapsed by default, auto-expand if data exists */}
+                      {showSalesFields && variant.sku && (() => {
+                        const isExpanded = !!advancedPricingExpanded[variant.sku];
+                        const hasData =
+                          (variant.customPrices?.length > 0) ||
+                          (variant.volumeDiscounts?.length > 0) ||
+                          (variant.locationPricing?.length > 0);
+                        return (
+                          <div className="mt-6 rounded-md border bg-muted/20">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAdvancedPricingExpanded((prev) => ({
+                                  ...prev,
+                                  [variant.sku]: !prev[variant.sku],
+                                }))
+                              }
+                              className="w-full flex items-center justify-between p-3 hover:bg-muted/40 transition-colors rounded-md"
+                            >
+                              <div className="flex items-center gap-2 text-left">
+                                <span className="text-sm font-medium">Precios avanzados</span>
+                                <span className="text-xs text-muted-foreground">
+                                  (listas, volumen, sucursal)
+                                </span>
+                                {hasData && (
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                    Configurado
+                                  </Badge>
+                                )}
+                              </div>
+                              <Switch
+                                checked={isExpanded}
+                                onCheckedChange={(checked) =>
+                                  setAdvancedPricingExpanded((prev) => ({
+                                    ...prev,
+                                    [variant.sku]: checked,
+                                  }))
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label="Habilitar precios avanzados"
+                              />
+                            </button>
 
-                      {/* Price Lists Manager para edición */}
-                      {showSalesFields && editingProduct?._id && variant.sku && (
-                        <div className="mt-4">
-                          <ProductPriceListManager
-                            productId={editingProduct._id}
-                            variantSku={variant.sku}
-                            basePrice={variant.basePrice || 0}
-                            customPrices={variant.customPrices || []}
-                            onChange={(customPrices) =>
-                              handleEditVariantFieldChange(index, 'customPrices', customPrices)
-                            }
-                          />
-                        </div>
-                      )}
+                            {isExpanded && (
+                              <div className="px-3 pb-3 space-y-4 border-t">
+                                <div className="mt-3 p-3 rounded-md bg-blue-500/5 border border-blue-500/20">
+                                  <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
+                                    <strong>Precios específicos de esta variante.</strong> Solo aplican a esta variante. Para reglas que apliquen a todas las variantes del producto, usa la pestaña <strong>Precios</strong>.
+                                  </p>
+                                </div>
 
-                      {/* Volume Discounts Manager para edición */}
-                      {showSalesFields && variant.sku && (
-                        <div className="mt-4">
-                          <VolumeDiscountsManager
-                            basePrice={variant.basePrice || 0}
-                            volumeDiscounts={variant.volumeDiscounts || []}
-                            onChange={(volumeDiscounts) =>
-                              handleEditVariantFieldChange(index, 'volumeDiscounts', volumeDiscounts)
-                            }
-                          />
-                        </div>
-                      )}
+                                {editingProduct?._id && (
+                                  <ProductPriceListManager
+                                    productId={editingProduct._id}
+                                    variantSku={variant.sku}
+                                    basePrice={variant.basePrice || 0}
+                                    customPrices={variant.customPrices || []}
+                                    onChange={(customPrices) =>
+                                      handleEditVariantFieldChange(index, 'customPrices', customPrices)
+                                    }
+                                  />
+                                )}
 
-                      {/* Location Pricing Manager para edición */}
-                      {showSalesFields && variant.sku && (
-                        <div className="mt-4">
-                          <LocationPricingManager
-                            basePrice={variant.basePrice || 0}
-                            locationPricing={variant.locationPricing || []}
-                            locations={[]}
-                            onChange={(locationPricing) =>
-                              handleEditVariantFieldChange(index, 'locationPricing', locationPricing)
-                            }
-                          />
-                        </div>
-                      )}
+                                <VolumeDiscountsManager
+                                  basePrice={variant.basePrice || 0}
+                                  volumeDiscounts={variant.volumeDiscounts || []}
+                                  onChange={(volumeDiscounts) =>
+                                    handleEditVariantFieldChange(index, 'volumeDiscounts', volumeDiscounts)
+                                  }
+                                />
+
+                                <LocationPricingManager
+                                  basePrice={variant.basePrice || 0}
+                                  locationPricing={variant.locationPricing || []}
+                                  locations={[]}
+                                  onChange={(locationPricing) =>
+                                    handleEditVariantFieldChange(index, 'locationPricing', locationPricing)
+                                  }
+                                />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {variantAttributes.length > 0 && (
                         <div className="border-t pt-4 mt-4">
