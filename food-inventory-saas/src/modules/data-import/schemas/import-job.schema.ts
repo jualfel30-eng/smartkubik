@@ -52,7 +52,7 @@ export class UpdateSnapshot {
   previousValues: Record<string, any>;
 }
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, suppressReservedKeysWarning: true })
 export class ImportJob {
   @Prop({
     type: String,

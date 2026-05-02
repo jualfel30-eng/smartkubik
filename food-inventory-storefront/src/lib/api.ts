@@ -140,7 +140,11 @@ export async function getStorefrontConfig(domain: string): Promise<StorefrontCon
     const data = await res.json();
     return data.data; // El backend devuelve { success: true, data: {...} }
   } catch (error) {
-    console.error('Error fetching storefront config:', error);
+    if (error instanceof Error && error.message === 'Tienda no encontrada') {
+      console.warn(`Storefront not found for domain: ${domain}`);
+    } else {
+      console.error('Error fetching storefront config:', error);
+    }
     throw error;
   }
 }
