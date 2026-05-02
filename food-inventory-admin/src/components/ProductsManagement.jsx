@@ -4111,15 +4111,24 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     )}
                     {visibleColumns.status && (
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            checked={product.isActive ?? true}
-                            onCheckedChange={() => handleToggleProductStatus(product)}
-                          />
-                          {product.isActive
-                            ? <Badge className="bg-success/10 text-green-800"><CheckCircle className="h-3 w-3 mr-1" />Activo</Badge>
-                            : <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Inactivo</Badge>}
-                        </div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1.5">
+                              <Switch
+                                checked={product.isActive ?? true}
+                                onCheckedChange={() => handleToggleProductStatus(product)}
+                                className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-rose-500"
+                                aria-label={product.isActive ? 'Activo' : 'Inactivo'}
+                              />
+                              {product.isActive
+                                ? <CheckCircle className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+                                : <XCircle className="h-4 w-4 text-rose-500" aria-hidden="true" />}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {product.isActive ? 'Activo' : 'Inactivo'}
+                          </TooltipContent>
+                        </Tooltip>
                       </TableCell>
                     )}
                     {visibleColumns.actions && (
