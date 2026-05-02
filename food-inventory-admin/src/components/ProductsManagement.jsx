@@ -4704,6 +4704,13 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 <TabsContent value="precios" className="flex-1 overflow-y-auto mt-0">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-4 py-4 px-6">
 
+                {/* Clarifying note: this tab vs Avanzado */}
+                <div className="col-span-2 p-3 rounded-md bg-emerald-500/5 border border-emerald-500/20">
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 leading-relaxed">
+                    <strong>Reglas de precio del producto.</strong> Lo que configures aquí (estrategia, descuentos por volumen, mayorista, promoción) <strong>aplica a todas las variantes</strong> del producto. Si necesitas precios distintos por variante específica (talla, color, etc.), ve a la pestaña <strong>Avanzado</strong>.
+                  </p>
+                </div>
+
                 {/* Precios y Descuentos — Accordion unificado (Edit) */}
                 <div className="col-span-2">
                   <ProductPricingAccordion
@@ -5217,6 +5224,15 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                               handleEditVariantFieldChange(index, 'basePrice', price)
                             }
                           />
+                        </div>
+                      )}
+
+                      {/* Pricing Managers — operate at VARIANT level (vs ProductPricingAccordion in Tab Precios which operates at PRODUCT level) */}
+                      {showSalesFields && variant.sku && (
+                        <div className="mt-6 p-3 rounded-md bg-blue-500/5 border border-blue-500/20">
+                          <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
+                            <strong>Precios específicos de esta variante.</strong> Los descuentos por volumen, listas de precios y precios por sucursal definidos aquí <strong>solo aplican a esta variante</strong>. Para reglas que apliquen a todas las variantes del producto, usa la pestaña <strong>Precios</strong>.
+                          </p>
                         </div>
                       )}
 
