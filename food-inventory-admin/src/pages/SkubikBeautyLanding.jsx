@@ -449,8 +449,9 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-ben-mobile-claim { display: none; }
 .s-ben-mobile-cta { display: none; }
 @media (max-width: 900px) {
-  .s-ben-mobile-claim { display: block; font-family: 'Inter Tight', sans-serif; font-size: 13px; font-weight: 500; color: var(--s-fg); margin-top: 8px; line-height: 1.3; }
-  .s-ben-mobile-cta { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--s-accent); font-weight: 600; }
+  .s-ben-content { position: relative; }
+  .s-ben-mobile-claim { display: block; font-family: 'Inter Tight', sans-serif; font-size: 17px; font-weight: 600; color: var(--s-fg); margin-top: 10px; line-height: 1.3; }
+  .s-ben-mobile-cta { display: flex; align-items: center; justify-content: center; gap: 6px; position: absolute; bottom: 6px; left: 0; right: 0; z-index: 30; pointer-events: none; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--s-accent); font-weight: 600; padding: 6px 12px; background: linear-gradient(to top, rgba(11,10,9,0.95) 30%, transparent); }
   .s-ben-mobile-cta-arrow { display: inline-block; animation: s-ben-arrow-bounce 1.6s ease-in-out infinite; }
 }
 @keyframes s-ben-arrow-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
