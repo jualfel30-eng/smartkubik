@@ -443,7 +443,17 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-ben-visual { height: 500px; background: transparent; border: none; border-radius: 24px; padding: 0; position: relative; overflow: visible; display: flex; align-items: center; justify-content: center; }
 /* Floating badge over the visual */
 .s-ben-outcome-float { position: absolute; bottom: 33%; left: 50%; z-index: 20; pointer-events: none; display: none; }
-@media (max-width: 900px) { .s-ben-outcome-float { display: block; } .s-ben-outcome-desktop { display: none !important; } }
+@media (max-width: 900px) { .s-ben-outcome-desktop { display: none !important; } }
+
+/* Mobile-only: act subtitle + CTA hint above iPhone */
+.s-ben-mobile-claim { display: none; }
+.s-ben-mobile-cta { display: none; }
+@media (max-width: 900px) {
+  .s-ben-mobile-claim { display: block; font-family: 'Inter Tight', sans-serif; font-size: 13px; font-weight: 500; color: var(--s-fg); margin-top: 8px; line-height: 1.3; }
+  .s-ben-mobile-cta { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--s-accent); font-weight: 600; }
+  .s-ben-mobile-cta-arrow { display: inline-block; animation: s-ben-arrow-bounce 1.6s ease-in-out infinite; }
+}
+@keyframes s-ben-arrow-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
 @media (max-width: 900px) { .s-ben-visual { height: auto; min-height: 380px; } }
 
 /* iPhone 16 Pro mockup frame */
@@ -1906,6 +1916,14 @@ function SBenefits({ D }) {
               <div className="s-ben-kicker">Acto {ben.num} · {ben.kicker}</div>
               <h3 dangerouslySetInnerHTML={{ __html: ben.title.replace(/\b(duermes|plantones|tuyas)\b/g, '<em>$1</em>') }} />
               <p className="s-ben-body">{ben.body}</p>
+              {currentIdx === 0 && (
+                <div className="s-ben-mobile-claim">Controla todo desde tu teléfono.</div>
+              )}
+              {currentIdx === 0 && (
+                <div className="s-ben-mobile-cta">
+                  <span className="s-ben-mobile-cta-arrow">↓</span> Toca cualquier cita y mira lo fácil que es
+                </div>
+              )}
               <div className="s-ben-outcome s-ben-outcome-desktop">
                 <span className="s-ben-outcome-v">{ben.outcome}</span>
                 <span className="s-ben-outcome-l">{ben.outcomeLabel}</span>
@@ -1916,16 +1934,6 @@ function SBenefits({ D }) {
                 {[0,1,2].map(i => <div key={i} className={`s-ben-indicator-dot ${i === currentIdx ? 'active' : ''}`}></div>)}
               </div>
               <BenefitVisual idx={currentIdx} progress={localP} />
-              {/* Floating badge — appears after 40% progress, rises into position */}
-              <div className="s-ben-outcome-float" style={{
-                transform: `translateX(-50%) translateY(${localP < 0.4 ? 80 : 80 - ((localP - 0.4) / 0.6) * 80}px) scale(${localP < 0.4 ? 0.85 : 0.85 + ((localP - 0.4) / 0.6) * 0.15})`,
-                opacity: localP < 0.4 ? 0 : Math.min(((localP - 0.4) / 0.6) * 2, 1),
-              }}>
-                <div className="s-ben-outcome" style={{ boxShadow: '0 8px 30px rgba(0,0,0,0.5)' }}>
-                  <span className="s-ben-outcome-v">{ben.outcome}</span>
-                  <span className="s-ben-outcome-l">{ben.outcomeLabel}</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>
