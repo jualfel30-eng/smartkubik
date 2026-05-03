@@ -16,8 +16,7 @@ Plataforma multi-tenant SaaS con 6 verticales (food inventory, restaurant, beaut
 | [`food-inventory-admin/`](food-inventory-admin/) | React 18 + Vite + MUI 7 + Radix + React Query | 5173 |
 | [`food-inventory-storefront/`](food-inventory-storefront/) | Next.js 15 (App Router) | 3001 |
 | [`restaurant-storefront/`](restaurant-storefront/) | Next.js 14 | 3002 |
-| [`smartkubik-blog/`](smartkubik-blog/) | Next.js + Sanity | 3003 |
-| [`sanity-studio/`](sanity-studio/) | Sanity CMS | 3333 |
+| [`smartkubik-blog/`](smartkubik-blog/) | Next.js + Sanity v3 (frontend + studio internos) | 3003 |
 
 Cada subproyecto tiene su propio `CLAUDE.md` con onboarding focal.
 
