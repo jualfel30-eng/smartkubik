@@ -47,7 +47,7 @@ const BEAUTY_DATA = {
         num: '01',
         kicker: 'Agenda 24/7',
         title: 'Tus clientes reservan sin que tú muevas un dedo.',
-        body: 'Ofrece una experiencia lujosa y profesional a tus clientes. Comparte el link de tu página en IG, WhatsApp o Tiktok. En segundos reservan servicio, estilista, día y hora.',
+        body: 'Ofrece una experiencia lujosa y profesional a tus clientes. En segundos reservan servicio, estilista, día y hora. Tú controlas todo desde tu teléfono.',
         outcome: '46%',
         outcomeLabel: 'de reservas son fuera de horario',
       },
@@ -416,7 +416,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
   .s-ben-text { flex-shrink: 0; padding: 8px 0 0; }
   .s-ben-kicker { font-size: 9px; }
   .s-ben-text h3 { font-size: 17px; margin: 4px 0; }
-  .s-ben-body { display: none !important; }
+  .s-ben-body { display: block !important; font-size: 14px !important; line-height: 1.4 !important; margin: 8px 0 0 !important; max-width: none !important; }
   .s-ben-outcome { padding: 6px 12px; margin-top: 4px; }
   .s-ben-outcome { white-space: nowrap; }
   .s-ben-outcome-v { font-size: 13px; font-style: normal; font-family: 'Inter Tight', sans-serif; font-weight: 700; }
@@ -1918,9 +1918,6 @@ function SBenefits({ D }) {
               <div className="s-ben-kicker">Acto {ben.num} · {ben.kicker}</div>
               <h3 dangerouslySetInnerHTML={{ __html: ben.title.replace(/\b(duermes|plantones|tuyas)\b/g, '<em>$1</em>') }} />
               <p className="s-ben-body">{ben.body}</p>
-              {currentIdx === 0 && (
-                <div className="s-ben-mobile-claim">Controla todo desde tu teléfono.</div>
-              )}
               <div className="s-ben-outcome s-ben-outcome-desktop">
                 <span className="s-ben-outcome-v">{ben.outcome}</span>
                 <span className="s-ben-outcome-l">{ben.outcomeLabel}</span>
