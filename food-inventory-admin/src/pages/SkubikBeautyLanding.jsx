@@ -449,9 +449,10 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-ben-mobile-claim { display: none; }
 .s-ben-mobile-cta { display: none; }
 @media (max-width: 900px) {
-  .s-ben-content { position: relative; }
-  .s-ben-mobile-claim { display: block; font-family: 'Inter Tight', sans-serif; font-size: 17px; font-weight: 600; color: var(--s-fg); margin-top: 10px; line-height: 1.3; }
-  .s-ben-mobile-cta { display: flex; align-items: center; justify-content: center; gap: 6px; position: absolute; bottom: 6px; left: 0; right: 0; z-index: 30; pointer-events: none; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--s-accent); font-weight: 600; padding: 6px 12px; background: linear-gradient(to top, rgba(11,10,9,0.95) 30%, transparent); }
+  .s-ben-mobile-claim { display: block; font-family: 'Inter Tight', sans-serif; font-size: 17px; font-weight: 400; color: var(--s-fg); margin-top: 10px; line-height: 1.3; }
+  /* CTA inside the iPhone visual, top-right area (not tapped by chat) */
+  .s-ben-visual { position: relative; }
+  .s-ben-mobile-cta { display: flex; align-items: center; justify-content: center; gap: 6px; position: absolute; left: 50%; transform: translateX(-50%); bottom: 90px; z-index: 30; pointer-events: none; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--s-accent); font-weight: 600; padding: 6px 12px; background: rgba(11,10,9,0.85); border: 1px solid rgba(255,90,44,0.3); border-radius: 99px; backdrop-filter: blur(8px); white-space: nowrap; }
   .s-ben-mobile-cta-arrow { display: inline-block; animation: s-ben-arrow-bounce 1.6s ease-in-out infinite; }
 }
 @keyframes s-ben-arrow-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
@@ -1920,11 +1921,6 @@ function SBenefits({ D }) {
               {currentIdx === 0 && (
                 <div className="s-ben-mobile-claim">Controla todo desde tu teléfono.</div>
               )}
-              {currentIdx === 0 && (
-                <div className="s-ben-mobile-cta">
-                  <span className="s-ben-mobile-cta-arrow">↓</span> Toca cualquier cita y mira lo fácil que es
-                </div>
-              )}
               <div className="s-ben-outcome s-ben-outcome-desktop">
                 <span className="s-ben-outcome-v">{ben.outcome}</span>
                 <span className="s-ben-outcome-l">{ben.outcomeLabel}</span>
@@ -1935,6 +1931,11 @@ function SBenefits({ D }) {
                 {[0,1,2].map(i => <div key={i} className={`s-ben-indicator-dot ${i === currentIdx ? 'active' : ''}`}></div>)}
               </div>
               <BenefitVisual idx={currentIdx} progress={localP} />
+              {currentIdx === 0 && (
+                <div className="s-ben-mobile-cta">
+                  <span className="s-ben-mobile-cta-arrow">↓</span> Toca cualquier cita
+                </div>
+              )}
             </div>
           </div>
         </div>
