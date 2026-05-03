@@ -46,7 +46,7 @@ Check frontend has these npm scripts:
 ### Command 1: Deploy (5-10 min depending on size)
 
 ```bash
-cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO
+cd /Users/jualfelsantamaria/Documents/Saas/smartkubik
 
 ./deploy-fullstack-page.sh \
   /path/to/your/project \

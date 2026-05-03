@@ -102,7 +102,7 @@ Make sure both apps are ready:
 From the scripts directory:
 
 ```bash
-cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO
+cd /Users/jualfelsantamaria/Documents/Saas/smartkubik
 
 ./deploy-fullstack-page.sh \
   /Users/jualfelsantamaria/Documents/pagina-inmobiliaria \

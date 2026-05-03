@@ -106,7 +106,7 @@ Busca `duration-700` y cámbialo a:
 ## 🔄 Si Necesitas Reiniciar el Servidor
 
 ```bash
-cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO/food-inventory-admin
+cd /Users/jualfelsantamaria/Documents/Saas/smartkubik/food-inventory-admin
 
 # Detener el servidor actual
 # Ctrl + C en la terminal donde está corriendo

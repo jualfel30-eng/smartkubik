@@ -38,7 +38,7 @@ Anteriormente existía **código duplicado** que causaba confusión constante so
 ## 📁 Estructura de Directorios Principal
 
 ```
-/FOOD-INVENTORY-SAAS-COMPLETO/
+/smartkubik/
 ├── food-inventory-saas/          ← Backend (NestJS, puerto 3000)
 ├── food-inventory-admin/         ← Admin Panel (React, puerto 3002)
 ├── food-inventory-storefront/    ← Storefront (Next.js, puerto 3001)

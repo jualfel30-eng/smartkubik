@@ -32,8 +32,8 @@ El tenant necesita:
 ## ARQUITECTURA EXISTENTE
 
 ### Tech Stack
-- **Backend**: NestJS + MongoDB (Mongoose) — ubicado en `FOOD-INVENTORY-SAAS-COMPLETO/food-inventory-saas/`
-- **Frontend Admin**: React 18 + Vite + React Router v7 — ubicado en `FOOD-INVENTORY-SAAS-COMPLETO/food-inventory-admin/`
+- **Backend**: NestJS + MongoDB (Mongoose) — ubicado en `smartkubik/food-inventory-saas/`
+- **Frontend Admin**: React 18 + Vite + React Router v7 — ubicado en `smartkubik/food-inventory-admin/`
 - **Styling**: Tailwind CSS v4 + Shadcn/Radix + MUI + Framer Motion
 - **Auth**: JWT con guards (JwtAuthGuard → TenantGuard → PermissionsGuard)
 - **State Management**: Context API + custom hooks

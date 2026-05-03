@@ -173,7 +173,7 @@ cd ../..
 
 ### Step 2: Deploy
 ```bash
-cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO
+cd /Users/jualfelsantamaria/Documents/Saas/smartkubik
 
 ./deploy-fullstack-page.sh \
   /Users/jualfelsantamaria/Documents/Página\ inmobiliaria \

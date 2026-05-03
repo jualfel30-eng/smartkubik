@@ -696,7 +696,7 @@ Si necesitas continuar la implementacion con Gemini u otra IA:
 
 **ESTADO: IMPLEMENTACION COMPLETA (Fase 1-3 backend + frontend)**
 
-**Backend (en `FOOD-INVENTORY-SAAS-COMPLETO/food-inventory-saas/src/`):**
+**Backend (en `smartkubik/food-inventory-saas/src/`):**
 - `schemas/chart-of-accounts.schema.ts` - MODIFICADO: campos `costBehavior` (fixed/variable/mixed) y `liquidityClass` (current/non_current) agregados
 - `schemas/fixed-asset.schema.ts` - NUEVO: schema para activos fijos con depreciacion (straight_line/declining_balance)
 - `schemas/investment.schema.ts` - NUEVO: schema para inversiones por categoria con ROI tracking
@@ -704,7 +704,7 @@ Si necesitas continuar la implementacion con Gemini u otra IA:
 - `modules/analytics/analytics.controller.ts` - MODIFICADO: endpoint `GET /analytics/financial-kpis` con permission `reports_read`
 - `modules/analytics/analytics.module.ts` - MODIFICADO: 6 nuevos schemas registrados (ChartOfAccounts, JournalEntry, PayrollRun, FixedAsset, Investment, Payment)
 
-**Frontend (en `FOOD-INVENTORY-SAAS-COMPLETO/food-inventory-admin/src/`):**
+**Frontend (en `smartkubik/food-inventory-admin/src/`):**
 - `hooks/use-financial-kpis.js` - NUEVO: hook con `useFinancialKpis(period)` que retorna {data, loading, error, reload}
 - `components/charts/FinancialKpisDashboard.jsx` - NUEVO: componente completo con:
   - 5 KpiCards (Ticket Promedio, Margen Bruto, Margen Neto, Liquidez, EBITDA)

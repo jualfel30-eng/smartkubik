@@ -11,7 +11,7 @@
 ### 1. Navegar al directorio del proyecto
 
 ```bash
-cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO/food-inventory-storefront
+cd /Users/jualfelsantamaria/Documents/Saas/smartkubik/food-inventory-storefront
 ```
 
 ### 2. Instalar dependencias

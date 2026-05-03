@@ -38,7 +38,7 @@ Tu directorio:
 **Paso 1: Configurar variables de entorno**
 ```bash
 cd /Users/jualfelsantamaria/Documents/clientes-demos/restaurante-casa-pepe
-cp ../FOOD-INVENTORY-SAAS-COMPLETO/demo-templates/.env.example .env.restaurante
+cp ../smartkubik/demo-templates/.env.example .env.restaurante
 ```
 
 **Edita `.env.restaurante`:**
@@ -58,7 +58,7 @@ VITE_SHOW_SMARTKUBIK_BANNER=true
 
 **Paso 2: Build y deploy**
 ```bash
-cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO
+cd /Users/jualfelsantamaria/Documents/Saas/smartkubik
 
 ./deploy-demo-page.sh \
   /Users/jualfelsantamaria/Documents/clientes-demos/restaurante-casa-pepe \
@@ -93,7 +93,7 @@ cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO
 
 **Deploy:**
 ```bash
-cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO
+cd /Users/jualfelsantamaria/Documents/Saas/smartkubik
 
 # Next.js detectado automáticamente
 ./deploy-demo-page.sh \
@@ -116,7 +116,7 @@ cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO
 Tienes 3 páginas listas para deploy:
 
 ```bash
-cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO
+cd /Users/jualfelsantamaria/Documents/Saas/smartkubik
 
 # Demo 1: Restaurante
 ./deploy-demo-page.sh ../clientes-demos/restaurante-casa-pepe restaurante-casa-pepe 5001 &
@@ -151,7 +151,7 @@ cd /Users/jualfelsantamaria/Documents/clientes-demos/restaurante-casa-pepe
 # ... haces cambios en el código ...
 
 # 2. Redeploy (MISMO comando que deploy inicial)
-cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO
+cd /Users/jualfelsantamaria/Documents/Saas/smartkubik
 
 ./deploy-demo-page.sh \
   /Users/jualfelsantamaria/Documents/clientes-demos/restaurante-casa-pepe \

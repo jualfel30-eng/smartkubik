@@ -15,7 +15,7 @@ Esta guía te ayudará a configurar un certificado SSL wildcard para `*.smartkub
 Desde tu máquina local:
 
 ```bash
-cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO
+cd /Users/jualfelsantamaria/Documents/Saas/smartkubik
 chmod +x setup-wildcard-ssl.sh
 ./setup-wildcard-ssl.sh
 ```

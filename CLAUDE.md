@@ -1,4 +1,4 @@
-# SmartKubik SaaS V1.03
+# SmartKubik SaaS
 
 Plataforma multi-tenant SaaS con 6 verticales (food inventory, restaurant, beauty, billing, payroll, marketing). Monorepo de 4 apps + CMS.
 

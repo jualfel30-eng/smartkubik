@@ -44,7 +44,7 @@ El script automáticamente:
 
 ### Paso 1: Ubicarse en el directorio del backend
 ```bash
-cd /Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO/food-inventory-saas
+cd /Users/jualfelsantamaria/Documents/Saas/smartkubik/food-inventory-saas
 ```
 
 ### Paso 2: Ejecutar el script de migración

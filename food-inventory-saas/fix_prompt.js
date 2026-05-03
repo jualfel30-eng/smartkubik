@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const filePath = '/Users/jualfelsantamaria/Documents/Saas/V1.03/FOOD-INVENTORY-SAAS-COMPLETO/food-inventory-saas/src/modules/assistant/assistant.service.ts';
+const filePath = '/Users/jualfelsantamaria/Documents/Saas/smartkubik/food-inventory-saas/src/modules/assistant/assistant.service.ts';
 
 try {
     let content = fs.readFileSync(filePath, 'utf8');
