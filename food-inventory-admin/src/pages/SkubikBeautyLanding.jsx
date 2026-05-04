@@ -45,6 +45,14 @@ const BEAUTY_DATA = {
     items: [
       {
         num: '01',
+        kicker: 'Tu web de reservas',
+        title: 'La presencia empieza antes de la cita.',
+        body: 'Tus clientes entran a tu página, eligen servicio, profesional y hora. La experiencia que ofreces de principio a fin es lo que justifica tus precios.',
+        outcome: '+34%',
+        outcomeLabel: 'aumenta el ticket promedio con web propia',
+      },
+      {
+        num: '02',
         kicker: 'Agenda 24/7',
         title: 'Tus clientes reservan sin que tú muevas un dedo.',
         body: 'Ofrece una experiencia lujosa y profesional a tus clientes. En segundos reservan servicio, estilista, día y hora. Tú controlas todo desde tu teléfono.',
@@ -52,20 +60,12 @@ const BEAUTY_DATA = {
         outcomeLabel: 'de reservas son fuera de horario',
       },
       {
-        num: '02',
+        num: '03',
         kicker: 'Anticipos que se cobran solos',
         title: 'Reduce embarques y pérdidas.',
         body: 'Blíndate con nosotros. Pide anticipos para agendar y envía recordatorios para confirmar. Sin pago no hay reserva. Skubik lo hace por ti.',
         outcome: '–38%',
         outcomeLabel: 'cancelaciones de último minuto',
-      },
-      {
-        num: '03',
-        kicker: 'Tus datos son tuyos',
-        title: 'Tus clientas, tus números, tu negocio.',
-        body: 'Exporta contactos, historial y ventas cuando quieras, en un clic. Sin candados, sin permisos, sin "contáctanos para desactivar". Aquí mandas tú.',
-        outcome: '100%',
-        outcomeLabel: 'propiedad de tu base de clientes',
       },
     ],
   },
@@ -1892,9 +1892,155 @@ function ExportFlow({ progress }) {
 }
 
 function BenefitVisual({ idx, progress }) {
-  if (idx === 0) return <IPhoneMockup progress={progress} />;
-  if (idx === 1) return <ConfigFlowMockup progress={progress} />;
-  return <div className="s-ben-visual-box"><ExportFlow progress={progress} /></div>;
+  if (idx === 0) return <BookingWebMockup progress={progress} />;
+  if (idx === 1) return <IPhoneMockup progress={progress} />;
+  return <ConfigFlowMockup progress={progress} />;
+}
+
+// Booking website mockup — flujo de reserva del cliente
+function BookingWebMockup({ progress }) {
+  // 4 pantallas: 0=landing, 1=servicios, 2=profesional, 3=fecha/hora
+  const screen = progress < 0.25 ? 0 : progress < 0.5 ? 1 : progress < 0.75 ? 2 : 3;
+  const lp = screen === 0 ? progress / 0.25
+    : screen === 1 ? (progress - 0.25) / 0.25
+    : screen === 2 ? (progress - 0.5) / 0.25
+    : (progress - 0.75) / 0.25;
+  const sel = (threshold) => lp > threshold;
+
+  return (
+    <div className="s-iphone">
+      <div className="s-iphone-island" />
+      <div className="s-iphone-screen">
+        <div className="s-app-statusbar">
+          <span>9:41</span>
+          <div className="s-app-statusbar-right">
+            <svg width="12" height="10" viewBox="0 0 16 12" fill="var(--s-fg)"><path d="M1 8h2v4H1zM5 5h2v7H5zM9 2h2v10H9zM13 0h2v12h-2z" opacity=".9"/></svg>
+            <svg width="12" height="10" viewBox="0 0 16 12" fill="var(--s-fg)"><path d="M8 2.5A7.5 7.5 0 0 0 .5 10l1.4 1.4A5.6 5.6 0 0 1 8 8a5.6 5.6 0 0 1 6.1 3.4L15.5 10A7.5 7.5 0 0 0 8 2.5z" opacity=".9"/></svg>
+            <div className="s-app-statusbar-batt"></div>
+          </div>
+        </div>
+        {/* Browser address bar */}
+        <div style={{ flexShrink: 0, padding: '10px 16px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: 1, background: 'rgba(255,255,255,0.08)', borderRadius: 14, padding: '6px 12px', fontSize: 10, color: 'var(--s-muted)', fontFamily: 'JetBrains Mono, monospace', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ color: '#4ade80' }}>●</span> studiobella.skubik.com
+          </div>
+        </div>
+        <div className="s-cfg-wrap">
+          {/* Screen 0: Landing del salón */}
+          <div className={`s-cfg-screen ${screen === 0 ? 'active' : 'out-left'}`} style={{ overflowY: 'auto' }}>
+            <div style={{ height: 100, background: 'linear-gradient(135deg, #ff5a2c, #c25a3a)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 70% 50%, rgba(255,255,255,0.15), transparent 60%)' }} />
+              <div style={{ position: 'relative', textAlign: 'center', color: '#fff' }}>
+                <div style={{ fontFamily: 'Fraunces, serif', fontSize: 22, fontStyle: 'italic', fontWeight: 500 }}>Studio Bella</div>
+                <div style={{ fontSize: 9, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.15em', opacity: 0.9, marginTop: 2 }}>Beauty · Caracas</div>
+              </div>
+            </div>
+            <div style={{ padding: '14px 16px 8px' }}>
+              <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', color: 'var(--s-muted)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8 }}>★ 4.9 · 248 reseñas</div>
+              <div style={{ fontSize: 12, color: 'var(--s-muted)', lineHeight: 1.4, marginBottom: 12 }}>Salón premium especializado en color, cortes y tratamientos capilares.</div>
+              <div style={{ background: '#3b82f6', color: '#fff', borderRadius: 10, padding: '12px', textAlign: 'center', fontSize: 13, fontWeight: 600 }}>Reservar cita</div>
+            </div>
+            <div style={{ padding: '8px 16px' }}>
+              <div className="s-cfg-section" style={{ padding: '8px 0 6px' }}>Galería</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+                {[0,1,2,3,4,5].map(i => (
+                  <div key={i} style={{ aspectRatio: '1/1', background: `linear-gradient(${135 + i*20}deg, rgba(255,90,44,0.${2+i}), rgba(192,90,58,0.${1+i}))`, borderRadius: 6 }} />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Screen 1: Selección de servicio */}
+          <div className={`s-cfg-screen ${screen === 1 ? 'active' : screen < 1 ? 'out-right' : 'out-left'}`} style={{ overflowY: 'auto' }}>
+            <div className="s-cfg-back">{IC.chevL} Elige un servicio</div>
+            <div style={{ padding: '0 12px' }}>
+              {[
+                { name: 'Corte + Brushing', dur: '45 min', price: 25, hl: 0.1 },
+                { name: 'Balayage + Toner', dur: '2h 30min', price: 65, hl: 0.3 },
+                { name: 'Keratina', dur: '3h', price: 80, hl: 0.5 },
+                { name: 'Corte de Puntas', dur: '20 min', price: 12, hl: 0.7 },
+                { name: 'Tinte Raíz', dur: '1h 30min', price: 40, hl: 0.9 },
+              ].map((s, i) => (
+                <div key={i} style={{
+                  background: sel(0.5) && i === 1 ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.04)',
+                  border: sel(0.5) && i === 1 ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 10, padding: '10px 12px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--s-fg)' }}>{s.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--s-muted)', marginTop: 2 }}>{s.dur}</div>
+                  </div>
+                  <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, color: sel(0.5) && i === 1 ? '#3b82f6' : 'var(--s-fg)' }}>${s.price}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Screen 2: Selección de profesional */}
+          <div className={`s-cfg-screen ${screen === 2 ? 'active' : screen < 2 ? 'out-right' : 'out-left'}`} style={{ overflowY: 'auto' }}>
+            <div className="s-cfg-back">{IC.chevL} Elige profesional</div>
+            <div style={{ padding: '0 12px' }}>
+              {[
+                { name: 'Ana María López', spec: 'Color · Balayage', avail: 'Hoy', sel: true },
+                { name: 'Carlos Ramírez', spec: 'Cortes · Barba', avail: 'Mañana' },
+                { name: 'Luisa Fernández', spec: 'Uñas · Tratamientos', avail: 'Hoy' },
+              ].map((p, i) => (
+                <div key={i} style={{
+                  background: sel(0.5) && p.sel ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.04)',
+                  border: sel(0.5) && p.sel ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: 10, padding: '10px 12px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #ff5a2c, #c25a3a)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Fraunces, serif', fontSize: 14, color: '#fff', flexShrink: 0 }}>{p.name.split(' ')[0][0]}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--s-fg)' }}>{p.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--s-muted)', marginTop: 2 }}>{p.spec}</div>
+                  </div>
+                  <div style={{ fontSize: 9, fontFamily: 'JetBrains Mono, monospace', color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{p.avail}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Screen 3: Selección de fecha y hora */}
+          <div className={`s-cfg-screen ${screen === 3 ? 'active' : 'out-right'}`} style={{ overflowY: 'auto' }}>
+            <div className="s-cfg-back">{IC.chevL} Elige fecha y hora</div>
+            <div style={{ padding: '0 12px' }}>
+              {/* Day picker */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12, overflow: 'hidden' }}>
+                {['L', 'M', 'M', 'J', 'V', 'S'].map((d, i) => (
+                  <div key={i} style={{
+                    flex: 1, padding: '8px 4px', borderRadius: 8, textAlign: 'center',
+                    background: i === 1 && sel(0.3) ? '#3b82f6' : 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }}>
+                    <div style={{ fontSize: 9, color: i === 1 && sel(0.3) ? '#fff' : 'var(--s-muted)', fontFamily: 'JetBrains Mono, monospace' }}>{d}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: i === 1 && sel(0.3) ? '#fff' : 'var(--s-fg)', marginTop: 2 }}>{4 + i}</div>
+                  </div>
+                ))}
+              </div>
+              {/* Time slots */}
+              <div className="s-cfg-section" style={{ padding: '4px 0 8px' }}>Horarios disponibles</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                {['09:00', '10:00', '11:00', '13:00', '14:30', '16:00'].map((t, i) => (
+                  <div key={i} style={{
+                    padding: '8px', borderRadius: 8, textAlign: 'center', fontSize: 11, fontFamily: 'JetBrains Mono, monospace', fontWeight: 600,
+                    background: i === 1 && sel(0.6) ? '#3b82f6' : 'rgba(255,255,255,0.04)',
+                    border: i === 1 && sel(0.6) ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.06)',
+                    color: i === 1 && sel(0.6) ? '#fff' : 'var(--s-fg)',
+                  }}>{t}</div>
+                ))}
+              </div>
+              {sel(0.85) && (
+                <div style={{ marginTop: 14, background: '#3b82f6', borderRadius: 10, padding: '12px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#fff' }}>
+                  Continuar al pago →
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function SBenefits({ D }) {
@@ -1928,7 +2074,7 @@ function SBenefits({ D }) {
                 {[0,1,2].map(i => <div key={i} className={`s-ben-indicator-dot ${i === currentIdx ? 'active' : ''}`}></div>)}
               </div>
               <BenefitVisual idx={currentIdx} progress={localP} />
-              {currentIdx === 0 && (
+              {currentIdx === 1 && (
                 <div className="s-ben-mobile-cta">
                   <span className="s-ben-mobile-cta-arrow">↓</span> Toca cualquier cita
                 </div>
