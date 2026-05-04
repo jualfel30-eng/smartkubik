@@ -55,7 +55,7 @@ const BEAUTY_DATA = {
         num: '02',
         kicker: 'Anticipos que se cobran solos',
         title: 'Reduce embarques y pérdidas.',
-        body: 'Pide anticipos para agendar y envía recordatorios para confirmar. Sin pago no hay reserva. Skubik lo hace por ti.',
+        body: 'Blíndate con nosotros. Pide anticipos para agendar y envía recordatorios para confirmar. Sin pago no hay reserva. Skubik lo hace por ti.',
         outcome: '–38%',
         outcomeLabel: 'cancelaciones de último minuto',
       },
