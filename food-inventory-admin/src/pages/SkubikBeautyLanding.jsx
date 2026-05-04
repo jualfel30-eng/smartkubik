@@ -54,8 +54,8 @@ const BEAUTY_DATA = {
       {
         num: '02',
         kicker: 'Anticipos que se cobran solos',
-        title: 'Adiós a embarques, pérdida de tiempo y dinero.',
-        body: 'Configura tus métodos de pago y el % de anticipo. El sistema cobra antes de confirmar. Sin pago, no hay reserva.',
+        title: 'Reduce embarques, pérdida de tiempo y dinero.',
+        body: 'Pide anticipos para agendar y envía recordatorios para confirmar. El sistema lo hace por ti.',
         outcome: '–38%',
         outcomeLabel: 'cancelaciones de último minuto',
       },
