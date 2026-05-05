@@ -28,6 +28,7 @@ import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useAuth } from '@/hooks/use-auth.jsx';
 import { useConsumables } from '@/hooks/useConsumables';
 import { useSupplies } from '@/hooks/useSupplies';
+import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 import { UnitTypeFields } from './UnitTypes';
 import { BarcodeScannerDialog } from '@/components/BarcodeScannerDialog.jsx';
 import { CONSUMABLE_TYPES, SUPPLY_CATEGORIES } from '@/types/consumables';
@@ -322,6 +323,7 @@ const initialNewProductState = {
   sku: '',
   name: '',
   initialInventoryQuantity: 0,
+  initialInventoryWarehouseId: '', // empty = backend uses tenant default warehouse
   category: [],
   subcategory: [],
   brand: '',
@@ -434,6 +436,34 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   });
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState(initialNewProductState);
+  // Warehouses for Stock Inicial selector in create dialog
+  const { flags: featureFlags } = useFeatureFlags();
+  const multiWarehouseEnabled = featureFlags?.MULTI_WAREHOUSE;
+  const [warehouses, setWarehouses] = useState([]);
+  useEffect(() => {
+    if (!isAddDialogOpen) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetchApi('/warehouses');
+        const list = Array.isArray(res) ? res : (res?.data || []);
+        if (cancelled) return;
+        setWarehouses(list);
+        // Pre-select default warehouse (isDefault=true) or first active
+        const defaultWh = list.find((w) => w.isDefault) || list.find((w) => w.isActive !== false);
+        if (defaultWh && !newProduct.initialInventoryWarehouseId) {
+          setNewProduct((prev) => ({
+            ...prev,
+            initialInventoryWarehouseId: defaultWh._id || defaultWh.id,
+          }));
+        }
+      } catch (err) {
+        console.error('Error loading warehouses for create dialog:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAddDialogOpen]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const defaultProductColumns = {
     sku: true,
@@ -1280,6 +1310,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         }
       }),
       initialInventoryQuantity: Number(newProduct.initialInventoryQuantity) || 0,
+      // Forward selected warehouse to backend; empty string falls back to default
+      ...(newProduct.initialInventoryWarehouseId && {
+        initialInventoryWarehouseId: newProduct.initialInventoryWarehouseId,
+      }),
     };
 
     delete payload.shelfLifeValue;
@@ -2351,16 +2385,22 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
         {/* Primary CTA */}
         <PriceListsManager />
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button id="add-product-button" size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white"><Plus className="h-5 w-5 mr-2" /> Agregar Producto</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
-            <DialogHeader className="px-6 pt-6">
-              <div className="flex items-center justify-between">
+        <Sheet open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Button
+            id="add-product-button"
+            size="lg"
+            className="bg-[#FB923C] hover:bg-[#F97316] text-white"
+            onClick={() => setIsAddDialogOpen(true)}
+          ><Plus className="h-5 w-5 mr-2" /> Agregar Producto</Button>
+          <SheetContent
+            side="right"
+            className="!inset-4 !top-4 !bottom-4 !right-4 !h-auto !w-[calc(100vw-2rem)] !max-w-[calc(100vw-2rem)] sm:!max-w-[calc(100vw-2rem)] rounded-xl border overflow-hidden flex flex-col p-0"
+          >
+            <SheetHeader className="px-6 pt-6 pb-4 border-b">
+              <div className="flex items-center justify-between pr-8">
                 <div>
-                  <DialogTitle>Agregar Nuevo Producto</DialogTitle>
-                  <DialogDescription>Completa la información para crear un nuevo producto en el catálogo.</DialogDescription>
+                  <SheetTitle>Agregar Nuevo Producto</SheetTitle>
+                  <SheetDescription>Completa la información para crear un nuevo producto en el catálogo.</SheetDescription>
                 </div>
                 <div className="flex-shrink-0">
                   <input
@@ -2415,7 +2455,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   </div>
                 </div>
               )}
-            </DialogHeader>
+            </SheetHeader>
 
             {/* Product Type Selector */}
             <div className="px-6 py-4 border-b bg-muted/30">
@@ -3813,36 +3853,76 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 </div>
               )}
 
-              <details className="mt-6 border rounded-lg">
-                <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium hover:bg-muted/40">
-                  Stock inicial (opcional)
-                </summary>
-                <div className="px-4 pb-4 pt-2 space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    Si ya tienes existencia de este producto, indícala aquí. Si no, déjalo en 0 — el inventario se crea automáticamente.
-                  </p>
-                  <Label htmlFor="initialInventoryQuantity">Cantidad inicial</Label>
-                  <Input
-                    id="initialInventoryQuantity"
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={newProduct.initialInventoryQuantity ?? 0}
-                    onChange={(e) => setNewProduct({
-                      ...newProduct,
-                      initialInventoryQuantity: e.target.value === '' ? 0 : Number(e.target.value),
-                    })}
-                    placeholder="0"
-                  />
+              {/* Stock Inicial — prominent, at the bottom of the form
+                  but BEFORE the footer, so the user fills it before clicking Create.
+                  Goal: ship-ready product immediately after creation. */}
+              <div className="mt-6 border-2 border-emerald-500/40 bg-emerald-500/5 rounded-lg p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1">
+                    <h4 className="text-base font-semibold flex items-center gap-2">
+                      <Package className="h-4 w-4 text-emerald-500" />
+                      Stock inicial
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Indica cuánto inventario tienes hoy. Al crear el producto, ya quedará listo para vender.
+                    </p>
+                  </div>
                 </div>
-              </details>
+                <div className={multiWarehouseEnabled && warehouses.length > 1 ? 'grid grid-cols-2 gap-4' : ''}>
+                  <div className="space-y-2">
+                    <Label htmlFor="initialInventoryQuantity">Cantidad inicial</Label>
+                    <Input
+                      id="initialInventoryQuantity"
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={newProduct.initialInventoryQuantity ?? 0}
+                      onChange={(e) => setNewProduct({
+                        ...newProduct,
+                        initialInventoryQuantity: e.target.value === '' ? 0 : Number(e.target.value),
+                      })}
+                      placeholder="0"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Si no tienes existencia aún, déjalo en 0.
+                    </p>
+                  </div>
+                  {multiWarehouseEnabled && warehouses.length > 1 && (
+                    <div className="space-y-2">
+                      <Label htmlFor="initialInventoryWarehouseId">Almacén destino</Label>
+                      <Select
+                        value={newProduct.initialInventoryWarehouseId || ''}
+                        onValueChange={(v) => setNewProduct({ ...newProduct, initialInventoryWarehouseId: v })}
+                      >
+                        <SelectTrigger id="initialInventoryWarehouseId">
+                          <SelectValue placeholder="Selecciona almacén" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {warehouses.map((w) => {
+                            const id = w._id || w.id;
+                            return (
+                              <SelectItem key={id} value={id}>
+                                {w.name}
+                                {w.isDefault && <span className="text-xs text-muted-foreground ml-2">(predeterminado)</span>}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Por defecto se asigna al almacén principal.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            <DialogFooter className="px-6 pb-6 pt-4 border-t">
+            <div className="flex justify-end gap-2 px-6 py-4 border-t bg-card">
               <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
               <Button onClick={handleAddProduct}>Crear Producto</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
       <Card>
         <CardHeader />
