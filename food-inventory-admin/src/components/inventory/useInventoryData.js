@@ -126,7 +126,10 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
   const [itemsPerPage, setItemsPerPage] = useState(DEFAULT_ITEMS_PER_PAGE);
   const [committedSearch, setCommittedSearch] = useState('');
   const manualItemsPerPageRef = useRef(DEFAULT_ITEMS_PER_PAGE);
-  const lastQueryRef = useRef({ search: null, limit: null });
+  // Includes sortBy/sortOrder because the effect compares against them.
+  // Without these, undefined !== sortBy/sortOrder triggers a false "changed"
+  // on first run and resets the page to 1 unexpectedly.
+  const lastQueryRef = useRef({ search: null, limit: null, sortBy: null, sortOrder: null });
 
   // --- sort ---
   const [sortBy, setSortBy] = useState('updatedAt');
@@ -296,7 +299,12 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
   const refreshData = useCallback(
     async (page, limit, search) => {
       await loadData({ page, limit, search });
-      lastQueryRef.current = { search, limit };
+      // Preserve sortBy/sortOrder when updating ref to avoid unintended page resets
+      lastQueryRef.current = {
+        ...lastQueryRef.current,
+        search,
+        limit,
+      };
     },
     [loadData],
   );

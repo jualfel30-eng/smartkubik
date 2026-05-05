@@ -420,8 +420,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   const [totalPages, setTotalPages] = useState(0);
   const lastFetchRef = useRef('');
   const abortControllerRef = useRef(null);
-  // Ref to detect filter/search changes so we reset to page 1 only when they actually change
-  const prevFiltersRef = useRef({ searchTerm: '', statusFilter: 'all', filterCategory: 'all', defaultProductType });
+  // Ref to detect filter/search changes so we reset to page 1 only when they actually change.
+  // Must match ALL fields compared in the effect below, otherwise undefined !== value
+  // triggers a false "filtersChanged" on first run and resets pagination unexpectedly.
+  const prevFiltersRef = useRef({
+    searchTerm: '',
+    statusFilter: 'all',
+    filterCategory: 'all',
+    defaultProductType,
+    sortBy: 'createdAt',
+    sortOrder: 'desc',
+  });
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newProduct, setNewProduct] = useState(initialNewProductState);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
