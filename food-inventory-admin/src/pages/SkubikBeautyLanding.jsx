@@ -47,7 +47,7 @@ const BEAUTY_DATA = {
         num: '01',
         kicker: 'Tu web de reservas',
         title: 'La presencia empieza antes de la cita.',
-        body: 'Tus clientes entran a tu página, eligen servicio, profesional y hora. La experiencia que ofreces de principio a fin es lo que justifica tus precios.',
+        body: 'Ofrece una web elegante y profesional, donde tus clientes reservan en segundos. La experiencia que ofreces de principio a fin es lo que justifica tus precios.',
         outcome: '+34%',
         outcomeLabel: 'aumenta el ticket promedio con web propia',
       },
