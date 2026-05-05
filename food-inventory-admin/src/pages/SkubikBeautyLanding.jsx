@@ -55,7 +55,7 @@ const BEAUTY_DATA = {
         num: '02',
         kicker: 'Agenda 24/7',
         title: 'Control total desde tu teléfono.',
-        body: 'Dedícate a lo importante y automatiza reservas, mensajes de confirmación y comisiones sin que tú tengas que mover un dedo.',
+        body: 'Dedícate a lo importante y automatiza reservas, mensajes de confirmación y comisiones sin que tú tengas que mover un dedo. Gestiona todo en pocos pasos.',
         outcome: '46%',
         outcomeLabel: 'de reservas son fuera de horario',
       },
