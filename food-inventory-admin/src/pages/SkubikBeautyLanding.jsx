@@ -449,6 +449,30 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-ben-mobile-claim { display: none; }
 .s-ben-mobile-cta { display: flex; align-items: center; justify-content: center; gap: 6px; position: absolute; left: 50%; transform: translateX(-50%); top: 24px; z-index: 30; pointer-events: none; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--s-accent); font-weight: 600; padding: 6px 12px; background: rgba(11,10,9,0.85); border: 1px solid rgba(255,90,44,0.3); border-radius: 99px; backdrop-filter: blur(8px); white-space: nowrap; }
 .s-ben-mobile-cta-arrow { display: inline-block; animation: s-ben-arrow-bounce 1.6s ease-in-out infinite; }
+
+/* Background parallax grid */
+.s-ben-bg-parallax { position: absolute; inset: -200px 0; background-image: linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px); background-size: 60px 60px; pointer-events: none; z-index: 0; will-change: transform; mask: radial-gradient(ellipse at center, #000 30%, transparent 80%); -webkit-mask: radial-gradient(ellipse at center, #000 30%, transparent 80%); }
+
+/* Intro screen — fullscreen title fading into acts (mobile only) */
+.s-ben-intro { display: none; position: absolute; inset: 0; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 32px; z-index: 5; transition: opacity 0.3s; }
+@media (max-width: 900px) { .s-ben-intro { display: flex; } }
+.s-ben-intro h2 { font-family: 'Fraunces', serif; font-size: clamp(40px, 6vw, 72px); margin: 16px 0; line-height: 0.95; }
+.s-ben-intro h2 em { font-style: italic; color: var(--s-accent); }
+.s-ben-intro-hint { margin-top: 24px; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-muted); display: flex; align-items: center; gap: 8px; }
+
+/* Vertical progress bar — mobile only */
+.s-ben-progress-vertical { display: none; }
+@media (max-width: 900px) {
+  .s-ben-progress-vertical { display: block; position: absolute; right: -10px; top: 25%; bottom: 25%; width: 2px; background: rgba(255,255,255,0.08); border-radius: 2px; z-index: 15; overflow: hidden; }
+  .s-ben-progress-vertical-fill { width: 100%; background: var(--s-accent); border-radius: 2px; transition: height 0.15s linear; }
+  /* Hide dots indicator on mobile, replaced by vertical bar */
+  .s-ben-indicator { display: none; }
+}
+
+/* Scroll hint pulsante */
+.s-ben-scroll-hint { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); padding: 10px 18px; background: rgba(255,90,44,0.12); border: 1px solid var(--s-accent); border-radius: 99px; color: var(--s-accent); font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; z-index: 50; pointer-events: none; backdrop-filter: blur(8px); animation: s-ben-hint-pulse 1.6s ease-in-out infinite; }
+@keyframes s-ben-hint-pulse { 0%, 100% { opacity: 0.85; transform: translateX(-50%) scale(1); } 50% { opacity: 1; transform: translateX(-50%) scale(1.04); } }
+@media (max-width: 600px) { .s-ben-scroll-hint { font-size: 10px; padding: 8px 14px; bottom: 20px; } }
 @media (max-width: 900px) {
   .s-ben-mobile-claim { display: block; font-family: 'Inter Tight', sans-serif; font-size: 17px; font-weight: 400; color: var(--s-muted); margin-top: 10px; line-height: 1.3; }
   /* CTA inside the iPhone visual, top-right area (not tapped by chat) */
@@ -2047,20 +2071,70 @@ function BookingWebMockup({ progress }) {
 function SBenefits({ D }) {
   const stageRef = useRef(null);
   const progress = useSectionProgress(stageRef);
-  const p = Math.min(progress / 0.75, 1);
+
+  // Reserve first 6% for intro screen (only mobile shows it fullscreen)
+  const introVisible = progress < 0.06;
+  const introOpacity = progress < 0.04 ? 1 : Math.max(0, 1 - (progress - 0.04) / 0.02);
+  const contentOpacity = progress < 0.04 ? 0 : Math.min(1, (progress - 0.04) / 0.02);
+
+  // Remap acts to start after intro
+  const actStart = 0.06;
+  const actEnd = 0.78;
+  const p = progress < actStart ? 0 : Math.min((progress - actStart) / (actEnd - actStart), 1);
   const currentIdx = Math.min(2, Math.floor(p * 3));
   const localP = Math.max(0, Math.min(1, (p * 3) - currentIdx));
   const ben = D.benefits.items[currentIdx];
+
+  // Hint pulsante: aparece si el usuario lleva 2.5s sin scrollear dentro de la sección
+  const [showHint, setShowHint] = useState(false);
+  const lastProgressRef = useRef(progress);
+  const lastChangeTimeRef = useRef(Date.now());
+
+  useEffect(() => {
+    if (progress !== lastProgressRef.current) {
+      lastProgressRef.current = progress;
+      lastChangeTimeRef.current = Date.now();
+      setShowHint(false);
+    }
+  }, [progress]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      try {
+        if (localStorage.getItem('skubik-scroll-hint-shown')) return;
+      } catch {}
+      const idle = Date.now() - lastChangeTimeRef.current;
+      const inSection = progress > 0.06 && progress < 0.72;
+      if (idle > 2500 && inSection) {
+        setShowHint(true);
+        try { localStorage.setItem('skubik-scroll-hint-shown', '1'); } catch {}
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [progress]);
 
   return (
     <section className="s-benefits" id="beneficios" data-screen-label="03 Benefits">
       <div className="s-ben-stage" ref={stageRef}>
         <div className="s-ben-sticky">
-          <div className="s-ben-head">
+          {/* Background parallax grid */}
+          <div className="s-ben-bg-parallax" style={{ transform: `translateY(${progress * -120}px)` }} />
+
+          {/* Intro screen — fullscreen title that fades into the acts */}
+          <div className="s-ben-intro" style={{ opacity: introOpacity, pointerEvents: introVisible ? 'auto' : 'none' }}>
+            <span className="s-eyebrow">Tres actos</span>
+            <h2>¿Qué cambia cuando <em>hacemos equipo?</em></h2>
+            <div className="s-ben-intro-hint">
+              <span className="s-ben-mobile-cta-arrow">↓</span> Continúa para descubrir
+            </div>
+          </div>
+
+          {/* Main content */}
+          <div className="s-ben-head" style={{ opacity: contentOpacity }}>
             <span className="s-eyebrow">Tres actos</span>
             <h2>¿Qué cambia cuando <em>hacemos equipo?</em></h2>
           </div>
-          <div className="s-ben-content">
+          <div className="s-ben-content" style={{ opacity: contentOpacity }}>
             <div className="s-ben-text" key={currentIdx}>
               <div className="s-ben-kicker">Acto {ben.num} · {ben.kicker}</div>
               <h3 dangerouslySetInnerHTML={{ __html: ben.title.replace(/\b(duermes|plantones|tuyas)\b/g, '<em>$1</em>') }} />
@@ -2074,6 +2148,10 @@ function SBenefits({ D }) {
               <div className="s-ben-indicator">
                 {[0,1,2].map(i => <div key={i} className={`s-ben-indicator-dot ${i === currentIdx ? 'active' : ''}`}></div>)}
               </div>
+              {/* Vertical progress bar (mobile) */}
+              <div className="s-ben-progress-vertical">
+                <div className="s-ben-progress-vertical-fill" style={{ height: `${((currentIdx + localP) / 3) * 100}%` }} />
+              </div>
               <BenefitVisual idx={currentIdx} progress={localP} />
               {currentIdx === 1 && (
                 <div className="s-ben-mobile-cta">
@@ -2082,6 +2160,13 @@ function SBenefits({ D }) {
               )}
             </div>
           </div>
+
+          {/* Scroll hint pulsante */}
+          {showHint && (
+            <div className="s-ben-scroll-hint">
+              <span className="s-ben-mobile-cta-arrow">↓</span> Sigue scrolleando para continuar
+            </div>
+          )}
         </div>
       </div>
     </section>
