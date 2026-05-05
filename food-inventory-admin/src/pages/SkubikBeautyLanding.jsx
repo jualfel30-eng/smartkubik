@@ -54,8 +54,8 @@ const BEAUTY_DATA = {
       {
         num: '02',
         kicker: 'Agenda 24/7',
-        title: 'Tus clientes reservan sin que tú muevas un dedo.',
-        body: 'Ofrece una experiencia lujosa y profesional a tus clientes. En segundos reservan servicio, estilista, día y hora. Tú controlas todo desde tu teléfono.',
+        title: 'Control total desde tu teléfono.',
+        body: 'Automatiza reservas, mensajes de confirmación y comisiones sin que tú tengas que mover un dedo.',
         outcome: '46%',
         outcomeLabel: 'de reservas son fuera de horario',
       },
