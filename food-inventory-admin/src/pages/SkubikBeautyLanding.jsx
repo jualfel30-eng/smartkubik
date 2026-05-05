@@ -1922,194 +1922,21 @@ function BenefitVisual({ idx, progress }) {
   return <ConfigFlowMockup progress={progress} />;
 }
 
-// Booking website mockup — replica del storefront beauty (Barbería Sava)
-function BookingWebMockup({ progress }) {
-  // 3 pantallas: 0=hero, 1=servicios+filtros, 2=equipo + reservar
-  const screen = progress < 0.33 ? 0 : progress < 0.66 ? 1 : 2;
-  const lp = screen === 0 ? progress / 0.33
-    : screen === 1 ? (progress - 0.33) / 0.33
-    : (progress - 0.66) / 0.34;
-  const sel = (threshold) => lp > threshold;
-
-  // Active filter index (animates through filters in screen 1)
-  const filterIdx = screen === 1 ? Math.min(2, Math.floor(lp * 3)) : 0;
-  const filters = ['Todos', 'Cortes', 'Barba', 'Color', 'Combos'];
-
+// Booking website mockup — autoplay video inside iPhone frame
+function BookingWebMockup() {
   return (
     <div className="s-iphone">
       <div className="s-iphone-island" />
-      <div className="s-iphone-screen">
-        <div className="s-app-statusbar">
-          <span>9:41</span>
-          <div className="s-app-statusbar-right">
-            <svg width="12" height="10" viewBox="0 0 16 12" fill="var(--s-fg)"><path d="M1 8h2v4H1zM5 5h2v7H5zM9 2h2v10H9zM13 0h2v12h-2z" opacity=".9"/></svg>
-            <svg width="12" height="10" viewBox="0 0 16 12" fill="var(--s-fg)"><path d="M8 2.5A7.5 7.5 0 0 0 .5 10l1.4 1.4A5.6 5.6 0 0 1 8 8a5.6 5.6 0 0 1 6.1 3.4L15.5 10A7.5 7.5 0 0 0 8 2.5z" opacity=".9"/></svg>
-            <div className="s-app-statusbar-batt"></div>
-          </div>
-        </div>
-        {/* Browser address bar */}
-        <div style={{ flexShrink: 0, padding: '10px 16px 6px', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ flex: 1, background: 'rgba(255,255,255,0.08)', borderRadius: 14, padding: '6px 12px', fontSize: 10, color: 'var(--s-muted)', fontFamily: 'JetBrains Mono, monospace', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ color: '#4ade80' }}>●</span> savabarberia.smartkubik.com
-          </div>
-        </div>
-
-        {/* Site header — sticky brand bar */}
-        <div style={{ flexShrink: 0, padding: '8px 14px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 18, height: 18, borderRadius: 4, background: 'linear-gradient(135deg, #b08968, #6b4e3d)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Fraunces, serif', fontWeight: 700, fontSize: 11, color: '#fff' }}>S</div>
-            <div style={{ fontFamily: 'Fraunces, serif', fontSize: 12, fontWeight: 600, color: 'var(--s-fg)' }}>Barbería Sava</div>
-          </div>
-          <div style={{ background: '#b08968', color: '#fff', borderRadius: 99, padding: '4px 10px', fontSize: 9, fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reservar</div>
-        </div>
-
-        <div className="s-cfg-wrap">
-          {/* Screen 0: Hero */}
-          <div className={`s-cfg-screen ${screen === 0 ? 'active' : 'out-left'}`} style={{ overflowY: 'auto' }}>
-            <div style={{ position: 'relative', height: 180, overflow: 'hidden', background: '#1a1612' }}>
-              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,0.2), rgba(0,0,0,0.85)), url("https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=600&q=70") center/cover' }} />
-              <div style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center', color: '#fff', padding: '0 18px' }}>
-                <div style={{ fontFamily: 'Fraunces, serif', fontSize: 26, fontWeight: 700, lineHeight: 1.05, marginBottom: 6 }}>Precisión impecable, actitud total</div>
-                <div style={{ fontSize: 9, fontFamily: 'JetBrains Mono, monospace', color: 'rgba(255,255,255,0.85)', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <span style={{ color: '#fbbf24' }}>★★★★☆</span>
-                  <span>4.7 · 25 reseñas en Google</span>
-                </div>
-              </div>
-            </div>
-            <div style={{ padding: '14px 14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div style={{ background: '#b08968', color: '#fff', borderRadius: 10, padding: '11px', textAlign: 'center', fontSize: 12, fontWeight: 700 }}>Reservar Ahora</div>
-              <div style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--s-fg)', borderRadius: 10, padding: '11px', textAlign: 'center', fontSize: 12, fontWeight: 600 }}>Ver Servicios</div>
-            </div>
-            <div style={{ padding: '0 14px 16px' }}>
-              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, color: 'var(--s-muted)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 10 }}>Galería</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
-                {[0,1,2,3,4,5].map(i => (
-                  <div key={i} style={{ aspectRatio: '1/1', background: `linear-gradient(${135 + i*30}deg, #2a1f17 ${20 + i*10}%, #4a3a2a)`, borderRadius: 4 }} />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Screen 1: Servicios + filtros */}
-          <div className={`s-cfg-screen ${screen === 1 ? 'active' : screen < 1 ? 'out-right' : 'out-left'}`} style={{ overflowY: 'auto' }}>
-            <div style={{ padding: '14px 14px 8px' }}>
-              <div style={{ fontFamily: 'Fraunces, serif', fontSize: 18, fontWeight: 700, color: 'var(--s-fg)', marginBottom: 4 }}>Servicios</div>
-              <div style={{ fontSize: 10, color: 'var(--s-muted)' }}>Elige un servicio para reservar</div>
-            </div>
-            {/* Filter tabs */}
-            <div style={{ padding: '4px 14px 12px', display: 'flex', gap: 6, overflowX: 'auto' }}>
-              {filters.map((f, i) => (
-                <div key={i} style={{
-                  flexShrink: 0,
-                  padding: '5px 12px',
-                  borderRadius: 99,
-                  background: i === filterIdx ? '#b08968' : 'transparent',
-                  border: '1px solid ' + (i === filterIdx ? '#b08968' : 'rgba(255,255,255,0.15)'),
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: i === filterIdx ? '#fff' : 'var(--s-muted)',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.3s',
-                }}>{f}</div>
-              ))}
-            </div>
-            {/* Service cards */}
-            <div style={{ padding: '0 14px 16px' }}>
-              {[
-                { cat: 'Cortes', name: 'Corte Clásico', desc: 'Corte tradicional con tijera', dur: 30, price: 12, addons: [{ n: 'Lavado', p: 3 }] },
-                { cat: 'Combos', name: 'Corte + Barba', desc: 'Corte completo + arreglo de barba', dur: 50, price: 18, addons: [{ n: 'Mascarilla', p: 5 }] },
-                { cat: 'Barba', name: 'Diseño de Barba', desc: 'Perfilado y arreglo', dur: 25, price: 10, addons: [] },
-                { cat: 'Color', name: 'Aplicación de tinte', desc: 'Cubre canas y resalta', dur: 60, price: 20, addons: [{ n: 'Tratamiento', p: 8 }] },
-              ].map((s, i) => (
-                <div key={i} style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 10,
-                  padding: '10px 12px',
-                  marginBottom: 8,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 4,
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 9, fontFamily: 'JetBrains Mono, monospace', color: '#b08968', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>{s.cat}</div>
-                      <div style={{ fontFamily: 'Fraunces, serif', fontSize: 13, fontWeight: 600, color: 'var(--s-fg)' }}>{s.name}</div>
-                      <div style={{ fontSize: 10, color: 'var(--s-muted)', marginTop: 2, lineHeight: 1.3 }}>{s.desc}</div>
-                    </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontFamily: 'Fraunces, serif', fontSize: 16, fontWeight: 700, color: '#b08968' }}>${s.price}</div>
-                      <div style={{ fontSize: 9, fontFamily: 'JetBrains Mono, monospace', color: 'var(--s-dim)', marginTop: 1 }}>{s.dur} min</div>
-                    </div>
-                  </div>
-                  {s.addons.length > 0 && (
-                    <div style={{ fontSize: 9, color: 'var(--s-dim)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 5, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.05em' }}>+ Addon:</span>
-                      <span>{s.addons[0].n} (+${s.addons[0].p})</span>
-                    </div>
-                  )}
-                  <div style={{
-                    background: '#b08968',
-                    color: '#fff',
-                    borderRadius: 6,
-                    padding: '6px',
-                    textAlign: 'center',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    marginTop: 4,
-                  }}>Reservar</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Screen 2: Equipo */}
-          <div className={`s-cfg-screen ${screen === 2 ? 'active' : 'out-right'}`} style={{ overflowY: 'auto' }}>
-            <div style={{ padding: '14px 14px 8px' }}>
-              <div style={{ fontFamily: 'Fraunces, serif', fontSize: 18, fontWeight: 700, color: 'var(--s-fg)', marginBottom: 4 }}>Nuestro Equipo</div>
-              <div style={{ fontSize: 10, color: 'var(--s-muted)' }}>Profesionales con años de experiencia</div>
-            </div>
-            <div style={{ padding: '6px 14px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {[
-                { name: 'Carlos "El Pulpo"', role: 'Master Barber', years: '12 años' },
-                { name: 'Miguel Ángel', role: 'Senior Barber', years: '8 años' },
-                { name: 'Diego Ramírez', role: 'Barber & Color', years: '5 años' },
-                { name: 'Andrés Suárez', role: 'Junior Barber', years: '3 años' },
-              ].map((p, i) => (
-                <div key={i} style={{
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 10,
-                  padding: 10,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  textAlign: 'center',
-                  gap: 6,
-                }}>
-                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: `linear-gradient(135deg, #b08968, #6b4e3d)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Fraunces, serif', fontSize: 18, fontWeight: 700, color: '#fff' }}>{p.name[0]}</div>
-                  <div>
-                    <div style={{ fontFamily: 'Fraunces, serif', fontSize: 11, fontWeight: 600, color: 'var(--s-fg)', lineHeight: 1.2 }}>{p.name}</div>
-                    <div style={{ fontSize: 9, color: '#b08968', fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 3 }}>{p.role}</div>
-                    <div style={{ fontSize: 9, color: 'var(--s-muted)', marginTop: 1 }}>{p.years}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {/* Reviews preview */}
-            <div style={{ padding: '0 14px 14px' }}>
-              <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 9, color: 'var(--s-muted)', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 8 }}>Reseñas</div>
-              <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                  <span style={{ color: '#fbbf24', fontSize: 10 }}>★★★★★</span>
-                  <span style={{ fontSize: 9, fontFamily: 'JetBrains Mono, monospace', color: 'var(--s-muted)' }}>hace 2 días</span>
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--s-fg)', lineHeight: 1.4, fontStyle: 'italic' }}>"El mejor corte que me he hecho. Carlos es un crack."</div>
-                <div style={{ fontSize: 9, color: 'var(--s-muted)', marginTop: 4 }}>— Pedro M.</div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="s-iphone-screen" style={{ background: '#000' }}>
+        <video
+          src="/videos/skubik-act1.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
       </div>
     </div>
   );
