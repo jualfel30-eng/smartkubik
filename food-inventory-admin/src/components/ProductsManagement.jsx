@@ -337,7 +337,7 @@ const initialNewProductState = {
   shelfLifeValue: 0,
   storageTemperature: 'ambiente',
   ivaApplicable: true,
-  ivaRate: 0, // Default to exempt (0%)
+  ivaRate: 16, // Default to standard rate (16%) — Venezuela IVA general
   taxCategory: 'general',
   isSoldByWeight: false,
   unitOfMeasure: 'unidad',
@@ -2787,7 +2787,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   <div className="space-y-2">
                     <Label htmlFor="ivaRate">IVA Aplicable</Label>
                     <Select
-                      value={String(newProduct.ivaRate ?? 0)}
+                      value={String(newProduct.ivaRate ?? 16)}
                       onValueChange={(value) =>
                         setNewProduct({
                           ...newProduct,
