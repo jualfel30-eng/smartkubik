@@ -2072,21 +2072,41 @@ function SBenefits({ D }) {
   const stageRef = useRef(null);
   const progress = useSectionProgress(stageRef);
 
+  // Detect mobile viewport for intro screen
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
   // Sticky is pinned between progress 0.14 and 0.86 — remap to 0-1 within that range
   const pinStart = 0.14;
   const pinEnd = 0.86;
   const pinned = Math.max(0, Math.min((progress - pinStart) / (pinEnd - pinStart), 1));
 
-  // Reserve first 8% of pinned time for intro screen
-  const introOpacity = pinned < 0.06 ? 1 : Math.max(0, 1 - (pinned - 0.06) / 0.04);
-  const contentOpacity = pinned < 0.06 ? 0 : Math.min(1, (pinned - 0.06) / 0.04);
-  const introVisible = pinned < 0.10;
+  // Mobile: reserve first 8% of pinned time for intro screen
+  // Desktop: no intro screen, content visible from start
+  const introOpacity = !isMobile ? 0 : (pinned < 0.06 ? 1 : Math.max(0, 1 - (pinned - 0.06) / 0.04));
+  const contentOpacity = !isMobile ? 1 : (pinned < 0.06 ? 0 : Math.min(1, (pinned - 0.06) / 0.04));
+  const introVisible = isMobile && pinned < 0.10;
 
-  // Acts span 10% → 100% of pinned time (with last 5% holding act 3)
-  const p = pinned < 0.10 ? 0 : Math.min((pinned - 0.10) / 0.85, 1);
+  // Acts span: mobile starts after intro (0.10), desktop starts at 0
+  const actStart = isMobile ? 0.10 : 0;
+  const p = pinned < actStart ? 0 : Math.min((pinned - actStart) / (1 - actStart), 1);
   const currentIdx = Math.min(2, Math.floor(p * 3));
   const localP = Math.max(0, Math.min(1, (p * 3) - currentIdx));
   const ben = D.benefits.items[currentIdx];
+
+  // Grid parallax opacity — fade in/out at section edges
+  const gridOpacity =
+    progress < 0.10 ? 0
+    : progress < 0.20 ? (progress - 0.10) / 0.10
+    : progress > 0.92 ? 0
+    : progress > 0.82 ? 1 - (progress - 0.82) / 0.10
+    : 1;
 
   // Hint pulsante: aparece si el usuario lleva 2.5s sin scrollear dentro de la sección
   const [showHint, setShowHint] = useState(false);
@@ -2121,7 +2141,7 @@ function SBenefits({ D }) {
       <div className="s-ben-stage" ref={stageRef}>
         <div className="s-ben-sticky">
           {/* Background parallax grid */}
-          <div className="s-ben-bg-parallax" style={{ transform: `translateY(${pinned * -400}px)` }} />
+          <div className="s-ben-bg-parallax" style={{ transform: `translateY(${pinned * -400}px)`, opacity: gridOpacity }} />
 
           {/* Intro screen — fullscreen title that fades into the acts */}
           <div className="s-ben-intro" style={{ opacity: introOpacity, pointerEvents: introVisible ? 'auto' : 'none' }}>
