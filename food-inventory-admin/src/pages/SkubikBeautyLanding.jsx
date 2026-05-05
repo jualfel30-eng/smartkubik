@@ -447,7 +447,8 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 
 /* Mobile-only: act subtitle + CTA hint above iPhone */
 .s-ben-mobile-claim { display: none; }
-.s-ben-mobile-cta { display: none; }
+.s-ben-mobile-cta { display: flex; align-items: center; justify-content: center; gap: 6px; position: absolute; left: 50%; transform: translateX(-50%); top: 24px; z-index: 30; pointer-events: none; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--s-accent); font-weight: 600; padding: 6px 12px; background: rgba(11,10,9,0.85); border: 1px solid rgba(255,90,44,0.3); border-radius: 99px; backdrop-filter: blur(8px); white-space: nowrap; }
+.s-ben-mobile-cta-arrow { display: inline-block; animation: s-ben-arrow-bounce 1.6s ease-in-out infinite; }
 @media (max-width: 900px) {
   .s-ben-mobile-claim { display: block; font-family: 'Inter Tight', sans-serif; font-size: 17px; font-weight: 400; color: var(--s-muted); margin-top: 10px; line-height: 1.3; }
   /* CTA inside the iPhone visual, top-right area (not tapped by chat) */
