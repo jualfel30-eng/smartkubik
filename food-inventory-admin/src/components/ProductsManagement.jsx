@@ -2864,57 +2864,13 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 )}
               </div>
 
-              {newProduct.inventoryConfig && (
-                <div className="col-span-2 border-t pt-4 mt-4">
-                  <h4 className="text-lg font-medium mb-4">Configuración de Inventario</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="minimumStock">Stock Mínimo</Label>
-                      <NumberInput
-                        id="minimumStock"
-                        value={newProduct.inventoryConfig.minimumStock ?? ''}
-                        onValueChange={(val) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, minimumStock: val } })}
-                        step={1}
-                        min={0}
-                        placeholder="Stock mínimo"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="maximumStock">Stock Máximo</Label>
-                      <NumberInput
-                        id="maximumStock"
-                        value={newProduct.inventoryConfig.maximumStock ?? ''}
-                        onValueChange={(val) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, maximumStock: val } })}
-                        step={1}
-                        min={0}
-                        placeholder="Stock máximo"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="reorderPoint">Punto de Reorden</Label>
-                      <NumberInput
-                        id="reorderPoint"
-                        value={newProduct.inventoryConfig.reorderPoint ?? ''}
-                        onValueChange={(val) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, reorderPoint: val } })}
-                        step={1}
-                        min={0}
-                        placeholder="Punto de reorden"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="reorderQuantity">Cantidad de Reorden</Label>
-                      <NumberInput
-                        id="reorderQuantity"
-                        value={newProduct.inventoryConfig.reorderQuantity ?? ''}
-                        onValueChange={(val) => setNewProduct({ ...newProduct, inventoryConfig: { ...newProduct.inventoryConfig, reorderQuantity: val } })}
-                        step={1}
-                        min={0}
-                        placeholder="Cantidad de reorden"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Configuración de Inventario (Stock min/max/reorden) intencionalmente oculta en CREAR.
+                  Razones: requiere historia de venta para tener valores informados (Cooper's Just-In-Time UX),
+                  los defaults pre-llenos son ancla psicológica falsa (Tversky-Kahneman 1974), y los
+                  competidores (Shopify/Square/Lightspeed) la mueven a un módulo dedicado post-creación.
+                  El state inventoryConfig en initialNewProductState mantiene defaults razonables
+                  (10/100/20/50) que el backend acepta por @IsObject. El usuario los ajusta después
+                  desde Editar Producto → Tab Inventario, donde tiene contexto real. */}
 
               {/* Sistema Global de Unidades de Medida - Solo para CONSUMABLES y SUPPLIES */}
               {(newProduct.productType === 'consumable' || newProduct.productType === 'supply') && (
