@@ -577,6 +577,22 @@ export class CreateProductDto {
   @IsString()
   @IsNotEmpty()
   taxCategory: string;
+
+  @ApiPropertyOptional({
+    description: "Cantidad de stock inicial en el warehouse del usuario logueado (default: 0)",
+    minimum: 0,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  initialInventoryQuantity?: number;
+
+  @ApiPropertyOptional({
+    description: "Warehouse destino del stock inicial. Si no se especifica, se usa el warehouse default del tenant del usuario.",
+  })
+  @IsOptional()
+  @IsString()
+  initialInventoryWarehouseId?: string;
 }
 
 export class UpdateProductDto {

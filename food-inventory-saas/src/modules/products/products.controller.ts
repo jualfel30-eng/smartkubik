@@ -101,9 +101,15 @@ export class ProductsController {
   @Permissions("products_create")
   async create(@Body() createProductDto: CreateProductDto, @Request() req) {
     this.ensureTenantConfirmed(req);
+    const inventoryContext = {
+      ownerTenantId: req.user.tenantId,
+      warehouseId: createProductDto.initialInventoryWarehouseId,
+      initialQuantity: createProductDto.initialInventoryQuantity,
+    };
     const product = await this.productsService.create(
       createProductDto,
       this.getCatalogUser(req),
+      inventoryContext,
     );
     return { success: true, data: product };
   }
@@ -115,9 +121,11 @@ export class ProductsController {
     @Request() req,
   ) {
     this.ensureTenantConfirmed(req);
+    const inventoryContext = { ownerTenantId: req.user.tenantId };
     const result = await this.productsService.bulkCreate(
       bulkCreateProductsDto,
       this.getCatalogUser(req),
+      inventoryContext,
     );
     return { success: true, data: result };
   }

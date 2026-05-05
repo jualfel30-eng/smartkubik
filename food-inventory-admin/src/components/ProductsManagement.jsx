@@ -321,6 +321,7 @@ const initialNewProductState = {
   productType: 'simple', // 'simple', 'consumable', 'supply'
   sku: '',
   name: '',
+  initialInventoryQuantity: 0,
   category: [],
   subcategory: [],
   brand: '',
@@ -1278,6 +1279,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
           isActive: true,
         }
       }),
+      initialInventoryQuantity: Number(newProduct.initialInventoryQuantity) || 0,
     };
 
     delete payload.shelfLifeValue;
@@ -3810,6 +3812,30 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   </div>
                 </div>
               )}
+
+              <details className="mt-6 border rounded-lg">
+                <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium hover:bg-muted/40">
+                  Stock inicial (opcional)
+                </summary>
+                <div className="px-4 pb-4 pt-2 space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Si ya tienes existencia de este producto, indícala aquí. Si no, déjalo en 0 — el inventario se crea automáticamente.
+                  </p>
+                  <Label htmlFor="initialInventoryQuantity">Cantidad inicial</Label>
+                  <Input
+                    id="initialInventoryQuantity"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={newProduct.initialInventoryQuantity ?? 0}
+                    onChange={(e) => setNewProduct({
+                      ...newProduct,
+                      initialInventoryQuantity: e.target.value === '' ? 0 : Number(e.target.value),
+                    })}
+                    placeholder="0"
+                  />
+                </div>
+              </details>
             </div>
             <DialogFooter className="px-6 pb-6 pt-4 border-t">
               <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>

@@ -15,6 +15,7 @@ import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { CustomersService } from "../customers/customers.service";
 import { PurchasesService } from "../purchases/purchases.service";
 import { SuppliersService } from "../suppliers/suppliers.service";
+import { InventoryService } from "../inventory/inventory.service";
 import {
   CreateProductDto,
   UpdateProductDto,
@@ -46,6 +47,7 @@ export class ProductsService {
     private readonly openaiService: OpenaiService,
     private readonly priceHistoryService: PriceHistoryService,
     private readonly priceListsService: PriceListsService,
+    @Inject(forwardRef(() => InventoryService)) private readonly inventoryService: InventoryService,
     @InjectConnection() private readonly connection: Connection,
   ) { }
 
@@ -393,6 +395,11 @@ export class ProductsService {
   async create(
     createProductDto: CreateProductDto,
     user: any,
+    inventoryContext?: {
+      ownerTenantId: string;
+      warehouseId?: string;
+      initialQuantity?: number;
+    },
   ): Promise<ProductDocument> {
     this.logger.log(`Creating product with SKU: ${createProductDto.sku}`);
 
@@ -491,10 +498,38 @@ export class ProductsService {
       },
     });
 
+    if (inventoryContext) {
+      try {
+        const result = await this.inventoryService.createInitialInventoriesForProductInGroup(
+          savedProduct,
+          {
+            ownerTenantId: inventoryContext.ownerTenantId,
+            warehouseId: inventoryContext.warehouseId,
+            initialQuantity: inventoryContext.initialQuantity,
+            createdBy: user.id,
+          },
+        );
+        this.logger.log(
+          `Initial inventories for ${savedProduct.sku}: ${result.created} created, ${result.skipped} skipped`,
+        );
+      } catch (err) {
+        this.logger.error(
+          `Failed to create initial inventories for ${savedProduct.sku}: ${err.message}`,
+        );
+      }
+    }
+
     return savedProduct;
   }
 
-  async bulkCreate(bulkCreateProductsDto: BulkCreateProductsDto, user: any) {
+  async bulkCreate(
+    bulkCreateProductsDto: BulkCreateProductsDto,
+    user: any,
+    inventoryContext?: {
+      ownerTenantId: string;
+      warehouseId?: string;
+    },
+  ) {
     const session = await this.connection.startSession();
     session.startTransaction();
     try {
@@ -558,7 +593,17 @@ export class ProductsService {
         };
 
         try {
-          const createdProduct = await this.create(createProductDto, user);
+          const createdProduct = await this.create(
+            createProductDto,
+            user,
+            inventoryContext
+              ? {
+                  ownerTenantId: inventoryContext.ownerTenantId,
+                  warehouseId: inventoryContext.warehouseId,
+                  initialQuantity: 0,
+                }
+              : undefined,
+          );
           createdProducts.push(createdProduct);
           this.logger.log(`✅ Successfully created product ${productIndex}: ${productDto.sku}`);
         } catch (productError) {

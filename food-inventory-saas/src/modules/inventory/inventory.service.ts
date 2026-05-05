@@ -65,6 +65,188 @@ export class InventoryService {
     return new Types.ObjectId(tenantId.toString());
   }
 
+  /**
+   * Returns all tenants in the operational group for a given tenant:
+   *   matrix tenant + every subsidiary that points to it via parentTenantId.
+   *
+   * Works whether the input is the matrix or a subsidiary — always returns
+   * the full sibling set anchored at the matrix.
+   */
+  private async getTenantGroup(tenantId: string | Types.ObjectId): Promise<Types.ObjectId[]> {
+    const inputObj = new Types.ObjectId(tenantId.toString());
+    const tenant = await this.tenantModel
+      .findById(inputObj)
+      .select("parentTenantId isSubsidiary")
+      .lean()
+      .exec();
+
+    const matrixTenantId =
+      tenant?.isSubsidiary && tenant?.parentTenantId
+        ? new Types.ObjectId(tenant.parentTenantId.toString())
+        : inputObj;
+
+    const subsidiaries = await this.tenantModel
+      .find({ parentTenantId: matrixTenantId, isSubsidiary: true })
+      .select("_id")
+      .lean()
+      .exec();
+
+    return [
+      matrixTenantId,
+      ...subsidiaries.map((s) => new Types.ObjectId(s._id.toString())),
+    ];
+  }
+
+  /**
+   * Creates Inventory documents for a newly created product across every tenant
+   * of its operational group (matrix + subsidiaries).
+   *
+   * The owner tenant (the one whose user triggered the product creation) gets
+   * the requested `initialQuantity`; all other tenants in the group get qty=0.
+   * If `initialQuantity > 0`, an `IN` movement is also created on the owner
+   * tenant for audit traceability.
+   *
+   * If the product has variants, one inventory document is created per variant.
+   *
+   * Idempotent: pre-existing (tenantId, productId, variantId) inventories are
+   * left untouched and counted as skipped.
+   */
+  async createInitialInventoriesForProductInGroup(
+    product: ProductDocument,
+    options: {
+      ownerTenantId: string | Types.ObjectId;
+      warehouseId?: string | Types.ObjectId;
+      initialQuantity?: number;
+      createdBy?: string | Types.ObjectId;
+    },
+    session?: ClientSession,
+  ): Promise<{ created: number; skipped: number; warnings: string[] }> {
+    const ownerTenantIdStr = options.ownerTenantId.toString();
+    const initialQty = Math.max(0, options.initialQuantity ?? 0);
+    const warnings: string[] = [];
+
+    const groupTenantIds = await this.getTenantGroup(ownerTenantIdStr);
+
+    const variantsList = (product.variants && product.variants.length > 0)
+      ? product.variants
+      : [null];
+
+    let created = 0;
+    let skipped = 0;
+
+    for (const tenantId of groupTenantIds) {
+      const isOwner = tenantId.toString() === ownerTenantIdStr;
+
+      let warehouseId: Types.ObjectId | undefined;
+      if (isOwner && options.warehouseId) {
+        warehouseId = new Types.ObjectId(options.warehouseId.toString());
+      } else {
+        warehouseId = await this.getDefaultWarehouse(tenantId);
+      }
+
+      if (!warehouseId) {
+        warnings.push(
+          `Tenant ${tenantId.toString()} has no usable warehouse — skipping inventory creation for ${product.sku}`,
+        );
+        continue;
+      }
+
+      for (const variant of variantsList) {
+        const variantId = (variant as any)?._id
+          ? new Types.ObjectId((variant as any)._id.toString())
+          : undefined;
+        const variantSku = (variant as any)?.sku;
+        const costPrice = (variant as any)?.costPrice ?? 0;
+
+        const existsFilter: Record<string, any> = {
+          tenantId,
+          productId: new Types.ObjectId(product._id.toString()),
+        };
+        if (variantId) {
+          existsFilter.variantId = variantId;
+        } else {
+          existsFilter.$or = [
+            { variantId: { $exists: false } },
+            { variantId: null },
+          ];
+        }
+
+        const existing = await this.inventoryModel
+          .findOne(existsFilter)
+          .session(session ?? null);
+
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        const qty = isOwner ? initialQty : 0;
+
+        const inventoryDoc: Record<string, any> = {
+          tenantId,
+          warehouseId,
+          productId: new Types.ObjectId(product._id.toString()),
+          productSku: product.sku,
+          productName: product.name,
+          totalQuantity: qty,
+          availableQuantity: qty,
+          reservedQuantity: 0,
+          committedQuantity: 0,
+          averageCostPrice: costPrice,
+          lastCostPrice: costPrice,
+          lots: [],
+          isActive: true,
+        };
+        if (variantId) inventoryDoc.variantId = variantId;
+        if (variantSku) inventoryDoc.variantSku = variantSku;
+        if (options.createdBy) {
+          inventoryDoc.createdBy = new Types.ObjectId(options.createdBy.toString());
+        }
+
+        const inventory = new this.inventoryModel(inventoryDoc);
+        await inventory.save({ session });
+        created++;
+
+        if (isOwner && qty > 0) {
+          if (!options.createdBy) {
+            warnings.push(
+              `initialQuantity=${qty} requested but no createdBy provided — IN movement skipped for ${product.sku}`,
+            );
+          } else {
+            const movement = new this.movementModel({
+              inventoryId: inventory._id,
+              warehouseId,
+              productId: new Types.ObjectId(product._id.toString()),
+              productSku: product.sku,
+              movementType: "IN",
+              quantity: qty,
+              unitCost: costPrice,
+              totalCost: qty * costPrice,
+              reason: "Stock inicial al crear producto",
+              balanceAfter: {
+                totalQuantity: qty,
+                availableQuantity: qty,
+                reservedQuantity: 0,
+                averageCostPrice: costPrice,
+              },
+              tenantId,
+              createdBy: new Types.ObjectId(options.createdBy.toString()),
+            });
+            await movement.save({ session });
+          }
+        }
+      }
+    }
+
+    if (warnings.length > 0) {
+      this.logger.warn(
+        `createInitialInventoriesForProductInGroup completed with warnings: ${warnings.join(" | ")}`,
+      );
+    }
+
+    return { created, skipped, warnings };
+  }
+
   async create(
     createInventoryDto: CreateInventoryDto,
     user: any,
@@ -1677,19 +1859,19 @@ export class InventoryService {
     try {
       const tenantFilter = this.buildTenantFilter(tenantId);
 
-      // Try to find primary warehouse first
-      const primaryWarehouse = await this.warehouseModel.findOne({
+      // Try to find default warehouse first
+      const defaultWarehouse = await this.warehouseModel.findOne({
         tenantId: tenantFilter,
-        isPrimary: true,
+        isDefault: true,
         isActive: true,
         isDeleted: false
       }).select('_id').lean();
 
-      if (primaryWarehouse) {
-        return primaryWarehouse._id;
+      if (defaultWarehouse) {
+        return defaultWarehouse._id;
       }
 
-      // If no primary, get first active warehouse
+      // If no default, get first active warehouse
       const anyWarehouse = await this.warehouseModel.findOne({
         tenantId: tenantFilter,
         isActive: true,
