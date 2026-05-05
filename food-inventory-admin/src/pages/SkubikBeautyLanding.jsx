@@ -451,7 +451,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-ben-mobile-cta-arrow { display: inline-block; animation: s-ben-arrow-bounce 1.6s ease-in-out infinite; }
 
 /* Background parallax grid */
-.s-ben-bg-parallax { position: absolute; inset: -200px 0; background-image: linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px); background-size: 60px 60px; pointer-events: none; z-index: 0; will-change: transform; mask: radial-gradient(ellipse at center, #000 30%, transparent 80%); -webkit-mask: radial-gradient(ellipse at center, #000 30%, transparent 80%); }
+.s-ben-bg-parallax { position: absolute; inset: -500px 0; background-image: linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px); background-size: 64px 64px; pointer-events: none; z-index: 0; will-change: transform; mask: radial-gradient(ellipse at center, #000 40%, transparent 90%); -webkit-mask: radial-gradient(ellipse at center, #000 40%, transparent 90%); }
 
 /* Intro screen — fullscreen title fading into acts (mobile only) */
 .s-ben-intro { display: none; position: absolute; inset: 0; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 32px; z-index: 5; transition: opacity 0.3s; }
@@ -2072,15 +2072,18 @@ function SBenefits({ D }) {
   const stageRef = useRef(null);
   const progress = useSectionProgress(stageRef);
 
-  // Reserve first 6% for intro screen (only mobile shows it fullscreen)
-  const introVisible = progress < 0.06;
-  const introOpacity = progress < 0.04 ? 1 : Math.max(0, 1 - (progress - 0.04) / 0.02);
-  const contentOpacity = progress < 0.04 ? 0 : Math.min(1, (progress - 0.04) / 0.02);
+  // Sticky is pinned between progress 0.14 and 0.86 — remap to 0-1 within that range
+  const pinStart = 0.14;
+  const pinEnd = 0.86;
+  const pinned = Math.max(0, Math.min((progress - pinStart) / (pinEnd - pinStart), 1));
 
-  // Remap acts to start after intro
-  const actStart = 0.06;
-  const actEnd = 0.78;
-  const p = progress < actStart ? 0 : Math.min((progress - actStart) / (actEnd - actStart), 1);
+  // Reserve first 8% of pinned time for intro screen
+  const introOpacity = pinned < 0.06 ? 1 : Math.max(0, 1 - (pinned - 0.06) / 0.04);
+  const contentOpacity = pinned < 0.06 ? 0 : Math.min(1, (pinned - 0.06) / 0.04);
+  const introVisible = pinned < 0.10;
+
+  // Acts span 10% → 100% of pinned time (with last 5% holding act 3)
+  const p = pinned < 0.10 ? 0 : Math.min((pinned - 0.10) / 0.85, 1);
   const currentIdx = Math.min(2, Math.floor(p * 3));
   const localP = Math.max(0, Math.min(1, (p * 3) - currentIdx));
   const ben = D.benefits.items[currentIdx];
@@ -2104,7 +2107,7 @@ function SBenefits({ D }) {
         if (localStorage.getItem('skubik-scroll-hint-shown')) return;
       } catch {}
       const idle = Date.now() - lastChangeTimeRef.current;
-      const inSection = progress > 0.06 && progress < 0.72;
+      const inSection = progress > 0.18 && progress < 0.80;
       if (idle > 2500 && inSection) {
         setShowHint(true);
         try { localStorage.setItem('skubik-scroll-hint-shown', '1'); } catch {}
@@ -2118,7 +2121,7 @@ function SBenefits({ D }) {
       <div className="s-ben-stage" ref={stageRef}>
         <div className="s-ben-sticky">
           {/* Background parallax grid */}
-          <div className="s-ben-bg-parallax" style={{ transform: `translateY(${progress * -120}px)` }} />
+          <div className="s-ben-bg-parallax" style={{ transform: `translateY(${pinned * -400}px)` }} />
 
           {/* Intro screen — fullscreen title that fades into the acts */}
           <div className="s-ben-intro" style={{ opacity: introOpacity, pointerEvents: introVisible ? 'auto' : 'none' }}>
