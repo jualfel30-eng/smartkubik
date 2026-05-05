@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import PhoneInput from 'react-phone-number-input';
@@ -31,7 +31,9 @@ const STEP_LABELS = ['Servicios', 'Profesional', 'Fecha y Hora', 'Tus Datos', 'C
 export default function BookingPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const domain = params.domain as string;
+  const preselectAppliedRef = useRef(false);
 
   const [config, setConfig] = useState<StorefrontConfig | null>(null);
   const [services, setServices] = useState<BeautyService[]>([]);
@@ -326,6 +328,29 @@ export default function BookingPage() {
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Preselect service from ?serviceId=... query param (when user clicks "Reservar" on a service card)
+  useEffect(() => {
+    if (preselectAppliedRef.current) return;
+    if (services.length === 0) return;
+    const serviceIdParam = searchParams?.get('serviceId');
+    if (!serviceIdParam) return;
+
+    preselectAppliedRef.current = true;
+
+    const serviceExists = services.some((s) => s._id === serviceIdParam);
+    if (serviceExists) {
+      setSelectedPackageId('');
+      setSelectedServices((prev) =>
+        prev.some((s) => s.serviceId === serviceIdParam)
+          ? prev
+          : [...prev, { serviceId: serviceIdParam, addons: [] }]
+      );
+      setStep(1);
+    }
+
+    router.replace(`/${domain}/beauty/reservar`);
+  }, [services, searchParams, router, domain]);
 
   const nextStep = async () => {
     if (step === 4 && clientPhone) {
