@@ -2831,15 +2831,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 </div>
               </div>
 
-              {productAttributes.length > 0 && (
+              {(productAttributes.length > 0 || !isNonFoodRetailVertical) && (
                 <div className="pt-6 border-t">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-lg font-medium">Atributos del Producto</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Personaliza campos específicos de la vertical activa.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <h4 className="text-lg font-medium mb-4">Detalles del Producto</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                     {productAttributes.map((attr) => (
                       <div key={attr.key} className="space-y-2">
                         <Label>
@@ -2856,6 +2851,52 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                         )}
                       </div>
                     ))}
+                    {!isNonFoodRetailVertical && (
+                      <div className="space-y-2">
+                        <Label htmlFor="unitOfMeasure">Unidad de Medida Base</Label>
+                        <Select
+                          value={newProduct.unitOfMeasure}
+                          onValueChange={(value) =>
+                            setNewProduct({ ...newProduct, unitOfMeasure: value })
+                          }
+                        >
+                          <SelectTrigger id="unitOfMeasure">
+                            <SelectValue placeholder={getDynamicPlaceholder('unitOfMeasure', newProduct.productType)} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {unitOptions.map((unit) => (
+                              <SelectItem key={unit} value={unit}>
+                                {unit}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {!isNonFoodRetailVertical && newProduct.productType === 'simple' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="ivaRate">IVA Aplicable</Label>
+                        <Select
+                          value={String(newProduct.ivaRate ?? 16)}
+                          onValueChange={(value) =>
+                            setNewProduct({
+                              ...newProduct,
+                              ivaRate: Number(value),
+                              ivaApplicable: Number(value) > 0
+                            })
+                          }
+                        >
+                          <SelectTrigger id="ivaRate">
+                            <SelectValue placeholder="Seleccione tasa de IVA" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">Exento (0%)</SelectItem>
+                            <SelectItem value="8">Reducido (8%)</SelectItem>
+                            <SelectItem value="16">Normal (16%)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2866,7 +2907,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   <div className="flex-1">
                     <h4 className="text-base font-medium">Más opciones</h4>
                     <p className="text-xs text-muted-foreground">
-                      Descripción, IVA, perecedero, unidad de medida, vida útil…
+                      Descripción, ingredientes, perecedero, vida útil, temperatura…
                     </p>
                   </div>
                 </CollapsibleTrigger>
@@ -2922,59 +2963,6 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       <div className="flex items-center space-x-2 pt-2">
                         <Checkbox id="isSoldByWeight" checked={newProduct.isSoldByWeight} onCheckedChange={(checked) => setNewProduct({ ...newProduct, isSoldByWeight: checked })} />
                         <Label htmlFor="isSoldByWeight">Vendido por Peso</Label>
-                      </div>
-                    )}
-                    {!isNonFoodRetailVertical && (
-                      <div className="space-y-2">
-                        <Label htmlFor="unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
-                        <Select
-                          value={newProduct.unitOfMeasure}
-                          onValueChange={(value) =>
-                            setNewProduct({ ...newProduct, unitOfMeasure: value })
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={getDynamicPlaceholder('unitOfMeasure', newProduct.productType)} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {unitOptions.map((unit) => (
-                              <SelectItem key={unit} value={unit}>
-                                {unit}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          Esta es la unidad en la que se guardará el inventario
-                        </p>
-                      </div>
-                    )}
-                    {/* IVA solo para mercancía */}
-                    {!isNonFoodRetailVertical && newProduct.productType === 'simple' && (
-                      <div className="space-y-2">
-                        <Label htmlFor="ivaRate">IVA Aplicable</Label>
-                        <Select
-                          value={String(newProduct.ivaRate ?? 16)}
-                          onValueChange={(value) =>
-                            setNewProduct({
-                              ...newProduct,
-                              ivaRate: Number(value),
-                              ivaApplicable: Number(value) > 0 // Keep in sync
-                            })
-                          }
-                        >
-                          <SelectTrigger id="ivaRate">
-                            <SelectValue placeholder="Seleccione tasa de IVA" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="0">Exento (0%)</SelectItem>
-                            <SelectItem value="8">Reducido (8%)</SelectItem>
-                            <SelectItem value="16">Normal (16%)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          Seleccione la tasa de IVA aplicable a este producto
-                        </p>
                       </div>
                     )}
                     {!isNonFoodRetailVertical && newProduct.isPerishable && (
