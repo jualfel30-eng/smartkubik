@@ -2903,9 +2903,6 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 </div>
               )}
 
-              {/* Descuentos, Mayorista y Promociones se han movido al ProductPricingAccordion (después de los precios de variante) */}
-
-
               {/* Unidades múltiples para mercancía y materias primas (comida) */}
               {(newProduct.productType === 'simple' || newProduct.productType === 'raw_material') && (
                 <div className="col-span-2 border-t pt-4 mt-4">
@@ -3302,30 +3299,13 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   )}
                 </div>
 
-                {/* Precios y Descuentos — Accordion unificado */}
-                {newProduct.productType === 'simple' && showSalesFields && (
-                  <div className="mt-6 col-span-2">
-                    <ProductPricingAccordion
-                      product={newProduct}
-                      onProductChange={setNewProduct}
-                      strategyProps={{
-                        strategy: newProduct.variant.pricingStrategy,
-                        costPrice: newProduct.variant.costPrice || 0,
-                        basePrice: newProduct.variant.basePrice || 0,
-                        onStrategyChange: (strategy) =>
-                          setNewProduct({
-                            ...newProduct,
-                            variant: { ...newProduct.variant, pricingStrategy: strategy },
-                          }),
-                        onPriceChange: (price) =>
-                          setNewProduct({
-                            ...newProduct,
-                            variant: { ...newProduct.variant, basePrice: price },
-                          }),
-                      }}
-                    />
-                  </div>
-                )}
+                {/* ProductPricingAccordion (descuentos, mayorista, promociones,
+                    pricing strategy auto-calculada) intencionalmente oculto en CREAR.
+                    Razón: son power features que requieren contexto post-creación
+                    (historial de venta, comportamiento del cliente, costos negociados).
+                    Stripe/Shopify/Linear coinciden: crear primero, configurar después.
+                    El accordion permanece disponible en el Edit dialog (mismo componente,
+                    misma data) — el usuario lo configura cuando ya tiene el producto. */}
 
                 {variantAttributes.length > 0 && (
                   <div className="border-t pt-4 mt-4">
