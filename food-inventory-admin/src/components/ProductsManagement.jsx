@@ -1498,20 +1498,45 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         setNewProduct(initialNewProductState);
       }
 
-      // Success feedback. For 'close' mode (single-product flow), close the
-      // dopaminergic loop with a "Ir al POS" action so the user can see their
-      // product as something tangible — peak-end positive anchor (Kahneman).
-      // For batch modes ('another'/'duplicate'), the user is still in the
-      // form so a quieter confirmation is enough.
+      // Success feedback. ProductsManagement only renders for productType
+      // 'simple' (Mercancía) or 'raw_material' (Materias Primas), so creating
+      // a Consumible/Suministro from this Sheet leaves the user staring at a
+      // list filtered out of their new product. Auto-redirect to the
+      // corresponding tab on close-mode success so the product lands somewhere
+      // visible. For batch modes ('another'/'duplicate') the user is in flow
+      // and we keep them in the form.
       const productLabel = createdProduct?.name?.trim() || 'Producto';
+      const PRODUCT_TYPE_TAB = {
+        simple: 'products',
+        raw_material: 'raw-materials',
+        consumable: 'consumables',
+        supply: 'supplies',
+      };
+      const PRODUCT_TYPE_LABEL = {
+        simple: 'Mercancía',
+        raw_material: 'Materias Primas',
+        consumable: 'Consumibles',
+        supply: 'Suministros',
+      };
+      const currentTab = PRODUCT_TYPE_TAB[defaultProductType];
+      const targetTab = PRODUCT_TYPE_TAB[newProduct.productType];
+      const needsRedirect = !!targetTab && targetTab !== currentTab;
+
       if (mode === 'close') {
-        toast.success(`"${productLabel}" creado`, {
-          action: {
-            label: 'Ir al POS',
-            onClick: () => navigate('/orders/new'),
-          },
-          duration: 6000,
-        });
+        if (needsRedirect) {
+          navigate(`?tab=${targetTab}`, { replace: false });
+          toast.success(`"${productLabel}" creado en ${PRODUCT_TYPE_LABEL[newProduct.productType]}`);
+        } else if (newProduct.productType === 'simple') {
+          toast.success(`"${productLabel}" creado`, {
+            action: {
+              label: 'Ir al POS',
+              onClick: () => navigate('/orders/new'),
+            },
+            duration: 6000,
+          });
+        } else {
+          toast.success(`"${productLabel}" creado`);
+        }
       } else {
         toast.success(`"${productLabel}" creado`);
       }
