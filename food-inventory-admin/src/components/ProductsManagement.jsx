@@ -3750,45 +3750,49 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                           </div>
                         </div>
 
-                        <div className="space-y-2">
-                          <Label htmlFor="storageRequirements">Requisitos de Almacenamiento</Label>
-                          <Textarea
-                            id="storageRequirements"
-                            value={newProduct.supplyConfig.safetyInfo.storageRequirements}
-                            onChange={(e) => setNewProduct({
-                              ...newProduct,
-                              supplyConfig: {
-                                ...newProduct.supplyConfig,
-                                safetyInfo: {
-                                  ...newProduct.supplyConfig.safetyInfo,
-                                  storageRequirements: e.target.value
-                                }
-                              }
-                            })}
-                            placeholder="Ej: Mantener en lugar fresco y seco, alejado de fuentes de calor"
-                            rows={2}
-                          />
-                        </div>
+                        {(newProduct.supplyConfig.safetyInfo.requiresPPE || newProduct.supplyConfig.safetyInfo.isHazardous) && (
+                          <>
+                            <div className="space-y-2">
+                              <Label htmlFor="storageRequirements">Requisitos de Almacenamiento</Label>
+                              <Textarea
+                                id="storageRequirements"
+                                value={newProduct.supplyConfig.safetyInfo.storageRequirements}
+                                onChange={(e) => setNewProduct({
+                                  ...newProduct,
+                                  supplyConfig: {
+                                    ...newProduct.supplyConfig,
+                                    safetyInfo: {
+                                      ...newProduct.supplyConfig.safetyInfo,
+                                      storageRequirements: e.target.value
+                                    }
+                                  }
+                                })}
+                                placeholder="Ej: Mantener en lugar fresco y seco, alejado de fuentes de calor"
+                                rows={2}
+                              />
+                            </div>
 
-                        <div className="space-y-2">
-                          <Label htmlFor="handlingInstructions">Instrucciones de Manejo</Label>
-                          <Textarea
-                            id="handlingInstructions"
-                            value={newProduct.supplyConfig.safetyInfo.handlingInstructions}
-                            onChange={(e) => setNewProduct({
-                              ...newProduct,
-                              supplyConfig: {
-                                ...newProduct.supplyConfig,
-                                safetyInfo: {
-                                  ...newProduct.supplyConfig.safetyInfo,
-                                  handlingInstructions: e.target.value
-                                }
-                              }
-                            })}
-                            placeholder="Ej: Usar guantes al manipular, evitar contacto con la piel"
-                            rows={2}
-                          />
-                        </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="handlingInstructions">Instrucciones de Manejo</Label>
+                              <Textarea
+                                id="handlingInstructions"
+                                value={newProduct.supplyConfig.safetyInfo.handlingInstructions}
+                                onChange={(e) => setNewProduct({
+                                  ...newProduct,
+                                  supplyConfig: {
+                                    ...newProduct.supplyConfig,
+                                    safetyInfo: {
+                                      ...newProduct.supplyConfig.safetyInfo,
+                                      handlingInstructions: e.target.value
+                                    }
+                                  }
+                                })}
+                                placeholder="Ej: Usar guantes al manipular, evitar contacto con la piel"
+                                rows={2}
+                              />
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
 
