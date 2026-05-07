@@ -2718,7 +2718,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       />
                     </div>
 
-                    <div className="col-span-2 space-y-2">
+                    <div className={`space-y-2 ${isNonFoodRetailVertical ? 'col-span-2' : ''}`}>
                       <Label htmlFor="description">Descripción</Label>
                       <Textarea
                         id="description"
@@ -2728,7 +2728,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       />
                     </div>
                     {!isNonFoodRetailVertical && (
-                      <div className="col-span-2 space-y-2">
+                      <div className="space-y-2">
                         <Label htmlFor="ingredients">{ingredientLabel}</Label>
                         <Textarea
                           id="ingredients"
