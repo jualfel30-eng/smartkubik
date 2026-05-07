@@ -1231,8 +1231,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       newProduct.attributes,
       productAttributes,
     );
-    const normalizedCategory = normalizeStringList(newProduct.category);
-    const normalizedSubcategory = normalizeStringList(newProduct.subcategory);
+    // Quick Create defaults: backend currently treats brand as @IsNotEmpty and
+    // expects category/subcategory arrays. When the user skips these in the
+    // collapsed "Más opciones" section, we fill placeholders so the product is
+    // created without friction. Acceptable tradeoff vs. blocking creation; the
+    // user can refine these in Edit at any time. Reassess if analytics shows
+    // a sustained >20% of catalog stuck on these placeholders.
+    const rawCategory = normalizeStringList(newProduct.category);
+    const rawSubcategory = normalizeStringList(newProduct.subcategory);
+    const normalizedCategory = rawCategory.length > 0 ? rawCategory : ['Sin clasificar'];
+    const normalizedSubcategory = rawSubcategory.length > 0 ? rawSubcategory : ['General'];
+    const normalizedBrand = (newProduct.brand && newProduct.brand.trim()) || 'Genérico';
 
     const buildVariantPayload = (variant, position) => {
       if (!variant) {
@@ -1279,6 +1288,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
     const payload = {
       ...newProduct,
+      brand: normalizedBrand,
       category: normalizedCategory,
       subcategory: normalizedSubcategory,
       attributes: productAttributesPayload,
