@@ -345,6 +345,7 @@ const initialNewProductState = {
   isSoldByWeight: false,
   unitOfMeasure: 'unidad',
   hasMultipleSellingUnits: false,
+  hasAdditionalVariants: false,
   sellingUnits: [],
   attributes: {},
   // UnitType fields (Global UoM System)
@@ -1345,9 +1346,11 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
     const primaryVariantPayload = buildVariantPayload(newProduct.variant, 1);
 
-    const extraVariantsPayload = additionalVariants
-      .map((variant, index) => buildVariantPayload(variant, index + 2))
-      .filter(Boolean);
+    const extraVariantsPayload = newProduct.hasAdditionalVariants
+      ? additionalVariants
+          .map((variant, index) => buildVariantPayload(variant, index + 2))
+          .filter(Boolean)
+      : [];
 
     const payload = {
       ...newProduct,
@@ -3370,6 +3373,177 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Agregar Unidad
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {supportsVariants && (
+                <div className="col-span-2 border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex-1">
+                      <h4 className="text-lg font-medium">Variantes adicionales</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {isNonFoodRetailVertical
+                          ? 'Crea combinaciones adicionales (talla, color, etc.) para este producto.'
+                          : 'Agrega presentaciones adicionales (tamaños, empaques, sabores, etc.) para este producto.'}
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasAdditionalVariants"
+                        checked={newProduct.hasAdditionalVariants}
+                        onCheckedChange={(checked) => {
+                          setNewProduct({ ...newProduct, hasAdditionalVariants: !!checked });
+                          if (checked && additionalVariants.length === 0) {
+                            addAdditionalVariant();
+                          }
+                        }}
+                      />
+                      <Label htmlFor="hasAdditionalVariants">Habilitar</Label>
+                    </div>
+                  </div>
+
+                  {newProduct.hasAdditionalVariants && (
+                    <div className="space-y-4">
+                      {additionalVariants.map((variant, index) => (
+                        <div key={index} className="border rounded-lg p-4 space-y-4 bg-muted/20">
+                          <div className="flex items-center justify-between">
+                            <h6 className="font-medium">Variante {index + 2}</h6>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeAdditionalVariant(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Eliminar variante</span>
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                              <Label>Nombre</Label>
+                              <Input
+                                value={variant.name}
+                                onChange={(e) => updateAdditionalVariantField(index, 'name', e.target.value)}
+                                placeholder={getPlaceholder('variantAdditionalName', 'Ej: Talla M / Color Azul')}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>SKU</Label>
+                              <Input
+                                value={variant.sku}
+                                onChange={(e) => updateAdditionalVariantField(index, 'sku', e.target.value)}
+                                placeholder={
+                                  getPlaceholder(
+                                    'variantAdditionalSku',
+                                    `Ej: ${newProduct.sku || 'SKU'}-VAR${index + 2}`,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Código de barras</Label>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  value={variant.barcode}
+                                  onChange={(e) => updateAdditionalVariantField(index, 'barcode', e.target.value)}
+                                  placeholder="Opcional"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => openBarcodeScanner({ scope: 'additional', index })}
+                                  title="Escanear código con cámara"
+                                >
+                                  <Scan className="h-4 w-4" />
+                                  <span className="sr-only">Escanear código</span>
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                              <Label>Unidad</Label>
+                              <Select
+                                value={variant.unit || newProduct.unitOfMeasure || ''}
+                                onValueChange={(value) => updateAdditionalVariantField(index, 'unit', value)}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecciona unidad" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value={newProduct.unitOfMeasure || 'unidad'}>{newProduct.unitOfMeasure || 'unidad'}</SelectItem>
+                                  {newProduct.sellingUnits
+                                    .filter((u) => u.abbreviation || u.name)
+                                    .map((u, i) => (
+                                      <SelectItem key={i} value={u.abbreviation || u.name}>{u.name} ({u.abbreviation})</SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Precio costo ($)</Label>
+                              <NumberInput
+                                value={variant.costPrice ?? ''}
+                                onValueChange={(val) => updateAdditionalVariantField(index, 'costPrice', val)}
+                                step={0.01}
+                                min={0}
+                                placeholder="Precio costo"
+                              />
+                            </div>
+                            {showSalesFields && (
+                              <div className="space-y-2">
+                                <Label>Precio venta ($)</Label>
+                                <NumberInput
+                                  value={variant.basePrice ?? ''}
+                                  onValueChange={(val) => updateAdditionalVariantField(index, 'basePrice', val)}
+                                  step={0.01}
+                                  min={0}
+                                  placeholder="Precio venta"
+                                />
+                              </div>
+                            )}
+                            {showSalesFields && newProduct.pricingRules?.wholesaleEnabled && (
+                              <div className="space-y-2">
+                                <Label>Precio mayorista ($)</Label>
+                                <NumberInput
+                                  value={variant.wholesalePrice ?? ''}
+                                  onValueChange={(val) => updateAdditionalVariantField(index, 'wholesalePrice', val)}
+                                  step={0.01}
+                                  min={0}
+                                  placeholder="Precio mayorista"
+                                />
+                              </div>
+                            )}
+                          </div>
+                          {variantAttributes.length > 0 && (
+                            <div className="border-t pt-4 mt-2">
+                              <h6 className="text-sm font-medium mb-3">Atributos específicos</h6>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {variantAttributes.map((attr) => (
+                                  <div key={attr.key} className="space-y-2">
+                                    <Label>
+                                      {attr.label}
+                                      {attr.required ? <span className="text-destructive"> *</span> : null}
+                                    </Label>
+                                    {renderAttributeControl(
+                                      attr,
+                                      variant.attributes?.[attr.key],
+                                      (rawValue) => handleAdditionalVariantAttributeChange(index, attr, rawValue),
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <Button type="button" variant="outline" size="sm" onClick={addAdditionalVariant}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Agregar variante
                       </Button>
                     </div>
                   )}
