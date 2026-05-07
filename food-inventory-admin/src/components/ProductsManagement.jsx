@@ -3883,7 +3883,25 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       <Card>
         <CardHeader />
         <CardContent>
-          <div className="rounded-md border relative">
+          {!loading && totalProducts === 0 && !searchTerm && filterCategory === 'all' && statusFilter === 'all' ? (
+            <div className="flex flex-col items-center justify-center text-center py-16 px-4">
+              <div className="h-16 w-16 rounded-full bg-[#FB923C]/10 flex items-center justify-center mb-4">
+                <Package className="h-8 w-8 text-[#FB923C]" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Tu catálogo está vacío</h3>
+              <p className="text-sm text-muted-foreground max-w-md mb-6">
+                Crea tu primer producto para empezar a vender. Solo necesitas tipo, nombre y un precio — el resto puedes completarlo después.
+              </p>
+              <Button
+                size="lg"
+                className="bg-[#FB923C] hover:bg-[#F97316] text-white"
+                onClick={() => setIsAddDialogOpen(true)}
+              >
+                <Plus className="h-5 w-5 mr-2" /> Agregar mi primer producto
+              </Button>
+            </div>
+          ) : (
+          <><div className="rounded-md border relative">
             {loading && <div className="absolute inset-0 bg-background/60 z-10 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
             <Table className="table-fixed">
               <TableHeader>
@@ -4376,7 +4394,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 </Button>
               </div>
             </div>
-          </div>
+          </div></>
+          )}
         </CardContent>
       </Card>
 
