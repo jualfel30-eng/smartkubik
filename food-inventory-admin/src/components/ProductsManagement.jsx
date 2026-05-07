@@ -2663,10 +2663,10 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
             </div>
 
             <div className="space-y-6 py-4 px-6 overflow-y-auto flex-grow">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8">
-                <div className="md:col-span-1 space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-x-8">
+                <div className="space-y-2">
                   <Label>Imágenes (máx. 3)</Label>
-                  <label htmlFor="images" className="cursor-pointer flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50">
+                  <label htmlFor="images" className="cursor-pointer flex flex-col items-center justify-center w-full aspect-[9/16] border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50">
                     {newProduct.variant.images && newProduct.variant.images.length > 0 ? (
                       <img
                         src={newProduct.variant.images[selectedImageIndex]}
@@ -2744,62 +2744,66 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   )}
                 </div>
 
-                <div className="md:col-span-2 space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nombre del Producto</Label>
-                    <Input
-                      id="name"
-                      value={newProduct.name}
-                      onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                      placeholder={getDynamicPlaceholder('name', newProduct.productType)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="brand">Marca</Label>
-                    <Input
-                      id="brand"
-                      value={newProduct.brand}
-                      onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
-                      placeholder={getDynamicPlaceholder('brand', newProduct.productType)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sku">SKU Principal (Opcional)</Label>
-                    <Input
-                      id="sku"
-                      value={newProduct.sku}
-                      onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
-                      placeholder="Ej: PROD-001 (Automático si se deja vacío)"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="barcode">Código de Barras (UPC) (Opcional)</Label>
-                    <div className="flex items-center gap-2">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Nombre del Producto</Label>
                       <Input
-                        id="barcode"
-                        value={newProduct.variant.barcode}
-                        onChange={(e) =>
-                          setNewProduct({
-                            ...newProduct,
-                            variant: { ...newProduct.variant, barcode: e.target.value },
-                          })
-                        }
-                        placeholder={getPlaceholder('barcode', 'Ej: 7591234567890')}
+                        id="name"
+                        value={newProduct.name}
+                        onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                        placeholder={getDynamicPlaceholder('name', newProduct.productType)}
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => openBarcodeScanner({ scope: 'create' })}
-                        title="Escanear código con cámara"
-                      >
-                        <Scan className="h-4 w-4" />
-                        <span className="sr-only">Escanear código</span>
-                      </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Escanea con la cámara o usa una pistola USB enfocando este campo.
-                    </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="brand">Marca</Label>
+                      <Input
+                        id="brand"
+                        value={newProduct.brand}
+                        onChange={(e) => setNewProduct({ ...newProduct, brand: e.target.value })}
+                        placeholder={getDynamicPlaceholder('brand', newProduct.productType)}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="sku">SKU Principal (Opcional)</Label>
+                      <Input
+                        id="sku"
+                        value={newProduct.sku}
+                        onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
+                        placeholder="Ej: PROD-001 (Automático si se deja vacío)"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="barcode">Código de Barras (UPC) (Opcional)</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="barcode"
+                          value={newProduct.variant.barcode}
+                          onChange={(e) =>
+                            setNewProduct({
+                              ...newProduct,
+                              variant: { ...newProduct.variant, barcode: e.target.value },
+                            })
+                          }
+                          placeholder={getPlaceholder('barcode', 'Ej: 7591234567890')}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => openBarcodeScanner({ scope: 'create' })}
+                          title="Escanear código con cámara"
+                        >
+                          <Scan className="h-4 w-4" />
+                          <span className="sr-only">Escanear código</span>
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Escanea con la cámara o usa una pistola USB enfocando este campo.
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
