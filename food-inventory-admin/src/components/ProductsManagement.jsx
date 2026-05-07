@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useConfirm } from '@/hooks/use-confirm';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
@@ -607,6 +608,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   const hasDynamicTemplateColumns = dynamicAttributeLabels.length > 0;
 
   const { tenant } = useAuth();
+  const navigate = useNavigate();
 
   // Get vertical directly from tenant (more reliable than verticalConfig)
   const tenantVertical = tenant?.vertical || tenant?.verticalProfile?.key || verticalConfig?.baseVertical;
@@ -1493,6 +1495,24 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       } else {
         setIsAddDialogOpen(false);
         setNewProduct(initialNewProductState);
+      }
+
+      // Success feedback. For 'close' mode (single-product flow), close the
+      // dopaminergic loop with a "Ir al POS" action so the user can see their
+      // product as something tangible — peak-end positive anchor (Kahneman).
+      // For batch modes ('another'/'duplicate'), the user is still in the
+      // form so a quieter confirmation is enough.
+      const productLabel = createdProduct?.name?.trim() || 'Producto';
+      if (mode === 'close') {
+        toast.success(`"${productLabel}" creado`, {
+          action: {
+            label: 'Ir al POS',
+            onClick: () => navigate('/orders/new'),
+          },
+          duration: 6000,
+        });
+      } else {
+        toast.success(`"${productLabel}" creado`);
       }
 
       // No need to reload - already added to list!
