@@ -2805,6 +2805,28 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                       </p>
                     </div>
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="category">Categoría</Label>
+                      <TagInput
+                        id="category"
+                        value={newProduct.category}
+                        onChange={(tags) => setNewProduct({ ...newProduct, category: tags })}
+                        placeholder={getPlaceholder('category', 'Ej: Bebidas, Alimentos')}
+                        helpText="Coma (,) o Enter para agregar. Múltiples categorías ayudan a la IA a encontrar productos."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="subcategory">Sub-categoría</Label>
+                      <TagInput
+                        id="subcategory"
+                        value={newProduct.subcategory}
+                        onChange={(tags) => setNewProduct({ ...newProduct, subcategory: tags })}
+                        placeholder={getPlaceholder('subcategory', 'Ej: Gaseosas, Refrescos')}
+                        helpText="Coma (,) o Enter para agregar. Facilita la búsqueda."
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -2843,33 +2865,12 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   <div className="flex-1">
                     <h4 className="text-base font-medium">Más opciones</h4>
                     <p className="text-xs text-muted-foreground">
-                      Categoría, descripción, IVA, perecedero, unidad de medida…
+                      Descripción, IVA, perecedero, unidad de medida, vida útil…
                     </p>
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-4">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Categoría</Label>
-                      <TagInput
-                        id="category"
-                        value={newProduct.category}
-                        onChange={(tags) => setNewProduct({ ...newProduct, category: tags })}
-                        placeholder={getPlaceholder('category', 'Ej: Bebidas, Alimentos')}
-                        helpText="Escribe una categoría y presiona coma (,) o Enter para agregar. Puedes agregar múltiples categorías para ayudar a la IA a encontrar productos más fácilmente."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="subcategory">Sub-categoría</Label>
-                      <TagInput
-                        id="subcategory"
-                        value={newProduct.subcategory}
-                        onChange={(tags) => setNewProduct({ ...newProduct, subcategory: tags })}
-                        placeholder={getPlaceholder('subcategory', 'Ej: Gaseosas, Refrescos')}
-                        helpText="Escribe una sub-categoría y presiona coma (,) o Enter para agregar. Esto facilita la búsqueda sin necesidad de ser experto."
-                      />
-                    </div>
-
                     <div className={`space-y-2 ${isNonFoodRetailVertical ? 'col-span-2' : ''}`}>
                       <Label htmlFor="description">Descripción</Label>
                       <Textarea
