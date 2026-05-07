@@ -2666,7 +2666,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
               <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-x-8">
                 <div className="space-y-2">
                   <Label>Imágenes (máx. 3)</Label>
-                  <label htmlFor="images" className="cursor-pointer flex flex-col items-center justify-center w-full aspect-[9/16] border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50">
+                  <label htmlFor="images" className="cursor-pointer flex flex-col items-center justify-center w-full aspect-[3/4] border-2 border-dashed rounded-lg text-muted-foreground hover:bg-muted/50">
                     {newProduct.variant.images && newProduct.variant.images.length > 0 ? (
                       <img
                         src={newProduct.variant.images[selectedImageIndex]}
