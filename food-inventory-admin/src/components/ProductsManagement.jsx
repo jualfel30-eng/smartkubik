@@ -49,6 +49,7 @@ import {
   Edit,
   Trash2,
   Package,
+  DollarSign,
   CheckCircle,
   XCircle,
   Download,
@@ -3387,69 +3388,74 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 </div>
               )}
 
-              <div className="col-span-2 border-t pt-4 mt-4">
-                <h4 className="text-lg font-medium mb-2">Precios</h4>
-                <p className="text-sm text-muted-foreground mb-4">
-                  La variante principal se crea automaticamente con el nombre, SKU y unidad del producto.
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="variantCostPrice">Precio Costo ($)</Label>
-                    <NumberInput
-                      id="variantCostPrice"
-                      value={newProduct.variant.costPrice ?? ''}
-                      onValueChange={(val) =>
-                        setNewProduct({ ...newProduct, variant: { ...newProduct.variant, costPrice: val } })
-                      }
-                      step={0.01}
-                      min={0}
-                      placeholder="Precio costo"
-                    />
+              <div className="col-span-2 mt-6">
+                <div className="border-2 border-sky-500/40 bg-sky-500/5 rounded-lg p-4">
+                  <h4 className="text-base font-semibold flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-sky-500" />
+                    Precios
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4">
+                    La variante principal se crea automáticamente con el nombre, SKU y unidad del producto.
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="variantCostPrice">Precio Costo ($)</Label>
+                      <NumberInput
+                        id="variantCostPrice"
+                        value={newProduct.variant.costPrice ?? ''}
+                        onValueChange={(val) =>
+                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, costPrice: val } })
+                        }
+                        step={0.01}
+                        min={0}
+                        placeholder="Precio costo"
+                      />
+                    </div>
+                    {/* Precio de Venta solo para mercancía */}
+                    {newProduct.productType === 'simple' && showSalesFields && (
+                      <div className="space-y-2">
+                        <Label htmlFor="variantBasePrice">
+                          Precio de Venta ($)
+                          {newProduct.variant.pricingStrategy?.mode !== 'manual' &&
+                            newProduct.variant.pricingStrategy?.autoCalculate && (
+                              <Badge variant="secondary" className="ml-2 text-xs">
+                                Auto-calculado
+                              </Badge>
+                            )}
+                        </Label>
+                        <NumberInput
+                          id="variantBasePrice"
+                          value={newProduct.variant.basePrice ?? ''}
+                          onValueChange={(val) =>
+                            setNewProduct({ ...newProduct, variant: { ...newProduct.variant, basePrice: val } })
+                          }
+                          step={0.01}
+                          min={0}
+                          placeholder="Precio venta"
+                          disabled={
+                            newProduct.variant.pricingStrategy?.mode !== 'manual' &&
+                            newProduct.variant.pricingStrategy?.autoCalculate
+                          }
+                        />
+                      </div>
+                    )}
+                    {/* Precio Mayorista solo si está habilitado */}
+                    {newProduct.productType === 'simple' && showSalesFields && newProduct.pricingRules?.wholesaleEnabled && (
+                      <div className="space-y-2">
+                        <Label htmlFor="variantWholesalePrice">Precio Mayorista ($)</Label>
+                        <NumberInput
+                          id="variantWholesalePrice"
+                          value={newProduct.variant.wholesalePrice ?? ''}
+                          onValueChange={(val) =>
+                            setNewProduct({ ...newProduct, variant: { ...newProduct.variant, wholesalePrice: val } })
+                          }
+                          step={0.01}
+                          min={0}
+                          placeholder="Precio mayorista"
+                        />
+                      </div>
+                    )}
                   </div>
-                  {/* Precio de Venta solo para mercancía */}
-                  {newProduct.productType === 'simple' && showSalesFields && (
-                    <div className="space-y-2">
-                      <Label htmlFor="variantBasePrice">
-                        Precio de Venta ($)
-                        {newProduct.variant.pricingStrategy?.mode !== 'manual' &&
-                          newProduct.variant.pricingStrategy?.autoCalculate && (
-                            <Badge variant="secondary" className="ml-2 text-xs">
-                              Auto-calculado
-                            </Badge>
-                          )}
-                      </Label>
-                      <NumberInput
-                        id="variantBasePrice"
-                        value={newProduct.variant.basePrice ?? ''}
-                        onValueChange={(val) =>
-                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, basePrice: val } })
-                        }
-                        step={0.01}
-                        min={0}
-                        placeholder="Precio venta"
-                        disabled={
-                          newProduct.variant.pricingStrategy?.mode !== 'manual' &&
-                          newProduct.variant.pricingStrategy?.autoCalculate
-                        }
-                      />
-                    </div>
-                  )}
-                  {/* Precio Mayorista solo si está habilitado */}
-                  {newProduct.productType === 'simple' && showSalesFields && newProduct.pricingRules?.wholesaleEnabled && (
-                    <div className="space-y-2">
-                      <Label htmlFor="variantWholesalePrice">Precio Mayorista ($)</Label>
-                      <NumberInput
-                        id="variantWholesalePrice"
-                        value={newProduct.variant.wholesalePrice ?? ''}
-                        onValueChange={(val) =>
-                          setNewProduct({ ...newProduct, variant: { ...newProduct.variant, wholesalePrice: val } })
-                        }
-                        step={0.01}
-                        min={0}
-                        placeholder="Precio mayorista"
-                      />
-                    </div>
-                  )}
                 </div>
 
                 {/* ProductPricingAccordion (descuentos, mayorista, promociones,
