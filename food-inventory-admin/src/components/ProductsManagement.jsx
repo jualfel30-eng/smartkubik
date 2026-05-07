@@ -1423,48 +1423,45 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       console.log('🔍 DEBUG - Product ID:', createdProduct._id);
       console.log('🔍 DEBUG - Product Type:', newProduct.productType);
 
-      // If product is consumable or supply, create the corresponding config
+      // If product is consumable or supply, create the corresponding config.
+      // Note: useConsumables/useSupplies hooks return { success, error } and never
+      // throw — so a try/catch around await would never fire. We must inspect the
+      // result.success boolean explicitly. Earlier code did try/catch only and
+      // missed silent backend validation failures (the most common: empty
+      // category/type fields), which left products created without their
+      // companion config. The follow-up symptom was a confusing flow where the
+      // SuppliesTab/ConsumablesTab dialog appeared empty and forced re-entry.
       if (newProduct.productType === 'consumable') {
-        console.log('🔍 DEBUG - Creating consumable config with productId:', createdProduct._id);
-        try {
-          const configResult = await createConsumableConfig({
-            productId: createdProduct._id,
-            consumableType: newProduct.consumableConfig.consumableType,
-            isReusable: newProduct.consumableConfig.isReusable,
-            isAutoDeducted: newProduct.consumableConfig.isAutoDeducted,
-            defaultQuantityPerUse: newProduct.consumableConfig.defaultQuantityPerUse,
-            unitOfMeasure: newProduct.unitOfMeasure || 'unidad',
-            notes: newProduct.consumableConfig.notes,
-            isActive: true,
-          });
-          console.log('✅ DEBUG - Consumable config result:', configResult);
-        } catch (configErr) {
-          console.error('❌ DEBUG - Error creating consumable config:', configErr);
-          console.error('❌ DEBUG - Error details:', {
-            message: configErr.message,
-            stack: configErr.stack,
-            productId: createdProduct._id,
-            productType: newProduct.productType,
-          });
-          alert('Producto creado, pero hubo un error al configurarlo como consumible. Por favor, configúralo manualmente desde la pestaña de Consumibles.');
+        const configResult = await createConsumableConfig({
+          productId: createdProduct._id,
+          consumableType: newProduct.consumableConfig.consumableType,
+          isReusable: newProduct.consumableConfig.isReusable,
+          isAutoDeducted: newProduct.consumableConfig.isAutoDeducted,
+          defaultQuantityPerUse: newProduct.consumableConfig.defaultQuantityPerUse,
+          unitOfMeasure: newProduct.unitOfMeasure || 'unidad',
+          notes: newProduct.consumableConfig.notes,
+          isActive: true,
+        });
+        if (!configResult?.success) {
+          const detail = configResult?.error || 'Validación fallida';
+          alert(`Producto creado, pero la configuración como consumible falló: ${detail}. Completa la configuración desde la pestaña Consumibles.`);
         }
       } else if (newProduct.productType === 'supply') {
-        try {
-          await createSupplyConfig({
-            productId: createdProduct._id,
-            supplyCategory: newProduct.supplyConfig.supplyCategory,
-            supplySubcategory: newProduct.supplyConfig.supplySubcategory,
-            requiresTracking: newProduct.supplyConfig.requiresTracking,
-            requiresAuthorization: newProduct.supplyConfig.requiresAuthorization,
-            usageDepartment: newProduct.supplyConfig.usageDepartment,
-            estimatedMonthlyConsumption: newProduct.supplyConfig.estimatedMonthlyConsumption,
-            safetyInfo: newProduct.supplyConfig.safetyInfo,
-            notes: newProduct.supplyConfig.notes,
-            isActive: true,
-          });
-        } catch (configErr) {
-          console.error('Error creating supply config:', configErr);
-          alert('Producto creado, pero hubo un error al configurarlo como suministro. Por favor, configúralo manualmente desde la pestaña de Suministros.');
+        const configResult = await createSupplyConfig({
+          productId: createdProduct._id,
+          supplyCategory: newProduct.supplyConfig.supplyCategory,
+          supplySubcategory: newProduct.supplyConfig.supplySubcategory,
+          requiresTracking: newProduct.supplyConfig.requiresTracking,
+          requiresAuthorization: newProduct.supplyConfig.requiresAuthorization,
+          usageDepartment: newProduct.supplyConfig.usageDepartment,
+          estimatedMonthlyConsumption: newProduct.supplyConfig.estimatedMonthlyConsumption,
+          safetyInfo: newProduct.supplyConfig.safetyInfo,
+          notes: newProduct.supplyConfig.notes,
+          isActive: true,
+        });
+        if (!configResult?.success) {
+          const detail = configResult?.error || 'Validación fallida';
+          alert(`Producto creado, pero la configuración como suministro falló: ${detail}. Completa la configuración desde la pestaña Suministros.`);
         }
       }
 
