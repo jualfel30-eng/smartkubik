@@ -1286,7 +1286,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     toast.info('Escaneo descartado. Formulario restaurado.');
   };
 
-  const handleAddProduct = async () => {
+  const handleAddProduct = async (mode = 'close') => {
     const productAttributesPayload = serializeAttributes(
       newProduct.attributes,
       productAttributes,
@@ -1465,14 +1465,35 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       // 1. Add to local state immediately
       setProducts(prev => [createdProduct, ...prev]);
 
-      // 2. Close dialog and reset state
+      // 2. Reset state per submit mode and optionally close dialog
       document.dispatchEvent(new CustomEvent('product-form-success'));
       if (draftKey) {
         try { localStorage.removeItem(draftKey); } catch (e) { /* noop */ }
       }
-      setIsAddDialogOpen(false);
-      setNewProduct(initialNewProductState);
       setAdditionalVariants([]);
+      if (mode === 'duplicate') {
+        // Preserve marca/categoría/IVA/unitOfMeasure/productType so the user
+        // can quickly create another product of the same family.
+        setNewProduct((prev) => ({
+          ...initialNewProductState,
+          productType: prev.productType,
+          brand: prev.brand,
+          category: prev.category,
+          subcategory: prev.subcategory,
+          ivaRate: prev.ivaRate,
+          ivaApplicable: prev.ivaApplicable,
+          unitOfMeasure: prev.unitOfMeasure,
+          isPerishable: prev.isPerishable,
+          sendToKitchen: prev.sendToKitchen,
+          isSoldByWeight: prev.isSoldByWeight,
+          initialInventoryWarehouseId: prev.initialInventoryWarehouseId,
+        }));
+      } else if (mode === 'another') {
+        setNewProduct(initialNewProductState);
+      } else {
+        setIsAddDialogOpen(false);
+        setNewProduct(initialNewProductState);
+      }
 
       // No need to reload - already added to list!
     } catch (err) {
@@ -3803,7 +3824,34 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
             </div>
             <div className="flex justify-end gap-2 px-6 py-4 border-t bg-card">
               <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={handleAddProduct}>Crear Producto</Button>
+              <div className="inline-flex">
+                <Button
+                  className="rounded-r-none"
+                  onClick={() => handleAddProduct('close')}
+                >
+                  Crear Producto
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      className="rounded-l-none border-l border-l-white/20 px-2"
+                      aria-label="Más opciones de creación"
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => handleAddProduct('another')}>
+                      <span className="flex-1">Crear y agregar otro</span>
+                      <span className="text-xs text-muted-foreground ml-3">Limpia todo</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => handleAddProduct('duplicate')}>
+                      <span className="flex-1">Crear y duplicar</span>
+                      <span className="text-xs text-muted-foreground ml-3">Preserva marca/categoría</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </SheetContent>
         </Sheet>
