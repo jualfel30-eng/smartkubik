@@ -611,6 +611,66 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   // Get vertical directly from tenant (more reliable than verticalConfig)
   const tenantVertical = tenant?.vertical || tenant?.verticalProfile?.key || verticalConfig?.baseVertical;
 
+  // Quick Create draft autosave: persists newProduct to localStorage so the
+  // user does not lose work on accidental close/refresh. Tenant-scoped key,
+  // 24h TTL, debounced 1s on every change while the dialog is open.
+  const draftKey = tenant?._id ? `productCreateDraft:${tenant._id}` : null;
+  const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+  const [pendingDraft, setPendingDraft] = useState(null);
+  const [draftPromptShown, setDraftPromptShown] = useState(false);
+
+  // Autosave: debounced 1s while dialog is open
+  useEffect(() => {
+    if (!isAddDialogOpen || !draftKey) return undefined;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify({
+          savedAt: Date.now(),
+          product: newProduct,
+        }));
+      } catch (err) {
+        // localStorage full or disabled — silent fail
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [isAddDialogOpen, newProduct, draftKey]);
+
+  // On dialog open, check for existing draft and offer to restore
+  useEffect(() => {
+    if (!isAddDialogOpen) {
+      setDraftPromptShown(false);
+      setPendingDraft(null);
+      return;
+    }
+    if (!draftKey || draftPromptShown) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) {
+        setDraftPromptShown(true);
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      const { savedAt, product } = parsed || {};
+      if (!product || typeof savedAt !== 'number' || Date.now() - savedAt > DRAFT_TTL_MS) {
+        localStorage.removeItem(draftKey);
+        setDraftPromptShown(true);
+        return;
+      }
+      // Only offer if the draft has meaningful content (avoid prompts on empty form)
+      const hasContent = product?.name?.trim?.() || product?.brand?.trim?.()
+        || (product?.variant && (product.variant.basePrice > 0 || product.variant.costPrice > 0));
+      if (hasContent) {
+        setPendingDraft(product);
+      } else {
+        localStorage.removeItem(draftKey);
+      }
+    } catch {
+      localStorage.removeItem(draftKey);
+    }
+    setDraftPromptShown(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAddDialogOpen, draftKey]);
+
   const isNonFoodRetailVertical = useMemo(() => {
     // For retail verticals, hide food-specific fields ONLY if they are not using the food-service profile
     // This allows Supermarkets (Retail vertical + Food Service profile) to see food fields
@@ -1407,6 +1467,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
       // 2. Close dialog and reset state
       document.dispatchEvent(new CustomEvent('product-form-success'));
+      if (draftKey) {
+        try { localStorage.removeItem(draftKey); } catch (e) { /* noop */ }
+      }
       setIsAddDialogOpen(false);
       setNewProduct(initialNewProductState);
       setAdditionalVariants([]);
@@ -2467,6 +2530,40 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 </div>
               )}
             </SheetHeader>
+
+            {pendingDraft && (
+              <div className="px-6 pt-4">
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 flex items-start gap-3">
+                  <div className="flex-1 text-sm">
+                    <p className="font-medium">Tienes un producto en borrador</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {pendingDraft.name?.trim() || 'Sin nombre todavía'} — guardado durante tu última sesión. ¿Continuar editándolo?
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setNewProduct(pendingDraft);
+                      setPendingDraft(null);
+                    }}
+                  >
+                    Continuar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      if (draftKey) {
+                        try { localStorage.removeItem(draftKey); } catch (e) { /* noop */ }
+                      }
+                      setPendingDraft(null);
+                    }}
+                  >
+                    Descartar
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Product Type Selector */}
             <div className="px-6 py-4 border-b bg-muted/30">
