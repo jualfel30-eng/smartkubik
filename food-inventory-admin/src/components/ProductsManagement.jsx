@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog.jsx';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet.jsx';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible.jsx';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs.jsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu.jsx';
 import * as XLSX from 'xlsx';
@@ -2655,214 +2656,228 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-x-6 gap-y-4 pt-6 border-t">
-                <div className="space-y-2">
-                  <Label htmlFor="category">Categoría</Label>
-                  <TagInput
-                    id="category"
-                    value={newProduct.category}
-                    onChange={(tags) => setNewProduct({ ...newProduct, category: tags })}
-                    placeholder={getPlaceholder('category', 'Ej: Bebidas, Alimentos')}
-                    helpText="Escribe una categoría y presiona coma (,) o Enter para agregar. Puedes agregar múltiples categorías para ayudar a la IA a encontrar productos más fácilmente."
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="subcategory">Sub-categoría</Label>
-                  <TagInput
-                    id="subcategory"
-                    value={newProduct.subcategory}
-                    onChange={(tags) => setNewProduct({ ...newProduct, subcategory: tags })}
-                    placeholder={getPlaceholder('subcategory', 'Ej: Gaseosas, Refrescos')}
-                    helpText="Escribe una sub-categoría y presiona coma (,) o Enter para agregar. Esto facilita la búsqueda sin necesidad de ser experto."
-                  />
-                </div>
-
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="description">Descripción</Label>
-                  <Textarea
-                    id="description"
-                    value={newProduct.description}
-                    onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                    placeholder={getDynamicPlaceholder('description', newProduct.productType)}
-                  />
-                </div>
-                {!isNonFoodRetailVertical && (
-                  <div className="col-span-2 space-y-2">
-                    <Label htmlFor="ingredients">{ingredientLabel}</Label>
-                    <Textarea
-                      id="ingredients"
-                      value={newProduct.ingredients}
-                      onChange={(e) => setNewProduct({ ...newProduct, ingredients: e.target.value })}
-                      placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
-                    />
-                  </div>
-                )}
-                {productAttributes.length > 0 && (
-                  <div className="col-span-2 border-t pt-4 mt-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-lg font-medium">Atributos del Producto</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Personaliza campos específicos de la vertical activa.
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {productAttributes.map((attr) => (
-                        <div key={attr.key} className="space-y-2">
-                          <Label>
-                            {attr.label}
-                            {attr.required ? <span className="text-destructive"> *</span> : null}
-                          </Label>
-                          {renderAttributeControl(
-                            attr,
-                            newProduct.attributes?.[attr.key],
-                            (rawValue) => handleProductAttributeChange(attr, rawValue),
-                          )}
-                          {attr.ui?.helperText && (
-                            <p className="text-xs text-muted-foreground">{attr.ui.helperText}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {!isNonFoodRetailVertical && (
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Checkbox
-                      id="isPerishable"
-                      checked={newProduct.isPerishable}
-                      onCheckedChange={(checked) =>
-                        setNewProduct({ ...newProduct, isPerishable: checked })
-                      }
-                    />
-                    <Label htmlFor="isPerishable">Es Perecedero</Label>
-                  </div>
-                )}
-
-                {/* Send to Kitchen Toggle (Restaurant Only) */}
-                {isRestaurant && (
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Switch
-                      id="sendToKitchen"
-                      checked={newProduct.sendToKitchen !== false}
-                      onCheckedChange={(checked) =>
-                        setNewProduct({ ...newProduct, sendToKitchen: checked })
-                      }
-                    />
-                    <Label htmlFor="sendToKitchen">Enviar a Cocina / Comanda</Label>
-                  </div>
-                )}
-                {verticalConfig?.allowsWeight && (
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Checkbox id="isSoldByWeight" checked={newProduct.isSoldByWeight} onCheckedChange={(checked) => setNewProduct({ ...newProduct, isSoldByWeight: checked })} />
-                    <Label htmlFor="isSoldByWeight">Vendido por Peso</Label>
-                  </div>
-                )}
-                {!isNonFoodRetailVertical && (
-                  <div className="space-y-2">
-                    <Label htmlFor="unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
-                    <Select
-                      value={newProduct.unitOfMeasure}
-                      onValueChange={(value) =>
-                        setNewProduct({ ...newProduct, unitOfMeasure: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={getDynamicPlaceholder('unitOfMeasure', newProduct.productType)} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {unitOptions.map((unit) => (
-                          <SelectItem key={unit} value={unit}>
-                            {unit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Esta es la unidad en la que se guardará el inventario
+              {productAttributes.length > 0 && (
+                <div className="pt-6 border-t">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-medium">Atributos del Producto</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Personaliza campos específicos de la vertical activa.
                     </p>
                   </div>
-                )}
-                {/* IVA solo para mercancía */}
-                {!isNonFoodRetailVertical && newProduct.productType === 'simple' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="ivaRate">IVA Aplicable</Label>
-                    <Select
-                      value={String(newProduct.ivaRate ?? 16)}
-                      onValueChange={(value) =>
-                        setNewProduct({
-                          ...newProduct,
-                          ivaRate: Number(value),
-                          ivaApplicable: Number(value) > 0 // Keep in sync
-                        })
-                      }
-                    >
-                      <SelectTrigger id="ivaRate">
-                        <SelectValue placeholder="Seleccione tasa de IVA" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">Exento (0%)</SelectItem>
-                        <SelectItem value="8">Reducido (8%)</SelectItem>
-                        <SelectItem value="16">Normal (16%)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {productAttributes.map((attr) => (
+                      <div key={attr.key} className="space-y-2">
+                        <Label>
+                          {attr.label}
+                          {attr.required ? <span className="text-destructive"> *</span> : null}
+                        </Label>
+                        {renderAttributeControl(
+                          attr,
+                          newProduct.attributes?.[attr.key],
+                          (rawValue) => handleProductAttributeChange(attr, rawValue),
+                        )}
+                        {attr.ui?.helperText && (
+                          <p className="text-xs text-muted-foreground">{attr.ui.helperText}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Collapsible className="pt-6 border-t">
+                <CollapsibleTrigger className="group flex items-center gap-2 w-full text-left hover:bg-muted/40 rounded-md px-2 py-2 -mx-2 transition-colors">
+                  <ChevronDown className="h-4 w-4 transition-transform group-data-[state=closed]:-rotate-90" />
+                  <div className="flex-1">
+                    <h4 className="text-base font-medium">Más opciones</h4>
                     <p className="text-xs text-muted-foreground">
-                      Seleccione la tasa de IVA aplicable a este producto
+                      Categoría, descripción, IVA, perecedero, unidad de medida…
                     </p>
                   </div>
-                )}
-                {!isNonFoodRetailVertical && newProduct.isPerishable && (
-                  <>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-4">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="shelfLifeValue">Vida Útil</Label>
-                      <div className="flex gap-2">
-                        <NumberInput
-                          id="shelfLifeValue"
-                          className="flex-1"
-                          value={newProduct.shelfLifeValue ?? ''}
-                          onValueChange={(val) => setNewProduct({
-                            ...newProduct,
-                            shelfLifeValue: val,
-                            shelfLifeDays: shelfLifeValueToDays(val, newProduct.shelfLifeUnit),
-                          })}
-                          step={1}
-                          min={0}
-                          placeholder="Cantidad"
+                      <Label htmlFor="category">Categoría</Label>
+                      <TagInput
+                        id="category"
+                        value={newProduct.category}
+                        onChange={(tags) => setNewProduct({ ...newProduct, category: tags })}
+                        placeholder={getPlaceholder('category', 'Ej: Bebidas, Alimentos')}
+                        helpText="Escribe una categoría y presiona coma (,) o Enter para agregar. Puedes agregar múltiples categorías para ayudar a la IA a encontrar productos más fácilmente."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="subcategory">Sub-categoría</Label>
+                      <TagInput
+                        id="subcategory"
+                        value={newProduct.subcategory}
+                        onChange={(tags) => setNewProduct({ ...newProduct, subcategory: tags })}
+                        placeholder={getPlaceholder('subcategory', 'Ej: Gaseosas, Refrescos')}
+                        helpText="Escribe una sub-categoría y presiona coma (,) o Enter para agregar. Esto facilita la búsqueda sin necesidad de ser experto."
+                      />
+                    </div>
+
+                    <div className="col-span-2 space-y-2">
+                      <Label htmlFor="description">Descripción</Label>
+                      <Textarea
+                        id="description"
+                        value={newProduct.description}
+                        onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                        placeholder={getDynamicPlaceholder('description', newProduct.productType)}
+                      />
+                    </div>
+                    {!isNonFoodRetailVertical && (
+                      <div className="col-span-2 space-y-2">
+                        <Label htmlFor="ingredients">{ingredientLabel}</Label>
+                        <Textarea
+                          id="ingredients"
+                          value={newProduct.ingredients}
+                          onChange={(e) => setNewProduct({ ...newProduct, ingredients: e.target.value })}
+                          placeholder={isNonFoodRetailVertical ? 'Describe la composición del producto' : 'Lista de ingredientes'}
                         />
+                      </div>
+                    )}
+                    {!isNonFoodRetailVertical && (
+                      <div className="flex items-center space-x-2 pt-2">
+                        <Checkbox
+                          id="isPerishable"
+                          checked={newProduct.isPerishable}
+                          onCheckedChange={(checked) =>
+                            setNewProduct({ ...newProduct, isPerishable: checked })
+                          }
+                        />
+                        <Label htmlFor="isPerishable">Es Perecedero</Label>
+                      </div>
+                    )}
+
+                    {/* Send to Kitchen Toggle (Restaurant Only) */}
+                    {isRestaurant && (
+                      <div className="flex items-center space-x-2 pt-2">
+                        <Switch
+                          id="sendToKitchen"
+                          checked={newProduct.sendToKitchen !== false}
+                          onCheckedChange={(checked) =>
+                            setNewProduct({ ...newProduct, sendToKitchen: checked })
+                          }
+                        />
+                        <Label htmlFor="sendToKitchen">Enviar a Cocina / Comanda</Label>
+                      </div>
+                    )}
+                    {verticalConfig?.allowsWeight && (
+                      <div className="flex items-center space-x-2 pt-2">
+                        <Checkbox id="isSoldByWeight" checked={newProduct.isSoldByWeight} onCheckedChange={(checked) => setNewProduct({ ...newProduct, isSoldByWeight: checked })} />
+                        <Label htmlFor="isSoldByWeight">Vendido por Peso</Label>
+                      </div>
+                    )}
+                    {!isNonFoodRetailVertical && (
+                      <div className="space-y-2">
+                        <Label htmlFor="unitOfMeasure">Unidad de Medida Base (Inventario)</Label>
                         <Select
-                          value={newProduct.shelfLifeUnit || 'days'}
-                          onValueChange={(unit) => setNewProduct({
-                            ...newProduct,
-                            shelfLifeUnit: unit,
-                            shelfLifeDays: shelfLifeValueToDays(newProduct.shelfLifeValue, unit),
-                          })}
+                          value={newProduct.unitOfMeasure}
+                          onValueChange={(value) =>
+                            setNewProduct({ ...newProduct, unitOfMeasure: value })
+                          }
                         >
-                          <SelectTrigger className="w-[120px]">
-                            <SelectValue />
+                          <SelectTrigger>
+                            <SelectValue placeholder={getDynamicPlaceholder('unitOfMeasure', newProduct.productType)} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="days">Días</SelectItem>
-                            <SelectItem value="months">Meses</SelectItem>
-                            <SelectItem value="years">Años</SelectItem>
+                            {unitOptions.map((unit) => (
+                              <SelectItem key={unit} value={unit}>
+                                {unit}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Esta es la unidad en la que se guardará el inventario
+                        </p>
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="storageTemperature">Temperatura de Almacenamiento</Label>
-                      <Select value={newProduct.storageTemperature} onValueChange={(value) => setNewProduct({ ...newProduct, storageTemperature: value })}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona una temperatura" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ambiente">Ambiente</SelectItem>
-                          <SelectItem value="refrigerado">Refrigerado</SelectItem>
-                          <SelectItem value="congelado">Congelado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </>
-                )}
-              </div>
+                    )}
+                    {/* IVA solo para mercancía */}
+                    {!isNonFoodRetailVertical && newProduct.productType === 'simple' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="ivaRate">IVA Aplicable</Label>
+                        <Select
+                          value={String(newProduct.ivaRate ?? 16)}
+                          onValueChange={(value) =>
+                            setNewProduct({
+                              ...newProduct,
+                              ivaRate: Number(value),
+                              ivaApplicable: Number(value) > 0 // Keep in sync
+                            })
+                          }
+                        >
+                          <SelectTrigger id="ivaRate">
+                            <SelectValue placeholder="Seleccione tasa de IVA" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">Exento (0%)</SelectItem>
+                            <SelectItem value="8">Reducido (8%)</SelectItem>
+                            <SelectItem value="16">Normal (16%)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Seleccione la tasa de IVA aplicable a este producto
+                        </p>
+                      </div>
+                    )}
+                    {!isNonFoodRetailVertical && newProduct.isPerishable && (
+                      <>
+                        <div className="space-y-2">
+                          <Label htmlFor="shelfLifeValue">Vida Útil</Label>
+                          <div className="flex gap-2">
+                            <NumberInput
+                              id="shelfLifeValue"
+                              className="flex-1"
+                              value={newProduct.shelfLifeValue ?? ''}
+                              onValueChange={(val) => setNewProduct({
+                                ...newProduct,
+                                shelfLifeValue: val,
+                                shelfLifeDays: shelfLifeValueToDays(val, newProduct.shelfLifeUnit),
+                              })}
+                              step={1}
+                              min={0}
+                              placeholder="Cantidad"
+                            />
+                            <Select
+                              value={newProduct.shelfLifeUnit || 'days'}
+                              onValueChange={(unit) => setNewProduct({
+                                ...newProduct,
+                                shelfLifeUnit: unit,
+                                shelfLifeDays: shelfLifeValueToDays(newProduct.shelfLifeValue, unit),
+                              })}
+                            >
+                              <SelectTrigger className="w-[120px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="days">Días</SelectItem>
+                                <SelectItem value="months">Meses</SelectItem>
+                                <SelectItem value="years">Años</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="storageTemperature">Temperatura de Almacenamiento</Label>
+                          <Select value={newProduct.storageTemperature} onValueChange={(value) => setNewProduct({ ...newProduct, storageTemperature: value })}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona una temperatura" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="ambiente">Ambiente</SelectItem>
+                              <SelectItem value="refrigerado">Refrigerado</SelectItem>
+                              <SelectItem value="congelado">Congelado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
 
               {/* Configuración de Inventario (Stock min/max/reorden) intencionalmente oculta en CREAR.
                   Razones: requiere historia de venta para tener valores informados (Cooper's Just-In-Time UX),
