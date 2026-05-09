@@ -71,8 +71,42 @@ export const MOBILE_NAV_GROUPS = [
 ];
 
 /**
- * Routes already handled by the bottom navigation bar.
- * These are excluded from the "Más" menu to avoid duplication.
+ * Routes already handled by the bottom navigation bar — excluded from "Más" menu.
+ * Three sets, one per vertical track. Each track's bottom nav exposes different
+ * primary routes; the others should appear in the "Más" menu.
+ */
+export const BOTTOM_NAV_HREFS_BEAUTY = new Set([
+  'dashboard',
+  'appointments',
+  'crm',
+]);
+
+export const BOTTOM_NAV_HREFS_COMMERCE = new Set([
+  'dashboard',
+  'orders/history',
+  'inventory-management',
+]);
+
+export const BOTTOM_NAV_HREFS_DEFAULT = new Set([
+  'dashboard',
+  'orders/new',
+  'crm',
+]);
+
+/**
+ * Returns the right exclusion set for the active vertical track.
+ * Pass the flags from `useMobileVertical()`.
+ */
+export function getBottomNavHrefs({ isBeauty = false, isCommerce = false } = {}) {
+  if (isBeauty) return BOTTOM_NAV_HREFS_BEAUTY;
+  if (isCommerce) return BOTTOM_NAV_HREFS_COMMERCE;
+  return BOTTOM_NAV_HREFS_DEFAULT;
+}
+
+/**
+ * Backwards-compatible alias — same as the old hard-coded set, used by callers
+ * that haven't been updated to take vertical flags into account yet.
+ * Equivalent to BOTTOM_NAV_HREFS_DEFAULT plus 'appointments' to cover legacy beauty nav.
  */
 export const BOTTOM_NAV_HREFS = new Set([
   'dashboard',

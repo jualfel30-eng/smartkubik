@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { CalendarDays, Home, Users, Menu } from 'lucide-react';
+import { CalendarDays, Home, Users, Menu, Receipt, Boxes } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
@@ -13,7 +13,7 @@ import { onBadgeUpdate } from '@/lib/badge-events';
 import { useAuth } from '@/hooks/use-auth';
 import { useSidebarBadges } from '@/hooks/use-sidebar-badges';
 import { useNotification } from '@/context/NotificationContext';
-import { BOTTOM_NAV_HREFS } from '@/config/mobileNavGroups';
+import { getBottomNavHrefs } from '@/config/mobileNavGroups';
 
 const TAB_CONFIGS = {
   beauty: [
@@ -21,6 +21,13 @@ const TAB_CONFIGS = {
     { to: '/appointments', label: 'Agenda', icon: CalendarDays },
     { slot: 'fab' },
     { to: '/crm', label: 'Clientes', icon: Users },
+    { to: '/mas', label: 'Más', icon: Menu },
+  ],
+  commerce: [
+    { to: '/dashboard', label: 'Hoy', icon: Home },
+    { to: '/orders/history', label: 'Pedidos', icon: Receipt },
+    { slot: 'fab' },
+    { to: '/inventory-management', label: 'Inventario', icon: Boxes },
     { to: '/mas', label: 'Más', icon: Menu },
   ],
   default: [
@@ -96,17 +103,19 @@ function TabItem({ to, label, Icon, active, badge = 0 }) {
 }
 
 export default function MobileBottomNav() {
-  const { isBeauty } = useMobileVertical();
+  const { isBeauty, isCommerce } = useMobileVertical();
   const location = useLocation();
   const [pendingCount, setPendingCount] = useState(0);
   const [unpaidCount, setUnpaidCount] = useState(0);
 
-  // Aggregate badge for "Más" tab
+  // Aggregate badge for "Más" tab — exclude routes already in the bottom nav
+  // (set varies by vertical track, so call getBottomNavHrefs with current flags).
   const { tenant } = useAuth();
   const sidebarBadges = useSidebarBadges(tenant);
   const { unreadCount } = useNotification();
+  const bottomNavExclusions = getBottomNavHrefs({ isBeauty, isCommerce });
   const masBadgeCount = Object.entries(sidebarBadges)
-    .filter(([key]) => !BOTTOM_NAV_HREFS.has(key))
+    .filter(([key]) => !bottomNavExclusions.has(key))
     .reduce((sum, [, n]) => sum + n, 0) + (unreadCount || 0);
 
   const loadCounts = useCallback(async () => {
@@ -136,11 +145,18 @@ export default function MobileBottomNav() {
     return unsub;
   }, [loadCounts]);
 
-  const rawTabs = isBeauty ? TAB_CONFIGS.beauty : TAB_CONFIGS.default;
+  const rawTabs = isBeauty
+    ? TAB_CONFIGS.beauty
+    : isCommerce
+      ? TAB_CONFIGS.commerce
+      : TAB_CONFIGS.default;
   const tabs = rawTabs.map(tab => {
     if (!tab.to) return tab;
     if (isBeauty && tab.to === '/appointments') return { ...tab, badge: pendingCount };
     if (isBeauty && tab.to === '/dashboard') return { ...tab, badge: unpaidCount };
+    if (isCommerce && tab.to === '/inventory-management') {
+      return { ...tab, badge: sidebarBadges['inventory-management'] || 0 };
+    }
     if (tab.to === '/mas') return { ...tab, badge: masBadgeCount };
     return tab;
   });

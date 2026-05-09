@@ -5,6 +5,7 @@ import { es } from 'date-fns/locale';
 import {
   TrendingUp, CalendarDays, Clock, CheckCircle2,
   AlertCircle, RefreshCw, ChevronRight, Scissors, DollarSign, Receipt,
+  AlertTriangle, Package, Truck, Users, Boxes,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { fetchApi } from '@/lib/api';
@@ -15,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { listItem, STAGGER, DUR, EASE } from '@/lib/motion';
 import haptics from '@/lib/haptics';
 import { useReducedMotionSafe } from '@/hooks/use-reduced-motion-safe';
+import { useSidebarBadges } from '@/hooks/use-sidebar-badges';
 import MobilePushPrompt from '../MobilePushPrompt.jsx';
 import AnimatedNumber from '../primitives/AnimatedNumber.jsx';
 import Sparkline from '../primitives/Sparkline.jsx';
@@ -137,8 +139,10 @@ function transformBeautyBooking(b) {
 
 export default function TodayDashboard() {
   const { tenant } = useAuth();
-  const { isBeauty } = useMobileVertical();
+  const { isBeauty, isCommerce } = useMobileVertical();
   const navigate = useNavigate();
+  const sidebarBadges = useSidebarBadges(tenant);
+  const lowStockCount = sidebarBadges['inventory-management'] || 0;
 
   const [summary, setSummary] = useState(null);
   const [appointments, setAppointments] = useState([]);
@@ -195,10 +199,12 @@ export default function TodayDashboard() {
 
   // Alerts
   const alerts = [];
-  if (pending.length > 0)
+  if (!isCommerce && pending.length > 0)
     alerts.push({ id: 'pending', icon: Clock, color: 'amber', label: `${pending.length} cita${pending.length > 1 ? 's' : ''} sin confirmar hoy`, to: '/appointments' });
-  if (unpaid.length > 0)
+  if (!isCommerce && unpaid.length > 0)
     alerts.push({ id: 'unpaid', icon: Receipt, color: 'orange', label: `${unpaid.length} cita${unpaid.length > 1 ? 's' : ''} completada${unpaid.length > 1 ? 's' : ''} sin cobrar`, to: '/appointments' });
+  if (isCommerce && lowStockCount > 0)
+    alerts.push({ id: 'low-stock', icon: AlertTriangle, color: 'amber', label: `${lowStockCount} producto${lowStockCount === 1 ? '' : 's'} con stock bajo`, to: '/inventory-management?tab=alerts' });
   if (!cashSession)
     alerts.push({ id: 'cash', icon: DollarSign, color: 'blue', label: 'Abre caja para registrar cobros', to: '/cash-register' });
 
@@ -279,11 +285,18 @@ export default function TodayDashboard() {
           </div>
         </div>
         <div className="grid grid-cols-3 gap-2">
-          {[
-            { value: appointments.length, label: 'Citas', color: 'text-foreground' },
-            { value: done.length, label: 'Completadas', color: 'text-emerald-500' },
-            { value: pending.length, label: 'Pendientes', color: 'text-amber-500' },
-          ].map((stat) => (
+          {(isCommerce
+            ? [
+                { value: summary?.ordersToday ?? 0, label: 'Órdenes', color: 'text-foreground' },
+                { value: summary?.transactionsToday ?? summary?.ordersToday ?? 0, label: 'Tickets', color: 'text-emerald-500' },
+                { value: lowStockCount, label: 'Stock bajo', color: lowStockCount > 0 ? 'text-amber-500' : 'text-foreground' },
+              ]
+            : [
+                { value: appointments.length, label: 'Citas', color: 'text-foreground' },
+                { value: done.length, label: 'Completadas', color: 'text-emerald-500' },
+                { value: pending.length, label: 'Pendientes', color: 'text-amber-500' },
+              ]
+          ).map((stat) => (
             <div key={stat.label} className="text-center rounded-xl py-2.5" style={{ background: 'var(--glass-subtle)' }}>
               <div className={`text-lg font-bold tabular-nums ${stat.color}`}>{stat.value}</div>
               <div className="text-[10px] text-muted-foreground/60 font-medium">{stat.label}</div>
@@ -308,8 +321,8 @@ export default function TodayDashboard() {
         </motion.div>
       )}
 
-      {/* Upcoming appointments */}
-      {upcoming.length > 0 && (
+      {/* Upcoming appointments — appointment-driven verticals only */}
+      {!isCommerce && upcoming.length > 0 && (
         <motion.section variants={listItem}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[13px] font-semibold text-foreground/80 flex items-center gap-2">
@@ -338,8 +351,8 @@ export default function TodayDashboard() {
         </motion.section>
       )}
 
-      {/* Completed today */}
-      {done.length > 0 && (
+      {/* Completed today — appointment-driven verticals only */}
+      {!isCommerce && done.length > 0 && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <CheckCircle2 size={14} className="text-emerald-500" />
           <span>{done.length} cita{done.length > 1 ? 's' : ''} completada{done.length > 1 ? 's' : ''} hoy</span>
@@ -391,16 +404,24 @@ export default function TodayDashboard() {
       {/* Push notifications prompt — aparece con contexto, no al entrar */}
       <MobilePushPrompt />
 
-      {/* Quick nav */}
+      {/* Quick nav — vertical-aware shortcuts (avoid duplicating bottom-nav routes) */}
       <motion.section variants={listItem}>
         <h2 className="text-[13px] font-semibold text-foreground/80 mb-3">Acceso rápido</h2>
         <motion.div className="grid grid-cols-2 gap-3" variants={STAGGER(0.04)}>
-          {[
-            { label: 'Agenda', icon: CalendarDays, to: '/appointments', gradient: ['#c084fc', '#a855f7'] },
-            { label: 'Caja', icon: DollarSign, to: '/cash-register', gradient: ['#4ade80', '#22c55e'] },
-            { label: isBeauty ? 'Servicios' : 'Productos', icon: Scissors, to: isBeauty ? '/services' : '/products', gradient: ['#38bdf8', '#0ea5e9'] },
-            { label: 'Clientes', icon: CheckCircle2, to: '/crm', gradient: ['#fb923c', '#f97316'] },
-          ].map(item => {
+          {(isCommerce
+            ? [
+                { label: 'Caja', icon: DollarSign, to: '/cash-register', gradient: ['#c084fc', '#a855f7'] },
+                { label: 'Compras', icon: Truck, to: '/inventory-management?tab=purchases', gradient: ['#4ade80', '#22c55e'] },
+                { label: 'Productos', icon: Package, to: '/inventory-management?tab=products', gradient: ['#38bdf8', '#0ea5e9'] },
+                { label: 'Clientes', icon: Users, to: '/crm', gradient: ['#fb923c', '#f97316'] },
+              ]
+            : [
+                { label: 'Agenda', icon: CalendarDays, to: '/appointments', gradient: ['#c084fc', '#a855f7'] },
+                { label: 'Caja', icon: DollarSign, to: '/cash-register', gradient: ['#4ade80', '#22c55e'] },
+                { label: isBeauty ? 'Servicios' : 'Productos', icon: Scissors, to: isBeauty ? '/services' : '/products', gradient: ['#38bdf8', '#0ea5e9'] },
+                { label: 'Clientes', icon: CheckCircle2, to: '/crm', gradient: ['#fb923c', '#f97316'] },
+              ]
+          ).map(item => {
             const Icon = item.icon;
             return (
               <motion.button

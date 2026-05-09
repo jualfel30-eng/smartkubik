@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, CalendarPlus, UserPlus, Receipt, ShoppingCart, Clock } from 'lucide-react';
+import { Plus, CalendarPlus, UserPlus, Receipt, ShoppingCart, Clock, PackagePlus, Boxes } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import MobileActionSheet from './MobileActionSheet.jsx';
@@ -15,6 +15,12 @@ const ACTIONS_BY_VERTICAL = {
     { id: 'charge', label: 'Cobrar', icon: Receipt, to: '/appointments?charge=1', gradient: ['#fb923c', '#f97316'] },
     { id: 'next-apt', label: 'Siguiente', icon: Clock, to: '/appointments?next=1', gradient: ['#38bdf8', '#0ea5e9'] },
   ],
+  commerce: [
+    { id: 'new-sale', label: 'Nueva venta', icon: ShoppingCart, to: '/orders/new', gradient: ['#c084fc', '#a855f7'] },
+    { id: 'receive-po', label: 'Recibir compra', icon: PackagePlus, to: '/inventory-management?tab=purchases&new=1', gradient: ['#4ade80', '#22c55e'] },
+    { id: 'adjust-stock', label: 'Ajustar stock', icon: Boxes, to: '/inventory-management?tab=movements&new=1', gradient: ['#fb923c', '#f97316'] },
+    { id: 'charge', label: 'Cobrar', icon: Receipt, to: '/cash-register', gradient: ['#38bdf8', '#0ea5e9'] },
+  ],
   default: [
     { id: 'new-sale', label: 'Nueva venta', icon: ShoppingCart, to: '/orders/new', gradient: ['#c084fc', '#a855f7'] },
     { id: 'new-client', label: 'Nuevo cliente', icon: UserPlus, to: '/crm?new=1', gradient: ['#4ade80', '#22c55e'] },
@@ -28,9 +34,13 @@ const LONG_PRESS_MS = 500;
 export default function MobileFAB() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-  const { isBeauty } = useMobileVertical();
+  const { isBeauty, isCommerce } = useMobileVertical();
   const { contextAction } = useFabContext();
-  const actions = isBeauty ? ACTIONS_BY_VERTICAL.beauty : ACTIONS_BY_VERTICAL.default;
+  const actions = isBeauty
+    ? ACTIONS_BY_VERTICAL.beauty
+    : isCommerce
+      ? ACTIONS_BY_VERTICAL.commerce
+      : ACTIONS_BY_VERTICAL.default;
 
   const longPressTimer = useRef(null);
   const isLongPress = useRef(false);

@@ -10,7 +10,8 @@ import { useTipsLabels } from '@/hooks/useTipsLabels';
 import { getSidebarWhitelist } from '@/config/sidebarProfiles';
 import { getNavLinks } from '@/config/navLinks';
 import { isNavItemVisible, getDisplayName } from '@/lib/nav-utils';
-import { MOBILE_NAV_GROUPS, BOTTOM_NAV_HREFS } from '@/config/mobileNavGroups';
+import { MOBILE_NAV_GROUPS, getBottomNavHrefs } from '@/config/mobileNavGroups';
+import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { STAGGER, listItem, EASE } from '@/lib/motion';
 import haptics from '@/lib/haptics';
 
@@ -76,6 +77,11 @@ export default function MobileMoreMenu() {
   const sidebarBadges = useSidebarBadges(tenant);
   const { unreadCount } = useNotification();
   const tipsLabels = useTipsLabels();
+  const { isBeauty, isCommerce } = useMobileVertical();
+  const bottomNavExclusions = useMemo(
+    () => getBottomNavHrefs({ isBeauty, isCommerce }),
+    [isBeauty, isCommerce]
+  );
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -120,7 +126,7 @@ export default function MobileMoreMenu() {
     for (const group of MOBILE_NAV_GROUPS) {
       const items = [];
       for (const href of group.hrefs) {
-        if (BOTTOM_NAV_HREFS.has(href)) continue;
+        if (bottomNavExclusions.has(href)) continue;
         const item = navLinkMap[href];
         if (!item) continue;
         if (!isNavItemVisible(item, filterCtx)) continue;
@@ -130,7 +136,7 @@ export default function MobileMoreMenu() {
       if (items.length > 0) result.push({ ...group, items });
     }
     return result;
-  }, [navLinkMap, filterCtx, profileKey, tipsLabels]);
+  }, [navLinkMap, filterCtx, profileKey, tipsLabels, bottomNavExclusions]);
 
   const filteredGroups = useMemo(() => {
     if (!searchQuery.trim()) return groups;
