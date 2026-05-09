@@ -69,7 +69,11 @@ import {
 const CRMManagement = lazy(() => import('@/components/CRMManagement.jsx'));
 const OrdersManagement = lazy(() => import('@/components/CRMManagement.jsx')); // Legacy name kept for safety but check usage
 const OrdersPOS = lazy(() => import('@/components/orders/v2/OrdersPOS.jsx').then(module => ({ default: module.OrdersPOS })));
-const OrdersHistory = lazy(() => import('@/components/orders/v2/OrdersHistoryV2.jsx').then(module => ({ default: module.OrdersHistoryV2 })));
+const OrdersHistory = lazy(() =>
+  import.meta.env.VITE_ORDERS_V3 === 'true'
+    ? import('@/components/orders/v3/OrdersHistoryV3.jsx').then(module => ({ default: module.OrdersHistoryV3 }))
+    : import('@/components/orders/v2/OrdersHistoryV2.jsx').then(module => ({ default: module.OrdersHistoryV2 }))
+);
 const CalendarView = lazy(() => import('@/components/CalendarView.jsx').then(module => ({ default: module.CalendarView })));
 const CalendarManagement = lazy(() => import('@/components/CalendarManagement.jsx').then(module => ({ default: module.CalendarManagement })));
 const CalendarModule = lazy(() => import('@/components/CalendarModule.jsx').then(module => ({ default: module.CalendarModule })));
