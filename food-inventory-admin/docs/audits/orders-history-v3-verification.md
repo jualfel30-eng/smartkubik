@@ -135,7 +135,7 @@ Los 8 triggers del audit ([orders-history-admin-2026-05-09.md](orders-history-ad
 ## Próximos pasos
 
 1. **Smoke manual del usuario** en navegador con flag activo (checklist arriba).
-2. **Beta-test automatizado**: invocar `/beta-test orders-history-v3` (escenarios definidos en blueprint Fase 3.3).
+2. **Beta-test automatizado** (PENDING SETUP): `/beta-test orders-history-v3` requiere `.env.beta-tester` con `BETA_TESTER_API_URL`, `BETA_TESTER_TENANT`, `BETA_TESTER_EMAIL`, `BETA_TESTER_PASSWORD` apuntando a staging. El archivo no existe en el repo — guardrail del skill aborta por seguridad. Configurar one-time según [.claude/skills/beta-test/SKILL.md](../../../.claude/skills/beta-test/SKILL.md) sección "Setup inicial".
 3. **Lighthouse audit** sobre `/orders/history` con flag on para D4.
 4. **Activar evento V2 baseline** para D6 (si se quiere medir delta real, no sólo absoluto V3).
 5. **Deploy a staging** con flag off (rollback-safe), luego flag on para tenant pilot.
