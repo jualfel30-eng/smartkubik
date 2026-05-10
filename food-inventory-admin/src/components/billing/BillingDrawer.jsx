@@ -38,6 +38,8 @@ import {
     SheetTitle,
 } from "../ui/sheet";
 import { toast } from 'sonner';
+import haptics from '@/lib/haptics';
+import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber.jsx';
 import { api } from '../../lib/api';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
 import InvoiceDeliveryDialog from './InvoiceDeliveryDialog';
@@ -549,9 +551,19 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated, initialDocument
         <>
             <Sheet open={isOpen} onOpenChange={onClose}>
                 <SheetContent side="right" className="sm:max-w-[800px] w-full overflow-y-auto">
-                    <SheetHeader className="mb-6">
-                        <SheetTitle>Facturación de Orden {order?.orderNumber}</SheetTitle>
-                        <SheetDescription>
+                    <SheetHeader className="mb-6 pb-4 border-b border-border/40">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--glass-medium)' }}>
+                                <FileText size={14} strokeWidth={1.75} className="text-primary" />
+                            </div>
+                            <SheetTitle className="text-[22px] font-extrabold tracking-tight leading-tight">
+                                Facturación
+                            </SheetTitle>
+                        </div>
+                        <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold mt-2">
+                            Orden {order?.orderNumber}
+                        </p>
+                        <SheetDescription className="mt-1">
                             Complete los datos para generar el documento fiscal verificado.
                         </SheetDescription>
                     </SheetHeader>
@@ -821,9 +833,14 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated, initialDocument
                                     <span>${totals.igtf.toFixed(2)}</span>
                                 </div>
                             )}
-                            <div className="flex justify-between font-bold text-lg pt-2 border-t">
-                                <span>Total:</span>
-                                <span>${totals.total.toFixed(2)}</span>
+                            <div
+                                className="flex items-end justify-between mt-2 px-3 py-2.5 rounded-xl"
+                                style={{ background: 'var(--glass-subtle)' }}
+                            >
+                                <span className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold leading-none mb-1">Total</span>
+                                <span className="text-[28px] sm:text-[32px] font-extrabold tabular-nums tracking-tight leading-none text-primary">
+                                    <AnimatedNumber value={totals.total} format={(n) => `$${n.toFixed(2)}`} duration={0.4} />
+                                </span>
                             </div>
 
                             {/* Exchange Rate and primary currency total — shown only for dual-currency countries */}
@@ -870,12 +887,25 @@ const BillingDrawer = ({ isOpen, onClose, order, onOrderUpdated, initialDocument
                         </div>
 
                         <div className="flex flex-col gap-2 pt-4">
-                            <Button variant="outline" className="w-full" onClick={handleSaveDraft} disabled={loading}>
-                                Guardar Borrador
+                            <Button
+                                variant="outline"
+                                className="w-full"
+                                onClick={() => { haptics.tap(); handleSaveDraft(); }}
+                                disabled={loading}
+                            >
+                                Guardar borrador
                             </Button>
-                            <Button className="w-full" onClick={handleIssue} disabled={loading}>
+                            <Button
+                                className="w-full text-primary-foreground border-0"
+                                onClick={() => { haptics.select(); handleIssue(); }}
+                                disabled={loading}
+                                style={{
+                                    background: 'var(--gradient-primary)',
+                                    boxShadow: '0 4px 16px oklch(0.62 0.22 268 / 0.3)',
+                                }}
+                            >
                                 <Send className="mr-2 h-4 w-4" />
-                                {formData.type === 'delivery_note' ? 'Emitir Nota de Entrega' : 'Emitir Factura'}
+                                {formData.type === 'delivery_note' ? 'Emitir nota de entrega' : 'Emitir factura'}
                             </Button>
                         </div>
 

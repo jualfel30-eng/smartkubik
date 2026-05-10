@@ -45,6 +45,7 @@ import { CollapsibleSection } from './CollapsibleSection';
 import { CheckoutFooter } from './CheckoutFooter';
 import { OrderSummaryBreakdown } from './OrderSummaryBreakdown';
 import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber.jsx';
+import haptics from '@/lib/haptics';
 import { User, Truck } from 'lucide-react';
 
 const initialOrderState = {
@@ -2708,26 +2709,39 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
           {/* ── Sticky cart bar — fixed above bottom nav ── */}
           {newOrder.items.length > 0 && activeTab !== 'order' && (
-            <div className="fixed left-0 right-0 bottom-[64px] z-[49]">
-              <button
+            <div className="fixed left-0 right-0 bottom-[64px] z-[49] px-3 pb-2">
+              <motion.button
                 type="button"
-                onClick={() => setActiveTab('order')}
-                className="w-full flex items-center justify-between bg-emerald-600 text-white px-4 py-3.5 active:bg-emerald-500 transition-colors border-t border-emerald-500"
+                whileTap={tapScale}
+                onClick={() => { haptics.tap(); setActiveTab('order'); }}
+                className="w-full flex items-center justify-between text-white px-4 py-4 no-tap-highlight"
+                style={{
+                  borderRadius: 'var(--mobile-radius-xl)',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  boxShadow: '0 8px 24px oklch(0.65 0.16 165 / 0.35), 0 2px 6px oklch(0.65 0.16 165 / 0.2)',
+                }}
               >
-                <div className="flex items-center gap-2.5">
-                  <div className="relative">
+                <div className="flex items-center gap-3">
+                  <div className="relative w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)' }}>
                     <ShoppingCart className="h-5 w-5" />
-                    <span className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] rounded-full bg-white text-emerald-700 text-[10px] font-bold flex items-center justify-center px-1">
+                    <span className="absolute -top-1 -right-1 min-w-[20px] h-[20px] rounded-full bg-white text-emerald-700 text-[11px] font-extrabold flex items-center justify-center px-1 shadow-md">
                       {newOrder.items.reduce((sum, i) => sum + (i.quantity || 1), 0)}
                     </span>
                   </div>
-                  <span className="font-semibold text-sm">Ver pedido</span>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-white/70">Ver pedido</span>
+                    <span className="text-[13px] font-semibold">
+                      {newOrder.items.length} {newOrder.items.length === 1 ? 'producto' : 'productos'}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-base tabular-nums">${totals.total.toFixed(2)}</span>
-                  <ChevronUp className="h-4 w-4 text-emerald-200" />
+                  <span className="text-[22px] font-extrabold tabular-nums tracking-tight leading-none">
+                    <AnimatedNumber value={totals.total} format={(n) => `$${n.toFixed(2)}`} duration={0.4} />
+                  </span>
+                  <ChevronUp className="h-4 w-4 text-white/80" />
                 </div>
-              </button>
+              </motion.button>
             </div>
           )}
 
@@ -2741,23 +2755,36 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
               />
 
               {/* Sheet */}
-              <div className="relative mt-12 flex-1 bg-background rounded-t-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300">
+              <div
+                className="relative mt-12 flex-1 bg-background overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300"
+                style={{
+                  borderTopLeftRadius: 'var(--mobile-radius-xl)',
+                  borderTopRightRadius: 'var(--mobile-radius-xl)',
+                  boxShadow: '0 -8px 32px oklch(0.2 0.02 260 / 0.12)',
+                }}
+              >
                 {/* Handle + header */}
-                <div className="sticky top-0 bg-background border-b z-10">
-                  <div className="flex justify-center pt-2 pb-1">
-                    <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+                <div className="sticky top-0 bg-background border-b border-border/40 z-10">
+                  <div className="flex justify-center pt-2.5 pb-1.5">
+                    <div className="w-10 h-1 rounded-full bg-muted-foreground/25" />
                   </div>
-                  <div className="flex items-center justify-between px-4 pb-3">
-                    <div>
-                      <h3 className="font-bold text-base">Orden</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {newOrder.items.length} producto{newOrder.items.length !== 1 ? 's' : ''} · ${totals.total.toFixed(2)}
-                      </p>
+                  <div className="flex items-center justify-between px-5 pb-3.5 pt-1">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--glass-medium)' }}>
+                        <ShoppingCart size={14} strokeWidth={1.75} className="text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-[18px] tracking-tight leading-none">Tu orden</h3>
+                        <p className="text-[11px] text-muted-foreground/70 mt-1">
+                          {newOrder.items.length} producto{newOrder.items.length !== 1 ? 's' : ''} · ${totals.total.toFixed(2)}
+                        </p>
+                      </div>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setActiveTab('products')}
-                      className="h-8 w-8 rounded-full bg-muted flex items-center justify-center"
+                      onClick={() => { haptics.tap(); setActiveTab('products'); }}
+                      className="h-9 w-9 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center transition-colors"
+                      aria-label="Cerrar"
                     >
                       <X className="h-4 w-4" />
                     </button>

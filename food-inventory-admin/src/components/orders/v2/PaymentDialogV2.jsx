@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCrmContext } from '@/context/CrmContext';
+import haptics from '@/lib/haptics';
+import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber.jsx';
 import { useAccountingContext } from '@/context/AccountingContext';
 import { fetchApi, registerTipsOnOrder } from '@/lib/api';
 import { X, Plus, Calculator, Wand2, HandCoins } from 'lucide-react';
@@ -528,12 +530,18 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="sm:max-w-[700px] flex flex-col h-[90vh] p-0 gap-0">
-          <DialogHeader className="p-6 pb-2">
-            <DialogTitle>Registrar Pago</DialogTitle>
-            <DialogDescription>
-              Orden: {order.orderNumber} | Balance Pendiente: ${remainingAmount.toFixed(2)} USD
-              {remainingAmountVes > 0 && ` / Bs ${remainingAmountVes.toFixed(2)}`}
-              {isDeliveryNote && ' (Nota de Entrega — sin IVA/IGTF)'}
+          <DialogHeader className="p-6 pb-3 border-b border-border/40">
+            <DialogTitle className="text-[22px] font-extrabold tracking-tight leading-tight">Registrar pago</DialogTitle>
+            <DialogDescription className="mt-1">
+              <span className="block text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">Orden {order.orderNumber}</span>
+              <span className="block text-[28px] sm:text-[32px] font-extrabold tabular-nums tracking-tight leading-none text-primary mt-1">
+                <AnimatedNumber value={remainingAmount} format={(n) => `$${n.toFixed(2)}`} duration={0.4} />
+              </span>
+              <span className="block text-[12px] text-muted-foreground/70 mt-1">
+                Balance pendiente
+                {remainingAmountVes > 0 && ` · Bs ${remainingAmountVes.toFixed(2)}`}
+                {isDeliveryNote && ' · Nota de Entrega (sin IVA/IGTF)'}
+              </span>
             </DialogDescription>
           </DialogHeader>
 
@@ -1145,9 +1153,14 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
                   <span>${(remainingAmount + mixedPaymentTotals.igtf).toFixed(2)}</span>
                 </div>
 
-                <div className="flex justify-between font-bold text-lg bg-muted/50 p-2 rounded">
-                  <span>Total Pagado:</span>
-                  <span>${mixedPaymentTotals.totalUSD.toFixed(2)}</span>
+                <div
+                  className="flex items-end justify-between p-3 rounded-xl"
+                  style={{ background: 'var(--glass-subtle)' }}
+                >
+                  <span className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold leading-none mb-1">Total pagado</span>
+                  <span className="text-[28px] font-extrabold tabular-nums tracking-tight leading-none text-primary">
+                    <AnimatedNumber value={mixedPaymentTotals.totalUSD} format={(n) => `$${n.toFixed(2)}`} duration={0.4} />
+                  </span>
                 </div>
 
                 {Math.abs(mixedPaymentTotals.totalUSD - (remainingAmount + mixedPaymentTotals.igtf)) > 0.01 && (
@@ -1168,9 +1181,22 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
               </div>
             )}
 
-            <DialogFooter className="gap-2 sm:gap-0">
-              <DialogClose asChild><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button></DialogClose>
-              <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? 'Registrando...' : 'Registrar Pago'}</Button>
+            <DialogFooter className="gap-2 sm:gap-0 pt-3 border-t border-border/40">
+              <DialogClose asChild>
+                <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+              </DialogClose>
+              <Button
+                type="button"
+                onClick={() => { haptics.select(); handleSubmit(); }}
+                disabled={isSubmitting}
+                className="text-primary-foreground border-0"
+                style={{
+                  background: 'var(--gradient-primary)',
+                  boxShadow: '0 4px 14px oklch(0.62 0.22 268 / 0.3)',
+                }}
+              >
+                {isSubmitting ? 'Registrando...' : 'Registrar pago'}
+              </Button>
             </DialogFooter>
           </div>
         </DialogContent>

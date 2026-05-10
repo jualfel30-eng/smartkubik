@@ -9,6 +9,7 @@ import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 import { motion } from 'framer-motion';
 import { tapScale, DUR, EASE } from '@/lib/motion';
 import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber.jsx';
+import haptics from '@/lib/haptics';
 
 /**
  * OrderSidebar - Columna derecha con información del pedido
@@ -203,9 +204,12 @@ export function OrderSidebar({
 
             <Separator />
 
-            <div className="flex justify-between text-lg font-bold">
-              <span>TOTAL:</span>
-              <span className="text-primary">
+            <div
+              className="flex items-end justify-between mt-1 px-3 py-2.5 rounded-xl"
+              style={{ background: 'var(--glass-subtle)' }}
+            >
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold leading-none mb-0.5">TOTAL</span>
+              <span className="text-[28px] sm:text-[32px] font-extrabold tabular-nums tracking-tight leading-none text-primary">
                 <AnimatedNumber value={totals.total} format={(n) => `$${n.toFixed(2)}`} duration={0.4} />
               </span>
             </div>
@@ -249,20 +253,44 @@ export function OrderSidebar({
               <>
                 {!isEditMode && (
                   <motion.div whileTap={tapScale}>
-                    <Button onClick={onSendToKitchen} disabled={isCreateDisabled} className="w-full bg-orange-600 hover:bg-orange-700 text-white" size="lg">
+                    <Button
+                      onClick={() => { haptics.tap(); onSendToKitchen?.(); }}
+                      disabled={isCreateDisabled}
+                      className="w-full bg-orange-600 hover:bg-orange-700 text-white"
+                      size="lg"
+                      style={{ boxShadow: '0 2px 12px oklch(0.65 0.18 50 / 0.25)' }}
+                    >
                       Enviar a Cocina
                     </Button>
                   </motion.div>
                 )}
                 <motion.div whileTap={tapScale}>
-                  <Button onClick={onCreateOrder} disabled={isCreateDisabled} className="w-full bg-success hover:bg-green-700 text-white" size="lg">
+                  <Button
+                    onClick={() => { haptics.select(); onCreateOrder?.(); }}
+                    disabled={isCreateDisabled}
+                    className="w-full text-primary-foreground border-0"
+                    size="lg"
+                    style={{
+                      background: 'var(--gradient-primary)',
+                      boxShadow: '0 4px 16px oklch(0.62 0.22 268 / 0.3)',
+                    }}
+                  >
                     {isEditMode ? 'Pagar / Cerrar' : 'Pagar Inmediato'}
                   </Button>
                 </motion.div>
               </>
             ) : (
               <motion.div whileTap={tapScale}>
-                <Button onClick={onCreateOrder} disabled={isCreateDisabled} className="w-full bg-blue-600 hover:bg-blue-700 text-white" size="lg">
+                <Button
+                  onClick={() => { haptics.select(); onCreateOrder?.(); }}
+                  disabled={isCreateDisabled}
+                  className="w-full text-primary-foreground border-0"
+                  size="lg"
+                  style={{
+                    background: 'var(--gradient-primary)',
+                    boxShadow: '0 4px 16px oklch(0.62 0.22 268 / 0.3)',
+                  }}
+                >
                   {isEditMode ? 'Actualizar Orden' : 'Crear Orden'}
                 </Button>
               </motion.div>
