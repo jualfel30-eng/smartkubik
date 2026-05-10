@@ -561,7 +561,12 @@ function TenantLayout() {
             <Suspense fallback={<LoadingFallback />}>
               <PageTransition>
               <Routes>
-                <Route path="dashboard" element={<><TodayDashboard /><DashboardView /></>} />
+                <Route path="dashboard" element={
+                  <>
+                    <div className="md:hidden"><TodayDashboard /></div>
+                    <div className="hidden md:block"><DashboardView /></div>
+                  </>
+                } />
                 <Route path="inventory-management" element={<InventoryRouteGate />} />
                 <Route
                   path="storefront"
