@@ -9,6 +9,8 @@ import { X, Plus, Calculator } from 'lucide-react';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 import { isVesMethod } from '@/lib/currency-config';
+import haptics from '@/lib/haptics';
+import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber.jsx';
 
 export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
   const { paymentMethods, loading: contextLoading } = useCrmContext();
@@ -101,10 +103,16 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[700px] flex flex-col h-[85vh] p-0 gap-0">
-        <DialogHeader className="p-6 pb-2">
-          <DialogTitle>Registro de Pago Mixto</DialogTitle>
-          <DialogDescription>
-            Añada o ajuste las formas de pago. Tasa BCV: {bcvRate ? `Bs ${bcvRate}` : 'Cargando...'}
+        <DialogHeader className="p-6 pb-3 border-b border-border/40">
+          <DialogTitle className="text-[22px] font-extrabold tracking-tight leading-tight">Pago mixto</DialogTitle>
+          <DialogDescription className="mt-1">
+            <span className="block text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold">Total a cubrir</span>
+            <span className="block text-[28px] sm:text-[32px] font-extrabold tabular-nums tracking-tight leading-none text-primary mt-1">
+              <AnimatedNumber value={totalAmount} format={(n) => `$${n.toFixed(2)}`} duration={0.4} />
+            </span>
+            <span className="block text-[12px] text-muted-foreground/70 mt-1">
+              Combina métodos de pago. Tasa BCV: {bcvRate ? `Bs ${bcvRate}` : 'Cargando…'}
+            </span>
           </DialogDescription>
         </DialogHeader>
 
@@ -129,7 +137,14 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
             const lineRemainingBs = lineRemaining * (bcvRate || 0);
 
             return (
-              <div key={line.id} className="p-3 border rounded-lg space-y-2 bg-card">
+              <div
+                key={line.id}
+                className="p-3 space-y-2 bg-card"
+                style={{
+                  borderRadius: 'var(--mobile-radius-xl)',
+                  boxShadow: 'var(--elevation-rest)',
+                }}
+              >
                 <div className="flex items-center gap-2">
                   <Select value={line.method} onValueChange={(v) => handleUpdatePayment(line.id, 'method', v)} disabled={contextLoading}>
                     <SelectTrigger className="w-[180px]"><SelectValue placeholder="Método" /></SelectTrigger>
@@ -145,7 +160,7 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
                     />
                   </div>
                   <Input className="w-[150px]" placeholder="Referencia" value={line.reference} onChange={(e) => handleUpdatePayment(line.id, 'reference', e.target.value)} />
-                  <Button variant="ghost" size="icon" onClick={() => handleRemovePayment(line.id)}><X className="h-4 w-4 text-destructive" /></Button>
+                  <Button variant="ghost" size="icon" onClick={() => { haptics.tap(); handleRemovePayment(line.id); }}><X className="h-4 w-4 text-destructive" /></Button>
                 </div>
 
                 {/* Cash Tender Input - Only for cash payments */}
@@ -198,25 +213,32 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
               </div>
             );
           })}
-          <Button variant="outline" size="sm" onClick={handleAddPayment} className="w-full border-dashed"><Plus className="h-4 w-4 mr-2" />Añadir línea de pago</Button>
+          <Button variant="outline" size="sm" onClick={() => { haptics.tap(); handleAddPayment(); }} className="w-full border-dashed"><Plus className="h-4 w-4 mr-2" />Añadir línea de pago</Button>
         </div>
 
         <div className="p-6 bg-muted/30 border-t mt-auto space-y-4">
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between text-muted-foreground"><span>Total Orden:</span><span>${totalAmount.toFixed(2)}</span></div>
+            <div className="flex justify-between text-muted-foreground"><span>Total Orden:</span><span className="tabular-nums">${totalAmount.toFixed(2)}</span></div>
             {igtf > 0 && (
-              <div className="flex justify-between text-warning"><span>+ {igtfMeta.label}:</span><span>${igtf.toFixed(2)}</span></div>
+              <div className="flex justify-between text-warning"><span>+ {igtfMeta.label}:</span><span className="tabular-nums">${igtf.toFixed(2)}</span></div>
             )}
-            <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Total a Pagar:</span><span>${totalRequired.toFixed(2)}</span></div>
+            <div className="border-t pt-2 flex justify-between font-bold text-base"><span>Total a pagar:</span><span className="tabular-nums">${totalRequired.toFixed(2)}</span></div>
 
-            <div className="flex justify-between font-medium"><span>Pagado:</span><span>${totalPaid.toFixed(2)}</span></div>
+            <div className="flex justify-between font-medium"><span>Pagado:</span><span className="tabular-nums">${totalPaid.toFixed(2)}</span></div>
 
-            <div className={`flex justify-between font-bold text-lg ${remaining < -0.01 ? 'text-destructive' : (remaining > 0.01 ? 'text-info' : 'text-success')}`}>
-              <span>Restante:</span>
+            <div
+              className="flex items-end justify-between mt-2 px-3 py-2.5 rounded-xl"
+              style={{ background: 'var(--glass-subtle)' }}
+            >
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground/70 font-semibold leading-none mb-1">
+                {Math.abs(remaining) <= 0.01 ? 'Listo para guardar' : 'Restante'}
+              </span>
               <div className="text-right">
-                <div>${remaining.toFixed(2)}</div>
+                <div className={`text-[28px] sm:text-[32px] font-extrabold tabular-nums tracking-tight leading-none ${remaining < -0.01 ? 'text-destructive' : (remaining > 0.01 ? 'text-info' : 'text-success')}`}>
+                  ${remaining.toFixed(2)}
+                </div>
                 {remaining !== 0 && bcvRate > 0 && (
-                  <div className="text-sm font-normal text-muted-foreground">
+                  <div className="text-[11px] font-normal text-muted-foreground tabular-nums mt-1">
                     ≈ {primaryCurrency.symbol} {(remaining * bcvRate).toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                 )}
@@ -225,14 +247,25 @@ export function MixedPaymentDialog({ isOpen, onClose, totalAmount, onSave }) {
           </div>
 
           {isSaveDisabled && payments.length > 0 && Math.abs(remaining) > 0.01 && (
-            <div className="p-2 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-xs rounded text-center">
+            <div className="p-2 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 text-xs rounded-xl text-center">
               {remaining > 0 ? 'Falta cubrir el monto total.' : 'El monto pagado excede el total.'}
             </div>
           )}
 
           <DialogFooter className="gap-2 sm:gap-0">
             <DialogClose asChild><Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button></DialogClose>
-            <Button type="button" onClick={handleSave} disabled={isSaveDisabled}>Guardar Pagos</Button>
+            <Button
+              type="button"
+              onClick={() => { haptics.select(); handleSave(); }}
+              disabled={isSaveDisabled}
+              className="text-primary-foreground border-0 disabled:opacity-50"
+              style={{
+                background: isSaveDisabled ? undefined : 'var(--gradient-primary)',
+                boxShadow: isSaveDisabled ? undefined : '0 4px 14px oklch(0.62 0.22 268 / 0.3)',
+              }}
+            >
+              Guardar pagos
+            </Button>
           </DialogFooter>
         </div>
       </DialogContent>
