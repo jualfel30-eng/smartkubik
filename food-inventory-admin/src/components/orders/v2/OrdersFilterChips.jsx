@@ -27,9 +27,9 @@ export function OrdersFilterChips({
   };
 
   return (
-    <div className={cn('flex items-center gap-2', className)}>
+    <div className={cn('flex items-center gap-2 min-w-0', className)}>
       <div
-        className="flex-1 flex items-center gap-2 overflow-x-auto snap-x scroll-px-4 -mx-4 px-4 py-1 [&::-webkit-scrollbar]:hidden"
+        className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto snap-x scroll-px-4 py-1 [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: 'none' }}
         role="tablist"
         aria-label="Filtros rápidos de órdenes"
@@ -47,7 +47,7 @@ export function OrdersFilterChips({
               whileTap={tapScale}
               transition={SPRING.snappy}
               className={cn(
-                'snap-start whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium tap-target no-tap-highlight transition-colors',
+                'snap-start shrink-0 inline-flex items-center whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium no-tap-highlight transition-colors',
                 isActive
                   ? 'bg-primary text-primary-foreground border-primary shadow-sm'
                   : 'bg-card text-foreground border-border hover:bg-muted/60',
@@ -81,7 +81,7 @@ export function OrdersFilterChips({
           }}
           whileTap={tapScale}
           transition={SPRING.snappy}
-          className="shrink-0 inline-flex items-center justify-center rounded-full border border-border bg-card text-foreground tap-target no-tap-highlight w-10 h-10 hover:bg-muted/60"
+          className="shrink-0 inline-flex items-center justify-center rounded-full border border-border bg-card text-foreground no-tap-highlight w-10 h-10 hover:bg-muted/60"
         >
           <SlidersHorizontal size={16} />
         </motion.button>

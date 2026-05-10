@@ -79,23 +79,28 @@ function KPICard({ def, kpi, onClick }) {
       whileTap={tapScale}
       transition={SPRING.snappy}
       className={cn(
-        'relative text-left rounded-xl border bg-card p-3 sm:p-4 tap-target no-tap-highlight transition-colors',
+        'relative flex flex-col items-start gap-2 text-left rounded-xl border bg-card p-4 no-tap-highlight transition-colors min-h-[6.5rem]',
         isAlert ? 'border-destructive/40 ring-1 ring-destructive/20' : 'border-border hover:bg-muted/40',
       )}
     >
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{def.label}</p>
-      <div className="mt-1 text-xl sm:text-2xl font-bold tabular-nums text-foreground flex items-center gap-1.5">
+      <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+        {def.label}
+      </span>
+      <span className="text-2xl sm:text-3xl font-bold tabular-nums text-foreground leading-none flex items-center gap-1.5">
         {isCurrency ? (
           <AnimatedCurrency value={Number(value) || 0} currency="$" />
         ) : (
           <AnimatedNumber value={Number(value) || 0} />
         )}
-        {isAlert && <AlertTriangle size={16} className="text-destructive" />}
-      </div>
+        {isAlert && <AlertTriangle size={18} className="text-destructive" />}
+      </span>
       {typeof delta === 'number' && (
-        <p className={cn('mt-1 text-[11px] font-medium', delta > 0 ? 'text-green-500' : delta < 0 ? 'text-destructive' : 'text-muted-foreground')}>
+        <span className={cn(
+          'text-[11px] font-medium',
+          delta > 0 ? 'text-green-500' : delta < 0 ? 'text-destructive' : 'text-muted-foreground',
+        )}>
           {delta > 0 ? `▲ ${delta} vs ayer` : delta < 0 ? `▼ ${Math.abs(delta)} vs ayer` : '— vs ayer'}
-        </p>
+        </span>
       )}
     </motion.button>
   );

@@ -306,7 +306,7 @@ export function OrdersHistoryV2() {
   }, [handleOpenPayment]);
 
   const handleCreateOrder = useCallback(() => {
-    navigate('/orders/pos');
+    navigate('/orders/new');
   }, [navigate]);
 
   const handleRefresh = useCallback(() => {
@@ -407,17 +407,6 @@ export function OrdersHistoryV2() {
             <button type="button" disabled={page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-lg border border-border px-3 py-1.5 disabled:opacity-50">Siguiente</button>
           </div>
         </div>
-      )}
-
-      {isMobile && (
-        <button
-          type="button"
-          onClick={handleCreateOrder}
-          className="fixed bottom-20 right-4 z-40 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg w-14 h-14 hover:bg-primary/90"
-          aria-label="Nueva orden"
-        >
-          <Plus size={22} />
-        </button>
       )}
 
       {/* Action sheet (mobile) — usa MobileActionSheet portaled */}
