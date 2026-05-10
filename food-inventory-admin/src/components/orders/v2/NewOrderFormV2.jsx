@@ -2804,8 +2804,19 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 {/* Scrollable content */}
                 <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4 pb-8">
                   {/* Customer Data Section */}
-                  <div className="space-y-3 border rounded-lg p-3 bg-card/50">
-                    <Label className="text-sm font-semibold">Cliente</Label>
+                  <div
+                    className="space-y-3 p-4 bg-card"
+                    style={{
+                      borderRadius: 'var(--mobile-radius-xl)',
+                      boxShadow: 'var(--elevation-rest)',
+                    }}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--glass-medium)' }}>
+                        <User size={14} strokeWidth={1.75} className="text-primary" />
+                      </div>
+                      <Label className="text-[14px] font-extrabold tracking-tight leading-none">Cliente</Label>
+                    </div>
                     <div className="space-y-2.5">
                       {/* Tax Type + RIF + Name */}
                       <div className="flex gap-1.5">
@@ -2878,14 +2889,19 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                         customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors"
                       />
                       {/* Special Taxpayer */}
-                      <div className="flex items-center justify-between rounded-md border p-2">
-                        <div className="flex items-center gap-1.5">
-                          <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
-                          <span className="text-xs font-medium">Contribuyente Especial</span>
+                      <div
+                        className="flex items-center justify-between rounded-xl px-3 py-2.5"
+                        style={{ background: 'var(--glass-subtle)' }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-md flex items-center justify-center bg-amber-500/15">
+                            <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
+                          </div>
+                          <span className="text-[12px] font-semibold">Contribuyente Especial</span>
                         </div>
                         <Switch
                           checked={newOrder.customerIsSpecialTaxpayer || false}
-                          onCheckedChange={(checked) => handleFieldChange('customerIsSpecialTaxpayer', checked)}
+                          onCheckedChange={(checked) => { haptics.tap(); handleFieldChange('customerIsSpecialTaxpayer', checked); }}
                           className="scale-90"
                         />
                       </div>
