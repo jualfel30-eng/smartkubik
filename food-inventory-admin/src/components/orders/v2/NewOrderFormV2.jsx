@@ -275,6 +275,21 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   // Estados separados para los inputs de búsqueda
   const [customerNameInput, setCustomerNameInput] = useState('');
   const [customerRifInput, setCustomerRifInput] = useState('');
+  // Progressive disclosure: contacto + dirección colapsados por default,
+  // se expanden si hay delivery o si la orden ya tiene datos cargados.
+  const [showOptionalCustomerFields, setShowOptionalCustomerFields] = useState(() => {
+    const dm = (existingOrder?.deliveryMethod || initialCustomer?.deliveryMethod || '').toLowerCase();
+    const isDelivery = ['delivery', 'shipping', 'envio', 'envío'].includes(dm);
+    const hasData = !!(
+      existingOrder?.customerPhone ||
+      existingOrder?.customerEmail ||
+      existingOrder?.customerAddress ||
+      initialCustomer?.phone ||
+      initialCustomer?.email ||
+      initialCustomer?.address
+    );
+    return isDelivery || hasData;
+  });
   const [productSearchInput, setProductSearchInput] = useState('');
   const [barcodeSearch, setBarcodeSearch] = useState('');
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
@@ -2818,10 +2833,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                       <Label className="text-[14px] font-extrabold tracking-tight leading-none">Cliente</Label>
                     </div>
                     <div className="space-y-2.5">
-                      {/* Tax Type + RIF + Name */}
+                      {/* Tax Type + RIF — single line because they form one fiscal identifier */}
                       <div className="flex gap-1.5">
                         <Select value={newOrder.taxType} onValueChange={(value) => handleFieldChange('taxType', value)}>
-                          <SelectTrigger className="w-[55px] h-9 text-xs px-2">
+                          <SelectTrigger className="w-[60px] h-10 text-xs px-2">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -2842,52 +2857,85 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                             value={getCustomerRifValue()}
                             placeholder="RIF..."
                             isLoading={isSearchingCustomers}
-                            customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <SearchableSelect
-                            options={customerOptions}
-                            onSelection={handleCustomerNameSelection}
-                            onInputChange={handleCustomerNameInputChange}
-                            inputValue={customerNameInput}
-                            value={getCustomerNameValue()}
-                            placeholder="Nombre..."
-                            isLoading={isSearchingCustomers}
-                            customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors"
+                            customControlClass="h-10 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
                           />
                         </div>
                       </div>
 
-                      {/* Phone + Email */}
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <Input
-                          value={newOrder.customerPhone || ''}
-                          onChange={(e) => handleFieldChange('customerPhone', e.target.value)}
-                          placeholder="Teléfono"
-                          className="h-9 text-sm"
-                        />
-                        <Input
-                          type="email"
-                          value={newOrder.customerEmail || ''}
-                          onChange={(e) => handleFieldChange('customerEmail', e.target.value)}
-                          placeholder="Email"
-                          className="h-9 text-sm"
-                        />
-                      </div>
+                      {/* Name — full width on its own line (puede ser largo: persona o empresa) */}
                       <SearchableSelect
-                        options={addressOptions}
-                        onSelection={handleCustomerAddressSelection}
-                        value={getCustomerAddressValue()}
-                        placeholder="Dirección..."
-                        isCreatable={true}
-                        onInputChange={(val) => {
-                          if (val && val !== newOrder.customerAddress) {
-                            handleFieldChange('customerAddress', val);
-                          }
-                        }}
-                        customControlClass="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors"
+                        options={customerOptions}
+                        onSelection={handleCustomerNameSelection}
+                        onInputChange={handleCustomerNameInputChange}
+                        inputValue={customerNameInput}
+                        value={getCustomerNameValue()}
+                        placeholder="Nombre del cliente..."
+                        isLoading={isSearchingCustomers}
+                        customControlClass="h-10 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
                       />
+
+                      {/* Progressive disclosure: contacto + dirección revelados solo si se necesitan */}
+                      {!showOptionalCustomerFields ? (
+                        <button
+                          type="button"
+                          onClick={() => { haptics.tap(); setShowOptionalCustomerFields(true); }}
+                          className="w-full flex items-center justify-center gap-2 py-2.5 text-[13px] font-medium text-muted-foreground rounded-xl border border-dashed border-border/60 hover:bg-muted/30 hover:text-foreground transition-colors no-tap-highlight"
+                        >
+                          <Plus size={14} strokeWidth={1.75} />
+                          Añadir contacto y dirección
+                        </button>
+                      ) : (
+                        <AnimatePresence initial={false}>
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: DUR.base, ease: EASE.out }}
+                            className="overflow-hidden"
+                          >
+                            <div className="space-y-2.5">
+                              <Input
+                                value={newOrder.customerPhone || ''}
+                                onChange={(e) => handleFieldChange('customerPhone', e.target.value)}
+                                placeholder="Teléfono"
+                                inputMode="tel"
+                                className="h-10 text-sm"
+                              />
+                              <Input
+                                type="email"
+                                value={newOrder.customerEmail || ''}
+                                onChange={(e) => handleFieldChange('customerEmail', e.target.value)}
+                                placeholder="Email"
+                                inputMode="email"
+                                className="h-10 text-sm"
+                              />
+                              <SearchableSelect
+                                options={addressOptions}
+                                onSelection={handleCustomerAddressSelection}
+                                value={getCustomerAddressValue()}
+                                placeholder="Dirección..."
+                                isCreatable={true}
+                                onInputChange={(val) => {
+                                  if (val && val !== newOrder.customerAddress) {
+                                    handleFieldChange('customerAddress', val);
+                                  }
+                                }}
+                                customControlClass="h-10 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
+                              />
+                              {/* Collapse cuando los 3 campos están vacíos (mistake-tolerant) */}
+                              {!newOrder.customerPhone && !newOrder.customerEmail && !newOrder.customerAddress && (
+                                <button
+                                  type="button"
+                                  onClick={() => { haptics.tap(); setShowOptionalCustomerFields(false); }}
+                                  className="w-full text-center text-[11px] text-muted-foreground/60 hover:text-muted-foreground transition-colors py-1 no-tap-highlight"
+                                >
+                                  Ocultar campos vacíos
+                                </button>
+                              )}
+                            </div>
+                          </motion.div>
+                        </AnimatePresence>
+                      )}
                       {/* Special Taxpayer */}
                       <div
                         className="flex items-center justify-between rounded-xl px-3 py-2.5"
