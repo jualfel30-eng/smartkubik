@@ -79,14 +79,21 @@ function KPICard({ def, kpi, onClick }) {
       whileTap={tapScale}
       transition={SPRING.snappy}
       className={cn(
-        'relative flex flex-col items-start gap-2 text-left rounded-xl border bg-card p-4 no-tap-highlight transition-colors min-h-[6.5rem]',
-        isAlert ? 'border-destructive/40 ring-1 ring-destructive/20' : 'border-border hover:bg-muted/40',
+        'relative flex flex-col items-start gap-2 text-left rounded-xl p-4 no-tap-highlight transition-colors min-h-[6.5rem]',
+        isAlert && 'border border-destructive/40 ring-1 ring-destructive/20',
       )}
+      style={{
+        background: isAlert ? undefined : 'var(--glass-subtle)',
+        boxShadow: isAlert ? undefined : 'var(--elevation-rest)',
+      }}
     >
       <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
         {def.label}
       </span>
-      <span className="text-2xl sm:text-3xl font-bold tabular-nums text-foreground leading-none flex items-center gap-1.5">
+      <span className={cn(
+        'font-extrabold tabular-nums text-foreground leading-none flex items-center gap-1.5 tracking-tight',
+        def.key === 'collectedWeek' ? 'text-[28px] sm:text-[32px]' : 'text-2xl sm:text-3xl',
+      )}>
         {isCurrency ? (
           <AnimatedCurrency value={Number(value) || 0} currency="$" />
         ) : (
@@ -148,7 +155,11 @@ export function OrdersSmartHeader({
             onClick={onCreateOrder}
             whileTap={tapScale}
             transition={SPRING.snappy}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground px-3 py-2 text-sm font-semibold tap-target no-tap-highlight shadow-sm hover:bg-primary/90"
+            className="inline-flex items-center gap-1.5 rounded-lg text-primary-foreground px-3 py-2 text-sm font-semibold tap-target no-tap-highlight"
+            style={{
+              background: 'var(--gradient-primary)',
+              boxShadow: '0 2px 12px oklch(0.62 0.22 268 / 0.25)',
+            }}
           >
             <Plus size={16} /> Nueva orden
           </motion.button>

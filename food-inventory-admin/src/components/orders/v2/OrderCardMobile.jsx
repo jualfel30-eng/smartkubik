@@ -6,6 +6,7 @@ import { SPRING, tapScale } from '@/lib/motion';
 import { classifyOrder } from '@/hooks/useOrderTriage';
 import { getPrimaryCTA } from '@/lib/orders/getPrimaryCTA';
 import haptics from '@/lib/haptics';
+import { AnimatedCurrency } from '@/components/ui/animated-number';
 
 const STATUS_LABEL = {
   draft: 'Borrador',
@@ -116,9 +117,12 @@ export function OrderCardMobile({ order, onTap, onPay, onViewDetail, onMore }) {
         tabIndex={0}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap?.(order); } }}
         className={cn(
-          'relative bg-card border rounded-[var(--mobile-radius-lg)] p-4 active:scale-[0.99] no-tap-highlight cursor-pointer',
-          triage === 'overdue' ? 'border-l-4 border-l-destructive border-y border-r border-y-border border-r-border' : 'border-border',
+          'relative bg-card rounded-[var(--mobile-radius-lg)] p-4 active:scale-[0.99] no-tap-highlight cursor-pointer',
+          triage === 'overdue' && 'border-l-4 border-l-destructive',
         )}
+        style={{
+          boxShadow: triage === 'overdue' ? '0 2px 12px oklch(0.62 0.15 27 / 0.15)' : 'var(--elevation-rest)',
+        }}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
@@ -145,7 +149,9 @@ export function OrderCardMobile({ order, onTap, onPay, onViewDetail, onMore }) {
         </div>
 
         <div className="mt-3">
-          <p className="text-2xl font-bold text-foreground tabular-nums">{fmtCurrency(total)}</p>
+          <p className="text-2xl font-bold text-foreground tabular-nums tracking-tight leading-none">
+            <AnimatedCurrency value={Number(total) || 0} currency="$" />
+          </p>
           <div className={cn('mt-1 flex items-center gap-1.5 text-sm font-medium', balanceState.color)}>
             <BalIcon size={16} />
             <span>
