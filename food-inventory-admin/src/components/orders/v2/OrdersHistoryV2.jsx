@@ -1,636 +1,508 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { fetchApi, getTenantSettings } from '@/lib/api';
-import { OrdersDataTableV2 } from './OrdersDataTableV2';
-import { Badge } from "@/components/ui/badge";
-import { PaymentDialogV2 } from './PaymentDialogV2';
-import { OrderStatusSelector } from './OrderStatusSelector';
-import { OrderDetailsDialog } from './OrderDetailsDialog';
-import { Button } from "@/components/ui/button";
-import { RefreshCw, Search, Download, ChefHat, Settings, PlusCircle } from "lucide-react";
-import BillingDrawer from '@/components/billing/BillingDrawer';
-import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
-import { useDebounce } from '@/hooks/use-debounce.js';
-import { useCrmContext } from '@/context/CrmContext.jsx';
+import { Search, RefreshCw, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '@/hooks/use-auth.jsx';
-import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
-import { useExchangeRate } from '@/hooks/useExchangeRate';
 
-const paymentStatusMap = {
-    pending: { label: 'Pendiente', variant: 'outline' },
-    partial: { label: 'Parcial', variant: 'warning' },
-    paid: { label: 'Pagado', variant: 'success' },
-    overpaid: { label: 'Sobrepagado', variant: 'info' },
-    refunded: { label: 'Reembolsado', variant: 'destructive' },
-};
+import { fetchApi, getTenantSettings } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth.jsx';
+import { useDebounce } from '@/hooks/use-debounce.js';
+import { useMediaQuery } from '@/hooks/use-media-query.js';
+import { useExchangeRate } from '@/hooks/useExchangeRate';
+import { useCrmContext } from '@/context/CrmContext.jsx';
+
+import { useDailyRitualSnapshot } from '@/hooks/useDailyRitualSnapshot';
+import { useStreakCounter } from '@/hooks/useStreakCounter';
+import { useOrdersInsights } from '@/hooks/useOrdersInsights';
+import { classifyOrder } from '@/hooks/useOrderTriage';
+import { getCelebrationTier } from '@/lib/orders/getCelebrationTier';
+
+import { PaymentDialogV2 } from '@/components/orders/v2/PaymentDialogV2';
+import { OrderDetailsDialog } from '@/components/orders/v2/OrderDetailsDialog';
+import { OrderProcessingDrawer } from '@/components/orders/OrderProcessingDrawer';
+import BillingDrawer from '@/components/billing/BillingDrawer';
+
+import { OrdersSmartHeader } from './OrdersSmartHeader';
+import { OrdersIntelligenceCard } from './OrdersIntelligenceCard';
+import { OrdersFilterChips } from './OrdersFilterChips';
+import { OrderCardMobile } from './OrderCardMobile';
+import { OrdersSmartTable } from './OrdersSmartTable';
+import { OrderActionSheet } from './OrderActionSheet';
+import { cn } from '@/lib/utils';
+import { SPRING, listItem, STAGGER, tapScale } from '@/lib/motion';
+import haptics from '@/lib/haptics';
+
+const TELEMETRY_EVENT = 'orders_history_opened';
+
+function logTelemetry(eventName, payload) {
+  if (typeof window === 'undefined') return;
+  try {
+    const entry = { eventName, payload, ts: Date.now() };
+    if (window.dispatchEvent) {
+      window.dispatchEvent(new CustomEvent(`smk:${eventName}`, { detail: entry }));
+    }
+    if (window.__smkAnalytics?.track) {
+      window.__smkAnalytics.track(eventName, payload);
+    }
+  } catch {
+    // analytics is best-effort
+  }
+}
+
+function buildQueryParams({ filter, page, limit, search }) {
+  const params = new URLSearchParams();
+  params.set('page', String(page));
+  params.set('limit', String(limit));
+  if (search) params.set('search', search);
+
+  switch (filter) {
+    case 'overdue':
+    case 'pending':
+      params.set('status', 'pending');
+      break;
+    case 'paid':
+      params.set('status', 'delivered');
+      break;
+    case 'today':
+    case 'week':
+    case 'all':
+    default:
+      // server-side fetch all; client-side filter applies
+      break;
+  }
+  params.set('sortBy', 'createdAt');
+  params.set('sortOrder', 'desc');
+  return params;
+}
+
+function startOfWeek(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  const dayIdx = (x.getDay() + 6) % 7;
+  x.setDate(x.getDate() - dayIdx);
+  return x;
+}
+
+function applyClientFilter(orders, filter) {
+  if (!filter || filter === 'all') return orders;
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const week = startOfWeek(now);
+  return orders.filter((o) => {
+    const triage = classifyOrder(o, now);
+    if (filter === 'today') {
+      const created = o.createdAt ? new Date(o.createdAt) : null;
+      return created ? created >= today : false;
+    }
+    if (filter === 'week') {
+      const created = o.createdAt ? new Date(o.createdAt) : null;
+      return created ? created >= week : false;
+    }
+    if (filter === 'overdue') return triage === 'overdue';
+    if (filter === 'pending') return triage === 'pending' || triage === 'today' || triage === 'overdue';
+    if (filter === 'paid') return triage === 'paid';
+    return true;
+  });
+}
+
+function computeFilterCounts(orders) {
+  const counts = { today: 0, week: 0, pending: 0, overdue: 0, paid: 0, all: orders.length };
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const week = startOfWeek(now);
+  orders.forEach((o) => {
+    const triage = classifyOrder(o, now);
+    const created = o.createdAt ? new Date(o.createdAt) : null;
+    if (created && created >= today) counts.today += 1;
+    if (created && created >= week) counts.week += 1;
+    if (triage === 'overdue') counts.overdue += 1;
+    if (triage === 'pending' || triage === 'today' || triage === 'overdue') counts.pending += 1;
+    if (triage === 'paid') counts.paid += 1;
+  });
+  return counts;
+}
+
+function computeWeeklyMaxAmount(orders) {
+  const week = startOfWeek(new Date());
+  let max = 0;
+  orders.forEach((o) => {
+    const created = o.createdAt ? new Date(o.createdAt) : null;
+    if (created && created >= week) {
+      const amount = Number(o.paidAmount) || 0;
+      if (amount > max) max = amount;
+    }
+  });
+  return max;
+}
 
 export function OrdersHistoryV2() {
-    const navigate = useNavigate();
-    const { loadCustomers } = useCrmContext();
-    const { tenant, token } = useAuth();
-    const verticalConfig = useVerticalConfig();
-    const [data, setData] = useState({ orders: [], pagination: null });
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const debouncedSearchTerm = useDebounce(searchTerm, 800);
-    const [attributeKey, setAttributeKey] = useState('');
-    const [attributeValue, setAttributeValue] = useState('');
-    const debouncedAttributeValue = useDebounce(attributeValue, 500);
-    const [tenantSettings, setTenantSettings] = useState(null);
-    const [pageLimit, setPageLimit] = useState(25);
-    const [currentPage, setCurrentPage] = useState(1);
-    const restaurantEnabled = Boolean(
-        tenant?.enabledModules?.restaurant ||
-        tenant?.enabledModules?.tables ||
-        tenant?.enabledModules?.kitchenDisplay
-    );
+  const navigate = useNavigate();
+  const { tenant, user, token } = useAuth();
+  const { loadCustomers } = useCrmContext();
+  const { rate: exchangeRate } = useExchangeRate();
+  const isMobile = useMediaQuery('(max-width: 767px)');
+  const tenantId = tenant?._id || tenant?.id || tenant?.code || 'anon';
 
-    // State for Payment Dialog
-    const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
-    const [selectedOrderForPayment, setSelectedOrderForPayment] = useState(null);
-    const { rate: exchangeRate, loading: loadingRate, error: rateError } = useExchangeRate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [orders, setOrders] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [tenantSettings, setTenantSettings] = useState(null);
 
-    // State for Details Dialog
-    const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
-    const [selectedOrderForDetails, setSelectedOrderForDetails] = useState(null);
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
+  const debouncedSearchTerm = useDebounce(searchTerm, 250);
+  const [filter, setFilter] = useState(searchParams.get('filter') || 'today');
+  const [page, setPage] = useState(1);
+  const limit = 25;
 
-    // State for Billing Drawer
-    const [isBillingDrawerOpen, setIsBillingDrawerOpen] = useState(false);
-    const [selectedOrderForBilling, setSelectedOrderForBilling] = useState(null);
+  const [paymentOrder, setPaymentOrder] = useState(null);
+  const [detailsOrder, setDetailsOrder] = useState(null);
+  const [processingOrder, setProcessingOrder] = useState(null);
+  const [billingOrder, setBillingOrder] = useState(null);
+  const [actionSheetOrder, setActionSheetOrder] = useState(null);
 
-    // State for Order Processing Drawer
-    const [isProcessingDrawerOpen, setIsProcessingDrawerOpen] = useState(false);
-    const [selectedOrderForProcessing, setSelectedOrderForProcessing] = useState(null);
+  const restaurantEnabled = Boolean(
+    tenant?.enabledModules?.restaurant ||
+      tenant?.enabledModules?.tables ||
+      tenant?.enabledModules?.kitchenDisplay,
+  );
+  const userName = tenant?.ownerFirstName || user?.firstName || 'Usuario';
 
-    // Handle query parameters for auto-opening drawer from notifications
-    const [searchParams, setSearchParams] = useSearchParams();
+  const ritual = useDailyRitualSnapshot(tenantId);
+  const overdueCountForStreak = useMemo(
+    () => orders.filter((o) => classifyOrder(o) === 'overdue').length,
+    [orders],
+  );
+  const streak = useStreakCounter(tenantId, overdueCountForStreak);
+  const insight = useOrdersInsights(tenantId, orders);
 
-    const productAttributes = useMemo(
-        () => (verticalConfig?.attributeSchema || []).filter((attr) => attr.scope === 'product'),
-        [verticalConfig],
-    );
+  const filterCounts = useMemo(() => computeFilterCounts(orders), [orders]);
+  const filteredOrders = useMemo(() => applyClientFilter(orders, filter), [orders, filter]);
+  const weeklyMaxAmount = useMemo(() => computeWeeklyMaxAmount(orders), [orders]);
 
-    const variantAttributes = useMemo(
-        () => (verticalConfig?.attributeSchema || []).filter((attr) => attr.scope === 'variant'),
-        [verticalConfig],
-    );
+  const fetchedRef = useRef(false);
 
-    const attributeOptions = useMemo(
-        () =>
-            [...productAttributes, ...variantAttributes].map((descriptor) => ({
-                key: descriptor.key,
-                label: descriptor.label || descriptor.key,
-            })),
-        [productAttributes, variantAttributes],
-    );
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = buildQueryParams({ filter, page, limit, search: debouncedSearchTerm });
+      const result = await fetchApi(`/orders?${params.toString()}`);
+      setOrders(result.data || []);
+      setPagination(result.pagination || null);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+      toast.error('No pudimos cargar las órdenes', { description: err.message });
+    } finally {
+      setLoading(false);
+    }
+  }, [filter, page, debouncedSearchTerm]);
 
-    const fetchOrders = useCallback(async (page = 1, limit = 25, search = '') => {
-        try {
-            setLoading(true);
-            const params = new URLSearchParams();
-            params.set('page', String(page));
-            params.set('limit', String(limit));
-            if (search) {
-                params.set('search', search);
-            }
-            const attributeFilterValue = (debouncedAttributeValue || attributeValue || '').trim();
-            if (attributeKey) {
-                params.set('itemAttributeKey', attributeKey);
-            }
-            if (attributeKey && attributeFilterValue) {
-                params.set('itemAttributeValue', attributeFilterValue);
-            }
-            params.set('_', Date.now().toString());
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
-            const url = `/orders?${params.toString()}`;
-            const data = await fetchApi(url);
+  useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    getTenantSettings()
+      .then((res) => res?.data && setTenantSettings(res.data))
+      .catch(() => {});
+    loadCustomers?.();
+    ritual.markVisit();
+    logTelemetry(TELEMETRY_EVENT, {
+      tenantId,
+      dayOfWeek: new Date().getDay(),
+      flagVersion: 'v3',
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-            setData({
-                orders: data.data || [],
-                pagination: data.pagination
-            });
-            setCurrentPage(page);
-            setError(null);
-        } catch (err) {
-            setError(err.message);
-            console.error("Failed to fetch orders:", err);
-        } finally {
-            setLoading(false);
-        }
-    }, [attributeKey, attributeValue, debouncedAttributeValue]);
+  // Keep URL ?filter & ?q in sync (deep-linkable)
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    if (filter && filter !== 'today') next.set('filter', filter);
+    else next.delete('filter');
+    if (debouncedSearchTerm) next.set('q', debouncedSearchTerm);
+    else next.delete('q');
+    setSearchParams(next, { replace: true });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter, debouncedSearchTerm]);
 
-    // Effect for initial load and search term changes
-    useEffect(() => {
-        setCurrentPage(1);
-        const timeoutId = setTimeout(() => {
-            fetchOrders(1, pageLimit, debouncedSearchTerm);
-        }, debouncedSearchTerm ? 800 : 0);
-        return () => clearTimeout(timeoutId);
-    }, [debouncedSearchTerm, pageLimit, fetchOrders]);
+  const handleFilterChange = useCallback((key) => {
+    setPage(1);
+    setFilter(key);
+  }, []);
 
-    // Effect to fetch tenant settings
-    useEffect(() => {
-        getTenantSettings().then(response => {
-            if (response?.data) {
-                setTenantSettings(response.data);
-            }
-        }).catch(err => console.error("Failed to fetch tenant settings:", err));
-    }, []);
+  const handleOpenPayment = useCallback((order) => {
+    setPaymentOrder(order);
+  }, []);
+  const handleClosePayment = useCallback(() => setPaymentOrder(null), []);
 
-    // Effect for page changes
-    useEffect(() => {
-        if (currentPage > 1) {
-            fetchOrders(currentPage, pageLimit, debouncedSearchTerm);
-        }
-    }, [currentPage, pageLimit, debouncedSearchTerm, fetchOrders]);
+  const handlePaymentSuccess = useCallback((paidAmountInput) => {
+    const paidAmount = Number(paidAmountInput) || Number(paymentOrder?.totalAmount) || 0;
+    const tier = getCelebrationTier({ amount: paidAmount, weeklyMaxAmount });
+    if (tier === 'milestone') {
+      haptics.success();
+      toast.success(`🏆 Mejor cobro de la semana — $${paidAmount.toFixed(2)}`, {
+        description: 'Récord registrado. Tu intelligence se actualiza.',
+        duration: 4000,
+      });
+    } else if (tier === 'standard') {
+      haptics.success();
+      toast.success(`Cobro registrado — $${paidAmount.toFixed(2)}`);
+    } else {
+      haptics.tap();
+      toast.success('Cobro registrado');
+    }
+    handleClosePayment();
+    fetchOrders();
+  }, [paymentOrder, weeklyMaxAmount, fetchOrders, handleClosePayment]);
 
-    // Effect to handle orderId query parameter from notifications
-    useEffect(() => {
-        const orderId = searchParams.get('orderId');
-        if (orderId && !isProcessingDrawerOpen) {
-            // Try to find the order in the current list first
-            const orderInList = data.orders.find(order => order._id === orderId);
+  const handleSecondaryAction = useCallback((actionId, order) => {
+    setActionSheetOrder(null);
+    switch (actionId) {
+      case 'view-detail':
+        setDetailsOrder(order); break;
+      case 'invoice':
+        setBillingOrder(order); break;
+      case 'view-invoice':
+        setBillingOrder(order); break;
+      case 'kitchen':
+        toast.info('Enviando a cocina…');
+        break;
+      case 'notify':
+        toast.info('Notificación enviada al cliente');
+        break;
+      case 'reopen':
+        toast.info('Reabriendo orden…');
+        break;
+      case 'cancel':
+        toast.warning('Cancelación pendiente de confirmación');
+        break;
+      default:
+        break;
+    }
+  }, []);
 
-            if (orderInList) {
-                // Order is already in the list, open drawer immediately
-                setSelectedOrderForProcessing(orderInList);
-                setIsProcessingDrawerOpen(true);
-                // Remove the query parameter
-                searchParams.delete('orderId');
-                setSearchParams(searchParams, { replace: true });
-            } else {
-                // Order not in list, fetch it from API
-                fetchApi(`/orders/${orderId}`)
-                    .then(order => {
-                        setSelectedOrderForProcessing(order);
-                        setIsProcessingDrawerOpen(true);
-                        // Remove the query parameter
-                        searchParams.delete('orderId');
-                        setSearchParams(searchParams, { replace: true });
-                    })
-                    .catch(error => {
-                        console.error('Error fetching order from notification:', error);
-                        toast.error('No se pudo cargar la orden');
-                        // Remove the query parameter even on error
-                        searchParams.delete('orderId');
-                        setSearchParams(searchParams, { replace: true });
-                    });
-            }
-        }
-    }, [searchParams, setSearchParams, data.orders, isProcessingDrawerOpen]);
+  const handlePrimaryAction = useCallback((cta, order) => {
+    setActionSheetOrder(null);
+    switch (cta.action) {
+      case 'pay':
+        handleOpenPayment(order); break;
+      case 'invoice':
+      case 'view-invoice':
+        setBillingOrder(order); break;
+      case 'complete':
+        setProcessingOrder(order); break;
+      case 'reopen':
+        toast.info('Reabriendo orden…'); break;
+      default:
+        setDetailsOrder(order); break;
+    }
+  }, [handleOpenPayment]);
 
+  const handleCreateOrder = useCallback(() => {
+    navigate('/orders/pos');
+  }, [navigate]);
 
-    const handleRefresh = useCallback(() => {
-        fetchOrders(currentPage, pageLimit, debouncedSearchTerm);
-    }, [fetchOrders, currentPage, pageLimit, debouncedSearchTerm]);
+  const handleRefresh = useCallback(() => {
+    haptics.tap();
+    fetchOrders();
+  }, [fetchOrders]);
 
-    const handlePageChange = (newPage) => {
-        setCurrentPage(newPage);
-    };
+  return (
+    <div className="px-4 sm:px-6 pt-4 pb-24 sm:pb-6 space-y-4 max-w-7xl mx-auto">
+      <OrdersSmartHeader
+        userName={userName}
+        orders={orders}
+        streakDays={streak.days}
+        streakBroken={streak.broken}
+        ritual={ritual}
+        onFilterChange={handleFilterChange}
+        onCreateOrder={handleCreateOrder}
+      />
 
-    const handlePageLimitChange = (newLimit) => {
-        setPageLimit(newLimit);
-        setCurrentPage(1);
-    };
+      <OrdersIntelligenceCard insight={insight} />
 
-    // Handlers for Payment Dialog
-    const handleOpenPaymentDialog = useCallback((order) => {
-        setSelectedOrderForPayment(order);
-        setIsPaymentDialogOpen(true);
-    }, []);
-
-    const handleClosePaymentDialog = useCallback(() => {
-        setIsPaymentDialogOpen(false);
-        setSelectedOrderForPayment(null);
-    }, []);
-
-    const handlePaymentSuccess = useCallback(() => {
-        handleClosePaymentDialog();
-        handleRefresh();
-    }, [handleClosePaymentDialog, handleRefresh]);
-
-    const handleExportOrders = useCallback(async () => {
-        try {
-            const params = new URLSearchParams();
-            params.set('page', '1');
-            params.set('limit', String(pageLimit));
-            if (debouncedSearchTerm) {
-                params.set('search', debouncedSearchTerm);
-            }
-            if (attributeKey) {
-                params.set('itemAttributeKey', attributeKey);
-            }
-            const attributeFilterValue = (attributeValue || '').trim();
-            if (attributeKey && attributeFilterValue) {
-                params.set('itemAttributeValue', attributeFilterValue);
-            }
-
-            const isDevelopment =
-                window.location.hostname === 'localhost' ||
-                window.location.hostname === '127.0.0.1';
-            const baseUrl = isDevelopment ? 'http://localhost:3000' : 'https://api.smartkubik.com';
-
-            const response = await fetch(`${baseUrl}/api/v1/orders/export?${params.toString()}`, {
-                headers: {
-                    Accept: 'text/csv',
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('No se pudo generar la exportación.');
-            }
-
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `ordenes_${Date.now()}.csv`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-        } catch (err) {
-            toast.error('Error al exportar las órdenes', {
-                description: err.message,
-            });
-        }
-    }, [attributeKey, attributeValue, debouncedSearchTerm, pageLimit, token]);
-
-    const handleClearAttributeFilter = useCallback(() => {
-        setAttributeKey('');
-        setAttributeValue('');
-    }, []);
-
-    // Handlers for Details Dialog
-    const handleOpenDetailsDialog = useCallback((order) => {
-        setSelectedOrderForDetails(order);
-        setIsDetailsDialogOpen(true);
-    }, []);
-
-    const handleCloseDetailsDialog = useCallback(() => {
-        setIsDetailsDialogOpen(false);
-        setSelectedOrderForDetails(null);
-    }, []);
-
-    const handleOpenBillingDrawer = useCallback((order) => {
-        setSelectedOrderForBilling(order);
-        setIsBillingDrawerOpen(true);
-    }, []);
-
-    const handleCloseBillingDrawer = useCallback(() => {
-        setIsBillingDrawerOpen(false);
-        setSelectedOrderForBilling(null);
-    }, []);
-
-    // Handlers for Order Processing Drawer
-    const handleOpenProcessingDrawer = useCallback((order) => {
-        setSelectedOrderForProcessing(order);
-        setIsProcessingDrawerOpen(true);
-    }, []);
-
-    const handleCloseProcessingDrawer = useCallback(() => {
-        setIsProcessingDrawerOpen(false);
-        setSelectedOrderForProcessing(null);
-    }, []);
-
-    const estimatePrepTime = useCallback((itemCount = 1) => {
-        const normalizedCount = Math.max(itemCount, 1);
-        return 5 + Math.max(normalizedCount - 1, 0) * 2;
-    }, []);
-
-    const sendToKitchen = useCallback(async (order) => {
-        if (!restaurantEnabled) {
-            toast.error('El módulo de restaurante no está habilitado para este tenant');
-            return;
-        }
-
-        if (!order || order.status !== 'confirmed') {
-            toast.error('Solo se pueden enviar a cocina órdenes confirmadas');
-            return;
-        }
-
-        try {
-            const itemCount =
-                (Array.isArray(order.items) && order.items.length) ||
-                order.itemsCount ||
-                order.totalItems ||
-                1;
-
-            await fetchApi('/kitchen-display/create', {
-                method: 'POST',
-                body: JSON.stringify({
-                    orderId: order._id,
-                    priority: 'normal',
-                    estimatedPrepTime: estimatePrepTime(itemCount),
-                    notes: order.notes || undefined,
-                }),
-            });
-
-            toast.success(`Orden #${order.orderNumber} enviada a cocina`);
-            handleRefresh();
-        } catch (error) {
-            console.error('Error sending to kitchen:', error);
-            toast.error('Error al enviar orden a cocina');
-        }
-    }, [restaurantEnabled, estimatePrepTime, handleRefresh]);
-
-    const columns = useMemo(() => {
-        const baseColumns = [
-            { accessorKey: "orderNumber", header: "Número de Orden" },
-            { accessorKey: "customerName", header: "Cliente" },
-            {
-                accessorKey: "assignedTo",
-                header: "Atendido Por",
-                cell: ({ row }) => {
-                    const assigned = row.original.assignedTo;
-                    if (!assigned) {
-                        return <span className="text-muted-foreground">-</span>;
-                    }
-
-                    if (typeof assigned === 'string') {
-                        return <Badge variant="outline">{assigned}</Badge>;
-                    }
-
-                    const fullName = [assigned.firstName, assigned.lastName]
-                        .filter(Boolean)
-                        .join(' ')
-                        .trim();
-
-                    const display = fullName || assigned.email || '—';
-                    return <Badge variant="outline">{display}</Badge>;
-                }
-            },
-            {
-                accessorKey: "totalAmount",
-                header: "Monto Total",
-                cell: ({ row }) => {
-                    const amount = parseFloat(row.original.totalAmount);
-                    const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
-                    return <div className="text-right font-medium">{formatted}</div>;
-                }
-            },
-            {
-                accessorKey: "balance",
-                header: "Balance",
-                cell: ({ row }) => {
-                    // For delivery notes, effective total is subtotal + shipping (IVA/IGTF not charged)
-                    const effectiveTotal = row.original.billingDocumentType === 'delivery_note'
-                        ? (row.original.subtotal || 0) + (row.original.shippingCost || 0)
-                        : (row.original.totalAmount || 0);
-                    const rawBalance = effectiveTotal - (row.original.paidAmount || 0);
-                    // If the order is marked as 'paid' but has a small negative balance (rounding), show $0.00
-                    const balance = (row.original.paymentStatus === 'paid' && rawBalance < 0) ? 0 : rawBalance;
-
-                    const formatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(balance);
-                    return <div className={`text-right font-medium ${balance > 0 ? 'text-destructive' : 'text-success'}`}>{formatted}</div>;
-                }
-            },
-            {
-                accessorKey: "paymentStatus",
-                header: "Estado de Pago",
-                cell: ({ row }) => {
-                    // For delivery notes, treat as 'paid' if paidAmount covers effective total (subtotal + shipping)
-                    let status = row.original.paymentStatus;
-                    if (status === 'partial' && row.original.billingDocumentType === 'delivery_note') {
-                        const effectiveTotal = (row.original.subtotal || 0) + (row.original.shippingCost || 0);
-                        if ((row.original.paidAmount || 0) >= effectiveTotal - 0.01) {
-                            status = 'paid';
-                        }
-                    }
-                    const { label, variant } = paymentStatusMap[status] || { label: status, variant: 'secondary' };
-                    return <Badge variant={variant}>{label}</Badge>;
-                }
-            },
-            {
-                accessorKey: "status",
-                header: "Estado de la Orden",
-                cell: ({ row }) => (
-                    <OrderStatusSelector order={row.original} onStatusChange={handleRefresh} />
-                )
-            },
-            {
-                id: "process",
-                header: () => <div className="text-center">Procesar</div>,
-                cell: ({ row }) => {
-                    const order = row.original;
-                    // For delivery notes, consider paid if paidAmount covers subtotal + shipping
-                    const effectivePaid = order.paymentStatus === 'paid' ||
-                        (order.billingDocumentType === 'delivery_note' &&
-                         (order.paidAmount || 0) >= ((order.subtotal || 0) + (order.shippingCost || 0)) - 0.01);
-                    const isPaid = effectivePaid;
-                    const hasInvoice = order.billingDocumentId && order.billingDocumentType !== 'none';
-
-                    // Determine button variant based on order state
-                    let variant = 'outline';
-                    let label = 'Procesar';
-
-                    if (!isPaid) {
-                        variant = 'default';
-                        label = 'Procesar';
-                    } else if (isPaid && !hasInvoice) {
-                        variant = 'default';
-                        label = 'Facturar';
-                    } else if (hasInvoice) {
-                        variant = 'outline';
-                        label = 'Ver Proceso';
-                    }
-
-                    return (
-                        <div className="text-center">
-                            <Button
-                                variant={variant}
-                                size="sm"
-                                onClick={() => handleOpenProcessingDrawer(order)}
-                                title="Procesar orden completa"
-                            >
-                                <Settings className="h-4 w-4 mr-2" />
-                                {label}
-                            </Button>
-                        </div>
-                    );
-                },
-            },
-        ];
-
-        if (restaurantEnabled) {
-            baseColumns.push({
-                id: "kitchen",
-                header: () => <div className="text-center">Cocina</div>,
-                cell: ({ row }) => {
-                    const order = row.original;
-
-                    return (
-                        <div className="text-center">
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => sendToKitchen(order)}
-                                disabled={order.status !== 'confirmed'}
-                            >
-                                <ChefHat className="mr-2 h-4 w-4" />
-                                Enviar a Cocina
-                            </Button>
-                        </div>
-                    );
-                },
-            });
-        }
-
-        return baseColumns;
-    }, [handleOpenProcessingDrawer, restaurantEnabled, sendToKitchen, handleRefresh]);
-
-
-    return (
-        <div className="space-y-8">
-            <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                    <h1 className="text-3xl font-bold">Historial de Órdenes</h1>
-                    <p className="text-muted-foreground">
-                        Consulta, busca y administra todas las órdenes registradas en el sistema.
-                    </p>
-                </div>
-                <Button variant="outline" className="gap-2" onClick={() => navigate('/orders/new')}>
-                    <PlusCircle className="h-4 w-4" />
-                    Crear Nueva Orden
-                </Button>
-            </div>
-
-            <Card>
-                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <CardTitle>Listado de Órdenes</CardTitle>
-                        <CardDescription>
-                            Utiliza el buscador y los filtros para encontrar órdenes específicas.
-                        </CardDescription>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-                        <div className="relative w-full sm:w-auto">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                type="search"
-                                placeholder="Buscar por cliente, RIF o N°..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-8 w-full sm:w-[300px]"
-                            />
-                        </div>
-                        <Button variant="outline" size="sm" onClick={handleExportOrders} className="w-full sm:w-auto">
-                            <Download className="h-4 w-4 mr-2" />
-                            Exportar CSV
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading} className="w-full sm:w-auto">
-                            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                            Actualizar
-                        </Button>
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {attributeOptions.length > 0 && (
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-end">
-                            <div className="space-y-2">
-                                <Label htmlFor="order-attribute-key">Atributo</Label>
-                                <Select
-                                    id="order-attribute-key"
-                                    value={attributeKey}
-                                    onValueChange={setAttributeKey}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecciona atributo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {attributeOptions.map((option) => (
-                                            <SelectItem key={option.key} value={option.key}>
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="order-attribute-value">Valor contiene</Label>
-                                <Input
-                                    id="order-attribute-value"
-                                    value={attributeValue}
-                                    onChange={(event) => setAttributeValue(event.target.value)}
-                                    placeholder="Ej: Azul, 38, serial..."
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleClearAttributeFilter}
-                                    disabled={!attributeKey && !attributeValue}
-                                    className="w-full sm:w-auto"
-                                >
-                                    Limpiar filtro
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                    {loading && <p>Cargando órdenes...</p>}
-                    {error && <p className="text-destructive">Error al cargar las órdenes: {error}</p>}
-                    {!loading && !error && (
-                        <OrdersDataTableV2
-                            columns={columns}
-                            data={data.orders}
-                            pagination={data.pagination}
-                            onPageChange={handlePageChange}
-                            pageLimit={pageLimit}
-                            onPageLimitChange={handlePageLimitChange}
-                        />
-                    )}
-                </CardContent>
-            </Card>
-
-            <PaymentDialogV2
-                isOpen={isPaymentDialogOpen}
-                onClose={handleClosePaymentDialog}
-                order={selectedOrderForPayment}
-                onPaymentSuccess={handlePaymentSuccess}
-                exchangeRate={exchangeRate}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+            <input
+              type="search"
+              inputMode="search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por # orden, cliente o teléfono"
+              className="w-full bg-muted rounded-xl pl-9 pr-3 py-2.5 text-base outline-none focus:ring-2 focus:ring-primary/30"
             />
-
-            <OrderDetailsDialog
-                isOpen={isDetailsDialogOpen}
-                onClose={handleCloseDetailsDialog}
-                order={selectedOrderForDetails}
-                tenantSettings={tenantSettings}
-                onUpdate={handleRefresh}
-            />
-
-            <BillingDrawer
-                isOpen={isBillingDrawerOpen}
-                onClose={handleCloseBillingDrawer}
-                order={selectedOrderForBilling}
-                onOrderUpdated={handleRefresh}
-            />
-
-            <OrderProcessingDrawer
-                isOpen={isProcessingDrawerOpen}
-                onClose={handleCloseProcessingDrawer}
-                order={selectedOrderForProcessing}
-                onUpdate={async () => {
-                    handleRefresh();
-                    // Re-fetch the specific order to update the prop
-                    if (selectedOrderForProcessing?._id) {
-                        try {
-                            const updatedOrder = await fetchApi(`/orders/${selectedOrderForProcessing._id}`);
-                            setSelectedOrderForProcessing(updatedOrder);
-                        } catch (error) {
-                            console.error('Error refreshing selected order:', error);
-                        }
-                    }
-                }}
-            />
+          </div>
+          <motion.button
+            type="button"
+            onClick={handleRefresh}
+            whileTap={tapScale}
+            transition={SPRING.snappy}
+            aria-label="Refrescar"
+            className="shrink-0 inline-flex items-center justify-center rounded-xl border border-border bg-card w-10 h-10 hover:bg-muted/60"
+          >
+            <RefreshCw size={16} className={cn(loading && 'animate-spin')} />
+          </motion.button>
         </div>
-    );
+
+        <OrdersFilterChips
+          active={filter}
+          onChange={handleFilterChange}
+          counts={filterCounts}
+        />
+      </div>
+
+      {error && (
+        <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-sm text-destructive">
+          No pudimos cargar las órdenes. <button type="button" onClick={fetchOrders} className="underline ml-1">Reintentar</button>
+        </div>
+      )}
+
+      {!loading && filteredOrders.length === 0 && (
+        <EmptyState filter={filter} onCreateOrder={handleCreateOrder} onClearSearch={() => { setSearchTerm(''); setFilter('all'); }} />
+      )}
+
+      {isMobile ? (
+        <motion.div initial="initial" animate="animate" variants={STAGGER(0.03)} className="space-y-3">
+          <AnimatePresence initial={false}>
+            {filteredOrders.map((order) => (
+              <motion.div key={order._id || order.orderNumber} variants={listItem} layout>
+                <OrderCardMobile
+                  order={order}
+                  onTap={(o) => setActionSheetOrder(o)}
+                  onPay={(o) => handleOpenPayment(o)}
+                  onViewDetail={(o) => setDetailsOrder(o)}
+                  onMore={(o) => setActionSheetOrder(o)}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          {loading && filteredOrders.length === 0 && (
+            <SkeletonList count={4} />
+          )}
+        </motion.div>
+      ) : (
+        <OrdersSmartTable
+          orders={filteredOrders}
+          isLoading={loading && filteredOrders.length === 0}
+          onRowClick={(o) => setDetailsOrder(o)}
+          onPay={(o) => handleOpenPayment(o)}
+          onMore={(o) => setActionSheetOrder(o)}
+        />
+      )}
+
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>Página {pagination.page} de {pagination.totalPages} · {pagination.total} órdenes</span>
+          <div className="flex gap-2">
+            <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} className="rounded-lg border border-border px-3 py-1.5 disabled:opacity-50">Anterior</button>
+            <button type="button" disabled={page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-lg border border-border px-3 py-1.5 disabled:opacity-50">Siguiente</button>
+          </div>
+        </div>
+      )}
+
+      {isMobile && (
+        <button
+          type="button"
+          onClick={handleCreateOrder}
+          className="fixed bottom-20 right-4 z-40 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg w-14 h-14 hover:bg-primary/90"
+          aria-label="Nueva orden"
+        >
+          <Plus size={22} />
+        </button>
+      )}
+
+      {/* Action sheet (mobile) — usa MobileActionSheet portaled */}
+      <OrderActionSheet
+        open={Boolean(actionSheetOrder)}
+        onClose={() => setActionSheetOrder(null)}
+        order={actionSheetOrder}
+        restaurantEnabled={restaurantEnabled}
+        onPrimary={handlePrimaryAction}
+        onSecondary={handleSecondaryAction}
+      />
+
+      {/* Reused V2 dialogs — no UI rewrite, just orchestration */}
+      <PaymentDialogV2
+        isOpen={Boolean(paymentOrder)}
+        onClose={handleClosePayment}
+        order={paymentOrder}
+        onPaymentSuccess={handlePaymentSuccess}
+        exchangeRate={exchangeRate}
+      />
+
+      <OrderDetailsDialog
+        isOpen={Boolean(detailsOrder)}
+        onClose={() => setDetailsOrder(null)}
+        order={detailsOrder}
+        tenantSettings={tenantSettings}
+        onUpdate={fetchOrders}
+      />
+
+      <OrderProcessingDrawer
+        isOpen={Boolean(processingOrder)}
+        onClose={() => setProcessingOrder(null)}
+        order={processingOrder}
+        onUpdate={fetchOrders}
+      />
+
+      {billingOrder && (
+        <BillingDrawer
+          isOpen={Boolean(billingOrder)}
+          onClose={() => setBillingOrder(null)}
+          order={billingOrder}
+          onSuccess={() => { setBillingOrder(null); fetchOrders(); }}
+        />
+      )}
+    </div>
+  );
 }
+
+function EmptyState({ filter, onCreateOrder, onClearSearch }) {
+  if (filter === 'overdue') {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-center">
+        <p className="text-base font-medium">🎯 Cero vencidas</p>
+        <p className="mt-1 text-sm text-muted-foreground">Estás manteniendo todo al día — ese ritmo es lo que protege tu flujo de caja.</p>
+      </div>
+    );
+  }
+  if (filter === 'today') {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 text-center">
+        <p className="text-base font-medium">Hoy aún no has registrado órdenes.</p>
+        <button type="button" onClick={onCreateOrder} className="mt-3 inline-flex items-center gap-1 rounded-lg bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold">
+          <Plus size={14} /> Crear primera orden hoy
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-xl border border-border bg-card p-6 text-center">
+      <p className="text-base font-medium">No encontramos órdenes con esos filtros.</p>
+      <button type="button" onClick={onClearSearch} className="mt-3 inline-flex items-center gap-1 text-sm text-primary hover:underline">
+        Limpiar filtros
+      </button>
+    </div>
+  );
+}
+
+function SkeletonList({ count = 4 }) {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="h-32 rounded-[var(--mobile-radius-lg)] border border-border bg-muted/30 animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+export default OrdersHistoryV2;
