@@ -315,7 +315,7 @@ export function OrdersHistoryV2() {
   }, [fetchOrders]);
 
   return (
-    <div className="px-4 sm:px-6 pt-4 pb-24 sm:pb-6 space-y-4 max-w-7xl mx-auto">
+    <div className="px-4 sm:px-6 pt-4 pb-24 sm:pb-6 space-y-5 max-w-7xl mx-auto">
       <OrdersSmartHeader
         userName={userName}
         orders={orders}
@@ -488,7 +488,7 @@ function SkeletonList({ count = 4 }) {
   return (
     <div className="space-y-3">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="h-32 rounded-[var(--mobile-radius-lg)] border border-border bg-muted/30 animate-pulse" />
+        <div key={i} className="h-32 rounded-[var(--mobile-radius-xl)] bg-muted/30 animate-pulse" />
       ))}
     </div>
   );

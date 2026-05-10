@@ -94,7 +94,7 @@ export function OrderCardMobile({ order, onTap, onPay, onViewDetail, onMore }) {
   return (
     <div className="relative">
       {/* Swipe-revealed background actions */}
-      <div className="absolute inset-0 flex items-center justify-between px-5 rounded-[var(--mobile-radius-lg)] overflow-hidden pointer-events-none">
+      <div className="absolute inset-0 flex items-center justify-between px-5 rounded-[var(--mobile-radius-xl)] overflow-hidden pointer-events-none">
         <div className={cn('flex items-center gap-2 text-sm font-medium', actionHint === 'detail' ? 'text-foreground' : 'text-muted-foreground/40')}>
           <Eye size={16} /> Detalle
         </div>
@@ -117,7 +117,7 @@ export function OrderCardMobile({ order, onTap, onPay, onViewDetail, onMore }) {
         tabIndex={0}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap?.(order); } }}
         className={cn(
-          'relative bg-card rounded-[var(--mobile-radius-lg)] p-4 active:scale-[0.99] no-tap-highlight cursor-pointer',
+          'relative bg-card rounded-[var(--mobile-radius-xl)] p-4 active:scale-[0.99] no-tap-highlight cursor-pointer',
           triage === 'overdue' && 'border-l-4 border-l-destructive',
         )}
         style={{

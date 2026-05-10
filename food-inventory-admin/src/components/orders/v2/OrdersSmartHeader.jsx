@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Plus, AlertTriangle, Sun, Sparkles } from 'lucide-react';
+import { ArrowRight, Plus, AlertTriangle, Sun, Sparkles, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SPRING, fadeUp, tapScale } from '@/lib/motion';
 import { AnimatedCurrency, AnimatedNumber } from '@/components/ui/animated-number';
@@ -59,60 +59,6 @@ export function computeKPIs(orders = [], { now } = {}) {
   };
 }
 
-const KPI_DEFS = [
-  { key: 'today', label: 'Hoy', filter: 'today' },
-  { key: 'pending', label: 'Pendientes', filter: 'pending' },
-  { key: 'overdue', label: 'Vencidas', filter: 'overdue' },
-  { key: 'collectedWeek', label: 'Cobrado semana', filter: 'paid' },
-];
-
-function KPICard({ def, kpi, onClick }) {
-  const isCurrency = def.key === 'pending' || def.key === 'collectedWeek';
-  const isAlert = def.key === 'overdue' && (kpi.count || 0) > 0;
-  const value = isCurrency ? kpi.total : kpi.count;
-  const delta = def.key === 'today' ? kpi.deltaVsYesterday : null;
-
-  return (
-    <motion.button
-      type="button"
-      onClick={() => onClick?.(def.filter)}
-      whileTap={tapScale}
-      transition={SPRING.snappy}
-      className={cn(
-        'relative flex flex-col items-start gap-2 text-left rounded-xl p-4 no-tap-highlight transition-colors min-h-[6.5rem]',
-        isAlert && 'border border-destructive/40 ring-1 ring-destructive/20',
-      )}
-      style={{
-        background: isAlert ? undefined : 'var(--glass-subtle)',
-        boxShadow: isAlert ? undefined : 'var(--elevation-rest)',
-      }}
-    >
-      <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
-        {def.label}
-      </span>
-      <span className={cn(
-        'font-extrabold tabular-nums text-foreground leading-none flex items-center gap-1.5 tracking-tight',
-        def.key === 'collectedWeek' ? 'text-[28px] sm:text-[32px]' : 'text-2xl sm:text-3xl',
-      )}>
-        {isCurrency ? (
-          <AnimatedCurrency value={Number(value) || 0} currency="$" />
-        ) : (
-          <AnimatedNumber value={Number(value) || 0} />
-        )}
-        {isAlert && <AlertTriangle size={18} className="text-destructive" />}
-      </span>
-      {typeof delta === 'number' && (
-        <span className={cn(
-          'text-[11px] font-medium',
-          delta > 0 ? 'text-green-500' : delta < 0 ? 'text-destructive' : 'text-muted-foreground',
-        )}>
-          {delta > 0 ? `▲ ${delta} vs ayer` : delta < 0 ? `▼ ${Math.abs(delta)} vs ayer` : '— vs ayer'}
-        </span>
-      )}
-    </motion.button>
-  );
-}
-
 export function OrdersSmartHeader({
   userName,
   orders = [],
@@ -131,7 +77,7 @@ export function OrdersSmartHeader({
   const showOverdueBanner = overdueCount > 0 && !showRitualBanner && !showWelcomeBack;
 
   return (
-    <motion.div initial="initial" animate="animate" variants={fadeUp} className="space-y-3">
+    <motion.div initial="initial" animate="animate" variants={fadeUp} className="space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
@@ -209,11 +155,56 @@ export function OrdersSmartHeader({
         </button>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-        {KPI_DEFS.map((def) => (
-          <KPICard key={def.key} def={def} kpi={kpis[def.key]} onClick={onFilterChange} />
-        ))}
-      </div>
+      {/* Hero financial card — peak-end KPI + 3 stat boxes (mirror del hero de TodayDashboard) */}
+      <motion.div
+        className="bg-card p-5"
+        style={{
+          borderRadius: 'var(--mobile-radius-xl)',
+          boxShadow: 'var(--elevation-raised)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => onFilterChange?.('paid')}
+          className="w-full text-left no-tap-highlight"
+        >
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-[11px] text-muted-foreground/60 font-medium tracking-wide uppercase">Cobrado semana</p>
+              <p className="text-[32px] font-extrabold tabular-nums tracking-tight mt-0.5 leading-none">
+                <AnimatedCurrency value={Number(kpis.collectedWeek.total) || 0} currency="$" />
+              </p>
+            </div>
+            <div className="flex items-center gap-1 text-emerald-500/80 mt-1">
+              <TrendingUp size={13} strokeWidth={1.5} />
+              <span className="text-[11px] font-medium">Esta semana</span>
+            </div>
+          </div>
+        </button>
+
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { key: 'today', label: 'Hoy', value: kpis.today.count, filter: 'today', color: 'text-foreground', isCurrency: false },
+            { key: 'pending', label: 'Pendientes', value: kpis.pending.total, filter: 'pending', color: 'text-amber-500', isCurrency: true },
+            { key: 'overdue', label: 'Vencidas', value: kpis.overdue.count, filter: 'overdue', color: kpis.overdue.count > 0 ? 'text-destructive' : 'text-foreground', isCurrency: false },
+          ].map((stat) => (
+            <button
+              key={stat.key}
+              type="button"
+              onClick={() => onFilterChange?.(stat.filter)}
+              className="text-center rounded-xl py-2.5 no-tap-highlight transition-colors"
+              style={{ background: 'var(--glass-subtle)' }}
+            >
+              <div className={cn('text-lg font-bold tabular-nums', stat.color)}>
+                {stat.isCurrency
+                  ? <AnimatedCurrency value={Number(stat.value) || 0} currency="$" />
+                  : <AnimatedNumber value={Number(stat.value) || 0} />}
+              </div>
+              <div className="text-[10px] text-muted-foreground/60 font-medium">{stat.label}</div>
+            </button>
+          ))}
+        </div>
+      </motion.div>
     </motion.div>
   );
 }
