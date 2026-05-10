@@ -97,6 +97,15 @@
   --status-info-foreground: oklch(0.985 0 0);
   --status-info-muted: oklch(0.95 0.04 250);
 
+  /* Premium tokens — brand purple, identical across light/dark so ceremony
+     moments (FAB, primary CTAs, accents) stay visible in light mode too. */
+  --gradient-primary: linear-gradient(135deg, oklch(0.65 0.25 280), oklch(0.55 0.22 265));
+  --gradient-primary-subtle: linear-gradient(135deg, oklch(0.65 0.25 280 / 0.15), oklch(0.55 0.22 265 / 0.08));
+  --glow-primary: 0 0 0 1px oklch(0.62 0.22 268 / 0.4), 0 4px 20px -4px oklch(0.62 0.22 268 / 0.3);
+  --glow-primary-strong: 0 0 0 1px oklch(0.62 0.22 268 / 0.5), 0 4px 28px -4px oklch(0.62 0.22 268 / 0.4);
+  --glass-subtle: oklch(0.2 0.02 260 / 0.04);
+  --glass-medium: oklch(0.2 0.02 260 / 0.08);
+
   /* Fluid typography — replaces 5-tier discrete system.
      clamp(min, preferred, max) gives smooth scaling without breakpoint jumps.
      16px is the browser default — never go below 14px to keep rem math sane. */
