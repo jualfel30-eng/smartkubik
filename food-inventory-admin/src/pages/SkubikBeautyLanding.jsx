@@ -17,11 +17,11 @@ const BEAUTY_DATA = {
   hero: {
     eyebrow: 'Skubik · Software para negocios de belleza',
     title: 'Tu talento está en tus manos, no pegado a un teclado.',
-    subtitle: 'Basta de ser recepcionista de tu propio negocio. Valora tu tiempo y el de tu equipo. Skubik agenda, minimiza el "embarque" confirmando tus citas, y saca las cuentas de tu negocio sin que tengas que mover un dedo. Dedícate a cobrar y crear.',
+    subtitle: 'Tu propia web donde tus clientes reservan solos. WhatsApp confirma sus citas automáticamente. Y nadie te embarca: cobras anticipo antes de agendar.',
     stats: [
-      { value: '24/7', label: 'Agenda abierta' },
-      { value: '–38%', label: 'Cancelaciones sin aviso' },
-      { value: '+2h', label: 'Ahorradas al día' },
+      { value: '24/7', label: 'Tu agenda abierta' },
+      { value: 'WhatsApp', label: 'Confirma por ti' },
+      { value: 'Anticipo', label: 'Cero embarques' },
     ],
     primaryCTA: 'Compruébalo gratis 14 días',
     secondaryCTA: '¿Dudas? Hablemos por WhatsApp',
