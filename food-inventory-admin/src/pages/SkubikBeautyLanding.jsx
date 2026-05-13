@@ -639,6 +639,125 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-export-line .arrow { color: var(--s-accent); }
 @keyframes s-termLine { to { opacity: 1; } }
 
+/* === WEB SHOWCASE === */
+.s-web { padding: 140px 0; position: relative; overflow: hidden; }
+@media (max-width: 600px) { .s-web { padding: 90px 0; } }
+.s-web-head { max-width: 780px; padding: 0 32px; margin-bottom: 64px; }
+@media (max-width: 600px) { .s-web-head { padding: 0 20px; margin-bottom: 40px; } }
+.s-web-head h2 { font-size: clamp(36px, 5.5vw, 64px); margin: 18px 0; }
+.s-web-head h2 em { font-style: italic; color: var(--s-accent); }
+.s-web-head p { color: var(--s-muted); font-size: 17px; line-height: 1.6; max-width: 540px; margin-top: 10px; }
+@media (max-width: 600px) { .s-web-head p { font-size: 15px; } }
+
+/* Stage with laptop frame */
+.s-web-stage { display: flex; flex-direction: column; align-items: center; max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+@media (max-width: 600px) { .s-web-stage { padding: 0 16px; } }
+
+/* Laptop mockup frame (desktop) */
+.s-web-laptop { position: relative; width: 100%; max-width: 880px; aspect-ratio: 16/10; background: linear-gradient(180deg, #1a1a1e 0%, #0d0d10 100%); border-radius: 16px 16px 4px 4px; padding: 14px 14px 14px; box-shadow: 0 30px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05); }
+.s-web-laptop::before { content: ''; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 60px; height: 5px; background: #2a2a2e; border-radius: 3px; }
+.s-web-laptop-screen { position: relative; width: 100%; height: 100%; border-radius: 6px; overflow: hidden; background: #0a0e1a; }
+.s-web-laptop-base { width: calc(100% + 120px); margin: 0 -60px; height: 18px; background: linear-gradient(180deg, #2a2a2e, #1a1a1e); border-radius: 0 0 16px 16px; position: relative; }
+.s-web-laptop-base::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 100px; height: 5px; background: #0d0d10; border-radius: 0 0 8px 8px; }
+
+/* iPhone variant (mobile) */
+@media (max-width: 700px) {
+  .s-web-laptop { aspect-ratio: 9/16; max-width: 280px; border-radius: 38px; padding: 10px; background: #1c1c1e; border: 2px solid #38383a; }
+  .s-web-laptop::before { width: 80px; height: 22px; top: 6px; border-radius: 14px; background: #000; }
+  .s-web-laptop-screen { border-radius: 28px; }
+  .s-web-laptop-base { display: none; }
+}
+
+/* Web mock screens (one per vertical) */
+.s-web-mock { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s cubic-bezier(0.22,1,0.36,1); display: flex; flex-direction: column; overflow: hidden; }
+.s-web-mock.active { opacity: 1; }
+.s-web-mock-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+.s-web-mock-logo { display: flex; align-items: center; gap: 8px; }
+.s-web-mock-logo-dot { width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-weight: 700; font-size: 12px; color: #fff; }
+.s-web-mock-name { font-family: 'Fraunces', serif; font-size: 13px; font-weight: 600; }
+.s-web-mock-cta { padding: 5px 12px; border-radius: 99px; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #fff; }
+.s-web-mock-hero { flex: 1; padding: 24px; display: flex; flex-direction: column; justify-content: center; text-align: center; position: relative; overflow: hidden; }
+.s-web-mock-hero-bg { position: absolute; inset: 0; opacity: 0.4; }
+.s-web-mock-hero-content { position: relative; z-index: 1; }
+.s-web-mock-tagline { font-family: 'Fraunces', serif; font-weight: 700; line-height: 1.05; margin-bottom: 12px; }
+.s-web-mock-rating { display: inline-flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.05em; opacity: 0.85; }
+.s-web-mock-buttons { display: flex; gap: 8px; justify-content: center; margin-top: 18px; }
+.s-web-mock-btn { padding: 8px 16px; border-radius: 8px; font-size: 11px; font-weight: 700; }
+.s-web-mock-gallery { padding: 0 24px 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; flex-shrink: 0; }
+.s-web-mock-gallery > div { aspect-ratio: 1/1; border-radius: 3px; }
+@media (max-width: 700px) {
+  .s-web-mock-header { padding: 10px 14px; }
+  .s-web-mock-hero { padding: 20px 16px; }
+  .s-web-mock-gallery { padding: 0 14px 14px; }
+}
+
+/* Vertical-specific palettes */
+.s-web-mock.v-barber { background: #1a1612; color: #f5efe3; }
+.s-web-mock.v-barber .s-web-mock-logo-dot { background: linear-gradient(135deg, #b08968, #6b4e3d); }
+.s-web-mock.v-barber .s-web-mock-cta { background: #b08968; }
+.s-web-mock.v-barber .s-web-mock-hero-bg { background: radial-gradient(ellipse at center, rgba(176,137,104,0.3), transparent 70%); }
+.s-web-mock.v-barber .s-web-mock-btn-primary { background: #b08968; color: #fff; }
+.s-web-mock.v-barber .s-web-mock-btn-ghost { background: transparent; color: #f5efe3; border: 1px solid rgba(245,239,227,0.2); }
+.s-web-mock.v-barber .s-web-mock-gallery > div { background: linear-gradient(135deg, #2a1f17, #4a3a2a); }
+
+.s-web-mock.v-salon { background: #faf6f0; color: #2a1f17; }
+.s-web-mock.v-salon .s-web-mock-logo-dot { background: linear-gradient(135deg, #d4af6f, #8b7355); }
+.s-web-mock.v-salon .s-web-mock-cta { background: #c9a663; color: #fff; }
+.s-web-mock.v-salon .s-web-mock-hero-bg { background: radial-gradient(ellipse at center, rgba(212,175,111,0.35), transparent 70%); }
+.s-web-mock.v-salon .s-web-mock-btn-primary { background: #2a1f17; color: #fff; }
+.s-web-mock.v-salon .s-web-mock-btn-ghost { background: transparent; color: #2a1f17; border: 1px solid rgba(42,31,23,0.2); }
+.s-web-mock.v-salon .s-web-mock-rating { color: #2a1f17; }
+.s-web-mock.v-salon .s-web-mock-gallery > div { background: linear-gradient(135deg, #e8d5b7, #c9a663); }
+
+.s-web-mock.v-nails { background: #fdf2f7; color: #831843; }
+.s-web-mock.v-nails .s-web-mock-logo-dot { background: linear-gradient(135deg, #ec4899, #be185d); }
+.s-web-mock.v-nails .s-web-mock-cta { background: #ec4899; color: #fff; }
+.s-web-mock.v-nails .s-web-mock-hero-bg { background: radial-gradient(ellipse at center, rgba(236,72,153,0.25), transparent 70%); }
+.s-web-mock.v-nails .s-web-mock-btn-primary { background: #ec4899; color: #fff; }
+.s-web-mock.v-nails .s-web-mock-btn-ghost { background: transparent; color: #831843; border: 1px solid rgba(131,24,67,0.2); }
+.s-web-mock.v-nails .s-web-mock-rating { color: #831843; }
+.s-web-mock.v-nails .s-web-mock-gallery > div { background: linear-gradient(135deg, #fce7f3, #f9a8d4); }
+
+.s-web-mock.v-spa { background: #f0f7f0; color: #1c3d1c; }
+.s-web-mock.v-spa .s-web-mock-logo-dot { background: linear-gradient(135deg, #6b9166, #3a5a3a); }
+.s-web-mock.v-spa .s-web-mock-cta { background: #6b9166; color: #fff; }
+.s-web-mock.v-spa .s-web-mock-hero-bg { background: radial-gradient(ellipse at center, rgba(107,145,102,0.3), transparent 70%); }
+.s-web-mock.v-spa .s-web-mock-btn-primary { background: #3a5a3a; color: #fff; }
+.s-web-mock.v-spa .s-web-mock-btn-ghost { background: transparent; color: #1c3d1c; border: 1px solid rgba(28,61,28,0.2); }
+.s-web-mock.v-spa .s-web-mock-rating { color: #1c3d1c; }
+.s-web-mock.v-spa .s-web-mock-gallery > div { background: linear-gradient(135deg, #d1e3d1, #8aab85); }
+
+/* URL bar below laptop */
+.s-web-url { margin-top: 32px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--s-muted); display: flex; align-items: center; gap: 8px; }
+.s-web-url-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; animation: s-pulse 2s infinite; }
+@media (max-width: 600px) { .s-web-url { font-size: 11px; margin-top: 20px; } }
+
+/* Tabs (vertical selectors) */
+.s-web-tabs { display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap; justify-content: center; }
+.s-web-tab { padding: 8px 18px; border-radius: 99px; background: transparent; border: 1px solid var(--s-line); font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--s-muted); cursor: pointer; transition: all 0.25s; }
+.s-web-tab.active { background: var(--s-accent); border-color: var(--s-accent); color: #fff; }
+.s-web-tab:hover { color: var(--s-fg); border-color: var(--s-muted); }
+.s-web-tab.active:hover { color: #fff; border-color: var(--s-accent); }
+@media (max-width: 600px) { .s-web-tab { padding: 6px 14px; font-size: 10px; } }
+
+/* Features grid */
+.s-web-features { margin-top: 100px; padding: 0 32px; max-width: 1080px; margin-left: auto; margin-right: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+@media (max-width: 900px) { .s-web-features { grid-template-columns: repeat(2, 1fr); gap: 22px; } }
+@media (max-width: 600px) { .s-web-features { grid-template-columns: 1fr; gap: 18px; margin-top: 60px; padding: 0 20px; } }
+.s-web-feat { display: flex; gap: 14px; align-items: flex-start; }
+.s-web-feat-icon { flex-shrink: 0; width: 42px; height: 42px; border-radius: 12px; background: rgba(255,90,44,0.08); border: 1px solid rgba(255,90,44,0.2); display: flex; align-items: center; justify-content: center; color: var(--s-accent); }
+.s-web-feat-icon svg { width: 20px; height: 20px; }
+.s-web-feat-title { font-family: 'Fraunces', serif; font-size: 17px; font-weight: 600; color: var(--s-fg); margin-bottom: 4px; }
+.s-web-feat-desc { font-size: 13px; color: var(--s-muted); line-height: 1.5; }
+
+/* Final CTA */
+.s-web-final { margin-top: 80px; text-align: center; padding: 0 32px; }
+@media (max-width: 600px) { .s-web-final { margin-top: 50px; padding: 0 20px; } }
+.s-web-final p { font-family: 'Fraunces', serif; font-size: 22px; font-style: italic; color: var(--s-fg); max-width: 600px; margin: 0 auto 24px; line-height: 1.4; }
+@media (max-width: 600px) { .s-web-final p { font-size: 18px; } }
+.s-web-final-link { display: inline-flex; align-items: center; gap: 8px; padding: 14px 28px; background: var(--s-accent); color: #fff; border-radius: 99px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; text-decoration: none; transition: transform 0.25s; }
+.s-web-final-link:hover { transform: translateY(-2px); }
+
 /* === TIMELINE === */
 .s-timeline { padding: 120px 0; background: var(--s-bg2); border-top: 1px solid var(--s-line); border-bottom: 1px solid var(--s-line); position: relative; }
 .s-tl-head { margin-bottom: 80px; max-width: 780px; }
@@ -2114,6 +2233,187 @@ function STimeline({ D }) {
   );
 }
 
+// ---- Web Showcase — "Tu salón en internet" ----
+const WEB_MOCKS = [
+  {
+    key: 'barber',
+    name: 'Barbería Sava',
+    initial: 'S',
+    url: 'savabarberia.smartkubik.com',
+    tagline: 'Precisión impecable, actitud total',
+    rating: '★ 4.7 · 25 reseñas',
+    ctaPrimary: 'Reservar Ahora',
+    ctaGhost: 'Ver Servicios',
+    ctaShort: 'Reservar',
+    vertical: 'Barbería',
+  },
+  {
+    key: 'salon',
+    name: 'Studio Bella',
+    initial: 'B',
+    url: 'studiobella.smartkubik.com',
+    tagline: 'El arte de sentirte radiante',
+    rating: '★ 4.9 · 187 reseñas',
+    ctaPrimary: 'Reserva tu cita',
+    ctaGhost: 'Conoce el equipo',
+    ctaShort: 'Reservar',
+    vertical: 'Salón premium',
+  },
+  {
+    key: 'nails',
+    name: 'Nails by Sophie',
+    initial: 'N',
+    url: 'nailsbysophie.smartkubik.com',
+    tagline: 'Manos perfectas, todos los días',
+    rating: '★ 5.0 · 94 reseñas',
+    ctaPrimary: 'Reservar Cita',
+    ctaGhost: 'Ver diseños',
+    ctaShort: 'Reservar',
+    vertical: 'Nail Studio',
+  },
+  {
+    key: 'spa',
+    name: 'Spa Renacer',
+    initial: 'R',
+    url: 'sparenacer.smartkubik.com',
+    tagline: 'Tu pausa, tu santuario',
+    rating: '★ 4.8 · 62 reseñas',
+    ctaPrimary: 'Reservar Sesión',
+    ctaGhost: 'Ver tratamientos',
+    ctaShort: 'Reservar',
+    vertical: 'Spa Wellness',
+  },
+];
+
+const WEB_FEATURES = [
+  {
+    title: 'URL personalizada',
+    desc: 'Tu propio subdominio o conecta tu dominio. Compártelo en Instagram, WhatsApp, Google Maps.',
+    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>,
+  },
+  {
+    title: 'Reservas + anticipo',
+    desc: 'Tus clientes eligen servicio, profesional, día y hora. Cobras anticipo antes de confirmar.',
+    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>,
+  },
+  {
+    title: 'Reseñas de Google',
+    desc: 'Tus reseñas de Google aparecen en tu web. Prueba social que vende sola.',
+    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+  },
+  {
+    title: 'Galería y portafolio',
+    desc: 'Fotos antes/después organizadas por servicio. Tu trabajo en exhibición permanente.',
+    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>,
+  },
+  {
+    title: 'Reserva con tu favorito',
+    desc: 'Tus clientes eligen profesional específico o "el siguiente disponible".',
+    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  },
+  {
+    title: 'Templates por vertical',
+    desc: 'Diseños pensados para barbería, salón, spa o nail studio. Solo eliges el tuyo.',
+    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><path d="M17 11.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/><circle cx="8.5" cy="13.5" r="2.5"/><circle cx="6.5" cy="6.5" r="2.5"/><path d="M12 2v20"/></svg>,
+  },
+];
+
+function SWebShowcase() {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const revealRef = useReveal();
+
+  useEffect(() => {
+    if (paused) return;
+    const interval = setInterval(() => {
+      setActiveIdx(i => (i + 1) % WEB_MOCKS.length);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [paused]);
+
+  return (
+    <section className="s-web s-reveal" ref={revealRef} id="web" data-screen-label="04 Web">
+      <div className="s-web-head">
+        <span className="s-eyebrow">Tu web propia</span>
+        <h2>Tu salón en internet, <em>listo en 30 minutos.</em></h2>
+        <p>Sin diseñador, sin hosting, sin código. Elige plantilla, sube tus fotos y compártelo. Funciona desde el primer día.</p>
+      </div>
+
+      <div className="s-web-stage">
+        <div
+          className="s-web-laptop"
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+        >
+          <div className="s-web-laptop-screen">
+            {WEB_MOCKS.map((m, i) => (
+              <div key={m.key} className={`s-web-mock v-${m.key} ${i === activeIdx ? 'active' : ''}`}>
+                <div className="s-web-mock-header">
+                  <div className="s-web-mock-logo">
+                    <div className="s-web-mock-logo-dot">{m.initial}</div>
+                    <div className="s-web-mock-name">{m.name}</div>
+                  </div>
+                  <div className="s-web-mock-cta">{m.ctaShort}</div>
+                </div>
+                <div className="s-web-mock-hero">
+                  <div className="s-web-mock-hero-bg" />
+                  <div className="s-web-mock-hero-content">
+                    <div className="s-web-mock-tagline" style={{ fontSize: 'clamp(18px, 3vw, 28px)' }}>{m.tagline}</div>
+                    <div className="s-web-mock-rating">
+                      <span style={{ color: '#fbbf24' }}>{m.rating.split('·')[0]}</span>
+                      <span style={{ opacity: 0.7 }}>·{m.rating.split('·')[1]}</span>
+                    </div>
+                    <div className="s-web-mock-buttons">
+                      <div className="s-web-mock-btn s-web-mock-btn-primary">{m.ctaPrimary}</div>
+                      <div className="s-web-mock-btn s-web-mock-btn-ghost">{m.ctaGhost}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="s-web-mock-gallery">
+                  {[0,1,2,3].map(g => <div key={g} />)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="s-web-laptop-base" />
+        <div className="s-web-url">
+          <span className="s-web-url-dot" />
+          {WEB_MOCKS[activeIdx].url}
+        </div>
+        <div className="s-web-tabs">
+          {WEB_MOCKS.map((m, i) => (
+            <button
+              key={m.key}
+              className={`s-web-tab ${i === activeIdx ? 'active' : ''}`}
+              onClick={() => { setActiveIdx(i); setPaused(true); }}
+            >{m.vertical}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="s-web-features">
+        {WEB_FEATURES.map((f, i) => (
+          <div key={i} className="s-web-feat">
+            <div className="s-web-feat-icon">{f.icon}</div>
+            <div>
+              <div className="s-web-feat-title">{f.title}</div>
+              <div className="s-web-feat-desc">{f.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="s-web-final">
+        <p>"Tu primera web profesional, sin pagar diseñador. Incluida en tu plan."</p>
+        <a className="s-web-final-link" href="https://savabarberia.smartkubik.com" target="_blank" rel="noreferrer">
+          Ver demo en vivo →
+        </a>
+      </div>
+    </section>
+  );
+}
+
 // ---- Chat ----
 function SChat({ D }) {
   const ref = useReveal();
@@ -2456,8 +2756,8 @@ export default function SkubikBeautyLanding() {
       <SHero D={D} />
       <SMarquee />
       <SPain D={D} />
+      <SWebShowcase />
       <SBenefits D={D} />
-      <STimeline D={D} />
       <SChat D={D} />
       <SHow D={D} />
       <SPricing D={D} />
