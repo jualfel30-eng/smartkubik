@@ -2307,14 +2307,14 @@ const WEB_FEATURES = [
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>,
   },
   {
-    title: 'Reserva con tu favorito',
-    desc: 'Tus clientes eligen profesional específico o "el siguiente disponible".',
+    title: 'Tu equipo, bajo control',
+    desc: 'Horarios, comisiones automáticas y vacaciones para cada profesional. Tus clientes eligen con quién agendar.',
     icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   },
   {
-    title: 'Templates por vertical',
-    desc: 'Diseños pensados para barbería, salón, spa o nail studio. Solo eliges el tuyo.',
-    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><path d="M17 11.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/><circle cx="8.5" cy="13.5" r="2.5"/><circle cx="6.5" cy="6.5" r="2.5"/><path d="M12 2v20"/></svg>,
+    title: 'Tu base de clientes es tuya',
+    desc: 'Tus contactos, historial y datos pertenecen a tu negocio. Exporta cuando quieras. Nadie te secuestra a tus clientes.',
+    icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
   },
 ];
 
