@@ -1561,6 +1561,98 @@ export function useComprasData() {
     setIsNewPurchaseDialogOpen(true);
   };
 
+  /**
+   * Batch variant of handleCreatePoFromAlert: stuffs N alert items into a
+   * single PO. If all items share the same preferred supplier (suppliers[0]),
+   * the supplier section is pre-filled; otherwise it stays empty so the user
+   * picks one (and all items end up under that single supplier — POs are
+   * always one-supplier-only by design).
+   */
+  const handleCreatePoFromAlertBatch = (alertItems) => {
+    if (!Array.isArray(alertItems) || alertItems.length === 0) return;
+
+    const items = alertItems
+      .map((alertItem) => {
+        const productInfo = alertItem?.productId;
+        if (!productInfo) return null;
+
+        const resolvedSku = alertItem.productSku;
+        const variants = Array.isArray(productInfo.variants)
+          ? productInfo.variants.filter((v) => v && v.isActive !== false)
+          : [];
+        const matchedVariant = variants.find((v) => v?.sku === resolvedSku);
+        const fallbackVariant = variants.length === 1 ? variants[0] : null;
+        const variantToUse = matchedVariant || fallbackVariant || null;
+        const costPrice = variantToUse?.costPrice ?? alertItem.lastCostPrice ?? 0;
+
+        return {
+          productId: productInfo._id,
+          productName: productInfo.name || alertItem.productName,
+          productSku: variantToUse?.sku || resolvedSku,
+          variantId: variantToUse?._id,
+          variantName: variantToUse?.name,
+          variantSku: variantToUse?.sku || resolvedSku,
+          quantity: 1,
+          costPrice,
+          isPerishable: productInfo.isPerishable,
+          lotNumber: '',
+          expirationDate: '',
+        };
+      })
+      .filter(Boolean);
+
+    if (items.length === 0) return;
+
+    // Detect common preferred supplier across all items.
+    const preferredSupplierIds = alertItems
+      .map((a) => a?.productId?.suppliers?.[0]?.supplierId)
+      .filter(Boolean)
+      .map((id) => (typeof id === 'string' ? id : id?.toString?.()))
+      .filter(Boolean);
+    const allShareSupplier =
+      preferredSupplierIds.length === items.length &&
+      preferredSupplierIds.every((id) => id === preferredSupplierIds[0]);
+    const commonSupplier = allShareSupplier
+      ? suppliers.find((s) => s._id?.toString?.() === preferredSupplierIds[0])
+      : null;
+
+    if (commonSupplier) {
+      const { taxType, rifNumber } = parseTaxId(
+        commonSupplier.taxInfo?.taxId,
+        commonSupplier.taxInfo?.taxType || 'J',
+      );
+      const addr =
+        commonSupplier.addresses?.find((a) => a.isDefault) ||
+        commonSupplier.addresses?.[0];
+      setPo({
+        ...initialPoState,
+        items,
+        supplierId: commonSupplier._id,
+        supplierName: commonSupplier.companyName || commonSupplier.name,
+        supplierRif: rifNumber,
+        taxType,
+        contactName: commonSupplier.contacts?.[0]?.name || commonSupplier.name || '',
+        contactPhone:
+          commonSupplier.contacts?.find((c) => c.type === 'phone')?.value || '',
+        contactEmail:
+          commonSupplier.contacts?.find((c) => c.type === 'email')?.value || '',
+        supplierAddress: {
+          city: addr?.city || '',
+          state: addr?.state || '',
+          street: addr?.street || '',
+        },
+      });
+      setSupplierNameInput(commonSupplier.companyName || commonSupplier.name);
+      setSupplierRifInput(rifNumber);
+    } else {
+      setPo({ ...initialPoState, items });
+      setSupplierNameInput('');
+      setSupplierRifInput('');
+    }
+
+    setIsNewPurchaseDialogOpen(true);
+  };
+
   // Handle RIF dropdown supplier selection (for the custom dropdown in the PO dialog)
   const handleRifDropdownSelect = (s) => {
     console.log('🔍 DEBUG DROPDOWN - Supplier selected from RIF dropdown:', {
@@ -1670,6 +1762,7 @@ export function useComprasData() {
     handlePoSubmit,
     handleActualPaymentMethodChange,
     handleCreatePoFromAlert,
+    handleCreatePoFromAlertBatch,
     handleRifDropdownSelect,
 
     // Auto receive + rate flow (simple mode default)

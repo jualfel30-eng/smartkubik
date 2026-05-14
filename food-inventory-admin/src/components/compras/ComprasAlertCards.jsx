@@ -3,8 +3,12 @@
  * Compact alert cards for low-stock and near-expiration items.
  *
  * Each card shows a big counter + the 3 most urgent rows inline. Full list
- * opens in a right-side Sheet via "Ver todos". When the list has ≤3 items,
- * the footer link is hidden because everything is already visible.
+ * opens in a right-side Sheet via "Ver todos" where the user can:
+ *  - Toggle multiple items with checkboxes.
+ *  - Use the "Seleccionar todos del proveedor X" chip to grab everything
+ *    sharing the preferred supplier of the first selected item.
+ *  - Click "Crear OC con N productos" to open the PO dialog pre-loaded
+ *    with all selected items (and pre-filled supplier when they share one).
  */
 import { useMemo, useState } from 'react';
 import {
@@ -23,6 +27,7 @@ import {
 } from '@/components/ui/table.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
+import { Checkbox } from '@/components/ui/checkbox.jsx';
 import {
   Sheet,
   SheetContent,
@@ -30,13 +35,20 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet.jsx';
-import { AlertTriangle, Clock, ArrowRight, CheckCircle2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Clock,
+  ArrowRight,
+  CheckCircle2,
+  Users,
+} from 'lucide-react';
 
 const PREVIEW_COUNT = 3;
 
 function flattenExpiringLots(expiringProducts) {
   // Each product can have multiple lots; flatten into one row per lot so
-  // sorting by expiration date works correctly.
+  // sorting by expiration date works correctly. Preserve the parent item
+  // so the batch handler still gets the full productId payload.
   const rows = [];
   expiringProducts.forEach((item) => {
     (item.lots || []).forEach((lot) => {
@@ -45,17 +57,205 @@ function flattenExpiringLots(expiringProducts) {
         productName: item.productName,
         lotNumber: lot.lotNumber,
         expirationDate: lot.expirationDate,
-        item,
+        item, // original alert item — passes through to handleCreatePoFromAlert*
       });
     });
   });
   return rows;
 }
 
+function getPreferredSupplierId(alertItem) {
+  const id = alertItem?.productId?.suppliers?.[0]?.supplierId;
+  if (!id) return null;
+  return typeof id === 'string' ? id : id?.toString?.() || null;
+}
+
+function getPreferredSupplierName(alertItem) {
+  return (
+    alertItem?.productId?.suppliers?.[0]?.supplierName ||
+    alertItem?.productId?.suppliers?.[0]?.companyName ||
+    null
+  );
+}
+
+/**
+ * Mini-component to render a Sheet with multi-select + batch CTA. Re-used
+ * by both alert types so the layout stays consistent.
+ */
+function AlertListSheet({
+  open,
+  onOpenChange,
+  title,
+  icon: Icon,
+  iconClassName,
+  description,
+  rows,
+  renderColumns,
+  onCreatePoBatch,
+  getAlertItem,
+  getRowId,
+}) {
+  const [selectedIds, setSelectedIds] = useState(new Set());
+
+  const allChecked = rows.length > 0 && selectedIds.size === rows.length;
+  const indeterminate = selectedIds.size > 0 && selectedIds.size < rows.length;
+
+  const toggleAll = () => {
+    if (allChecked) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(rows.map(getRowId)));
+    }
+  };
+
+  const toggleRow = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Compute supplier hint based on the first selected row.
+  const firstSelectedRow = useMemo(() => {
+    if (selectedIds.size === 0) return null;
+    return rows.find((r) => selectedIds.has(getRowId(r))) || null;
+  }, [rows, selectedIds, getRowId]);
+
+  const anchorSupplierId = firstSelectedRow
+    ? getPreferredSupplierId(getAlertItem(firstSelectedRow))
+    : null;
+  const anchorSupplierName = firstSelectedRow
+    ? getPreferredSupplierName(getAlertItem(firstSelectedRow))
+    : null;
+
+  const sameSupplierMatchCount = useMemo(() => {
+    if (!anchorSupplierId) return 0;
+    return rows.filter(
+      (r) => getPreferredSupplierId(getAlertItem(r)) === anchorSupplierId,
+    ).length;
+  }, [rows, anchorSupplierId, getAlertItem]);
+
+  const selectSameSupplier = () => {
+    if (!anchorSupplierId) return;
+    const matching = rows
+      .filter((r) => getPreferredSupplierId(getAlertItem(r)) === anchorSupplierId)
+      .map(getRowId);
+    setSelectedIds(new Set(matching));
+  };
+
+  const handleSubmit = () => {
+    const picked = rows
+      .filter((r) => selectedIds.has(getRowId(r)))
+      .map(getAlertItem);
+    if (picked.length === 0) return;
+    onCreatePoBatch(picked);
+    setSelectedIds(new Set());
+    onOpenChange(false);
+  };
+
+  // Reset selection when the sheet closes.
+  const handleOpenChange = (next) => {
+    if (!next) setSelectedIds(new Set());
+    onOpenChange(next);
+  };
+
+  const showSupplierChip =
+    anchorSupplierId && sameSupplierMatchCount > selectedIds.size;
+
+  return (
+    <Sheet open={open} onOpenChange={handleOpenChange}>
+      <SheetContent className="w-full sm:max-w-4xl overflow-y-auto pb-32">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
+            <Icon className={`h-5 w-5 ${iconClassName}`} />
+            {title} ({rows.length})
+          </SheetTitle>
+          <SheetDescription>{description}</SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox
+                    checked={allChecked || (indeterminate ? 'indeterminate' : false)}
+                    onCheckedChange={toggleAll}
+                    aria-label="Seleccionar todos"
+                  />
+                </TableHead>
+                {renderColumns.headers}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => {
+                const id = getRowId(row);
+                const isSelected = selectedIds.has(id);
+                return (
+                  <TableRow
+                    key={id}
+                    data-state={isSelected ? 'selected' : undefined}
+                    className="cursor-pointer"
+                    onClick={() => toggleRow(id)}
+                  >
+                    <TableCell
+                      className="w-10"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleRow(id)}
+                        aria-label={`Seleccionar ${getRowId(row)}`}
+                      />
+                    </TableCell>
+                    {renderColumns.cells(row)}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Sticky footer with batch CTA + supplier hint */}
+        {rows.length > 0 && (
+          <div className="fixed bottom-0 right-0 w-full sm:max-w-4xl border-t bg-background/95 backdrop-blur px-6 py-3 flex flex-col gap-2">
+            {showSupplierChip && (
+              <button
+                type="button"
+                onClick={selectSameSupplier}
+                className="self-start inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-colors"
+              >
+                <Users className="h-3.5 w-3.5" />
+                Seleccionar todos del proveedor
+                {anchorSupplierName ? ` "${anchorSupplierName}"` : ''} (
+                {sameSupplierMatchCount})
+              </button>
+            )}
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-muted-foreground">
+                {selectedIds.size === 0
+                  ? 'Selecciona productos para crear una OC'
+                  : `${selectedIds.size} ${selectedIds.size === 1 ? 'producto seleccionado' : 'productos seleccionados'}`}
+              </span>
+              <Button onClick={handleSubmit} disabled={selectedIds.size === 0}>
+                Crear OC con {selectedIds.size || 0}{' '}
+                {selectedIds.size === 1 ? 'producto' : 'productos'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export default function ComprasAlertCards({
   lowStockProducts,
   expiringProducts,
   handleCreatePoFromAlert,
+  handleCreatePoFromAlertBatch,
 }) {
   const [openLowStock, setOpenLowStock] = useState(false);
   const [openExpiring, setOpenExpiring] = useState(false);
@@ -130,16 +330,16 @@ export default function ComprasAlertCards({
                   </li>
                 ))}
               </ul>
-              {lowStockRest > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setOpenLowStock(true)}
-                  className="w-full flex items-center justify-end gap-1 text-sm text-primary hover:underline pt-1"
-                >
-                  +{lowStockRest} {lowStockRest === 1 ? 'producto más' : 'productos más'}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setOpenLowStock(true)}
+                className="w-full flex items-center justify-end gap-1 text-sm text-primary hover:underline pt-1"
+              >
+                {lowStockRest > 0
+                  ? `+${lowStockRest} ${lowStockRest === 1 ? 'producto más' : 'productos más'} · Ver y seleccionar`
+                  : 'Ver lista y seleccionar varios'}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
             </>
           )}
         </CardContent>
@@ -192,122 +392,94 @@ export default function ComprasAlertCards({
                   </li>
                 ))}
               </ul>
-              {expiringRest > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setOpenExpiring(true)}
-                  className="w-full flex items-center justify-end gap-1 text-sm text-primary hover:underline pt-1"
-                >
-                  +{expiringRest} {expiringRest === 1 ? 'lote más' : 'lotes más'}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setOpenExpiring(true)}
+                className="w-full flex items-center justify-end gap-1 text-sm text-primary hover:underline pt-1"
+              >
+                {expiringRest > 0
+                  ? `+${expiringRest} ${expiringRest === 1 ? 'lote más' : 'lotes más'} · Ver y seleccionar`
+                  : 'Ver lista y seleccionar varios'}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
             </>
           )}
         </CardContent>
       </Card>
 
-      {/* ──── Sheet: full low-stock list ──── */}
-      <Sheet open={openLowStock} onOpenChange={setOpenLowStock}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              Productos con Bajo Stock ({sortedLowStock.length})
-            </SheetTitle>
-            <SheetDescription>
-              Ordenados por menor cantidad disponible. Toca "Crear OC" para
-              iniciar una orden de compra con el producto preseleccionado.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Producto</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Disp.</TableHead>
-                  <TableHead className="text-right">Acción</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedLowStock.map((item) => (
-                  <TableRow key={item._id}>
-                    <TableCell className="font-medium">{item.productName}</TableCell>
-                    <TableCell className="text-muted-foreground">{item.productSku}</TableCell>
-                    <TableCell>
-                      <Badge variant="destructive">{item.availableQuantity}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          handleCreatePoFromAlert(item);
-                          setOpenLowStock(false);
-                        }}
-                      >
-                        Crear OC
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* ──── Sheet: low-stock list ──── */}
+      <AlertListSheet
+        open={openLowStock}
+        onOpenChange={setOpenLowStock}
+        title="Productos con Bajo Stock"
+        icon={AlertTriangle}
+        iconClassName="text-destructive"
+        description="Selecciona varios productos para incluirlos en una sola orden de compra. Si comparten proveedor preferido, se preselecciona automáticamente."
+        rows={sortedLowStock}
+        onCreatePoBatch={handleCreatePoFromAlertBatch}
+        getAlertItem={(row) => row}
+        getRowId={(row) => row._id}
+        renderColumns={{
+          headers: (
+            <>
+              <TableHead>Producto</TableHead>
+              <TableHead>SKU</TableHead>
+              <TableHead>Disp.</TableHead>
+              <TableHead>Proveedor preferido</TableHead>
+            </>
+          ),
+          cells: (item) => (
+            <>
+              <TableCell className="font-medium">{item.productName}</TableCell>
+              <TableCell className="text-muted-foreground">{item.productSku}</TableCell>
+              <TableCell>
+                <Badge variant="destructive">{item.availableQuantity}</Badge>
+              </TableCell>
+              <TableCell className="text-muted-foreground text-sm">
+                {getPreferredSupplierName(item) || '—'}
+              </TableCell>
+            </>
+          ),
+        }}
+      />
 
-      {/* ──── Sheet: full expiring list ──── */}
-      <Sheet open={openExpiring} onOpenChange={setOpenExpiring}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-orange-500" />
-              Productos Próximos a Vencer ({sortedExpiring.length})
-            </SheetTitle>
-            <SheetDescription>
-              Ordenados por fecha de vencimiento más cercana. Cada fila
-              representa un lote específico.
-            </SheetDescription>
-          </SheetHeader>
-          <div className="mt-4">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Producto</TableHead>
-                  <TableHead>Lote</TableHead>
-                  <TableHead>Vence</TableHead>
-                  <TableHead className="text-right">Acción</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedExpiring.map((row) => (
-                  <TableRow key={row.key}>
-                    <TableCell className="font-medium">{row.productName}</TableCell>
-                    <TableCell className="text-muted-foreground">{row.lotNumber}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">
-                        {new Date(row.expirationDate).toLocaleDateString()}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          handleCreatePoFromAlert(row.item);
-                          setOpenExpiring(false);
-                        }}
-                      >
-                        Crear OC
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </SheetContent>
-      </Sheet>
+      {/* ──── Sheet: expiring list ──── */}
+      <AlertListSheet
+        open={openExpiring}
+        onOpenChange={setOpenExpiring}
+        title="Productos Próximos a Vencer"
+        icon={Clock}
+        iconClassName="text-orange-500"
+        description="Ordenados por fecha más cercana. Selecciona varios lotes para reponer en una sola orden de compra."
+        rows={sortedExpiring}
+        onCreatePoBatch={handleCreatePoFromAlertBatch}
+        getAlertItem={(row) => row.item}
+        getRowId={(row) => row.key}
+        renderColumns={{
+          headers: (
+            <>
+              <TableHead>Producto</TableHead>
+              <TableHead>Lote</TableHead>
+              <TableHead>Vence</TableHead>
+              <TableHead>Proveedor preferido</TableHead>
+            </>
+          ),
+          cells: (row) => (
+            <>
+              <TableCell className="font-medium">{row.productName}</TableCell>
+              <TableCell className="text-muted-foreground">{row.lotNumber}</TableCell>
+              <TableCell>
+                <Badge variant="secondary">
+                  {new Date(row.expirationDate).toLocaleDateString()}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-muted-foreground text-sm">
+                {getPreferredSupplierName(row.item) || '—'}
+              </TableCell>
+            </>
+          ),
+        }}
+      />
     </div>
   );
 }

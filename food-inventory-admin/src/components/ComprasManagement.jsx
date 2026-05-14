@@ -143,6 +143,7 @@ export default function ComprasManagement() {
         lowStockProducts={data.lowStockProducts}
         expiringProducts={data.expiringProducts}
         handleCreatePoFromAlert={data.handleCreatePoFromAlert}
+        handleCreatePoFromAlertBatch={data.handleCreatePoFromAlertBatch}
       />
 
       {/* Receive workflow preference (subtle, contextual) */}
