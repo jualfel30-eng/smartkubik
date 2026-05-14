@@ -19,6 +19,12 @@ FRONTEND_LOCAL="./food-inventory-admin"
 STOREFRONT_LOCAL="./food-inventory-storefront"
 RESTAURANT_STOREFRONT_LOCAL="./restaurant-storefront"
 BLOG_LOCAL="./smartkubik-blog/frontend"
+# Oliver Sutherland — sitio estático (HTML + assets), no requiere build ni PM2.
+# Vive fuera del monorepo (~/Documents/Oliver Sutherland/), por lo que el path
+# es ../../ relativo a smartkubik/. Override con OLIVER_LOCAL_OVERRIDE si tu
+# checkout vive en otro lugar.
+OLIVER_LOCAL="${OLIVER_LOCAL_OVERRIDE:-../../Oliver Sutherland}"
+OLIVER_REMOTE="~/smartkubik/oliver-sutherland"
 ROOT_DIR=$(pwd)
 
 # Blog deployment settings
@@ -45,8 +51,12 @@ DEPLOY_ADMIN=false
 DEPLOY_STOREFRONT=false
 DEPLOY_RESTAURANT=false
 DEPLOY_BLOG=false
+DEPLOY_OLIVER=false
 
 if [ $# -eq 0 ]; then
+  # `all` por defecto NO incluye Oliver Sutherland — es un sitio aparte
+  # con su propio ciclo de release. Despliéguelo explícitamente con
+  # `./simple-deploy.sh oliver-sutherland`.
   DEPLOY_BACKEND=true; DEPLOY_ADMIN=true; DEPLOY_STOREFRONT=true; DEPLOY_RESTAURANT=true; DEPLOY_BLOG=true
 else
   for arg in "$@"; do
@@ -58,6 +68,7 @@ else
       storefront) DEPLOY_STOREFRONT=true ;;
       restaurant) DEPLOY_RESTAURANT=true ;;
       blog) DEPLOY_BLOG=true ;;
+      oliver|oliver-sutherland) DEPLOY_OLIVER=true ;;
       auto)
         echo -e "${YELLOW}🔎 Auto-detect: inspecting git diff HEAD~1..HEAD${NC}"
         CHANGED=$(git diff --name-only HEAD~1..HEAD 2>/dev/null || echo "")
@@ -66,13 +77,15 @@ else
         if echo "$CHANGED" | grep -q "^food-inventory-storefront/"; then DEPLOY_STOREFRONT=true; fi
         if echo "$CHANGED" | grep -q "^restaurant-storefront/";     then DEPLOY_RESTAURANT=true; fi
         if echo "$CHANGED" | grep -q "^smartkubik-blog/";           then DEPLOY_BLOG=true;       fi
+        # Oliver Sutherland vive fuera del repo del monorepo (../Oliver Sutherland)
+        # → no entra en `auto`. Despliéguelo explícitamente.
         ;;
-      *) echo -e "${RED}❌ Unknown target: $arg${NC}"; echo "Valid: backend admin storefront restaurant blog all auto"; exit 1 ;;
+      *) echo -e "${RED}❌ Unknown target: $arg${NC}"; echo "Valid: backend admin storefront restaurant blog oliver-sutherland all auto"; exit 1 ;;
     esac
   done
 fi
 
-if ! $DEPLOY_BACKEND && ! $DEPLOY_ADMIN && ! $DEPLOY_STOREFRONT && ! $DEPLOY_RESTAURANT && ! $DEPLOY_BLOG; then
+if ! $DEPLOY_BACKEND && ! $DEPLOY_ADMIN && ! $DEPLOY_STOREFRONT && ! $DEPLOY_RESTAURANT && ! $DEPLOY_BLOG && ! $DEPLOY_OLIVER; then
   echo -e "${YELLOW}⚠️  Nothing to deploy (no targets matched). Exiting.${NC}"
   exit 0
 fi
@@ -83,6 +96,7 @@ if $DEPLOY_ADMIN;      then TARGETS="$TARGETS admin";      fi
 if $DEPLOY_STOREFRONT; then TARGETS="$TARGETS storefront"; fi
 if $DEPLOY_RESTAURANT; then TARGETS="$TARGETS restaurant"; fi
 if $DEPLOY_BLOG;       then TARGETS="$TARGETS blog";       fi
+if $DEPLOY_OLIVER;     then TARGETS="$TARGETS oliver-sutherland"; fi
 echo -e "${BLUE}🎯 Targets:${NC}$TARGETS"
 echo ""
 
@@ -103,6 +117,17 @@ if $DEPLOY_ADMIN;      then validate_deps "Frontend" "$FRONTEND_LOCAL"; fi
 if $DEPLOY_STOREFRONT; then validate_deps "Storefront" "$STOREFRONT_LOCAL"; fi
 if $DEPLOY_RESTAURANT; then validate_deps "Restaurant storefront" "$RESTAURANT_STOREFRONT_LOCAL"; fi
 if $DEPLOY_BLOG;       then validate_deps "Blog" "$BLOG_LOCAL"; fi
+if $DEPLOY_OLIVER; then
+  if [ ! -d "$ROOT_DIR/$OLIVER_LOCAL" ]; then
+    echo -e "${RED}❌ Oliver Sutherland directory not found at $OLIVER_LOCAL${NC}"
+    exit 1
+  fi
+  if [ ! -f "$ROOT_DIR/$OLIVER_LOCAL/Oliver Sutherland.html" ]; then
+    echo -e "${RED}❌ Oliver Sutherland.html not found${NC}"
+    exit 1
+  fi
+  echo -e "${GREEN}✅ Oliver Sutherland source ready${NC}"
+fi
 
 # Step 1: Build backend locally
 if $DEPLOY_BACKEND; then
@@ -226,22 +251,33 @@ if $DEPLOY_BLOG; then
 fi
 
 # Step 4.5: Sync package files and install dependencies if needed
+# PM2 runs from ~/smartkubik/api/ (script path + cwd), so deps MUST live there.
+# We also mirror to the legacy ~/smartkubik/food-inventory-saas/ path because
+# ad-hoc scripts in that folder (check-*.js, etc.) still rely on its node_modules.
 if $DEPLOY_BACKEND; then
   echo -e "${YELLOW}🔍 Checking backend dependencies on server...${NC}"
+  rsync -avz $BACKEND_LOCAL/package.json $SERVER:~/smartkubik/api/
+  rsync -avz $BACKEND_LOCAL/package-lock.json $SERVER:~/smartkubik/api/
   rsync -avz $BACKEND_LOCAL/package.json $SERVER:~/smartkubik/food-inventory-saas/
   rsync -avz $BACKEND_LOCAL/package-lock.json $SERVER:~/smartkubik/food-inventory-saas/
 
-  NEEDS_INSTALL=$(ssh $SERVER "cd ~/smartkubik/food-inventory-saas && \
+  NEEDS_INSTALL=$(ssh $SERVER "cd ~/smartkubik/api && \
     ([ ! -d node_modules ] || \
      [ package-lock.json -nt node_modules/.package-lock.json ] || \
      ! npm ls --depth=0 > /dev/null 2>&1) && echo 'YES' || echo 'NO'")
 
   if [[ "$NEEDS_INSTALL" == "YES" ]]; then
-    echo -e "${YELLOW}📦 Installing dependencies on server (this may take a moment)...${NC}"
-    ssh $SERVER "cd ~/smartkubik/food-inventory-saas && npm ci --production --prefer-offline"
-    echo -e "${GREEN}✅ Dependencies installed${NC}"
+    echo -e "${YELLOW}📦 Installing dependencies in ~/smartkubik/api (PM2 runtime path)...${NC}"
+    ssh $SERVER "cd ~/smartkubik/api && npm ci --production --prefer-offline"
+    echo -e "${GREEN}✅ Dependencies installed in api/${NC}"
+
+    # Mirror install to legacy path so ad-hoc scripts keep working.
+    # Failure here is non-fatal — PM2 already has what it needs.
+    echo -e "${YELLOW}📦 Mirroring deps to legacy ~/smartkubik/food-inventory-saas/...${NC}"
+    ssh $SERVER "cd ~/smartkubik/food-inventory-saas && npm ci --production --prefer-offline" || \
+      echo -e "${YELLOW}⚠️  Legacy mirror failed — PM2 path is still healthy${NC}"
   else
-    echo -e "${GREEN}✅ Dependencies up to date (skipping install)${NC}"
+    echo -e "${GREEN}✅ Dependencies up to date in api/ (skipping install)${NC}"
   fi
 fi
 
@@ -279,6 +315,26 @@ if $DEPLOY_BLOG; then
   else
     echo -e "${GREEN}✅ Blog dependencies up to date (skipping install)${NC}"
   fi
+fi
+
+# Step 4.4: Upload Oliver Sutherland (HTML estático)
+if $DEPLOY_OLIVER; then
+  echo -e "${YELLOW}📤 Uploading Oliver Sutherland (static HTML)...${NC}"
+  ssh $SERVER "mkdir -p $OLIVER_REMOTE $OLIVER_REMOTE/assets ~/smartkubik/nginx-configs"
+
+  # Sube assets (videos grandes, imágenes) con cache de rsync (no re-sube
+  # si no cambiaron). --delete limpia archivos eliminados localmente.
+  rsync -avz --delete "$ROOT_DIR/$OLIVER_LOCAL/assets/" $SERVER:$OLIVER_REMOTE/assets/
+
+  # Sube el HTML como `index.html` para que nginx lo sirva en /
+  rsync -avz "$ROOT_DIR/$OLIVER_LOCAL/Oliver Sutherland.html" $SERVER:$OLIVER_REMOTE/index.html
+
+  # Sube el nginx config (no toca /etc/nginx/ — eso requiere sudo)
+  if [ -f "./nginx-configs/oliver-sutherland-subdomain.conf" ]; then
+    rsync -avz ./nginx-configs/oliver-sutherland-subdomain.conf $SERVER:~/smartkubik/nginx-configs/
+  fi
+
+  echo -e "${GREEN}✅ Oliver Sutherland uploaded to $OLIVER_REMOTE${NC}"
 fi
 
 # Step 5: Reload PM2 (zero downtime)
@@ -422,6 +478,29 @@ if $DEPLOY_BLOG; then
       echo -e "${YELLOW}⚠️  Blog check returned HTTP $BLOG_CHECK (verify PM2/env/nginx)${NC}"
   else
       echo -e "${GREEN}✅ Blog is OK${NC}"
+  fi
+fi
+
+if $DEPLOY_OLIVER; then
+  # Verifica que el index.html quedó accesible desde el filesystem.
+  # El check HTTP real depende de que nginx ya tenga el site activado;
+  # si es la primera vez se hace manualmente con sudo (ver mensaje final).
+  OLIVER_FS_CHECK=$(ssh $SERVER "[ -f $OLIVER_REMOTE/index.html ] && [ -d $OLIVER_REMOTE/assets ] && echo OK || echo MISSING")
+  if [[ "$OLIVER_FS_CHECK" == "OK" ]]; then
+    echo -e "${GREEN}✅ Oliver Sutherland files in place${NC}"
+    # Si el subdomain ya está activo, prueba HTTPS. Si no, no es error.
+    OLIVER_HTTPS=$(ssh $SERVER "curl -s -o /dev/null -w '%{http_code}' -H 'Host: oliver.smartkubik.com' https://localhost --resolve oliver.smartkubik.com:443:127.0.0.1 -k 2>/dev/null || echo 000")
+    if [[ "$OLIVER_HTTPS" == "200" ]]; then
+      echo -e "${GREEN}✅ Oliver Sutherland live at https://oliver.smartkubik.com${NC}"
+    else
+      echo -e "${YELLOW}ℹ️  oliver.smartkubik.com aún no responde (HTTP $OLIVER_HTTPS).${NC}"
+      echo -e "${YELLOW}    Si es el primer deploy, instala el nginx site:${NC}"
+      echo -e "${BLUE}      sudo cp ~/smartkubik/nginx-configs/oliver-sutherland-subdomain.conf /etc/nginx/sites-available/oliver-sutherland${NC}"
+      echo -e "${BLUE}      sudo ln -s /etc/nginx/sites-available/oliver-sutherland /etc/nginx/sites-enabled/${NC}"
+      echo -e "${BLUE}      sudo nginx -t && sudo systemctl reload nginx${NC}"
+    fi
+  else
+    echo -e "${RED}❌ Oliver Sutherland files missing on server${NC}"
   fi
 fi
 
