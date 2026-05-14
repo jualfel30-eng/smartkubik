@@ -166,16 +166,27 @@ function AlertListSheet({
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent className="w-full sm:max-w-4xl overflow-y-auto pb-32">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Icon className={`h-5 w-5 ${iconClassName}`} />
-            {title} ({rows.length})
-          </SheetTitle>
-          <SheetDescription>{description}</SheetDescription>
-        </SheetHeader>
+      {/*
+        SheetContent already ships `flex flex-col gap-4` from the primitive,
+        so we lay the inner regions as flex children:
+          - Header: shrink-0
+          - Body:   flex-1 + overflow-y-auto (this is what scrolls)
+          - Footer: shrink-0 + border-t (stays pinned at the bottom)
+        This avoids `position: fixed` on the footer, which is unreliable
+        inside Radix portals/transforms.
+      */}
+      <SheetContent className="w-full sm:max-w-5xl gap-0 p-0">
+        <div className="shrink-0 px-6 pt-6 pb-4 border-b">
+          <SheetHeader className="p-0">
+            <SheetTitle className="flex items-center gap-2">
+              <Icon className={`h-5 w-5 ${iconClassName}`} />
+              {title} ({rows.length})
+            </SheetTitle>
+            <SheetDescription>{description}</SheetDescription>
+          </SheetHeader>
+        </div>
 
-        <div className="mt-4">
+        <div className="flex-1 overflow-y-auto px-6 py-4">
           <Table>
             <TableHeader>
               <TableRow>
@@ -218,9 +229,8 @@ function AlertListSheet({
           </Table>
         </div>
 
-        {/* Sticky footer with batch CTA + supplier hint */}
         {rows.length > 0 && (
-          <div className="fixed bottom-0 right-0 w-full sm:max-w-4xl border-t bg-background/95 backdrop-blur px-6 py-3 flex flex-col gap-2">
+          <div className="shrink-0 border-t bg-background px-6 py-3 flex flex-col gap-2">
             {showSupplierChip && (
               <button
                 type="button"
