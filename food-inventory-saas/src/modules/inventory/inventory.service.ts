@@ -1386,7 +1386,18 @@ export class InventoryService {
           productSku: { $ifNull: ["$productSku", { $arrayElemAt: ["$productInfo.variants.sku", 0] }] },
           availableQuantity: 1,
           minimumStock: "$productInfo.inventoryConfig.minimumStock",
-          productId: "$productInfo._id",
+          // Inline a partial product doc so the frontend can resolve the
+          // preferred supplier, variant pricing, and perishable flag without
+          // a second round-trip. Keeping this nested under `productId` matches
+          // the shape of legacy populate() consumers.
+          productId: {
+            _id: "$productInfo._id",
+            name: "$productInfo.name",
+            variants: "$productInfo.variants",
+            suppliers: "$productInfo.suppliers",
+            isPerishable: "$productInfo.isPerishable",
+            inventoryConfig: "$productInfo.inventoryConfig",
+          },
         },
       },
     ]);
@@ -1414,11 +1425,18 @@ export class InventoryService {
       },
       {
         $addFields: {
+          // Inline partial product doc so the frontend can resolve preferred
+          // supplier + variants when building a PO from the alert (single or
+          // batch). Same shape as getLowStockAlerts for consistency.
           productId: {
             $mergeObjects: [
               { _id: { $arrayElemAt: ["$productData._id", 0] } },
               { name: { $arrayElemAt: ["$productData.name", 0] } },
               { category: { $arrayElemAt: ["$productData.category", 0] } },
+              { variants: { $arrayElemAt: ["$productData.variants", 0] } },
+              { suppliers: { $arrayElemAt: ["$productData.suppliers", 0] } },
+              { isPerishable: { $arrayElemAt: ["$productData.isPerishable", 0] } },
+              { inventoryConfig: { $arrayElemAt: ["$productData.inventoryConfig", 0] } },
             ],
           },
         },
