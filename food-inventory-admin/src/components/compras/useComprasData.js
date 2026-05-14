@@ -340,20 +340,21 @@ export function useComprasData() {
       const name = trimmedName !== '' ? trimmedName : fallbackName;
 
       const normalizedVariantSku = (variant.sku || '').trim();
-      let generatedSku;
+      let resolvedSku;
       if (normalizedVariantSku !== '') {
-        generatedSku = normalizedVariantSku;
-      } else if (index === 1) {
-        generatedSku = normalizedSku || '';
+        resolvedSku = normalizedVariantSku;
+      } else if (normalizedSku) {
+        resolvedSku = index === 1
+          ? normalizedSku
+          : `${normalizedSku}-${trimmedName !== ''
+            ? trimmedName.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/-+$/, '')
+            : `VAR${index}`}`;
       } else {
-        const nameSuffix = trimmedName !== ''
-          ? trimmedName.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/-+$/, '')
-          : `VAR${index}`;
-        generatedSku = normalizedSku ? `${normalizedSku}-${nameSuffix}` : '';
+        // Backend autogenera SKU del producto y de cada variante cuando vienen vacíos.
+        resolvedSku = undefined;
       }
 
       const normalizedBarcode = (variant.barcode || '').trim();
-      const barcode = normalizedBarcode !== '' ? normalizedBarcode : generatedSku;
       const unit = (variant.unit || '').trim() || newProduct.unitOfMeasure || unitOptions[0] || 'unidad';
       const unitSize = Number(variant.unitSize) || 1;
       const basePrice = Number(variant.basePrice) || 0;
@@ -363,8 +364,8 @@ export function useComprasData() {
 
       return {
         name,
-        sku: generatedSku,
-        barcode,
+        sku: resolvedSku,
+        barcode: normalizedBarcode !== '' ? normalizedBarcode : undefined,
         unit,
         unitSize: unitSize > 0 ? unitSize : 1,
         basePrice: basePrice >= 0 ? basePrice : 0,
@@ -416,7 +417,7 @@ export function useComprasData() {
 
     const productPayload = {
       productType: newProduct.productType || 'simple',
-      sku: normalizedSku,
+      sku: normalizedSku || undefined,
       name: newProduct.name,
       category: newProduct.category,
       subcategory: newProduct.subcategory,

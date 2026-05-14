@@ -27,7 +27,7 @@ import { BulkCreateProductsDto } from "./dto/bulk-create-products.dto";
 import { OpenaiService } from "../openai/openai.service";
 import { PriceHistoryService } from "../price-history/price-history.service";
 import { PriceListsService } from "../price-lists/price-lists.service";
-import * as sharp from "sharp";
+import sharp from "sharp";
 import { calculatePriceWithRounding, validatePricingStrategy } from "../../utils/pricing-strategy.util";
 
 @Injectable()
@@ -214,6 +214,9 @@ export class ProductsService {
           // Primary variant (index 0) uses the product SKU directly
           v.sku = index === 0 ? dto.product.sku : `${dto.product.sku}-VAR${index + 1}`;
         }
+        if (!v.barcode || !v.barcode.trim()) {
+          v.barcode = v.sku;
+        }
       });
     }
 
@@ -232,12 +235,10 @@ export class ProductsService {
       let supplierId = dto.supplier.supplierId;
       let supplierName = "";
       if (!supplierId) {
-        if (
-          !dto.supplier.newSupplierName ||
-          !dto.supplier.newSupplierRif ||
-          !dto.supplier.newSupplierContactName
-        ) {
-          throw new BadRequestException("New supplier data is incomplete.");
+        if (!dto.supplier.newSupplierName || !dto.supplier.newSupplierRif) {
+          throw new BadRequestException(
+            "Faltan datos del proveedor: el nombre de la empresa y el RIF/C.I. son obligatorios.",
+          );
         }
         // Create a DTO that matches what the CRM form would create
         const supplierContacts: any[] = [];

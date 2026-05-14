@@ -199,7 +199,9 @@ export default function CompraNewProductDialog({
 
             <div className="md:col-span-2 space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nombre del Producto</Label>
+                <Label htmlFor="name">
+                  Nombre del Producto <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="name"
                   value={newProduct.name}
@@ -217,16 +219,20 @@ export default function CompraNewProductDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="sku">SKU Principal</Label>
+                <Label htmlFor="sku">
+                  SKU Principal <span className="text-muted-foreground text-xs">(opcional)</span>
+                </Label>
                 <Input
                   id="sku"
                   value={newProduct.sku}
                   onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
-                  placeholder={getPlaceholder('sku', 'Ej: ARR-BLANCO')}
+                  placeholder={getPlaceholder('sku', 'Se genera automáticamente si lo dejas vacío')}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="barcode">Código de Barras (UPC)</Label>
+                <Label htmlFor="barcode">
+                  Código de Barras (UPC) <span className="text-muted-foreground text-xs">(opcional)</span>
+                </Label>
                 <Input
                   id="barcode"
                   value={newProduct.variant.barcode}
@@ -924,7 +930,9 @@ export default function CompraNewProductDialog({
             <h4 className="text-lg font-medium mb-4">Proveedor</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Nombre de la Empresa</Label>
+                <Label>
+                  Nombre de la Empresa <span className="text-destructive">*</span>
+                </Label>
                 <SearchableSelect
                   isCreatable
                   options={supplierOptions}
@@ -940,7 +948,9 @@ export default function CompraNewProductDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label>RIF / C.I.</Label>
+                <Label>
+                  RIF / C.I. <span className="text-destructive">*</span>
+                </Label>
                 <div className="flex items-center border border-input rounded-md">
                   <Select
                     value={newProduct.supplier.rifPrefix}
@@ -973,7 +983,9 @@ export default function CompraNewProductDialog({
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Nombre del Vendedor</Label>
+                <Label>
+                  Nombre del Vendedor <span className="text-muted-foreground text-xs">(opcional)</span>
+                </Label>
                 <Input
                   value={newProduct.supplier.newSupplierContactName}
                   onChange={(e) => setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, newSupplierContactName: e.target.value } })}
@@ -981,7 +993,9 @@ export default function CompraNewProductDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label>Teléfono del Vendedor</Label>
+                <Label>
+                  Teléfono del Vendedor <span className="text-muted-foreground text-xs">(opcional)</span>
+                </Label>
                 <Input
                   value={newProduct.supplier.newSupplierContactPhone}
                   onChange={(e) => setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, newSupplierContactPhone: e.target.value } })}
@@ -989,7 +1003,9 @@ export default function CompraNewProductDialog({
                 />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label>Email del Contacto</Label>
+                <Label>
+                  Email del Contacto <span className="text-muted-foreground text-xs">(opcional)</span>
+                </Label>
                 <Input
                   value={newProduct.supplier.newSupplierContactEmail}
                   onChange={(e) => setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, newSupplierContactEmail: e.target.value } })}
@@ -998,7 +1014,9 @@ export default function CompraNewProductDialog({
                 />
               </div>
               <div className="space-y-2 col-span-2">
-                <Label>Dirección</Label>
+                <Label>
+                  Dirección <span className="text-muted-foreground text-xs">(opcional)</span>
+                </Label>
                 <div className="grid grid-cols-3 gap-4">
                   <Input placeholder="Ciudad" value={newProduct.supplier.newSupplierAddress.city} onChange={(e) => setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, newSupplierAddress: { ...newProduct.supplier.newSupplierAddress, city: e.target.value } } })} disabled={!newProduct.supplier.isNew} />
                   <Input placeholder="Estado" value={newProduct.supplier.newSupplierAddress.state} onChange={(e) => setNewProduct({ ...newProduct, supplier: { ...newProduct.supplier, newSupplierAddress: { ...newProduct.supplier.newSupplierAddress, state: e.target.value } } })} disabled={!newProduct.supplier.isNew} />

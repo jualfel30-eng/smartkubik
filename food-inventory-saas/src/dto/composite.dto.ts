@@ -44,7 +44,7 @@ class PaymentTermsDto {
 
 // This is a rich product DTO, mirroring CreateProductDto
 class RichProductDataDto {
-  @IsString() @IsNotEmpty() sku: string;
+  @IsOptional() @IsString() sku?: string;
   @IsString() @IsNotEmpty() name: string;
   @IsArray() @IsString({ each: true }) category: string[];
   @IsArray() @IsString({ each: true }) subcategory: string[];
@@ -77,8 +77,8 @@ class RichProductDataDto {
 
 class ProductVariantDataDto {
   @IsString() @IsNotEmpty() name: string;
-  @IsString() @IsNotEmpty() sku: string;
-  @IsString() @IsNotEmpty() barcode: string;
+  @IsOptional() @IsString() sku?: string;
+  @IsOptional() @IsString() barcode?: string;
   @IsString() @IsNotEmpty() unit: string;
   @IsNumber() @Min(0.01) unitSize: number;
   @IsNumber() @Min(0) basePrice: number;
@@ -99,9 +99,8 @@ class SupplierDataDto {
   @IsNotEmpty()
   newSupplierRif?: string;
 
-  @ValidateIf((o) => !o.supplierId)
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   newSupplierContactName?: string;
 
   @IsOptional()
