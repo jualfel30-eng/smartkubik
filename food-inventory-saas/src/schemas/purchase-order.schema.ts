@@ -144,6 +144,14 @@ export class PurchaseOrder {
   @Prop({ type: String })
   receivedBy?: string;
 
+  // Supplier rating assigned when the PO is received. Source of truth lives in
+  // the `purchaseorderratings` collection (PurchaseOrderRating doc); this field
+  // is a denormalized copy so list queries can render stars + so the supplier
+  // average recomputation in RatingsService can do a single $exists filter
+  // without joining the ratings collection.
+  @Prop({ type: Number, min: 1, max: 5 })
+  rating?: number;
+
   @Prop({ type: Date })
   invoiceDate?: Date;
 
