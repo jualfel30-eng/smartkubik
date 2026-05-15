@@ -26,7 +26,7 @@ import { InventoryMovementsService } from "../inventory/inventory-movements.serv
 import { MovementType } from "../../dto/inventory-movement.dto";
 import { SuppliersService } from "../suppliers/suppliers.service";
 import { OpenaiService } from "../openai/openai.service";
-import * as sharp from "sharp";
+import sharp from "sharp";
 
 @Injectable()
 export class PurchasesService {
@@ -66,13 +66,11 @@ export class PurchasesService {
     }
 
     if (!supplierId) {
-      if (
-        !dto.newSupplierName ||
-        !dto.newSupplierRif ||
-        !dto.newSupplierContactName
-      ) {
+      // Contact name is optional — service falls back to 'Sin nombre' below.
+      // Only name + RIF are required to uniquely identify the supplier.
+      if (!dto.newSupplierName || !dto.newSupplierRif) {
         throw new BadRequestException(
-          "Para un nuevo proveedor, se requiere Nombre, RIF y Nombre del Contacto.",
+          "Para un nuevo proveedor, se requiere Nombre y RIF.",
         );
       }
 

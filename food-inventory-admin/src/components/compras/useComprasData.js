@@ -1401,10 +1401,10 @@ export function useComprasData() {
       });
       return;
     }
-    if (!contactNameTrimmed) {
-      toast.error('Error de Validación', { description: 'Falta completar: Nombre del Contacto.' });
-      return;
-    }
+    // Contact name + phone are always optional (per product decision). The
+    // identifier check (company name OR RIF) above is enough to register a
+    // supplier; the contact person can be added later from Suppliers Hub.
+    // Backend tolerates empty contactName/contactPhone in CreatePurchaseOrderDto.
     if (!po.supplierId && !supplierNameTrimmed) {
       toast.error('Error de Validación', {
         description: 'Debes ingresar el Nombre o Razón Social del proveedor.'
