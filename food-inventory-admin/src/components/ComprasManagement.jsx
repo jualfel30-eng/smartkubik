@@ -13,7 +13,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Info } from 'lucide-react';
 import { useComprasData } from './compras/useComprasData';
 import CompraCreateDialog from './compras/CompraCreateDialog.jsx';
-import CompraNewProductDialog from './compras/CompraNewProductDialog.jsx';
+// CompraNewProductDialog is intentionally NOT imported here as of the unified
+// flow rollout. The popup inside CompraCreateDialog (InlineProductCreateDialog)
+// replaces it. The legacy file remains in the repo for emergency rollback and
+// is scheduled for deletion in Phase 3.
 import ComprasAlertCards from './compras/ComprasAlertCards.jsx';
 import RatingModal from './RatingModal.jsx';
 
@@ -97,44 +100,15 @@ export default function ComprasManagement() {
           closeVariantSelection={data.closeVariantSelection}
           updateVariantSelectionRow={data.updateVariantSelectionRow}
           confirmVariantSelection={data.confirmVariantSelection}
-        />
-
-        {/* "Compra de Producto Nuevo" Dialog */}
-        <CompraNewProductDialog
-          isOpen={data.isNewProductDialogOpen}
-          onOpenChange={data.setIsNewProductDialogOpen}
-          newProduct={data.newProduct}
-          setNewProduct={data.setNewProduct}
-          selectedImageIndex={data.selectedImageIndex}
-          setSelectedImageIndex={data.setSelectedImageIndex}
-          additionalVariants={data.additionalVariants}
-          newProductTotals={data.newProductTotals}
-          handleDragStart={data.handleDragStart}
-          handleDragOver={data.handleDragOver}
-          handleDrop={data.handleDrop}
-          addAdditionalVariant={data.addAdditionalVariant}
-          removeAdditionalVariant={data.removeAdditionalVariant}
-          updateAdditionalVariantField={data.updateAdditionalVariantField}
-          handleSupplierSelectionForNewProduct={data.handleSupplierSelectionForNewProduct}
-          handleAddProduct={data.handleAddProduct}
-          handleImageUpload={data.handleImageUpload}
-          handleRemoveImage={data.handleRemoveImage}
-          formatRifInput={data.formatRifInput}
-          supplierOptions={data.supplierOptions}
-          isScanning={data.isScanning}
-          scanResult={data.scanResult}
-          invoiceFileRef2={data.invoiceFileRef2}
-          handleScanInvoice={data.handleScanInvoice}
-          handleClearScan={data.handleClearScan}
-          getPlaceholder={data.getPlaceholder}
+          isInlineProductDialogOpen={data.isInlineProductDialogOpen}
+          inlineProductInitialQuery={data.inlineProductInitialQuery}
+          inlineProductLoading={data.inlineProductLoading}
+          pendingProductDraft={data.pendingProductDraft}
+          openInlineProductDialog={data.openInlineProductDialog}
+          closeInlineProductDialog={data.closeInlineProductDialog}
+          persistPendingProductDraft={data.persistPendingProductDraft}
+          createInlineProduct={data.createInlineProduct}
           unitOptions={data.unitOptions}
-          supportsVariants={data.supportsVariants}
-          allowsWeight={data.allowsWeight}
-          isNonFoodRetailVertical={data.isNonFoodRetailVertical}
-          ingredientLabel={data.ingredientLabel}
-          variantSectionDescription={data.variantSectionDescription}
-          showLotFields={data.showLotFields}
-          showExpirationFields={data.showExpirationFields}
         />
       </div>
 

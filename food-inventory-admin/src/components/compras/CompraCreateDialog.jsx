@@ -26,6 +26,7 @@ import { SearchableSelect } from '../orders/v2/custom/SearchableSelect';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import CompraPaymentSection from './CompraPaymentSection.jsx';
+import InlineProductCreateDialog from './InlineProductCreateDialog.jsx';
 
 // ─── RIF input — single combined field ──────────────────────────────────
 function RifInput({ value, taxType, onChange, onTaxTypeChange, suggestions, dropdownOpen, setDropdownOpen, onSuggestionSelect, inputRef, dropdownRef, error, onBlur }) {
@@ -321,6 +322,16 @@ export default function CompraCreateDialog({
   closeVariantSelection,
   updateVariantSelectionRow,
   confirmVariantSelection,
+  // Inline product creation (unified flow popup)
+  isInlineProductDialogOpen,
+  inlineProductInitialQuery,
+  inlineProductLoading,
+  pendingProductDraft,
+  openInlineProductDialog,
+  closeInlineProductDialog,
+  persistPendingProductDraft,
+  createInlineProduct,
+  unitOptions,
 }) {
   // Validation tracking — fields user has touched (blurred at least once)
   const [touched, setTouched] = useState({});
@@ -568,6 +579,8 @@ export default function CompraCreateDialog({
                   value={null}
                   placeholder="Buscar producto (mín. 2 caracteres)..."
                   isCreatable={false}
+                  onCreateNewOption={openInlineProductDialog}
+                  createNewOptionLabel={(q) => `+ Crear producto nuevo: "${q}"`}
                 />
               </div>
 
@@ -749,6 +762,19 @@ export default function CompraCreateDialog({
           />
         </div>
       </SheetContent>
+
+      {/* Inline product creation popup — nested Radix Dialog. Portal renders it
+          above the Sheet without disrupting the Sheet's scroll. */}
+      <InlineProductCreateDialog
+        isOpen={isInlineProductDialogOpen}
+        onOpenChange={(open) => { if (!open) closeInlineProductDialog?.(); }}
+        initialQuery={inlineProductInitialQuery}
+        unitOptions={unitOptions}
+        pendingDraft={pendingProductDraft}
+        persistDraft={persistPendingProductDraft}
+        isLoading={inlineProductLoading}
+        onSubmit={createInlineProduct}
+      />
     </Sheet>
   );
 }

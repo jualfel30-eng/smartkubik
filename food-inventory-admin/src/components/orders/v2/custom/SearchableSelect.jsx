@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Select from 'react-select';
 import CreatableSelect from 'react-select/creatable';
 import { useDebounce } from '@/hooks/use-debounce';
+
+const CREATE_NEW_SENTINEL = '__smartkubik_create_new__';
 
 export function SearchableSelect({
   options = [],
@@ -19,6 +21,12 @@ export function SearchableSelect({
   minSearchLength = 2,
   debounceMs = 300,
   noOptionsMessage: customNoOptionsMessage = null,
+  // "+ Crear nuevo" inline action — distinct from `isCreatable` which produces
+  // typed __isNew__ entries. When set, appends a synthetic row at the bottom of
+  // the dropdown (when query.length >= minSearchLength) that fires the callback
+  // instead of selecting a value.
+  onCreateNewOption = null,
+  createNewOptionLabel = null,
   ...props
 }) {
   // States para modo async
@@ -63,13 +71,49 @@ export function SearchableSelect({
   }, [debouncedSearch, asyncSearch, loadOptions, minSearchLength]);
 
   // Determinar qué opciones y loading usar
-  const finalOptions = asyncSearch ? asyncOptions : options;
+  const baseOptions = asyncSearch ? asyncOptions : options;
   const finalLoading = asyncSearch ? asyncLoading : isLoading;
+
+  // Appends a synthetic "+ Crear nuevo" row at the end when the query is long
+  // enough and the parent passed `onCreateNewOption`. Distinct from the
+  // existing `__isNew__` creatable behavior (which keeps the typed string as
+  // the value). The synthetic row carries `__isCreateNew__: true` and the raw
+  // query, intercepted in `handleChange` before propagating selection.
+  const finalOptions = useMemo(() => {
+    if (!onCreateNewOption) return baseOptions;
+    const query = (asyncSearch ? searchInput : (inputValue || '')).trim();
+    if (!query || query.length < minSearchLength) return baseOptions;
+    const labelFn = createNewOptionLabel
+      || ((q) => `+ Crear producto nuevo: "${q}"`);
+    return [
+      ...baseOptions,
+      {
+        value: CREATE_NEW_SENTINEL,
+        label: labelFn(query),
+        __isCreateNew__: true,
+        __query__: query,
+      },
+    ];
+  }, [
+    baseOptions,
+    asyncSearch,
+    searchInput,
+    inputValue,
+    minSearchLength,
+    onCreateNewOption,
+    createNewOptionLabel,
+  ]);
 
   // Usar Select normal si no es creatable, CreatableSelect si lo es
   const SelectComponent = isCreatable ? CreatableSelect : Select;
 
   const handleChange = (selectedOption, actionMeta) => {
+    if (selectedOption?.__isCreateNew__) {
+      onCreateNewOption?.(selectedOption.__query__);
+      // Reset the input so the dropdown closes; do NOT propagate as a selection
+      if (asyncSearch) setSearchInput('');
+      return;
+    }
     if (onSelection) {
       onSelection(selectedOption, actionMeta);
     }

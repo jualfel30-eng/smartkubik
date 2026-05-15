@@ -1099,6 +1099,172 @@ export function useComprasData() {
     setPo(prev => ({ ...prev, items: newItems }));
   };
 
+  // ─── Inline product creation (unified Compras flow) ─────────────────────
+  // Popup state for the "+ Crear producto nuevo" affordance inside the
+  // product search of CompraCreateDialog. The popup creates a catalog entry
+  // via plain POST /products (NOT createWithInitialPurchase) and inserts the
+  // resulting product into po.items as a regular line item. The PO is built
+  // separately by the parent dialog as a single transaction with mixed
+  // pre-existing + freshly-created productIds.
+  const INLINE_DRAFT_STORAGE_KEY = 'smartkubik:compras:pending-product-draft';
+  const FIRST_CREATE_STORAGE_KEY_PREFIX = 'smartkubik:first-inline-product-created:';
+
+  const [isInlineProductDialogOpen, setIsInlineProductDialogOpen] = useState(false);
+  const [inlineProductInitialQuery, setInlineProductInitialQuery] = useState('');
+  const [inlineProductLoading, setInlineProductLoading] = useState(false);
+  const [pendingProductDraft, setPendingProductDraft] = useState(() => {
+    try {
+      const raw = localStorage.getItem(INLINE_DRAFT_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const persistPendingProductDraft = useCallback((draft) => {
+    setPendingProductDraft(draft);
+    try {
+      if (draft) {
+        localStorage.setItem(INLINE_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+      } else {
+        localStorage.removeItem(INLINE_DRAFT_STORAGE_KEY);
+      }
+    } catch { /* localStorage might be disabled */ }
+  }, []);
+
+  const openInlineProductDialog = useCallback((query) => {
+    setInlineProductInitialQuery((query || '').trim());
+    setIsInlineProductDialogOpen(true);
+  }, []);
+
+  const closeInlineProductDialog = useCallback(() => {
+    setIsInlineProductDialogOpen(false);
+  }, []);
+
+  // Builds the full CreateProductDto from the popup's 8-field state.
+  // Defaults that the popup does NOT capture but the DTO requires are
+  // injected here per docs/discovery/unified-purchase-product-creation.md.
+  const buildInlineProductPayload = useCallback((draft) => {
+    const name = (draft.name || '').trim();
+    const brand = (draft.brand || '').trim();
+    const baseUnit = (draft.baseUnit || unitOptions[0] || 'unidad').trim();
+    const sellingPrice = Number(draft.sellingPrice) || 0;
+    const sku = (draft.sku || '').trim();
+    const barcode = (draft.barcode || '').trim();
+    const category = (draft.category || '').trim();
+    const subcategory = (draft.subcategory || '').trim();
+
+    const isPerishable = !!(
+      verticalConfig?.inventory?.supportsLots
+      && verticalConfig?.baseVertical === 'FOOD_SERVICE'
+    );
+
+    return {
+      // 8 popup fields
+      name,
+      brand,
+      unitOfMeasure: baseUnit,
+      sku: sku || undefined,
+      category: category ? [category] : ['Sin clasificar'],
+      subcategory: subcategory ? [subcategory] : ['General'],
+      // Frontend-injected defaults (popup never asks for these)
+      taxCategory: 'general',
+      isPerishable,
+      pricingRules: {
+        cashDiscount: 0,
+        cardSurcharge: 0,
+        minimumMargin: 0.2,
+        maximumDiscount: 0.5,
+        bulkDiscountEnabled: false,
+        bulkDiscountRules: [],
+        wholesaleEnabled: false,
+        wholesaleMinQuantity: 1,
+      },
+      inventoryConfig: {
+        minimumStock: 10,
+        maximumStock: 100,
+        reorderPoint: 20,
+        reorderQuantity: 50,
+        trackLots: isPerishable,
+        trackExpiration: isPerishable,
+        fefoEnabled: isPerishable,
+      },
+      variants: [
+        {
+          name,
+          unit: baseUnit,
+          unitSize: 1,
+          basePrice: sellingPrice,
+          costPrice: 0,
+          ...(barcode ? { barcode } : {}),
+        },
+      ],
+    };
+  }, [unitOptions, verticalConfig]);
+
+  const createInlineProduct = useCallback(async (draft) => {
+    const payload = buildInlineProductPayload(draft);
+
+    // Client-side guard mirrors backend @IsNotEmpty rules (popup also disables
+    // submit, but defense in depth).
+    if (!payload.name) {
+      toast.error('Falta el nombre del producto.');
+      return null;
+    }
+    if (!payload.brand) {
+      toast.error('Falta la marca del producto.');
+      return null;
+    }
+    if (!Number(payload.variants[0].basePrice) || payload.variants[0].basePrice < 0) {
+      toast.error('Ingresa un precio de venta mayor a 0.');
+      return null;
+    }
+
+    setInlineProductLoading(true);
+    try {
+      const response = await fetchApi('/products', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      // fetchApi may return either {data: ...} or the raw doc — normalize.
+      const created = response?.data ?? response;
+      if (!created || !created._id) {
+        toast.error('No se recibió el producto creado del servidor.');
+        return null;
+      }
+
+      const variant = created.variants?.[0];
+      upsertPurchaseItem(created, variant, 1, 0);
+      persistPendingProductDraft(null);
+
+      // First-ever inline create — milestone celebration (once per tenant).
+      try {
+        const stored = JSON.parse(localStorage.getItem('tenant') || '{}');
+        const tenantId = stored?.id || stored?._id;
+        if (tenantId) {
+          const key = `${FIRST_CREATE_STORAGE_KEY_PREFIX}${tenantId}`;
+          if (!localStorage.getItem(key)) {
+            localStorage.setItem(key, '1');
+            window.dispatchEvent(new CustomEvent('smartkubik:celebrate'));
+          }
+        }
+      } catch { /* ignore */ }
+
+      toast.success(`"${created.name}" agregado a la compra.`);
+      setIsInlineProductDialogOpen(false);
+      return created;
+    } catch (err) {
+      console.error('Inline product creation failed:', err);
+      const msg = err?.response?.data?.message
+        || err?.message
+        || 'No se pudo crear el producto.';
+      toast.error(Array.isArray(msg) ? msg.join(' · ') : String(msg));
+      return null;
+    } finally {
+      setInlineProductLoading(false);
+    }
+  }, [buildInlineProductPayload, upsertPurchaseItem, persistPendingProductDraft]);
+
   const fetchSupplierPaymentMethods = async (supplierId) => {
     try {
       const supplier = await fetchApi(`/suppliers/${supplierId}`);
@@ -1805,6 +1971,16 @@ export function useComprasData() {
     variantSectionDescription,
     showLotFields,
     showExpirationFields,
+
+    // Inline product creation (unified flow popup)
+    isInlineProductDialogOpen,
+    inlineProductInitialQuery,
+    inlineProductLoading,
+    pendingProductDraft,
+    openInlineProductDialog,
+    closeInlineProductDialog,
+    persistPendingProductDraft,
+    createInlineProduct,
 
     // Misc
     fetchData,
