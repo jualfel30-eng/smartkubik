@@ -4,7 +4,7 @@ import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
 import { Module, Controller, Get } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import helmet from "helmet";
-import * as compression from "compression";
+import compression from "compression";
 
 @Controller()
 class DemoController {

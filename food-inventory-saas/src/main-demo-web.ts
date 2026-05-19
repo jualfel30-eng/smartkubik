@@ -6,7 +6,7 @@ import { ConfigModule } from "@nestjs/config";
 import { ServeStaticModule } from "@nestjs/serve-static";
 import { join } from "path";
 import helmet from "helmet";
-import * as compression from "compression";
+import compression from "compression";
 
 @Controller("api/v1")
 class ApiController {
