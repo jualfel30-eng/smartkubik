@@ -5,13 +5,13 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { getPayablesSummary } from '@/lib/api';
-import { DollarSign, AlertTriangle, CalendarClock, CheckCircle2, ChevronDown, TrendingUp } from 'lucide-react';
+import { DollarSign, AlertTriangle, CalendarClock, CheckCircle2, ChevronDown, TrendingUp, Zap, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CURRENCY_LABELS, CURRENCY_COLORS, CURRENCY_TEXT_COLORS, formatCurrency } from '@/lib/currency-utils';
 import { scaleIn, STAGGER, fadeUp } from '@/lib/motion';
 import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber';
 
-export default function PayablesSummaryCards({ onFilterChange, activeFilter, payables = [] }) {
+export default function PayablesSummaryCards({ onFilterChange, activeFilter, payables = [], onPayNow, onViewPayable }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -86,35 +86,71 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter, pay
   const overdueTotal = summary.aging.days30.amount + summary.aging.days60.amount + summary.aging.days90plus.amount;
   const overdueCount = summary.aging.days30.count + summary.aging.days60.count + summary.aging.days90plus.count;
 
+  // Identify the most overdue payable (oldest dueDate in the past)
+  const mostOverduePayable = useMemo(() => {
+    const now = new Date();
+    const overdue = payables.filter(p =>
+      !['paid', 'void'].includes(p.status) && p.dueDate && new Date(p.dueDate) < now
+    );
+    if (!overdue.length) return null;
+    return overdue.reduce((oldest, p) =>
+      new Date(p.dueDate) < new Date(oldest.dueDate) ? p : oldest
+    );
+  }, [payables]);
+
+  const daysOverdue = mostOverduePayable
+    ? Math.floor((new Date() - new Date(mostOverduePayable.dueDate)) / 86400000)
+    : 0;
+
   return (
     <div className="space-y-4 mb-6">
-      {/* OVERDUE ALERT — FIRST THING USER SEES */}
-      {overdueCount > 0 && (
+      {/* SPOTLIGHT URGENTE — reemplaza el banner genérico */}
+      {overdueCount > 0 && mostOverduePayable && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-red-500/15 transition-colors"
-                onClick={() => onFilterChange({ overdue: true })}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-500/15">
-                    <AlertTriangle className="h-4.5 w-4.5 text-red-500 dark:text-red-400" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-red-600 dark:text-red-400">
-                      {overdueCount} {overdueCount === 1 ? 'factura vencida' : 'facturas vencidas'}
-                    </p>
-                    <p className="text-sm text-red-500/80 dark:text-red-400/70">
-                      Total vencido: <AnimatedNumber value={overdueTotal} format={(n) => formatCurrency(n)} className="inline font-medium" />
-                    </p>
-                  </div>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-red-500/15 flex-shrink-0 mt-0.5 sm:mt-0">
+                  <Zap className="h-4 w-4 text-red-500 dark:text-red-400" />
                 </div>
-                <span className="text-red-500 dark:text-red-400 text-sm font-medium">Ver todas →</span>
+                <div>
+                  <p className="font-semibold text-red-600 dark:text-red-400 text-sm">
+                    {mostOverduePayable.payeeName}
+                  </p>
+                  <p className="text-xs text-red-500/80 dark:text-red-400/70">
+                    Vencida hace {daysOverdue} {daysOverdue === 1 ? 'día' : 'días'} ·{' '}
+                    <AnimatedNumber
+                      value={(mostOverduePayable.totalAmount || 0) - (mostOverduePayable.paidAmount || 0)}
+                      format={n => formatCurrency(n)}
+                      className="inline font-semibold"
+                    />
+                  </p>
+                  {overdueCount > 1 && (
+                    <button
+                      type="button"
+                      className="text-xs text-red-500/70 dark:text-red-400/60 hover:text-red-600 dark:hover:text-red-400 underline underline-offset-2 transition-colors mt-0.5"
+                      onClick={() => onFilterChange({ overdue: true })}
+                    >
+                      + {overdueCount - 1} {overdueCount - 1 === 1 ? 'factura más vencida' : 'facturas más vencidas'}
+                    </button>
+                  )}
+                </div>
               </div>
-            </TooltipTrigger>
-            <TooltipContent>Haz clic para filtrar solo las facturas vencidas</TooltipContent>
-          </Tooltip>
+              <div className="flex gap-2 sm:flex-shrink-0">
+                {onViewPayable && (
+                  <Button size="sm" variant="outline" className="h-8 border-red-200 dark:border-red-900/50" onClick={() => onViewPayable(mostOverduePayable)}>
+                    Ver
+                  </Button>
+                )}
+                {onPayNow && (
+                  <Button size="sm" className="h-8 bg-red-500 hover:bg-red-600 text-white gap-1.5" onClick={() => onPayNow(mostOverduePayable)}>
+                    <CreditCard className="h-3.5 w-3.5" />
+                    Pagar ahora
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
         </motion.div>
       )}
 

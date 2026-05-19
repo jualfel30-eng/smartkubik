@@ -11,11 +11,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/
 import { toast } from 'sonner';
 import { X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Badge } from './ui/badge';
 import PayablesSummaryCards from './PayablesSummaryCards';
 import MonthlyPayables from './accounts-payable/MonthlyPayables';
 import RecurringPayables from './accounts-payable/RecurringPayables';
-import PayablesHistory from './accounts-payable/PayablesHistory';
-import PaymentHistory from './accounts-payable/PaymentHistory';
+import CompletedPayables from './accounts-payable/CompletedPayables';
+import { PaymentDialog } from './PaymentDialog';
+import { formatCurrency } from '@/lib/currency-utils';
+import { getPayableStatusInfo, getTotalAmount } from '@/lib/invoice-constants';
 import { CURRENCY_LABELS } from '@/lib/currency-utils';
 import { useLocalStorageState } from '@/hooks/use-local-storage-state';
 import { fadeUp } from '@/lib/motion';
@@ -30,6 +34,9 @@ const PayablesManagement = () => {
   const [activeFilter, setActiveFilter] = useLocalStorageState('ap-active-filter', null);
   const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
   const highlightId = searchParams.get('id');
+  const [spotlightPayable, setSpotlightPayable] = useState(null);
+  const [isSpotlightPaymentOpen, setIsSpotlightPaymentOpen] = useState(false);
+  const [isSpotlightViewOpen, setIsSpotlightViewOpen] = useState(false);
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab');
@@ -44,7 +51,7 @@ const PayablesManagement = () => {
     if (searchParams.get('tab')) return; // explicit tab wins
     const target = payables.find((p) => p._id === highlightId);
     if (!target) return;
-    const targetTab = ['paid', 'void'].includes(target.status) ? 'history' : 'monthly';
+    const targetTab = ['paid', 'void'].includes(target.status) ? 'completed' : 'monthly';
     if (targetTab !== activeTab) setActiveTab(targetTab);
   }, [highlightId, payables, searchParams, activeTab]);
 
@@ -134,6 +141,21 @@ const PayablesManagement = () => {
     return 'Filtro activo';
   };
 
+  const handleSpotlightPayNow = (payable) => {
+    setSpotlightPayable(payable);
+    setIsSpotlightPaymentOpen(true);
+  };
+
+  const handleSpotlightView = (payable) => {
+    setSpotlightPayable(payable);
+    setIsSpotlightViewOpen(true);
+  };
+
+  const handleSpotlightPaymentSuccess = () => {
+    setIsSpotlightPaymentOpen(false);
+    fetchPayables(activeFilter);
+  };
+
   if (loading) return <p>Cargando datos del módulo de pagos...</p>;
 
   return (
@@ -147,6 +169,8 @@ const PayablesManagement = () => {
         onFilterChange={handleFilterChange}
         activeFilter={activeFilter}
         payables={payables}
+        onPayNow={handleSpotlightPayNow}
+        onViewPayable={handleSpotlightView}
       />
 
       <AnimatePresence>
@@ -183,11 +207,10 @@ const PayablesManagement = () => {
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="monthly">Pendientes</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="monthly">Por Pagar</TabsTrigger>
               <TabsTrigger value="recurring">Recurrentes</TabsTrigger>
-              <TabsTrigger value="history">Historial</TabsTrigger>
-              <TabsTrigger value="payments">Pagos Realizados</TabsTrigger>
+              <TabsTrigger value="completed">Completados</TabsTrigger>
             </TabsList>
             <AnimatePresence mode="wait">
               <motion.div key={activeTab} variants={fadeUp} initial="initial" animate="animate" exit="exit">
@@ -201,14 +224,9 @@ const PayablesManagement = () => {
                     <RecurringPayables suppliers={suppliers} accounts={accounts} />
                   )}
                 </TabsContent>
-                <TabsContent value="history" forceMount={activeTab === 'history' ? true : undefined}>
-                  {activeTab === 'history' && (
-                    <PayablesHistory payables={payables} fetchPayables={() => fetchPayables(activeFilter)} highlightId={highlightId} onHighlightConsumed={clearHighlight} />
-                  )}
-                </TabsContent>
-                <TabsContent value="payments" forceMount={activeTab === 'payments' ? true : undefined}>
-                  {activeTab === 'payments' && (
-                    <PaymentHistory />
+                <TabsContent value="completed" forceMount={activeTab === 'completed' ? true : undefined}>
+                  {activeTab === 'completed' && (
+                    <CompletedPayables payables={payables} fetchPayables={() => fetchPayables(activeFilter)} highlightId={highlightId} onHighlightConsumed={clearHighlight} />
                   )}
                 </TabsContent>
               </motion.div>
@@ -216,6 +234,56 @@ const PayablesManagement = () => {
           </Tabs>
         </CardContent>
       </Card>
+      {/* Spotlight payment dialogs */}
+      <PaymentDialog
+        isOpen={isSpotlightPaymentOpen}
+        onClose={() => setIsSpotlightPaymentOpen(false)}
+        payable={spotlightPayable}
+        onPaymentSuccess={handleSpotlightPaymentSuccess}
+      />
+
+      {spotlightPayable && (
+        <Dialog open={isSpotlightViewOpen} onOpenChange={setIsSpotlightViewOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>{spotlightPayable.payeeName}</DialogTitle>
+              <DialogDescription>{spotlightPayable.payableNumber || 'Detalle de factura'}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Estado:</span>
+                <Badge variant={getPayableStatusInfo(spotlightPayable.status).variant} className={getPayableStatusInfo(spotlightPayable.status).color}>
+                  {getPayableStatusInfo(spotlightPayable.status).label}
+                </Badge>
+              </div>
+              {spotlightPayable.dueDate && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Vencimiento:</span>
+                  <span className="font-medium text-red-600">{new Date(spotlightPayable.dueDate).toLocaleDateString()}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total:</span>
+                <span className="font-semibold">{formatCurrency(getTotalAmount(spotlightPayable.lines))}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Pagado:</span>
+                <span className="font-semibold text-emerald-600">{formatCurrency(spotlightPayable.paidAmount || 0)}</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t font-bold">
+                <span>Saldo pendiente:</span>
+                <span className="text-amber-600">{formatCurrency(getTotalAmount(spotlightPayable.lines) - (spotlightPayable.paidAmount || 0))}</span>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-2">
+              <Button variant="outline" onClick={() => setIsSpotlightViewOpen(false)}>Cerrar</Button>
+              <Button onClick={() => { setIsSpotlightViewOpen(false); handleSpotlightPayNow(spotlightPayable); }}>
+                Pagar ahora
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

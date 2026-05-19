@@ -281,25 +281,44 @@ export default function RecurringPayables({ accounts, suppliers }) {
                 <TableRow>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Beneficiario</TableHead>
-                  <TableHead>Monto</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
                   <TableHead>Frecuencia</TableHead>
+                  <TableHead>Próximo pago</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <AnimatedTableBody>
-                {templates.map((template) => (
-                  <AnimatedTableRow key={template._id}>
-                    <TableCell>{template.templateName}</TableCell>
-                    <TableCell>{template.payeeName || 'N/A'}</TableCell>
-                    <TableCell>${Number(template.lines.reduce((acc, l) => acc + l.amount, 0) || 0).toFixed(2)}</TableCell>
-                    <TableCell>{template.frequency}</TableCell>
-                    <TableCell className="text-right">
-                      <Button size="sm" onClick={() => handleGeneratePayable(template._id)}>
-                        <Repeat className="mr-2 h-4 w-4" />Generar Pago
-                      </Button>
-                    </TableCell>
-                  </AnimatedTableRow>
-                ))}
+                {templates.map((template) => {
+                  const total = Number(template.lines.reduce((acc, l) => acc + l.amount, 0) || 0);
+                  const freqLabel = { monthly: 'Mensual', quarterly: 'Trimestral', yearly: 'Anual' }[template.frequency] || template.frequency;
+                  const freqColor = { monthly: 'text-blue-600 dark:text-blue-400', quarterly: 'text-purple-600 dark:text-purple-400', yearly: 'text-emerald-600 dark:text-emerald-400' }[template.frequency] || '';
+                  const nextDate = template.nextDueDate ? new Date(template.nextDueDate) : null;
+                  const isUpcoming = nextDate && nextDate <= new Date(Date.now() + 7 * 86400000);
+
+                  return (
+                    <AnimatedTableRow key={template._id}>
+                      <TableCell className="font-medium">{template.templateName}</TableCell>
+                      <TableCell className="text-muted-foreground">{template.payeeName || 'N/A'}</TableCell>
+                      <TableCell className="text-right font-semibold">${total.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <span className={`text-sm font-medium ${freqColor}`}>{freqLabel}</span>
+                      </TableCell>
+                      <TableCell>
+                        {nextDate ? (
+                          <span className={isUpcoming ? 'text-amber-600 font-medium' : 'text-muted-foreground'}>
+                            {nextDate.toLocaleDateString()}
+                            {isUpcoming && ' ⚡'}
+                          </span>
+                        ) : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" onClick={() => handleGeneratePayable(template._id)}>
+                          <Repeat className="mr-2 h-4 w-4" />Generar Pago
+                        </Button>
+                      </TableCell>
+                    </AnimatedTableRow>
+                  );
+                })}
               </AnimatedTableBody>
             </Table>
           )}

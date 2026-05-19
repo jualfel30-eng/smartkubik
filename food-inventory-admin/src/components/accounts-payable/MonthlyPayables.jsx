@@ -5,16 +5,79 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Table, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { Badge } from '../ui/badge';
 import { Tooltip, TooltipTrigger, TooltipContent } from '../ui/tooltip';
-import { PlusCircle, Eye, CreditCard, CheckCircle } from 'lucide-react';
+import { PlusCircle, Eye, CreditCard, CheckCircle, Plus } from 'lucide-react';
 import { PaymentDialog } from '../PaymentDialog';
 import { AnimatedTableBody, AnimatedTableRow } from '../ui/animated-table-body';
 import { EmptyState } from '../ui/empty-state';
 import { DataHighlight } from '../ui/data-highlight';
 import { useBcvRates } from '@/hooks/use-bcv-rates';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/currency-utils';
 import { URGENCY_STYLES, getUrgency, getDaysLabel, getPayableStatusInfo, getTotalAmount } from '@/lib/invoice-constants';
 import CreatePayableDialog from './CreatePayableDialog';
+
+const URGENCY_BORDER = {
+  overdue: 'border-l-4 border-l-red-500',
+  'due-soon': 'border-l-4 border-l-amber-400',
+  current: 'border-l-4 border-l-emerald-500',
+};
+
+function PayableMobileCard({ payable, onPay, onView, usdRate, eurRate }) {
+  const isBcvUsd = payable.expectedCurrency === 'USD_BCV' || payable.expectedPaymentMethods?.includes('bolivares_bcv');
+  const isBcvEur = payable.expectedCurrency === 'EUR_BCV' || payable.expectedPaymentMethods?.includes('euro_bcv');
+  const totalAmount = getTotalAmount(payable.lines);
+  const balance = totalAmount - (payable.paidAmount || 0);
+  const urgency = getUrgency(payable.dueDate);
+  const daysLabel = getDaysLabel(payable.dueDate);
+  const statusInfo = getPayableStatusInfo(payable.status);
+  const bsAmount = isBcvUsd && usdRate ? totalAmount * usdRate : isBcvEur && eurRate ? totalAmount * eurRate : null;
+
+  return (
+    <div className={cn('bg-card border rounded-xl p-4 space-y-3 shadow-sm', URGENCY_BORDER[urgency])}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-base truncate">{payable.payeeName || 'Sin proveedor'}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <Badge variant={statusInfo.variant} className={cn('text-xs', statusInfo.color)}>{statusInfo.label}</Badge>
+            {daysLabel && <span className={cn('text-xs', daysLabel.className)}>{daysLabel.text}</span>}
+          </div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-xl font-bold">{formatCurrency(balance)}</p>
+          {bsAmount && (
+            <p className="text-xs text-emerald-600 dark:text-emerald-400">
+              Bs {bsAmount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {payable.dueDate && (
+        <p className="text-xs text-muted-foreground">
+          Vence: {new Date(payable.dueDate).toLocaleDateString()}
+        </p>
+      )}
+
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" className="flex-1 h-9" onClick={() => onView(payable)}>
+          <Eye className="h-3.5 w-3.5 mr-1.5" />
+          Ver
+        </Button>
+        <Button
+          variant={urgency === 'overdue' ? 'destructive' : 'default'}
+          size="sm"
+          className="flex-[2] h-9"
+          onClick={() => onPay(payable)}
+          disabled={payable.status === 'paid'}
+        >
+          <CreditCard className="h-3.5 w-3.5 mr-1.5" />
+          Pagar
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function MonthlyPayables({ suppliers, accounts, fetchPayables, payables, fetchSuppliers, highlightId, onHighlightConsumed }) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -22,6 +85,7 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [selectedPayable, setSelectedPayable] = useState(null);
   const { usdRate, eurRate } = useBcvRates();
+  const isMobile = useMediaQuery('(max-width: 768px)');
 
   const pendingPayables = useMemo(() => {
     return payables.filter(payable => !['paid', 'void'].includes(payable.status));
@@ -54,12 +118,14 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
   return (
     <>
       <Card>
-        <CardHeader className="flex">
-          <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white" onClick={() => setIsCreateDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-5 w-5" />Registrar Cuenta por Pagar
-          </Button>
-        </CardHeader>
-        <CardContent>
+        {!isMobile && (
+          <CardHeader className="flex">
+            <Button size="lg" className="bg-[#FB923C] hover:bg-[#F97316] text-white" onClick={() => setIsCreateDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-5 w-5" />Registrar Cuenta por Pagar
+            </Button>
+          </CardHeader>
+        )}
+        <CardContent className={isMobile ? 'pt-4' : undefined}>
           {pendingPayables.length === 0 ? (
             <EmptyState
               icon={CheckCircle}
@@ -68,6 +134,19 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
               actionLabel="+ Nueva factura"
               onAction={() => setIsCreateDialogOpen(true)}
             />
+          ) : isMobile ? (
+            <div className="space-y-3 pb-20">
+              {pendingPayables.map((payable) => (
+                <PayableMobileCard
+                  key={payable._id}
+                  payable={payable}
+                  onPay={handleOpenPaymentDialog}
+                  onView={handleOpenViewDialog}
+                  usdRate={usdRate}
+                  eurRate={eurRate}
+                />
+              ))}
+            </div>
           ) : (
             <Table>
               <TableHeader>
@@ -93,10 +172,7 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
                   const balance = totalAmount - (payable.paidAmount || 0);
 
                   return (
-                    <AnimatedTableRow
-                      key={payable._id}
-                      className={cn(URGENCY_STYLES[urgency])}
-                    >
+                    <AnimatedTableRow key={payable._id} className={cn(URGENCY_STYLES[urgency])}>
                       <TableCell className="font-medium">{payable.payeeName || 'Sin definir'}</TableCell>
                       <TableCell>
                         <div className="flex flex-col">
@@ -161,6 +237,17 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
           )}
         </CardContent>
       </Card>
+
+      {/* FAB para móvil */}
+      {isMobile && (
+        <button
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-orange-500 hover:bg-orange-600 shadow-lg flex items-center justify-center z-50 transition-colors"
+          onClick={() => setIsCreateDialogOpen(true)}
+          aria-label="Registrar cuenta por pagar"
+        >
+          <Plus className="w-6 h-6 text-white" />
+        </button>
+      )}
 
       {/* View Details Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
