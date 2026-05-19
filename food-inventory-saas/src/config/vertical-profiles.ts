@@ -18,7 +18,8 @@ export type VerticalKey =
   | "barbershop-salon"
   | "clinic-spa"
   | "manufacturing"
-  | "hospitality";
+  | "hospitality"
+  | "education";
 
 export interface AttributeDescriptor {
   key: string;
@@ -54,7 +55,8 @@ export interface VerticalProfile {
   | "RETAIL"
   | "SERVICES"
   | "LOGISTICS"
-  | "MANUFACTURING";
+  | "MANUFACTURING"
+  | "EDUCATION";
 
   allowsWeight: boolean;
   hasSizeMatrix: boolean;
@@ -678,6 +680,29 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
       allowCustomPrice: true,
       notesPlaceholder:
         "Notas clínicas, zona de tratamiento o indicaciones especiales",
+    },
+  },
+
+  education: {
+    key: "education",
+    label: "Institución Educativa",
+    baseVertical: "EDUCATION",
+    allowsWeight: false,
+    hasSizeMatrix: false,
+    requiresSerial: false,
+    supportsVariants: false,
+    defaultUnits: ["alumno", "materia", "lapso"],
+    attributeSchema: [],
+    inventory: {
+      supportsLots: false,
+      supportsAttributeMatrix: false,
+      requiresSerialTracking: false,
+      alerts: [],
+    },
+    orderLine: {
+      requireAttributesOnAdd: false,
+      allowCustomPrice: false,
+      notesPlaceholder: "Observaciones académicas",
     },
   },
 };

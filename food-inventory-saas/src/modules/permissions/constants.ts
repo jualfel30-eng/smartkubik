@@ -103,4 +103,21 @@ export const ALL_PERMISSIONS = [
   "data_import_delete",
   // Payment Requests Module
   "payment_requests_review",
+  // Education Vertical
+  "edu_students_read",
+  "edu_students_write",
+  "edu_classrooms_read",
+  "edu_classrooms_write",
+  "edu_subjects_read",
+  "edu_subjects_write",
+  "edu_schedules_read",
+  "edu_schedules_write",
+  "edu_grades_read",
+  "edu_grades_write",
+  "edu_grades_publish",
+  "edu_attendance_read",
+  "edu_attendance_write",
+  "edu_tuition_read",
+  "edu_tuition_write",
+  "edu_dashboard_read",
 ];

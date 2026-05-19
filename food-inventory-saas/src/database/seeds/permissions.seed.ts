@@ -627,6 +627,24 @@ export class PermissionsSeed {
       description: "Revisar y confirmar solicitudes de pago",
       module: "payment_requests",
     },
+
+    // Education Vertical
+    { name: "edu_students_read",    description: "Ver alumnos",                    module: "education" },
+    { name: "edu_students_write",   description: "Crear y editar alumnos",          module: "education" },
+    { name: "edu_classrooms_read",  description: "Ver salones",                    module: "education" },
+    { name: "edu_classrooms_write", description: "Crear y editar salones",          module: "education" },
+    { name: "edu_subjects_read",    description: "Ver materias",                   module: "education" },
+    { name: "edu_subjects_write",   description: "Crear y editar materias",         module: "education" },
+    { name: "edu_schedules_read",   description: "Ver horarios",                   module: "education" },
+    { name: "edu_schedules_write",  description: "Crear y editar horarios",         module: "education" },
+    { name: "edu_grades_read",      description: "Ver calificaciones",             module: "education" },
+    { name: "edu_grades_write",     description: "Editar calificaciones",           module: "education" },
+    { name: "edu_grades_publish",   description: "Publicar y despublicar notas",   module: "education" },
+    { name: "edu_attendance_read",  description: "Ver asistencia",                 module: "education" },
+    { name: "edu_attendance_write", description: "Registrar asistencia",            module: "education" },
+    { name: "edu_tuition_read",     description: "Ver cuotas y matrículas",        module: "education" },
+    { name: "edu_tuition_write",    description: "Gestionar cuotas y matrículas",  module: "education" },
+    { name: "edu_dashboard_read",   description: "Ver dashboard educativo",        module: "education" },
   ];
 
   constructor(@InjectConnection() private readonly connection: Connection) { }

@@ -11,6 +11,8 @@ import { SeedDefaultBusinessLocationsMigration } from "./seed-default-business-l
 import { FixVariantSkusMigration } from "./fix-variant-skus.migration";
 import { ExtendTenantPaymentConfigForPaymentRequestsMigration } from "./extend-tenant-payment-config-for-payment-requests.migration";
 import { SeedPaymentRequestsReviewPermissionMigration } from "./seed-payment-requests-review-permission.migration";
+import { SeedEducationPermissionsMigration } from "./seed-education-permissions.migration";
+import { SeedTeacherRoleMigration } from "./seed-teacher-role.migration";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import { Payment, PaymentSchema } from "../../schemas/payment.schema";
 import {
@@ -50,6 +52,8 @@ import { ProductAffinityModule } from "../../modules/product-affinity/product-af
     FixVariantSkusMigration,
     ExtendTenantPaymentConfigForPaymentRequestsMigration,
     SeedPaymentRequestsReviewPermissionMigration,
+    SeedEducationPermissionsMigration,
+    SeedTeacherRoleMigration,
   ],
   exports: [
     AddMarketingPermissionsMigration,
@@ -62,6 +66,8 @@ import { ProductAffinityModule } from "../../modules/product-affinity/product-af
     FixVariantSkusMigration,
     ExtendTenantPaymentConfigForPaymentRequestsMigration,
     SeedPaymentRequestsReviewPermissionMigration,
+    SeedEducationPermissionsMigration,
+    SeedTeacherRoleMigration,
   ],
 })
 export class MigrationsModule {}

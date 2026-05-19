@@ -281,6 +281,83 @@ export const VERTICAL_FEATURES = {
     warehousing: false,
     dispatch: false,
   },
+
+  EDUCATION: {
+    // Core modules
+    inventory: false,
+    orders: false,
+    customers: true, // Tutores/padres como Customers (pagan cuotas)
+    suppliers: false,
+    reports: true,
+    accounting: true,
+    payroll: true,
+    bankAccounts: true,
+    hrCore: true, // ✅ HABILITADO - Gestión de personal docente
+    timeAndAttendance: false,
+    cashRegister: false,
+    chat: true, // ✅ HABILITADO - Notificaciones WhatsApp a tutores
+    marketing: false,
+
+    // FOOD_SERVICE specific — off
+    restaurant: false,
+    tables: false,
+    recipes: false,
+    kitchenDisplay: false,
+    menuEngineering: false,
+    reservations: false,
+    tips: false,
+    commissions: false,
+
+    // RETAIL specific — off
+    pos: false,
+    variants: false,
+    ecommerce: false,
+    loyaltyProgram: false,
+
+    // SERVICES specific — off
+    appointments: false,
+    resources: false,
+    booking: false,
+    servicePackages: false,
+
+    // LOGISTICS specific — off
+    fixedAssets: false,
+    investments: false,
+    fulfillment: false,
+    driver: false,
+    shipments: false,
+    tracking: false,
+    routes: false,
+    fleet: false,
+    warehousing: false,
+    dispatch: false,
+
+    // MANUFACTURING specific — off
+    production: false,
+    bom: false,
+    routing: false,
+    workCenters: false,
+    mrp: false,
+    qualityControl: false,
+    maintenance: false,
+    productionScheduling: false,
+    shopFloorControl: false,
+    traceability: false,
+    costing: false,
+    plm: false,
+    capacityPlanning: false,
+    compliance: false,
+
+    // Education vertical — on
+    eduStudents: true,
+    eduClassrooms: true,
+    eduSubjects: true,
+    eduSchedules: true,
+    eduGrades: true,
+    eduAttendance: true,
+    eduTuition: true,
+    eduDashboard: true,
+  },
 };
 
 /**

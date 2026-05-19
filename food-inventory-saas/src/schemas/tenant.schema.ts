@@ -290,6 +290,7 @@ export class Tenant {
       "LOGISTICS",
       "HYBRID",
       "MANUFACTURING",
+      "EDUCATION",
     ],
     default: "FOOD_SERVICE",
     required: true,
@@ -390,6 +391,16 @@ export class Tenant {
     plm?: boolean;
     capacityPlanning?: boolean;
     compliance?: boolean;
+
+    // EDUCATION vertical modules
+    eduStudents?: boolean;
+    eduClassrooms?: boolean;
+    eduSubjects?: boolean;
+    eduSchedules?: boolean;
+    eduGrades?: boolean;
+    eduAttendance?: boolean;
+    eduTuition?: boolean;
+    eduDashboard?: boolean;
   };
 
   @Prop({ type: Object, default: {} })

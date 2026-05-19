@@ -11,6 +11,8 @@ import { SeedDefaultBusinessLocationsMigration } from "./seed-default-business-l
 import { FixVariantSkusMigration } from "./fix-variant-skus.migration";
 import { ExtendTenantPaymentConfigForPaymentRequestsMigration } from "./extend-tenant-payment-config-for-payment-requests.migration";
 import { SeedPaymentRequestsReviewPermissionMigration } from "./seed-payment-requests-review-permission.migration";
+import { SeedEducationPermissionsMigration } from "./seed-education-permissions.migration";
+import { SeedTeacherRoleMigration } from "./seed-teacher-role.migration";
 
 @ApiTags("Migrations")
 @Controller("migrations")
@@ -27,6 +29,8 @@ export class MigrationsController {
     private readonly fixVariantSkusMigration: FixVariantSkusMigration,
     private readonly extendTenantPaymentConfigForPaymentRequestsMigration: ExtendTenantPaymentConfigForPaymentRequestsMigration,
     private readonly seedPaymentRequestsReviewPermissionMigration: SeedPaymentRequestsReviewPermissionMigration,
+    private readonly seedEducationPermissionsMigration: SeedEducationPermissionsMigration,
+    private readonly seedTeacherRoleMigration: SeedTeacherRoleMigration,
   ) {}
 
   @Post("add-marketing-permissions")
@@ -211,6 +215,42 @@ export class MigrationsController {
     return {
       success: true,
       message: `payment_requests_review permission seeded (inserted: ${result.permissionInserted}, roles updated: ${result.rolesUpdated})`,
+    };
+  }
+
+  @Post("seed-education-permissions")
+  @ApiOperation({
+    summary: "[SUPER ADMIN] Seed education vertical permissions and grant to admin roles",
+    description:
+      "Inserts the 16 edu_* permissions into the permissions collection if missing and grants them to existing admin role documents. Idempotent.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "Education permissions seeded",
+  })
+  async seedEducationPermissions() {
+    const result = await this.seedEducationPermissionsMigration.run();
+    return {
+      success: true,
+      message: `Education permissions seeded (inserted: ${result.permissionsInserted}, existed: ${result.alreadyExisted}, roles updated: ${result.rolesUpdated})`,
+    };
+  }
+
+  @Post("seed-teacher-role")
+  @ApiOperation({
+    summary: "[SUPER ADMIN] Create TEACHER role for all EDUCATION tenants",
+    description:
+      "Creates a TEACHER role with edu_grades, edu_attendance, edu_schedules, edu_classrooms and edu_students read/write permissions for each tenant with vertical=EDUCATION. Idempotent.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "TEACHER role seeded",
+  })
+  async seedTeacherRole() {
+    const result = await this.seedTeacherRoleMigration.run();
+    return {
+      success: true,
+      message: `TEACHER role migration completed (created: ${result.rolesCreated}, skipped: ${result.rolesSkipped}, tenants: ${result.tenantsProcessed})`,
     };
   }
 }
