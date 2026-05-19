@@ -2,13 +2,13 @@ import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { DollarSign, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import { DollarSign, CheckCircle2, Clock, AlertTriangle, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/currency-utils';
 import { scaleIn, STAGGER } from '@/lib/motion';
 import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber';
 
-export default function ARSummaryCards({ data, activeFilter, onFilterChange }) {
+export default function ARSummaryCards({ data, activeFilter, onFilterChange, onBulkReminder }) {
   const buckets = useMemo(() => {
     const now = new Date();
     const result = {
@@ -124,7 +124,19 @@ export default function ARSummaryCards({ data, activeFilter, onFilterChange }) {
                     </p>
                   </div>
                 </div>
-                <span className="text-red-500 dark:text-red-400 text-sm font-medium">Ver todas →</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {onBulkReminder && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onBulkReminder(); }}
+                      className="flex items-center gap-1 text-xs font-medium text-red-500 dark:text-red-400 hover:text-red-600 hover:underline"
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      Recordar
+                    </button>
+                  )}
+                  <span className="text-red-500 dark:text-red-400 text-sm font-medium">Ver →</span>
+                </div>
               </div>
             </TooltipTrigger>
             <TooltipContent>Haz clic para filtrar solo las cuentas vencidas</TooltipContent>

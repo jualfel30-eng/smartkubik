@@ -46,6 +46,7 @@ import {
   Users,
   Filter,
   Receipt,
+  ReceiptText,
   TrendingDown,
   Clock,
   CheckCircle2,
@@ -271,11 +272,17 @@ export function getNavLinks(tenant) {
       icon: BanknoteArrowUp,
       permission: 'accounting_read',
       children: [
-        { name: 'Pendientes', href: 'receivables?tab=pending', icon: Clock },
-        { name: 'Confirmados', href: 'receivables?tab=confirmed', icon: CheckCircle2 },
-        { name: 'Por cliente', href: 'receivables?tab=customers', icon: Users },
-        { name: 'Reportes', href: 'receivables?tab=reports', icon: TrendingUp },
+        { name: 'Por Cobrar', href: 'receivables?tab=pending', icon: Clock },
+        { name: 'Comprobantes', href: 'receivables?tab=confirmed', icon: CheckCircle2 },
+        { name: 'Historial', href: 'receivables?tab=reports', icon: List },
+        { name: 'Por Cliente', href: 'receivables?tab=customers', icon: Users },
       ]
+    },
+    {
+      name: 'Solicitudes de pago',
+      href: 'payment-requests',
+      icon: ReceiptText,
+      permission: 'payment_requests_review',
     },
     {
       name: 'Recursos Humanos',

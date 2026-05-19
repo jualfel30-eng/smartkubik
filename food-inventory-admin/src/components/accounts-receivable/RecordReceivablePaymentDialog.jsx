@@ -10,7 +10,7 @@ import { PAYMENT_METHODS, isVesMethod, mapPaymentMethodToName } from '@/lib/paym
 import { formatCurrency } from '@/lib/currency-utils';
 import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber';
 
-export default function RecordReceivablePaymentDialog({ isOpen, onClose, receivable, onPaymentSuccess }) {
+export default function RecordReceivablePaymentDialog({ isOpen, onClose, receivable, onPaymentSuccess, onShowReceipt }) {
   const [amount, setAmount] = useState(0);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState('transferencia_usd');
@@ -102,7 +102,8 @@ export default function RecordReceivablePaymentDialog({ isOpen, onClose, receiva
 
     try {
       await createPayment(payload);
-      toast.success(`Cobro registrado — ${formatCurrency(Number(amount))} recibido de ${receivable.customerName}`);
+      onShowReceipt?.({ receivable, amount: Number(amount), method: paymentMethod, reference: referenceNumber, date });
+      toast.success(`Cobro registrado — ${formatCurrency(Number(amount))} de ${receivable.customerName}`, { duration: 5000 });
       onPaymentSuccess();
     } catch (err) {
       toast.error('Error al registrar el cobro', {

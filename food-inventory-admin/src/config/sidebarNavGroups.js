@@ -57,6 +57,7 @@ export const SIDEBAR_NAV_GROUPS = [
       'accounting',
       'accounts-payable',
       'receivables?tab=pending',
+      'payment-requests',
       'payroll/runs',
       'commissions',
       'tips',
