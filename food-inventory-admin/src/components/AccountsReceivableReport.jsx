@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom'; // eslint-disable-line -- kept for future deep-link navigation
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchApi } from '../lib/api';
 import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-import { ArrowLeft, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body';
 import { SolicitarComprobanteButton } from '@/components/payment-requests/SolicitarComprobanteButton';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -164,12 +164,7 @@ const AccountsReceivableReport = () => {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center space-x-4">
-          <Button variant="outline" size="icon" onClick={() => navigate('/accounting-management')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-3xl font-bold">Cuentas por Cobrar</h1>
-        </div>
+        <h1 className="text-3xl font-bold">Cuentas por Cobrar</h1>
         <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4">
           <p className="text-destructive text-sm">Error: {error}</p>
           <Button variant="outline" size="sm" className="mt-2" onClick={fetchReport}>Reintentar</Button>
@@ -185,14 +180,6 @@ const AccountsReceivableReport = () => {
 
       {/* ── Header ── */}
       <div className="flex items-center space-x-4">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="outline" size="icon" onClick={() => navigate('/accounting-management')}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Volver a Contabilidad</TooltipContent>
-        </Tooltip>
         <h1 className="text-2xl md:text-3xl font-bold">Cuentas por Cobrar</h1>
       </div>
 

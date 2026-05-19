@@ -676,11 +676,7 @@ function TenantLayout() {
                 <Route path="bank-accounts" element={<BankAccountsRouteGate />} />
                 <Route path="bank-accounts/:accountId/reconciliation" element={<BankReconciliationView />} />
                 <Route path="organizations" element={<OrganizationsManagement />} />
-                <Route path="receivables" element={
-                  <CrmProvider>
-                    <PaymentsManagementDashboard />
-                  </CrmProvider>
-                } />
+                <Route path="receivables" element={<AccountsReceivableReport />} />
                 <Route path="appointments" element={
                   <CrmProvider>
                     <AppointmentsRouteGate />

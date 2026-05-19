@@ -268,15 +268,9 @@ export function getNavLinks(tenant) {
     },
     {
       name: 'Cuentas por Cobrar',
-      href: 'receivables?tab=pending',
+      href: 'receivables',
       icon: BanknoteArrowUp,
       permission: 'accounting_read',
-      children: [
-        { name: 'Por Cobrar', href: 'receivables?tab=pending', icon: Clock },
-        { name: 'Comprobantes', href: 'receivables?tab=confirmed', icon: CheckCircle2 },
-        { name: 'Historial', href: 'receivables?tab=reports', icon: List },
-        { name: 'Por Cliente', href: 'receivables?tab=customers', icon: Users },
-      ]
     },
     {
       name: 'Solicitudes de pago',
