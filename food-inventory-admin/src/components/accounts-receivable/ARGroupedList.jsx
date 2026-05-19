@@ -10,7 +10,7 @@ const GROUPS = [
   { key: 'current',  label: 'Al día',             color: 'text-emerald-500 dark:text-emerald-400', divider: 'bg-emerald-500/20' },
 ];
 
-export default function ARGroupedList({ data, onAction, onOpenCustomer, isPaidView = false }) {
+export default function ARGroupedList({ data, onAction, onViewReceipt, onOpenCustomer, isPaidView = false }) {
   const grouped = useMemo(() => {
     if (isPaidView) return [{ key: 'paid', label: 'Pagadas', color: 'text-muted-foreground', divider: 'bg-muted', items: data }];
 
@@ -47,9 +47,10 @@ export default function ARGroupedList({ data, onAction, onOpenCustomer, isPaidVi
             >
               {group.items.map(row => (
                 <ARReceivableCard
-                  key={row.orderNumber ?? row.orderId}
+                  key={row._id ?? row.orderNumber ?? row.orderId}
                   row={row}
                   onAction={onAction}
+                  onViewReceipt={onViewReceipt}
                   onOpenCustomer={onOpenCustomer}
                   isPaidView={isPaidView}
                 />

@@ -56,7 +56,7 @@ export const SIDEBAR_NAV_GROUPS = [
     hrefs: [
       'accounting',
       'accounts-payable',
-      'receivables?tab=pending',
+      'receivables',
       'payment-requests',
       'payroll/runs',
       'commissions',

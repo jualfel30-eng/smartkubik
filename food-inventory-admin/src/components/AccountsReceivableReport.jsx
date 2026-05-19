@@ -61,6 +61,8 @@ const AccountsReceivableReport = () => {
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [paidPayments, setPaidPayments] = useState([]);
+  const [paidLoading, setPaidLoading] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -92,7 +94,43 @@ const AccountsReceivableReport = () => {
     }
   }, []);
 
-  useEffect(() => { fetchReport(); }, [fetchReport]);
+  const fetchPaidPayments = useCallback(async () => {
+    setPaidLoading(true);
+    try {
+      const resp = await fetchApi('/payments?status=confirmed&limit=200');
+      const list = (resp?.data || []).map((p) => {
+        const orderInfo = p.orderId || {};
+        const customerInfo = p.customerId || {};
+        return {
+          _id: p._id,
+          customerName: orderInfo?.customerName || customerInfo?.name || 'Sin nombre',
+          orderNumber: orderInfo?.orderNumber,
+          orderId: orderInfo?._id || (typeof p.orderId === 'string' ? p.orderId : undefined),
+          customerPhone: orderInfo?.customerPhone || customerInfo?.phone,
+          balance: p.amount,   // show amount paid in the card
+          amount: p.amount,
+          method: p.method,
+          reference: p.reference,
+          currency: p.currency || 'USD',
+          date: p.date,
+          dueDate: p.date,     // card shows this as "payment date" in paid view
+          status: 'paid',
+          source: orderInfo?.source,
+          totalAmount: p.amount,
+        };
+      });
+      setPaidPayments(list);
+    } catch {
+      setPaidPayments([]);
+    } finally {
+      setPaidLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchReport();
+    fetchPaidPayments();
+  }, [fetchReport, fetchPaidPayments]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const filteredData = useMemo(() => {
@@ -116,8 +154,8 @@ const AccountsReceivableReport = () => {
     overdue:  reportData.filter(r => getUrgency(r.dueDate) === 'overdue' && r.status !== 'paid').length,
     dueSoon:  reportData.filter(r => getUrgency(r.dueDate) === 'due-soon' && r.status !== 'paid').length,
     current:  reportData.filter(r => getUrgency(r.dueDate) === 'current' && r.status !== 'paid').length,
-    paid:     reportData.filter(r => r.status === 'paid' || Number(r.balance) <= 0).length,
-  }), [reportData]);
+    paid:     paidPayments.length,
+  }), [reportData, paidPayments]);
 
   // Hero banner metrics
   const overdueItems   = useMemo(() => reportData.filter(r => getUrgency(r.dueDate) === 'overdue' && r.status !== 'paid'), [reportData]);
@@ -125,12 +163,23 @@ const AccountsReceivableReport = () => {
   const overdueTotal   = useMemo(() => overdueItems.reduce((s, r) => s + Number(r.balance || 0), 0), [overdueItems]);
   const dueSoonTotal   = useMemo(() => dueSoonItems.reduce((s, r) => s + Number(r.balance || 0), 0), [dueSoonItems]);
 
+  // "Pagadas" tab uses paidPayments; all others use filteredData from the AR report
+  const displayData = useMemo(() => {
+    if (activePill !== 'paid') return filteredData;
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return paidPayments;
+    return paidPayments.filter(r =>
+      r.customerName?.toLowerCase().includes(q) ||
+      r.orderNumber?.toString().toLowerCase().includes(q)
+    );
+  }, [activePill, filteredData, paidPayments, searchTerm]);
+
   // Pagination
-  const totalPages   = Math.ceil(filteredData.length / itemsPerPage);
+  const totalPages   = Math.ceil(displayData.length / itemsPerPage);
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return filteredData.slice(start, start + itemsPerPage);
-  }, [filteredData, currentPage]);
+    return displayData.slice(start, start + itemsPerPage);
+  }, [displayData, currentPage]);
 
   useEffect(() => { setCurrentPage(1); }, [searchTerm, activePill]);
 
@@ -159,6 +208,17 @@ const AccountsReceivableReport = () => {
   const hasActiveFilters = searchTerm || activePill !== 'all';
   const isPaidView = activePill === 'paid';
   const canSendPaymentLink = hasPermission?.('payment_requests_review');
+
+  const openPaidReceipt = (row) => {
+    setReceiptData({
+      receivable: row,
+      amount: row.amount,
+      method: row.method,
+      reference: row.reference,
+      date: row.date,
+      currency: row.currency,
+    });
+  };
 
   // ── Error state ────────────────────────────────────────────────────────────
   if (error) {
@@ -259,17 +319,17 @@ const AccountsReceivableReport = () => {
 
           <p className="text-xs text-muted-foreground">
             {hasActiveFilters
-              ? `${filteredData.length} de ${reportData.length} cuentas`
-              : `${reportData.length} cuentas en total`}
+              ? `${displayData.length} de ${isPaidView ? paidPayments.length : reportData.length} ${isPaidView ? 'pagos' : 'cuentas'}`
+              : `${isPaidView ? paidPayments.length : reportData.length} ${isPaidView ? 'pagos registrados' : 'cuentas en total'}`}
           </p>
         </CardHeader>
 
         <CardContent className="pt-0">
-          <ContentTransition loading={loading} skeleton={<TableSkeleton rows={6} />}>
-            {filteredData.length === 0 ? (
+          <ContentTransition loading={isPaidView ? paidLoading : loading} skeleton={<TableSkeleton rows={6} />}>
+            {displayData.length === 0 ? (
               <EmptyState
-                title={hasActiveFilters ? 'Sin resultados' : 'Sin cuentas por cobrar'}
-                description={hasActiveFilters ? 'No hay cuentas con esos filtros' : 'Todas las cuentas están al día'}
+                title={hasActiveFilters ? 'Sin resultados' : isPaidView ? 'Sin pagos registrados' : 'Sin cuentas por cobrar'}
+                description={hasActiveFilters ? 'No hay registros con esos filtros' : isPaidView ? 'Los pagos confirmados aparecerán aquí' : 'Todas las cuentas están al día'}
                 actionLabel={hasActiveFilters ? 'Limpiar filtros' : undefined}
                 onAction={hasActiveFilters ? clearFilters : undefined}
               />
@@ -278,8 +338,9 @@ const AccountsReceivableReport = () => {
                 {/* ── Mobile: Grouped cards ── */}
                 <div className="md:hidden">
                   <ARGroupedList
-                    data={filteredData}
+                    data={displayData}
                     onAction={openActionSheet}
+                    onViewReceipt={openPaidReceipt}
                     onOpenCustomer={(row) => setCustomerPanelName(row.customerName)}
                     isPaidView={isPaidView}
                   />
@@ -292,8 +353,8 @@ const AccountsReceivableReport = () => {
                       <TableRow>
                         <TableHead>Cliente</TableHead>
                         <TableHead>N° Pedido</TableHead>
-                        <TableHead>Vencimiento</TableHead>
-                        <TableHead className="text-right">Saldo</TableHead>
+                        <TableHead>{isPaidView ? 'Fecha de Cobro' : 'Vencimiento'}</TableHead>
+                        <TableHead className="text-right">{isPaidView ? 'Monto Cobrado' : 'Saldo'}</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead className="text-center w-32" />
                       </TableRow>
@@ -308,7 +369,7 @@ const AccountsReceivableReport = () => {
 
                         return (
                           <AnimatedTableRow
-                            key={row.orderNumber}
+                            key={row._id ?? row.orderNumber}
                             className={cn(URGENCY_STYLES[urgency])}
                           >
                             <TableCell className="font-medium">
@@ -324,7 +385,8 @@ const AccountsReceivableReport = () => {
                             <TableCell>
                               <div className="flex flex-col">
                                 <span>{row.dueDate ? new Date(row.dueDate).toLocaleDateString('es-VE') : <span className="text-muted-foreground">Sin definir</span>}</span>
-                                {daysLabel && <span className={cn(daysLabel.className, 'text-xs')}>{daysLabel.text}</span>}
+                                {!isPaidView && daysLabel && <span className={cn(daysLabel.className, 'text-xs')}>{daysLabel.text}</span>}
+                                {isPaidView && row.method && <span className="text-xs text-muted-foreground capitalize">{row.method}</span>}
                               </div>
                             </TableCell>
                             <TableCell className="text-right font-semibold">
@@ -367,7 +429,7 @@ const AccountsReceivableReport = () => {
                                   variant="ghost"
                                   size="sm"
                                   className="h-8 px-2 text-xs text-muted-foreground"
-                                  onClick={() => setReceiptData({ receivable: row, amount: row.totalAmount, method: '', reference: '', date: row.dueDate })}
+                                  onClick={() => openPaidReceipt(row)}
                                 >
                                   Ver
                                 </Button>

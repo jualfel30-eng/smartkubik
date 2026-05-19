@@ -44,8 +44,23 @@ const mockData = [
   { orderId: 'id-1', orderNumber: 'ORD-001', customerName: 'ACME Inc',      balance: 500, dueDate: past(10),   status: 'pending', source: 'manual' },
   { orderId: 'id-2', orderNumber: 'ORD-002', customerName: 'Beta Corp',     balance: 200, dueDate: future(3),  status: 'pending', source: 'manual' },
   { orderId: 'id-3', orderNumber: 'ORD-003', customerName: 'Gamma LLC',     balance: 100, dueDate: future(30), status: 'pending', source: 'manual' },
-  { orderId: 'id-4', orderNumber: 'ORD-004', customerName: 'Delta SA',      balance: 0,   dueDate: past(5),    status: 'paid',    source: 'manual' },
 ];
+
+const mockPaidPayments = {
+  data: [
+    {
+      _id: 'pay-1',
+      date: past(5),
+      amount: 300,
+      method: 'transfer',
+      reference: 'REF-001',
+      currency: 'USD',
+      status: 'confirmed',
+      orderId: { _id: 'id-4', orderNumber: 'ORD-004', customerName: 'Delta SA' },
+      customerId: null,
+    },
+  ],
+};
 
 // jsdom renders both mobile (md:hidden) and desktop (hidden md:block) views simultaneously
 // so customer names appear twice. Use getAllByText for presence checks.
@@ -54,7 +69,12 @@ const hasText = (text) => screen.getAllByText(text).length > 0;
 describe('AccountsReceivableReport', () => {
   beforeEach(() => {
     mockFetchApi.mockClear();
-    mockFetchApi.mockResolvedValue(mockData);
+    mockFetchApi.mockImplementation((url) => {
+      if (typeof url === 'string' && url.includes('/payments?status=confirmed')) {
+        return Promise.resolve(mockPaidPayments);
+      }
+      return Promise.resolve(mockData);
+    });
   });
 
   const setup = () => render(<AccountsReceivableReport />);
@@ -119,7 +139,7 @@ describe('AccountsReceivableReport', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /pagadas/i }));
 
-    expect(hasText('Delta SA')).toBe(true);
+    await waitFor(() => expect(hasText('Delta SA')).toBe(true));
     expect(screen.queryByText('ACME Inc')).not.toBeInTheDocument();
   });
 
@@ -205,11 +225,12 @@ describe('AccountsReceivableReport', () => {
   });
 
   it('recarga datos al completar un pago', async () => {
-    mockFetchApi.mockResolvedValue(mockData);
     setup();
     await waitFor(() => screen.getAllByText('ACME Inc'));
 
-    expect(mockFetchApi).toHaveBeenCalledTimes(1);
+    // Component fetches both the AR report and confirmed payments on mount
+    expect(mockFetchApi).toHaveBeenCalledTimes(2);
     expect(mockFetchApi).toHaveBeenCalledWith('/accounting/reports/accounts-receivable');
+    expect(mockFetchApi).toHaveBeenCalledWith(expect.stringContaining('/payments?status=confirmed'));
   });
 });

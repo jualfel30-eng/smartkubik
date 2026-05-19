@@ -6,7 +6,7 @@ import { formatCurrency } from '@/lib/currency-utils';
 import { getUrgency, getDaysLabel, getARStatusInfo } from '@/lib/invoice-constants';
 import { listItem } from '@/lib/motion';
 
-export default function ARReceivableCard({ row, onAction, onOpenCustomer, isPaidView = false }) {
+export default function ARReceivableCard({ row, onAction, onViewReceipt, onOpenCustomer, isPaidView = false }) {
   const balance = Number(row.balance) || 0;
   const urgency = getUrgency(row.dueDate);
   const daysLabel = getDaysLabel(row.dueDate);
@@ -75,7 +75,7 @@ export default function ARReceivableCard({ row, onAction, onOpenCustomer, isPaid
             size="sm"
             variant="outline"
             className="h-8 px-2 text-xs shrink-0"
-            onClick={() => onAction?.(row)}
+            onClick={() => onViewReceipt ? onViewReceipt(row) : onAction?.(row)}
           >
             Ver
           </Button>
