@@ -57,6 +57,18 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter, pay
     };
   }, [payables]);
 
+  // Must be before any early returns to satisfy Rules of Hooks
+  const mostOverduePayable = useMemo(() => {
+    const now = new Date();
+    const overdue = payables.filter(p =>
+      !['paid', 'void'].includes(p.status) && p.dueDate && new Date(p.dueDate) < now
+    );
+    if (!overdue.length) return null;
+    return overdue.reduce((oldest, p) =>
+      new Date(p.dueDate) < new Date(oldest.dueDate) ? p : oldest
+    );
+  }, [payables]);
+
   if (loading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -85,18 +97,6 @@ export default function PayablesSummaryCards({ onFilterChange, activeFilter, pay
 
   const overdueTotal = summary.aging.days30.amount + summary.aging.days60.amount + summary.aging.days90plus.amount;
   const overdueCount = summary.aging.days30.count + summary.aging.days60.count + summary.aging.days90plus.count;
-
-  // Identify the most overdue payable (oldest dueDate in the past)
-  const mostOverduePayable = useMemo(() => {
-    const now = new Date();
-    const overdue = payables.filter(p =>
-      !['paid', 'void'].includes(p.status) && p.dueDate && new Date(p.dueDate) < now
-    );
-    if (!overdue.length) return null;
-    return overdue.reduce((oldest, p) =>
-      new Date(p.dueDate) < new Date(oldest.dueDate) ? p : oldest
-    );
-  }, [payables]);
 
   const daysOverdue = mostOverduePayable
     ? Math.floor((new Date() - new Date(mostOverduePayable.dueDate)) / 86400000)
