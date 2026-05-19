@@ -140,6 +140,14 @@ import { SocialLinksModule } from "./modules/social-links/social-links.module";
 import { ProductDedupModule } from "./modules/product-dedup/product-dedup.module";
 import { BeautyModule } from "./modules/beauty/beauty.module";
 import { RestaurantStorefrontModule } from "./modules/restaurant-storefront/restaurant-storefront.module";
+import { EduClassroomsModule } from "./modules/edu-classrooms/edu-classrooms.module";
+import { EduSubjectsModule } from "./modules/edu-subjects/edu-subjects.module";
+import { EduSchedulesModule } from "./modules/edu-schedules/edu-schedules.module";
+import { EduGradesModule } from "./modules/edu-grades/edu-grades.module";
+import { EduAttendanceModule } from "./modules/edu-attendance/edu-attendance.module";
+import { EduTuitionModule } from "./modules/edu-tuition/edu-tuition.module";
+import { EduDashboardModule } from "./modules/edu-dashboard/edu-dashboard.module";
+import { EduStudentsModule } from "./modules/edu-students/edu-students.module";
 
 import { Redis } from "ioredis";
 
@@ -576,6 +584,15 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     ProductDedupModule,
     BeautyModule,
     RestaurantStorefrontModule,
+    // ─── Education ────────────────────────────────────────
+    EduStudentsModule,
+    EduClassroomsModule,
+    EduSubjectsModule,
+    EduSchedulesModule,
+    EduGradesModule,
+    EduAttendanceModule,
+    EduTuitionModule,
+    EduDashboardModule,
     // ─── AI Business Intelligence ────────────────────────
     TenantEventModule,
     IntelligenceModule,

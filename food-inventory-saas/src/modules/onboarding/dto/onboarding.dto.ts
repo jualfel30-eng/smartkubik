@@ -37,6 +37,7 @@ export class CreateTenantWithAdminDto {
       "LOGISTICS",
       "HYBRID",
       "MANUFACTURING",
+      "EDUCATION",
     ],
     example: "FOOD_SERVICE",
     required: false,
@@ -48,6 +49,7 @@ export class CreateTenantWithAdminDto {
     "LOGISTICS",
     "HYBRID",
     "MANUFACTURING",
+    "EDUCATION",
   ])
   @IsOptional()
   vertical?: string;
