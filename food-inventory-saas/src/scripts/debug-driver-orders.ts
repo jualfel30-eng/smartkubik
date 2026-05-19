@@ -1,7 +1,7 @@
 
 import { connect, model } from 'mongoose';
 import { OrderSchema } from '../schemas/order.schema';
-import * as dotenv from 'dotenv';
+import dotenv from 'dotenv';
 
 dotenv.config();
 

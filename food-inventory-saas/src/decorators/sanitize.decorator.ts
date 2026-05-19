@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import * as sanitizeHtml from "sanitize-html";
+import sanitizeHtml from "sanitize-html";
 
 /**
  * Decorator para sanitizar strings y prevenir XSS

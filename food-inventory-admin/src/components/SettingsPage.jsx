@@ -23,6 +23,7 @@ import TenantKnowledgeBaseManager from './TenantKnowledgeBaseManager';
 import EmailConfiguration from './EmailConfiguration'; // Importar EmailConfiguration
 import { BillingSettings } from './BillingSettings'; // Importar BillingSettings
 import { PaymentMethodsSettings } from './PaymentMethodsSettings'; // Importar PaymentMethodsSettings
+import { PaymentRequestSettingsCard } from './payment-requests/PaymentRequestSettingsCard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DEFAULT_VERTICAL_KEY, getVerticalProfile, listVerticalProfiles } from '@/config/verticalProfiles.js';
 import { getAvailableCountries } from '@/country-plugins/registry';
@@ -384,6 +385,7 @@ const SettingsPage = () => {
         </TabsList>
         <TabsContent value="payments" className="mt-10">
           <PaymentMethodsSettings />
+          {hasPermission('payment_requests_review') && <PaymentRequestSettingsCard />}
         </TabsContent>
         <TabsContent value="general" className="mt-10">
           <div className="grid gap-6 lg:grid-cols-3">

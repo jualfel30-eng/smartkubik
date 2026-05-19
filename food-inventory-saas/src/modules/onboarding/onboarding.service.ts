@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
 import { Model, Connection } from "mongoose";
-import * as bcrypt from "bcrypt";
+import bcrypt from "bcrypt";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { User, UserDocument } from "../../schemas/user.schema";
 import {

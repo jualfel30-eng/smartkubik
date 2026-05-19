@@ -9,13 +9,15 @@ import haptics from '@/lib/haptics';
 import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber.jsx';
 import { useAccountingContext } from '@/context/AccountingContext';
 import { fetchApi, registerTipsOnOrder } from '@/lib/api';
-import { X, Plus, Calculator, Wand2, HandCoins } from 'lucide-react';
+import { X, Plus, Calculator, Wand2, HandCoins, ReceiptText } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from "@/components/ui/badge";
 import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import MixedChangeModal from './MixedChangeModal';
+import { RequestPaymentModal } from '@/components/payment-requests/RequestPaymentModal';
+import { useAuth } from '@/hooks/use-auth.jsx';
 
 export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exchangeRate, overrideTotalAmount, overrideTotalAmountVes, isDeliveryNote }) {
   const { paymentMethods, paymentMethodsLoading } = useCrmContext();
@@ -31,6 +33,16 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
   const [paymentMode, setPaymentMode] = useState('single');
   const [singlePayment, setSinglePayment] = useState({ method: '', reference: '', bankAccountId: '', amountTendered: '', changeGivenBreakdown: null });
   const [mixedPayments, setMixedPayments] = useState([]);
+
+  // Alternative flow: ask the customer to pay themselves via the portal.
+  // The cashier may have clicked "Cobrar" by reflex but actually wants the
+  // customer to pay (common when the order came in via WhatsApp/IG and the
+  // money hasn't arrived yet). The banner below opens a side modal.
+  const { hasPermission } = useAuth();
+  const canRequestPayment = hasPermission?.('payment_requests_review') ?? false;
+  const isStorefrontOrder = order?.source === 'storefront';
+  const showRequestPaymentBanner = canRequestPayment && !isStorefrontOrder;
+  const [requestPaymentOpen, setRequestPaymentOpen] = useState(false);
 
   // Mixed change modal state
   const [mixedChangeModalOpen, setMixedChangeModalOpen] = useState(false);
@@ -546,6 +558,27 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto p-6 pt-2 space-y-4">
+            {showRequestPaymentBanner && (
+              <button
+                type="button"
+                onClick={() => setRequestPaymentOpen(true)}
+                className="flex w-full items-start gap-3 rounded-xl border border-primary/30 bg-primary/[0.06] px-3 py-3 text-left transition-colors hover:bg-primary/[0.10]"
+              >
+                <ReceiptText className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />
+                <div className="flex-1 text-sm">
+                  <p className="font-medium text-foreground">
+                    ¿Prefieres que el cliente pague por sí mismo?
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Envíale un enlace por WhatsApp y sube el comprobante desde un portal seguro.
+                  </p>
+                </div>
+                <span className="rounded-md border border-primary/40 px-2.5 py-1 text-xs font-medium text-primary shrink-0">
+                  Pedir comprobante
+                </span>
+              </button>
+            )}
+
             <Select value={paymentMode} onValueChange={setPaymentMode}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -1201,6 +1234,19 @@ export function PaymentDialogV2({ isOpen, onClose, order, onPaymentSuccess, exch
           </div>
         </DialogContent>
       </Dialog >
+
+      {/* Alternative: ask the customer to pay via the portal */}
+      <RequestPaymentModal
+        open={requestPaymentOpen}
+        onOpenChange={setRequestPaymentOpen}
+        order={order}
+        onCreated={() => {
+          // Created — close both dialogs. The PaymentRequest will fire its
+          // own toast; the order moves into "awaiting customer" territory.
+          setRequestPaymentOpen(false);
+          onClose?.();
+        }}
+      />
 
       {/* Mixed Change Modal */}
       < MixedChangeModal

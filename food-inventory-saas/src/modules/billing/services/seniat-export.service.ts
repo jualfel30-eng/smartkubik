@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { BillingDocument } from '../../../schemas/billing-document.schema';
-import * as QRCode from 'qrcode';
+import QRCode from 'qrcode';
 import * as crypto from 'crypto';
 
 export interface SeniatXMLResult {

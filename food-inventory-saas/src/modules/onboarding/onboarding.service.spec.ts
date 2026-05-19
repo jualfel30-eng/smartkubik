@@ -24,7 +24,7 @@ import {
   createMockMembership,
   generateObjectId,
 } from '../../../test/helpers/test-utils';
-import * as bcrypt from 'bcrypt';
+import bcrypt from 'bcrypt';
 
 // Mock bcrypt
 jest.mock('bcrypt');

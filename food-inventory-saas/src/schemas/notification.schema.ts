@@ -34,6 +34,9 @@ export const NOTIFICATION_TYPES = {
   PAYMENT_RECEIVED: "payment.received",
   BANK_LOW_BALANCE: "bank.low_balance",
   BILLING_ISSUED: "billing.issued",
+  PAYMENT_REQUEST_SUBMITTED: "payment-request.submitted",
+  PAYMENT_REQUEST_CONFIRMED: "payment-request.confirmed",
+  PAYMENT_REQUEST_STATUS_CHANGED: "payment-request.status-changed",
   // Marketing
   CAMPAIGN_STARTED: "campaign.started",
   CAMPAIGN_RESPONSE: "campaign.response",

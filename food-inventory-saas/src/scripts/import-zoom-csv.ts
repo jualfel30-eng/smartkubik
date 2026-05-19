@@ -1,7 +1,7 @@
 
 import { connect, model } from 'mongoose';
 import { ShippingProvider, ShippingProviderSchema } from '../schemas/shipping-provider.schema';
-import * as dotenv from 'dotenv';
+import dotenv from 'dotenv';
 
 dotenv.config();
 

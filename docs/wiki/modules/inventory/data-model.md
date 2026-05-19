@@ -1,7 +1,7 @@
 # Inventario — Modelo de Datos
 
 > 3 schemas principales: Inventory, InventoryMovement, InventoryAlertRule.
-> Última actualización: 2026-04-28
+> Última actualización: 2026-05-09
 
 ---
 
@@ -197,8 +197,47 @@ Reglas configurables de alerta por producto.
 4. **Costo promedio ponderado**: Se recalcula solo en movimientos de tipo `in`. Fórmula: `(oldQty × oldAvgCost + newQty × newCost) / (oldQty + newQty)`.
 5. **Reservas expiran**: Las reservas de inventario tienen un tiempo de expiración (default 30 min) pero la limpieza no es automática — depende de que la orden se cancele o se complete.
 6. **Transferencias son pares**: Un movimiento de transferencia crea DOS registros vinculados por `transferId` (UUID): uno OUT en origen y uno IN en destino.
+7. **Default warehouse usa `isDefault`, NO `isPrimary`**: `getDefaultWarehouse()` filtra por `isDefault: true` (corregido en commit `bb76281ce`). El campo `isPrimary` nunca existió en el schema — antes hacía fallback silencioso al "primer almacén activo".
 
 ---
 
-*Última actualización: 2026-04-28*
-*Archivos fuente: `inventory.schema.ts`, `inventory-movement.schema.ts`, `inventory-alert-rule.schema.ts`*
+## Relación Inversa: Product → Inventory (auto-creación)
+
+Desde commit `bb76281ce` (2026-05-05), la creación de un Producto dispara la creación automática de documentos `Inventory`. La relación se ejecuta en sentido inverso al de las queries normales:
+
+```mermaid
+flowchart TD
+    P[POST /products<br/>+ initialInventoryQuantity?] --> PS[ProductsService.create]
+    PS --> SAVE[Save Product]
+    SAVE --> CALL[InventoryService.createInitialInventoriesForProductInGroup]
+    CALL --> GROUP[getTenantGroup<br/>matrix + sucursales]
+    GROUP --> FAN{Por cada tenant}
+    FAN -->|owner| INV_OWNER[Inventory qty=initialQty<br/>+ InventoryMovement IN]
+    FAN -->|sucursales| INV_SUB[Inventory qty=0]
+    FAN -->|sin warehouse| WARN[Warning + skip]
+```
+
+**Reglas críticas:**
+
+| Aspecto | Comportamiento |
+|---|---|
+| **Scope** | Fan-out a TODO el grupo operacional (matriz + sucursales), no sólo al tenant del usuario |
+| **Owner tenant** | El del JWT del usuario (`req.user.tenantId`), NO el tenant del catálogo. Es el único que recibe `initialQuantity > 0` |
+| **Warehouse del owner** | Si llega `initialInventoryWarehouseId` se usa; si no, `getDefaultWarehouse(ownerTenantId)` |
+| **Warehouse de sucursales** | Siempre `getDefaultWarehouse(tenantId)` por sucursal |
+| **Variantes** | Si el producto tiene `variants[]`, se crea un `Inventory` por variante en cada tenant |
+| **Idempotencia** | El filtro `(tenantId, productId, variantId)` se chequea antes de insertar — pre-existentes se cuentan en `skipped` |
+| **Audit trail** | Si `qty > 0` en owner, se crea `InventoryMovement` tipo `IN` con `reason: "Stock inicial al crear producto"`. Si no hay `createdBy`, se omite el movement con warning |
+| **Tolerancia a fallos** | Si una sucursal no tiene warehouse, registra warning y continúa con las demás. Si el helper completo falla, se loguea error pero NO aborta la creación del Product |
+
+**Helpers en `InventoryService`:**
+
+- `getTenantGroup(tenantId)` → resuelve matriz + sucursales (input puede ser cualquiera del grupo). Lee `Tenant.parentTenantId` y `Tenant.isSubsidiary`.
+- `createInitialInventoriesForProductInGroup(product, options, session?)` → orquesta el fan-out. Soporta `ClientSession` opcional para transacciones del bulk-create.
+
+Ver `products/functions.md` para el flujo completo y `products/api-reference.md` para el contrato HTTP.
+
+---
+
+*Última actualización: 2026-05-09*
+*Archivos fuente: `inventory.schema.ts`, `inventory-movement.schema.ts`, `inventory-alert-rule.schema.ts`, `inventory.service.ts` (createInitialInventoriesForProductInGroup, getTenantGroup, getDefaultWarehouse)*

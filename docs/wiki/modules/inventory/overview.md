@@ -25,6 +25,7 @@ Es el corazón operativo del sistema porque conecta las compras (lo que entra) c
 
 ## Funcionalidades principales
 
+- **Auto-creación al crear un Producto**: Cuando se da de alta un producto nuevo desde el catálogo, el sistema crea automáticamente su `Inventory` (qty=0) en **todos los tenants del grupo operacional** (matriz + sucursales). Si el usuario indica `Stock inicial`, ese valor se asigna sólo al tenant del usuario (con un movimiento `IN` para audit trail). Elimina el paso manual de "primero crear producto, después crear inventario". Idempotente: no sobreescribe inventarios pre-existentes. Ver `data-model.md` y `products/api-reference.md`.
 - **Stock en tiempo real**: Ve la cantidad disponible, reservada, y total de cada producto en cada almacén
 - **Ajustes manuales**: Cuando el conteo físico no coincide con el sistema, ajusta la cantidad con una razón documentada (conteo físico, daño, merma, devolución)
 - **Ajustes masivos (bulk)**: Importa un archivo Excel con las cantidades reales de muchos productos y ajusta todo de una vez
@@ -51,6 +52,7 @@ flowchart LR
     end
 
     PURCH["🛒 Compras"] -->|"addStockFromPurchase()"| STOCK
+    PROD_CREATE["📦 Productos (create)"] -->|"createInitialInventoriesForProductInGroup()"| STOCK
     ORD["🛍️ Órdenes"] -->|"reserveInventory()<br/>commitInventory()"| STOCK
     TRANSFER["🔄 Transferencias"] -->|"despacho/recepción"| STOCK
     PROD["📦 Productos"] -->|"consulta stock"| STOCK
@@ -70,5 +72,5 @@ flowchart LR
 
 ---
 
-*Última actualización: 2026-04-28*
+*Última actualización: 2026-05-09*
 *Archivos fuente: `food-inventory-saas/src/modules/inventory/`, `food-inventory-admin/src/components/InventoryManagement.jsx`*

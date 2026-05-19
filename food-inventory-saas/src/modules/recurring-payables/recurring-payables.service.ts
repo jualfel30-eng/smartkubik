@@ -17,7 +17,7 @@ import {
 } from "../payables/payables.service";
 import { CustomersService } from "../customers/customers.service";
 import { CreateCustomerDto } from "../../dto/customer.dto";
-import * as moment from "moment-timezone";
+import moment from "moment-timezone";
 
 @Injectable()
 export class RecurringPayablesService {
@@ -135,8 +135,10 @@ export class RecurringPayablesService {
       userId,
     );
 
+    const frequencyMonths: Record<string, number> = { monthly: 1, quarterly: 3, yearly: 12 };
+    const monthsToAdd = frequencyMonths[template.frequency] ?? 1;
     const newNextDueDate = moment(template.nextDueDate)
-      .add(1, "month")
+      .add(monthsToAdd, "month")
       .toDate();
     await this.recurringPayableModel.updateOne(
       { _id: id },

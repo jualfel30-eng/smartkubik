@@ -28,6 +28,8 @@ import { OrdersFilterChips } from './OrdersFilterChips';
 import { OrderCardMobile } from './OrderCardMobile';
 import { OrdersSmartTable } from './OrdersSmartTable';
 import { OrderActionSheet } from './OrderActionSheet';
+import { PaymentReviewChip } from '@/components/payment-requests/PaymentReviewChip';
+import { RequestPaymentModal } from '@/components/payment-requests/RequestPaymentModal';
 import { cn } from '@/lib/utils';
 import { SPRING, listItem, STAGGER, tapScale } from '@/lib/motion';
 import haptics from '@/lib/haptics';
@@ -139,7 +141,7 @@ function computeWeeklyMaxAmount(orders) {
 
 export function OrdersHistoryV2() {
   const navigate = useNavigate();
-  const { tenant, user, token } = useAuth();
+  const { tenant, user, token, hasPermission } = useAuth();
   const { loadCustomers } = useCrmContext();
   const { rate: exchangeRate } = useExchangeRate();
   const isMobile = useMediaQuery('(max-width: 767px)');
@@ -163,6 +165,9 @@ export function OrdersHistoryV2() {
   const [processingOrder, setProcessingOrder] = useState(null);
   const [billingOrder, setBillingOrder] = useState(null);
   const [actionSheetOrder, setActionSheetOrder] = useState(null);
+  const [requestPaymentOrder, setRequestPaymentOrder] = useState(null);
+
+  const canRequestPayment = hasPermission?.('payment_requests_review') ?? false;
 
   const restaurantEnabled = Boolean(
     tenant?.enabledModules?.restaurant ||
@@ -267,6 +272,8 @@ export function OrdersHistoryV2() {
     switch (actionId) {
       case 'view-detail':
         setDetailsOrder(order); break;
+      case 'request-payment':
+        setRequestPaymentOrder(order); break;
       case 'invoice':
         setBillingOrder(order); break;
       case 'view-invoice':
@@ -353,11 +360,15 @@ export function OrdersHistoryV2() {
           </motion.button>
         </div>
 
-        <OrdersFilterChips
-          active={filter}
-          onChange={handleFilterChange}
-          counts={filterCounts}
-        />
+        <div className="flex items-center gap-2 min-w-0">
+          <OrdersFilterChips
+            active={filter}
+            onChange={handleFilterChange}
+            counts={filterCounts}
+            className="flex-1 min-w-0"
+          />
+          <PaymentReviewChip hideWhenEmpty />
+        </div>
       </div>
 
       {error && (
@@ -415,8 +426,15 @@ export function OrdersHistoryV2() {
         onClose={() => setActionSheetOrder(null)}
         order={actionSheetOrder}
         restaurantEnabled={restaurantEnabled}
+        canRequestPayment={canRequestPayment}
         onPrimary={handlePrimaryAction}
         onSecondary={handleSecondaryAction}
+      />
+
+      <RequestPaymentModal
+        open={Boolean(requestPaymentOrder)}
+        onOpenChange={(open) => !open && setRequestPaymentOrder(null)}
+        order={requestPaymentOrder}
       />
 
       {/* Reused V2 dialogs — no UI rewrite, just orchestration */}

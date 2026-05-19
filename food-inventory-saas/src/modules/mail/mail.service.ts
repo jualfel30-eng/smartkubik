@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject, forwardRef } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
-import * as nodemailer from "nodemailer";
+import nodemailer from "nodemailer";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { GmailOAuthService } from "./gmail-oauth.service";
 import { OutlookOAuthService } from "./outlook-oauth.service";

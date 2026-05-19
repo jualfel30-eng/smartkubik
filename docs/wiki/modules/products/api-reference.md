@@ -1,7 +1,7 @@
 # Productos — Referencia API
 
 > Diseñado para ser consumido por agentes de IA.
-> Última actualización: 2026-04-28
+> Última actualización: 2026-05-09
 
 ---
 
@@ -69,9 +69,19 @@
     "reorderPoint": "number",
     "reorderQuantity": "number",
     "fefoEnabled": "boolean"
-  }
+  },
+  "initialInventoryQuantity": "number — opcional, min: 0. Stock inicial en el warehouse del tenant del usuario logueado",
+  "initialInventoryWarehouseId": "MongoId — opcional. Warehouse destino. Si se omite, usa el default del tenant"
 }
 ```
+
+**Side effect — auto-creación de Inventory** (desde commit `bb76281ce`, 2026-05-05):
+Al crear el producto, el backend invoca `InventoryService.createInitialInventoriesForProductInGroup()` que:
+- Crea un documento `Inventory` (qty=0) en **cada tenant del grupo operacional** (matriz + sucursales) — no solo en el del usuario.
+- Si `initialInventoryQuantity > 0`, asigna esa cantidad **únicamente al tenant owner** (el del JWT del usuario, no el del catálogo) y registra un `InventoryMovement` tipo `IN` con `reason: "Stock inicial al crear producto"` para audit trail.
+- Si el producto tiene `variants`, crea un `Inventory` por variante en cada tenant.
+- Es **idempotente**: si ya existe `(tenantId, productId, variantId)` lo saltea sin sobreescribir.
+- Si un tenant del grupo no tiene warehouse usable, registra warning y continúa con los demás (no aborta la creación del producto).
 
 **Response (201):**
 ```json
@@ -83,7 +93,7 @@
     "name": "Harina Pan",
     "variants": [{ "_id": "...", "sku": "TIE-0042", "basePrice": 2.50 }],
     "tenantId": "ObjectId",
-    "createdAt": "2026-04-28T..."
+    "createdAt": "2026-05-09T..."
   }
 }
 ```
@@ -154,6 +164,8 @@
   "message": "15 productos creados exitosamente."
 }
 ```
+
+> ⚠️ **Side effect**: cada producto del bulk dispara la misma auto-creación de `Inventory` que `POST /products`, pero siempre con `initialQuantity=0` (el bulk no acepta `initialInventoryQuantity` por producto).
 
 ---
 
@@ -399,5 +411,5 @@
 
 ---
 
-*Última actualización: 2026-04-28*
+*Última actualización: 2026-05-09*
 *Archivos fuente: `products.controller.ts`, `products-public.controller.ts`, `products.service.ts`, `schemas/product.schema.ts`, `dto/*.dto.ts`*

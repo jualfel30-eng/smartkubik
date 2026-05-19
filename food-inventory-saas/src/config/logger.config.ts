@@ -4,7 +4,7 @@ import {
   WinstonModuleOptions,
   utilities as nestWinstonModuleUtilities,
 } from "nest-winston";
-import * as winston from "winston";
+import winston from "winston";
 
 const DEFAULT_LOG_LEVEL = process.env.LOG_LEVEL || "info";
 const LOG_DIRECTORY =

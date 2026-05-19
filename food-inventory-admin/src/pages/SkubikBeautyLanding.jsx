@@ -15,7 +15,7 @@ const BEAUTY_DATA = {
   },
 
   hero: {
-    eyebrow: 'Skubik · Software para negocios de belleza',
+    eyebrow: 'La plataforma para negocios de belleza',
     title: 'Tu talento está en tus manos, no pegado a un teclado.',
     subtitle: 'Tu propia web donde tus clientes reservan solos. WhatsApp confirma sus citas automáticamente. Y nadie te embarca: cobras anticipo antes de agendar.',
     stats: [
@@ -23,9 +23,9 @@ const BEAUTY_DATA = {
       { value: 'WhatsApp', label: 'Confirma por ti' },
       { value: 'Anticipo', label: 'Cero embarques' },
     ],
-    primaryCTA: 'Compruébalo gratis 14 días',
-    secondaryCTA: '¿Dudas? Hablemos por WhatsApp',
-    microcopy: 'Sin tarjeta · 14 días · Migramos tu agenda gratis',
+    primaryCTA: 'Compruébalo gratis',
+    secondaryCTA: '¿Dudas? Hablemos',
+    microBadges: ['Sin tarjeta', '14 días', 'Migramos tu agenda gratis'],
   },
 
   pain: {
@@ -96,32 +96,91 @@ const BEAUTY_DATA = {
   },
 
   chat: {
-    title: 'Habla con nuestra asistente de belleza',
-    subtitle: 'Respuestas honestas, en segundos. Sin formularios, sin "un asesor te contactará".',
-    assistantName: 'Kubia',
-    assistantRole: 'Asistente SmartKubik',
-    seed: [
-      { from: 'bot', text: '¡Hola! Soy Kubia 👋 Cuéntame de tu salón y te digo si somos buena match. ¿Qué haces?' },
+    eyebrow: 'WhatsApp integrado',
+    titleStart: 'WhatsApp, tu',
+    titleEm: 'asistente automatizado.',
+    subtitle: 'Confirmaciones, recordatorios, reactivaciones y un chatbot con IA. Tus clientas responden — tú no levantas el teléfono.',
+    features: [
+      {
+        icon: 'template',
+        title: 'Plantillas editables',
+        desc: 'Escribes el mensaje una vez, Skubik lo envía siempre. Tono, emojis y firma del salón — los pones tú.',
+      },
+      {
+        icon: 'auto',
+        title: 'Automático por evento',
+        desc: 'Cita confirmada, 24h antes, 8 semanas sin venir. Cada disparo va sin que muevas un dedo.',
+      },
+      {
+        icon: 'inbox',
+        title: 'Bandeja unificada',
+        desc: 'Todos los chats — automáticos y humanos — en una sola pantalla. Tu equipo responde desde Skubik, no desde sus celulares.',
+      },
+      {
+        icon: 'ai',
+        title: 'Chatbot con IA',
+        desc: 'Si la clienta pregunta precios, horarios o si atienden niñas, la IA responde sola. Si la pregunta es delicada, te avisa.',
+      },
     ],
-    prompts: [
-      '¿Cuánto cuesta para un salón de 3 estilistas?',
-      '¿Cómo funcionan los anticipos en Venezuela?',
-      '¿Puedo migrar desde mi cuaderno/Excel?',
-      '¿Cobran comisión por cita?',
-    ],
-    founder: {
-      name: 'Jualfel Morales',
-      role: 'Fundador · SmartKubik',
-      quote: 'Mi mamá tuvo un salón por 22 años. Vi de cerca cómo un cuaderno perdido un viernes destruye una semana. SmartKubik existe para que eso no le pase a nadie más.',
+    stat: {
+      big: '98%',
+      label: 'de tus clientas leen WhatsApp en los primeros 5 minutos.',
+      foot: 'Email abierto: 21%. SMS: 19%. Por eso todo va por WhatsApp.',
     },
+    salonName: 'Salón Loft 47',
+    salonHandle: 'Andrea · clienta',
+    tabs: [
+      {
+        key: 'confirm',
+        label: 'Confirmación',
+        sub: 'Cuando reservan',
+        conv: [
+          { from: 'cliente', text: 'Hola, quisiera reservar un corte 🙌', time: '10:42' },
+          { from: 'salon', text: '¡Hola Andrea! 👋 Soy el asistente de *Salón Loft 47*.\n\nTu reserva quedó así:\n📅 Sábado 14 · 11:00 am\n💇 Corte + lavado con Mariana\n💵 Anticipo $10 (Pago Móvil)\n\n¿Confirmamos?', time: '10:42' },
+          { from: 'cliente', text: 'Sí, perfecto 😊', time: '10:43' },
+          { from: 'salon', text: 'Listo, cita confirmada ✅\nTe esperamos el sábado. Si necesitas reagendar, escríbenos por aquí.', time: '10:43' },
+        ],
+      },
+      {
+        key: 'remind',
+        label: 'Recordatorio',
+        sub: '24h antes',
+        conv: [
+          { from: 'salon', text: 'Hola Andrea ✨\nTe recordamos tu cita de *mañana* en Salón Loft 47:\n\n📅 Sábado 14 · 11:00 am\n💇 Corte + lavado · Mariana\n📍 Av. Principal #47\n\nResponde *1* para confirmar · *2* para reagendar.', time: '6:00' },
+          { from: 'cliente', text: '1', time: '7:14' },
+          { from: 'salon', text: '¡Genial! Te esperamos mañana 🤍\nSi te demoras, avísanos por aquí.', time: '7:14' },
+        ],
+      },
+      {
+        key: 'reactivate',
+        label: 'Reactivación',
+        sub: 'Sin visitar 8+ semanas',
+        conv: [
+          { from: 'salon', text: 'Hola Andrea 💔 hace *8 semanas* que no nos vemos.\nTu última cita fue con Mariana el 17 de marzo.\n\nEsta semana te regalamos *15% de descuento* si reservas hoy. ¿Te apuntas?', time: '15:20' },
+          { from: 'cliente', text: 'Uy sí, ya me toca 😅', time: '15:23' },
+          { from: 'salon', text: 'Perfecto. Tengo disponible:\n• Jueves 5:00 pm\n• Sábado 11:00 am\n\n¿Cuál te queda mejor?', time: '15:23' },
+        ],
+      },
+      {
+        key: 'ai',
+        label: 'Chatbot IA',
+        sub: 'Responde solo',
+        conv: [
+          { from: 'cliente', text: 'hola, atienden niñas? mi hija tiene 6', time: '19:08' },
+          { from: 'salon', text: '¡Hola! 👋 Sí, atendemos desde 4 años.\nCorte infantil $12 — incluye peinado y un mini gloss 🌸\n¿Quieres ver disponibilidad esta semana?', time: '19:08' },
+          { from: 'cliente', text: 'sí, sábado en la tarde si pueden', time: '19:09' },
+          { from: 'salon', text: 'Para sábado tarde tengo:\n• 3:00 pm con Sofía\n• 4:30 pm con Mariana\n\nResponde con la hora y reservo 🤍', time: '19:09' },
+        ],
+      },
+    ],
   },
 
   start: {
-    title: 'Empezar toma 12 minutos. Lo medimos.',
+    title: 'Empezar toma 10 minutos. Lo medimos.',
     steps: [
-      { n: '1', t: 'Nos escribes por WhatsApp', d: 'Te mandamos un link corto. Llenas datos del salón y servicios.' },
-      { n: '2', t: 'Migramos tu agenda', d: 'Si tienes cuaderno, Excel, o veníais de otro sistema, nosotros lo pasamos. Gratis.' },
-      { n: '3', t: 'Compartes el link', d: 'Pegas tu link en Instagram, WhatsApp Business y Google. Listo.' },
+      { n: '1', t: 'Regístrate o contáctanos', d: 'Llenas un formulario corto con los datos del negocio, servicios y staff.' },
+      { n: '2', t: 'Migramos tu negocio', d: 'Si usabas Excel, o vienes de otro sistema, nosotros lo pasamos. Gratis.' },
+      { n: '3', t: 'Compartes el link', d: 'Tu web está activa. Comparte el link en Instagram, WhatsApp y Google.' },
     ],
     cta: 'Empezar ahora',
   },
@@ -132,25 +191,28 @@ const BEAUTY_DATA = {
     plans: [
       {
         name: 'Solo',
-        price: '15',
+        priceMonthly: '18',
+        priceAnnual: '15',
         per: '/mes',
         desc: 'Para quien empieza sola.',
-        features: ['1 agenda', 'Reservas online', 'Cobro de anticipo', '200 clientas', 'WhatsApp recordatorios'],
+        features: ['1 agenda', 'Reservas online', 'Cobro de anticipo', '200 clientas'],
         cta: 'Probar Solo',
       },
       {
         name: 'Estudio',
-        price: '35',
+        priceMonthly: '28',
+        priceAnnual: '25',
         per: '/mes',
         desc: 'El favorito. Para salones pequeños.',
         featured: true,
         badge: 'Más elegido',
-        features: ['Hasta 5 agendas', 'Todo lo de Solo', 'Comisiones por estilista', 'Inventario básico', 'Reportes', '1.000 clientas'],
+        features: ['Hasta 5 agendas', 'Todo lo de Solo', 'WhatsApp automatizado', 'Comisiones por estilista', 'Inventario básico', 'Reportes', '1.000 clientas'],
         cta: 'Probar Estudio',
       },
       {
         name: 'Salón',
-        price: '65',
+        priceMonthly: '60',
+        priceAnnual: '50',
         per: '/mes',
         desc: 'Para operaciones establecidas.',
         features: ['Hasta 15 agendas', 'Todo lo de Estudio', 'Inventario avanzado', 'Paquetes y bonos', 'Soporte prioritario', '5.000 clientas'],
@@ -158,7 +220,8 @@ const BEAUTY_DATA = {
       },
       {
         name: 'Multi',
-        price: '95',
+        priceMonthly: '125',
+        priceAnnual: '99',
         per: '+ /mes',
         desc: 'Para cadenas y franquicias.',
         features: ['Agendas ilimitadas', 'Múltiples sedes', 'Dashboard ejecutivo', 'API + integraciones', 'Gerente de cuenta', 'Clientas ilimitadas'],
@@ -188,8 +251,8 @@ const BEAUTY_DATA = {
   },
 
   closure: {
-    title: 'Tu sábado empieza a las 8am. Que tu agenda ya esté lista.',
-    subtitle: 'Hablemos hoy. Probablemente en media hora tienes tu salón online.',
+    title: 'Empieza gratis hoy.',
+    subtitle: '10 minutos para configurarlo. 14 días para probar. Sin tarjeta. Sin compromiso. Si no funciona, te ayudamos a migrar tus datos a donde quieras.',
     cta: 'Hablar por WhatsApp',
   },
 };
@@ -229,16 +292,26 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-progress-bar { height: 100%; background: var(--s-accent); width: 0%; transition: width 0.08s linear; }
 
 /* Nav */
-.s-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 60; padding: 18px 32px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(14px); background: rgba(11,10,9,0.6); border-bottom: 1px solid var(--s-line); transition: transform 0.35s cubic-bezier(0.22,1,0.36,1); }
+.s-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 60; padding: 18px 32px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(14px); background: rgba(11,10,9,0.6); border-bottom: 1px solid var(--s-line); transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), background 0.35s ease, backdrop-filter 0.35s ease, border-color 0.35s ease; }
+.s-nav.transparent { background: transparent; backdrop-filter: none; border-bottom-color: transparent; }
 .s-nav.hidden { transform: translateY(-100%); }
-.s-nav-logo { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+.s-nav-logo { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 500; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; color: var(--s-fg); }
 .s-nav-logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--s-accent); animation: s-pulse 2s ease-in-out infinite; }
 @keyframes s-pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.6; } }
-.s-nav-logo-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--s-muted); letter-spacing: 0.15em; text-transform: uppercase; margin-left: 4px; }
 .s-nav-links { display: flex; gap: 24px; font-size: 13px; }
 .s-nav-links a { color: var(--s-muted); text-decoration: none; transition: color 0.2s; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
 .s-nav-links a:hover { color: var(--s-fg); }
 @media (max-width: 720px) { .s-nav-links { display: none; } }
+
+.s-nav-cta { display: flex; align-items: center; gap: 8px; }
+.s-nav-icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--s-line); color: var(--s-fg); text-decoration: none; transition: all 0.2s; cursor: none; }
+.s-nav-icon-btn svg { width: 16px; height: 16px; }
+.s-nav-icon-btn:hover { border-color: var(--s-accent); color: var(--s-accent); transform: translateY(-1px); }
+.s-nav.transparent .s-nav-icon-btn { border-color: rgba(255,255,255,0.25); }
+.s-nav-register-btn { display: inline-flex; align-items: center; padding: 9px 18px; background: var(--s-fg); color: var(--s-bg); border-radius: 99px; font-weight: 600; font-size: 13px; text-decoration: none; transition: all 0.2s; cursor: none; }
+.s-nav-register-btn:hover { background: var(--s-accent); color: #fff; transform: translateY(-1px); }
+@media (max-width: 700px) { .s-nav { padding: 14px 18px; } .s-nav-register-btn { padding: 8px 14px; font-size: 12px; } .s-nav-icon-btn { width: 36px; height: 36px; } }
+
 .s-wa-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--s-green); color: #fff; text-decoration: none; border-radius: 99px; font-weight: 600; font-size: 13px; border: none; cursor: none; transition: transform 0.2s; }
 .s-wa-btn:hover { transform: translateY(-1px); }
 
@@ -253,6 +326,15 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 
 /* === HERO === */
 .s-hero { min-height: 100vh; padding: 140px 0 80px; position: relative; overflow: hidden; }
+
+/* Mobile fullscreen video background */
+.s-hero-mobile-bg { position: absolute; inset: 0; overflow: hidden; z-index: 0; pointer-events: none; }
+.s-hero-mobile-bg video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.s-hero-mobile-bg-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.65) 35%, rgba(10,10,10,0.85) 75%, var(--s-bg) 100%); }
+.s-hero.s-hero-mobile { padding: 110px 0 120px; min-height: 100svh; }
+.s-hero.s-hero-mobile .s-hero-grid-bg { opacity: 0.12; }
+.s-hero.s-hero-mobile .s-hero-inner { position: relative; z-index: 2; }
+.s-hero.s-hero-mobile .s-hero-hint { z-index: 2; }
 .s-hero-grid-bg { position: absolute; inset: 0; background-image: linear-gradient(var(--s-line) 1px, transparent 1px), linear-gradient(90deg, var(--s-line) 1px, transparent 1px); background-size: 80px 80px; opacity: 0.5; mask: radial-gradient(ellipse at center top, #000 0%, transparent 70%); }
 .s-hero-inner { position: relative; display: grid; grid-template-columns: 1.1fr 1fr; gap: 60px; align-items: center; }
 @media (max-width: 960px) { .s-hero-inner { grid-template-columns: 1fr; } }
@@ -261,16 +343,33 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-hero-word { display: inline-block; opacity: 0; transform: translateY(40px); transition: opacity 0.7s cubic-bezier(0.2,0.8,0.2,1), transform 0.7s cubic-bezier(0.2,0.8,0.2,1); }
 .s-hero-word.in { opacity: 1; transform: none; }
 .s-hero-sub { font-size: 19px; line-height: 1.5; color: var(--s-muted); max-width: 520px; margin-bottom: 40px; }
+@media (max-width: 700px) {
+  .s-hero-left h1 { font-size: 48px; margin: 18px 0 22px; }
+  .s-hero-sub { font-size: 16px; margin-bottom: 32px; }
+}
 .s-hero-cta { display: flex; gap: 14px; flex-wrap: wrap; }
+@media (max-width: 700px) { .s-hero-cta .s-btn { font-size: 13px; padding: 14px 22px; gap: 8px; } }
 .s-btn { display: inline-flex; align-items: center; gap: 10px; padding: 16px 26px; border-radius: 99px; font-weight: 600; font-size: 15px; text-decoration: none; border: 1px solid transparent; cursor: none; transition: all 0.25s cubic-bezier(0.2,0.8,0.2,1); position: relative; overflow: hidden; }
 .s-btn-primary { background: var(--s-fg); color: var(--s-bg); }
 .s-btn-primary:hover { background: var(--s-accent); color: #fff; transform: translateY(-2px); }
 .s-btn-ghost { background: transparent; color: var(--s-fg); border-color: var(--s-line); }
 .s-btn-ghost:hover { border-color: var(--s-fg); }
-.s-hero-micro { margin-top: 18px; font-size: 12px; color: var(--s-muted); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+.s-hero-micro { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 8px; }
+.s-hero-micro-badge { display: inline-flex; align-items: center; padding: 6px 12px; border: 1px solid var(--s-line); border-radius: 99px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--s-muted); text-transform: uppercase; letter-spacing: 0.08em; background: rgba(255,255,255,0.02); white-space: nowrap; }
+@media (max-width: 700px) { .s-hero-micro { margin-top: 16px; gap: 6px; } .s-hero-micro-badge { padding: 5px 10px; font-size: 10px; } }
 
-/* Hero calendar viz */
-.s-hero-right { position: relative; height: 560px; }
+/* Hero video viz */
+.s-hero-right { position: relative; display: flex; align-items: center; justify-content: center; min-height: 560px; }
+@media (max-width: 960px) { .s-hero-right { min-height: auto; padding-top: 16px; } }
+.s-hero-video-wrap { position: relative; width: 100%; max-width: 380px; aspect-ratio: 9 / 16; }
+@media (max-width: 960px) { .s-hero-video-wrap { max-width: 320px; margin: 0 auto; } }
+@media (max-width: 600px) { .s-hero-video-wrap { max-width: 280px; } }
+.s-hero-video-wrap::before { content: ''; position: absolute; inset: -60px; background: radial-gradient(ellipse at center, rgba(255, 90, 44, 0.24), transparent 60%); filter: blur(48px); z-index: 0; pointer-events: none; }
+.s-hero-video-wrap::after { content: ''; position: absolute; inset: -40px; background: radial-gradient(ellipse at 30% 80%, rgba(255, 138, 76, 0.14), transparent 55%); filter: blur(36px); z-index: 0; pointer-events: none; }
+.s-hero-video { position: relative; width: 100%; height: 100%; border-radius: 28px; overflow: hidden; background: #0a0a0a; box-shadow: 0 40px 90px -24px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06); z-index: 1; }
+.s-hero-video video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Hero calendar viz (legacy, kept for fallback) */
 .s-cal { position: absolute; inset: 0; background: var(--s-bg2); border: 1px solid var(--s-line); border-radius: 20px; overflow: hidden; padding: 20px; display: flex; flex-direction: column; }
 .s-cal-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 14px; border-bottom: 1px solid var(--s-line); margin-bottom: 14px; }
 .s-cal-title { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-muted); }
@@ -309,11 +408,11 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 /* === PAIN / SCROLL-HIJACK DOCK CAROUSEL === */
 .s-pain-wrap { position: relative; }
 .s-pain-sticky { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-.s-pain-head { flex-shrink: 0; padding: 80px 32px 24px; max-width: 780px; }
-@media (max-width: 600px) { .s-pain-head { padding: 16px 20px 10px; } }
+.s-pain-head { flex-shrink: 0; padding: 80px 32px 24px; max-width: 780px; margin: 0 auto; text-align: center; }
+@media (max-width: 600px) { .s-pain-head { padding: 16px 20px 10px; text-align: left; margin: 0; } }
 .s-pain-head h2 { font-size: clamp(32px, 5vw, 64px); margin: 14px 0; }
 .s-pain-head h2 em { font-style: italic; color: var(--s-accent); }
-.s-pain-head p { color: var(--s-muted); font-size: 15px; max-width: 520px; line-height: 1.5; margin-top: 6px; }
+.s-pain-head p { color: var(--s-muted); font-size: 15px; max-width: 520px; line-height: 1.5; margin: 6px auto 0; }
 @media (max-width: 600px) {
   .s-pain-head h2 { font-size: 18px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .s-pain-head h2 br { display: none; }
@@ -323,12 +422,27 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 
 /* Carousel track — fills remaining height, cards sized to fit */
 .s-pain-track-wrap { flex: 1; display: flex; align-items: center; min-height: 0; }
-.s-pain-track { display: flex; gap: 28px; padding: 0 calc(50vw - 170px); align-items: center; will-change: transform; height: 100%; }
-@media (max-width: 600px) { .s-pain-track { gap: 18px; padding: 0 calc(50vw - 140px); } }
+.s-pain-track { display: flex; gap: 28px; padding: 0 calc(50vw - var(--pain-card-hw, 170px)); align-items: center; will-change: transform; height: 100%; }
+@media (max-width: 900px) {
+  .s-pain-track-wrap { align-items: stretch; overflow: visible; }
+  .s-pain-track { display: block; padding: 0; gap: 0; height: 100%; width: 100%; position: relative; }
+  .s-pain-track > .s-pain-card + .s-pain-card { margin-top: 0; }
+}
 
 /* Card — aspect-ratio 9:16, height fills available space */
 .s-pain-card { flex-shrink: 0; width: auto; aspect-ratio: 9/16; height: 90%; max-height: 680px; position: relative; border-radius: 28px; cursor: default; perspective: 900px; will-change: transform, filter; transform-style: preserve-3d; }
-@media (max-width: 600px) { .s-pain-card { height: 88%; max-height: 600px; } }
+@media (max-width: 900px) {
+  .s-pain-card {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    height: min(77vh, calc(100vh - 200px));
+    max-height: 685px;
+    min-height: 342px;
+    width: auto;
+    transform: translate(-50%, -50%);
+  }
+}
 
 /* Glow — border-only, follows cursor position, covers 3/4 perimeter */
 .s-pain-glow { position: absolute; inset: -3px; border-radius: 31px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 1; }
@@ -642,12 +756,12 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 /* === WEB SHOWCASE === */
 .s-web { padding: 140px 0; position: relative; overflow: hidden; }
 @media (max-width: 600px) { .s-web { padding: 90px 0; } }
-.s-web-head { max-width: 780px; padding: 0 32px; margin-bottom: 64px; }
-@media (max-width: 600px) { .s-web-head { padding: 0 20px; margin-bottom: 40px; } }
+.s-web-head { max-width: 780px; padding: 0 32px; margin: 0 auto 64px; text-align: center; }
+@media (max-width: 600px) { .s-web-head { padding: 0 20px; margin: 0 0 40px; text-align: left; } }
 .s-web-head h2 { font-size: clamp(36px, 5.5vw, 64px); margin: 18px 0; }
 .s-web-head h2 em { font-style: italic; color: var(--s-accent); }
-.s-web-head p { color: var(--s-muted); font-size: 17px; line-height: 1.6; max-width: 540px; margin-top: 10px; }
-@media (max-width: 600px) { .s-web-head p { font-size: 15px; } }
+.s-web-head p { color: var(--s-muted); font-size: 17px; line-height: 1.6; max-width: 540px; margin: 10px auto 0; }
+@media (max-width: 600px) { .s-web-head p { font-size: 15px; margin: 10px 0 0; } }
 
 /* Stage with laptop frame */
 .s-web-stage { display: flex; flex-direction: column; align-items: center; max-width: 1200px; margin: 0 auto; padding: 0 32px; }
@@ -781,41 +895,117 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 
 /* === CHAT === */
 .s-chat { padding: 120px 0; position: relative; }
-.s-chat-wrap { display: grid; grid-template-columns: 1fr 1.1fr; gap: 60px; align-items: start; }
-@media (max-width: 900px) { .s-chat-wrap { grid-template-columns: 1fr; } }
-.s-chat-left h2 { font-size: clamp(40px, 5.5vw, 72px); margin: 20px 0; }
-.s-chat-left h2 em { font-style: italic; color: var(--s-accent); }
-.s-chat-left p { color: var(--s-muted); font-size: 17px; line-height: 1.6; margin: 20px 0 32px; }
-.s-founder { display: flex; gap: 16px; padding: 24px; background: var(--s-bg2); border: 1px solid var(--s-line); border-radius: 20px; margin-top: 40px; }
-.s-founder-ph { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--s-accent), #8a3e25); display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-size: 26px; color: #fff; font-style: italic; flex-shrink: 0; }
-.s-founder-name { font-weight: 600; }
-.s-founder-role { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--s-muted); text-transform: uppercase; letter-spacing: 0.1em; margin: 4px 0 10px; }
-.s-founder-q { font-family: 'Fraunces', serif; font-size: 15px; line-height: 1.5; color: var(--s-fg); font-style: italic; }
+.s-chat-section-head { text-align: center; max-width: 780px; margin: 0 auto 64px; padding: 0 20px; }
+.s-chat-section-head h2 { font-size: clamp(40px, 5.5vw, 72px); margin: 20px 0; line-height: 1.05; }
+.s-chat-section-head h2 em { font-style: italic; color: var(--s-accent); }
+.s-chat-section-head p { color: var(--s-muted); font-size: 17px; line-height: 1.6; max-width: 560px; margin: 0 auto; }
+@media (max-width: 600px) { .s-chat-section-head { text-align: left; margin: 0 0 40px; } .s-chat-section-head p { margin: 0; font-size: 15px; } }
+.s-chat-wrap { display: grid; grid-template-columns: 1fr 1.05fr; gap: 60px; align-items: start; }
+@media (max-width: 900px) { .s-chat-wrap { grid-template-columns: 1fr; gap: 48px; } }
 
-.s-chat-window { background: var(--s-bg2); border: 1px solid var(--s-line); border-radius: 24px; overflow: hidden; display: flex; flex-direction: column; height: 560px; }
-.s-chat-head { padding: 14px 18px; border-bottom: 1px solid var(--s-line); display: flex; align-items: center; gap: 12px; }
-.s-chat-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--s-accent), var(--s-accent2)); display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-weight: 600; color: var(--s-bg); }
-.s-chat-head-info { flex: 1; }
-.s-chat-head-name { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
-.s-chat-head-name::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--s-green); }
-.s-chat-head-status { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--s-muted); text-transform: uppercase; letter-spacing: 0.08em; }
-.s-chat-body { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
-.s-chat-msg { max-width: 80%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.5; opacity: 0; transform: translateY(10px); animation: s-msgIn 0.4s forwards; }
+/* WhatsApp features list (left side) */
+.s-wa-features { display: flex; flex-direction: column; gap: 12px; margin: 32px 0; }
+.s-wa-feat { display: flex; gap: 14px; padding: 16px 18px; background: var(--s-bg2); border: 1px solid var(--s-line); border-radius: 14px; transition: border-color 0.25s, transform 0.25s, background 0.25s; }
+.s-wa-feat:hover { border-color: rgba(208, 255, 58, 0.4); transform: translateY(-2px); background: rgba(208, 255, 58, 0.03); }
+.s-wa-feat-icon { width: 38px; height: 38px; flex-shrink: 0; border-radius: 10px; background: linear-gradient(135deg, rgba(208, 255, 58, 0.18), rgba(208, 255, 58, 0.04)); display: flex; align-items: center; justify-content: center; color: var(--s-accent2); }
+.s-wa-feat-icon svg { width: 18px; height: 18px; }
+.s-wa-feat-body { flex: 1; min-width: 0; }
+.s-wa-feat-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; color: var(--s-fg); }
+.s-wa-feat-desc { font-size: 13px; color: var(--s-muted); line-height: 1.5; margin: 0; }
+
+/* Stat card (replaces founder) */
+.s-wa-stat { padding: 24px 26px; background: linear-gradient(135deg, rgba(208, 255, 58, 0.10), rgba(208, 255, 58, 0.02)); border: 1px solid rgba(208, 255, 58, 0.28); border-radius: 18px; }
+.s-wa-stat-big { font-family: 'Fraunces', serif; font-size: clamp(48px, 6vw, 68px); font-weight: 600; color: var(--s-accent2); line-height: 1; letter-spacing: -0.03em; }
+.s-wa-stat-label { font-size: 15px; color: var(--s-fg); margin-top: 10px; line-height: 1.5; max-width: 380px; }
+.s-wa-stat-foot { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--s-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 14px; }
+
+/* WhatsApp window */
+.s-chat-window { background: #0b141a; border-radius: 18px; overflow: hidden; display: flex; flex-direction: column; height: 640px; box-shadow: 0 30px 80px -20px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04); }
+@media (max-width: 600px) { .s-chat-window { height: 580px; border-radius: 14px; } }
+
+.s-chat-head { padding: 10px 14px; background: #202c33; display: flex; align-items: center; gap: 12px; }
+.s-chat-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--s-accent), var(--s-accent2)); display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+.s-chat-avatar svg { width: 20px; height: 20px; }
+.s-chat-head-info { flex: 1; min-width: 0; }
+.s-chat-head-name { font-weight: 500; font-size: 15px; color: #e9edef; display: block; }
+.s-chat-head-name::after { display: none; }
+.s-chat-head-status { font-family: inherit; font-size: 12px; color: #aebac1; text-transform: none; letter-spacing: 0; margin-top: 1px; }
+.s-chat-head-icons { display: flex; gap: 22px; color: #aebac1; align-items: center; }
+.s-chat-head-icons svg { width: 18px; height: 18px; }
+@media (max-width: 600px) { .s-chat-head-icons { gap: 16px; } .s-chat-head-icons svg { width: 16px; height: 16px; } }
+
+/* Tabs */
+.s-chat-tabs { display: flex; gap: 6px; padding: 10px; background: #111b21; border-bottom: 1px solid rgba(255,255,255,0.04); overflow-x: auto; scrollbar-width: none; }
+.s-chat-tabs::-webkit-scrollbar { display: none; }
+.s-chat-tab { flex: 1; min-width: max-content; padding: 7px 12px; background: transparent; border: 1px solid transparent; color: #aebac1; font-size: 12px; font-weight: 500; cursor: none; border-radius: 99px; transition: all 0.2s; white-space: nowrap; font-family: inherit; }
+.s-chat-tab:hover { color: #e9edef; background: rgba(255,255,255,0.04); }
+.s-chat-tab.active { background: rgba(37, 211, 102, 0.18); border-color: rgba(37, 211, 102, 0.32); color: #25d366; }
+.s-chat-tab.active:hover { background: rgba(37, 211, 102, 0.22); }
+
+/* Body (with subtle WA pattern) */
+.s-chat-body {
+  flex: 1;
+  padding: 16px 12px 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: #0b141a;
+  background-image:
+    radial-gradient(circle at 18% 24%, rgba(255,255,255,0.03) 1.2px, transparent 1.6px),
+    radial-gradient(circle at 62% 68%, rgba(255,255,255,0.022) 1.2px, transparent 1.6px),
+    radial-gradient(circle at 82% 18%, rgba(255,255,255,0.018) 1px, transparent 1.4px),
+    radial-gradient(circle at 35% 82%, rgba(255,255,255,0.02) 1px, transparent 1.4px);
+  background-size: 80px 80px, 110px 110px, 60px 60px, 90px 90px;
+}
+.s-chat-body::-webkit-scrollbar { width: 6px; }
+.s-chat-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 3px; }
+
+/* Date separator */
+.s-chat-date { align-self: center; padding: 4px 12px; background: rgba(28, 41, 51, 0.85); color: #aebac1; font-size: 11px; border-radius: 8px; margin: 4px 0 8px; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
+
+/* Messages */
+.s-chat-msg {
+  max-width: 78%;
+  padding: 6px 9px 6px 10px;
+  border-radius: 8px;
+  font-size: 14.2px;
+  line-height: 1.38;
+  white-space: pre-wrap;
+  position: relative;
+  opacity: 0;
+  transform: translateY(6px);
+  animation: s-msgIn 0.32s forwards;
+  box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+  word-wrap: break-word;
+}
 @keyframes s-msgIn { to { opacity: 1; transform: none; } }
-.s-chat-msg.bot { background: var(--s-card); color: var(--s-fg); border-bottom-left-radius: 4px; align-self: flex-start; }
-.s-chat-msg.user { background: var(--s-accent); color: #fff; border-bottom-right-radius: 4px; align-self: flex-end; }
-.s-chat-typing { display: inline-flex; align-items: center; gap: 4px; padding: 12px 14px; background: var(--s-card); border-radius: 16px; border-bottom-left-radius: 4px; align-self: flex-start; }
-.s-chat-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--s-muted); animation: s-typingDot 1.4s infinite; }
+.s-chat-msg strong, .s-chat-msg b { font-weight: 600; }
+.s-chat-msg.cliente { background: #202c33; color: #e9edef; align-self: flex-start; border-top-left-radius: 0; }
+.s-chat-msg.salon { background: #005c4b; color: #e9edef; align-self: flex-end; border-top-right-radius: 0; }
+.s-chat-msg-text { display: block; }
+.s-chat-msg-meta { display: inline-flex; align-items: center; gap: 3px; float: right; margin: 4px -2px -2px 8px; height: 14px; }
+.s-chat-msg-time { font-size: 10.5px; color: rgba(233, 237, 239, 0.55); }
+.s-chat-msg.cliente .s-chat-msg-time { color: rgba(233, 237, 239, 0.45); }
+.s-chat-msg-ticks { color: #53bdeb; display: inline-flex; align-items: center; }
+.s-chat-msg-ticks svg { width: 15px; height: 11px; }
+.s-chat-msg.cliente .s-chat-msg-ticks { display: none; }
+
+/* Typing indicator */
+.s-chat-typing { display: inline-flex; align-items: center; gap: 4px; padding: 11px 14px; background: #202c33; border-radius: 8px; border-top-left-radius: 0; align-self: flex-start; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
+.s-chat-typing span { width: 6px; height: 6px; border-radius: 50%; background: rgba(174, 186, 193, 0.6); animation: s-typingDot 1.4s infinite; }
 .s-chat-typing span:nth-child(2) { animation-delay: 0.2s; }
 .s-chat-typing span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes s-typingDot { 0%,60%,100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-4px); opacity: 1; } }
-.s-chat-prompts { padding: 12px 16px; display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--s-line); }
-.s-chat-prompt { padding: 8px 14px; background: var(--s-card); border: 1px solid var(--s-line); border-radius: 99px; color: var(--s-fg); font-size: 12px; cursor: none; transition: all 0.2s; }
-.s-chat-prompt:hover { background: var(--s-accent); border-color: var(--s-accent); color: #fff; }
-.s-chat-input { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--s-line); }
-.s-chat-input input { flex: 1; background: var(--s-card); border: 1px solid var(--s-line); border-radius: 99px; padding: 10px 16px; color: var(--s-fg); font-family: inherit; font-size: 14px; outline: none; }
-.s-chat-input input:focus { border-color: var(--s-accent); }
-.s-chat-input button { padding: 10px 18px; background: var(--s-accent); color: #fff; border: none; border-radius: 99px; font-weight: 600; font-size: 13px; cursor: none; }
+@keyframes s-typingDot { 0%,60%,100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-3px); opacity: 1; } }
+
+/* Input bar (visual only) */
+.s-chat-input { display: flex; align-items: center; gap: 8px; padding: 8px 10px 10px; background: #111b21; }
+.s-chat-input-btn { color: #aebac1; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex-shrink: 0; }
+.s-chat-input-btn svg { width: 22px; height: 22px; }
+.s-chat-input-field { flex: 1; background: #2a3942; border-radius: 99px; padding: 9px 16px; color: #8696a0; font-size: 13.5px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.s-chat-input-field-text { flex: 1; }
+.s-chat-input-mic { background: #00a884; width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; }
+.s-chat-input-mic svg { width: 18px; height: 18px; }
 
 /* === PRICING / ROI === */
 .s-pricing { padding: 120px 0; }
@@ -823,30 +1013,43 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-price-head h2 { font-size: clamp(40px, 5.5vw, 72px); margin: 20px 0; }
 .s-price-head h2 em { font-style: italic; color: var(--s-accent); }
 .s-price-head p { color: var(--s-muted); font-size: 17px; max-width: 520px; margin: 0 auto; }
-.s-roi { background: var(--s-bg2); border: 1px solid var(--s-line); border-radius: 24px; padding: 40px; margin-bottom: 40px; max-width: 960px; margin-left: auto; margin-right: auto; }
-.s-roi-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 14px; }
-.s-roi-head h3 { font-family: 'Fraunces', serif; font-size: 24px; font-style: italic; }
+.s-roi { background: var(--s-bg2); border: 1px solid var(--s-line); border-radius: 20px; padding: 28px; margin: 0 auto 40px; max-width: 880px; }
+@media (max-width: 600px) { .s-roi { padding: 20px; border-radius: 18px; margin-bottom: 32px; } }
+.s-roi-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px; }
+.s-roi-head h3 { font-family: 'Fraunces', serif; font-size: 20px; font-style: italic; }
 .s-roi-badge { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 4px 10px; border: 1px solid var(--s-accent); color: var(--s-accent); border-radius: 99px; text-transform: uppercase; letter-spacing: 0.15em; }
-.s-roi-slider-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.s-roi-sliders { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+@media (max-width: 700px) { .s-roi-sliders { grid-template-columns: 1fr; gap: 18px; } }
+.s-roi-slider-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
 .s-roi-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--s-muted); }
 .s-roi-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--s-fg); font-size: 14px; }
-.s-roi input[type=range] { width: 100%; -webkit-appearance: none; height: 6px; background: var(--s-line); border-radius: 99px; outline: none; }
-.s-roi input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; background: var(--s-accent); border-radius: 50%; cursor: none; border: 3px solid var(--s-bg2); box-shadow: 0 0 0 2px var(--s-accent); }
-.s-roi input[type=range]::-moz-range-thumb { width: 20px; height: 20px; background: var(--s-accent); border-radius: 50%; border: 3px solid var(--s-bg2); }
-.s-roi-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; }
-@media (max-width: 600px) { .s-roi-compare { grid-template-columns: 1fr; } }
-.s-roi-col { padding: 24px; border-radius: 16px; position: relative; overflow: hidden; }
-.s-roi-col.bad { background: rgba(255,90,44,0.08); border: 1px solid rgba(255,90,44,0.2); }
-.s-roi-col.good { background: rgba(208,255,58,0.08); border: 1px solid rgba(208,255,58,0.2); }
-.s-roi-col-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--s-muted); margin-bottom: 8px; }
-.s-roi-col-val { font-family: 'Fraunces', serif; font-size: 52px; font-weight: 400; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.s-roi input[type=range] { width: 100%; -webkit-appearance: none; height: 4px; background: var(--s-line); border-radius: 99px; outline: none; }
+.s-roi input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: var(--s-accent); border-radius: 50%; cursor: none; border: 3px solid var(--s-bg2); box-shadow: 0 0 0 1.5px var(--s-accent); }
+.s-roi input[type=range]::-moz-range-thumb { width: 18px; height: 18px; background: var(--s-accent); border-radius: 50%; border: 3px solid var(--s-bg2); }
+.s-roi-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 24px; }
+@media (max-width: 600px) { .s-roi-compare { grid-template-columns: 1fr; gap: 10px; } }
+.s-roi-col { padding: 18px 20px; border-radius: 14px; position: relative; overflow: hidden; }
+.s-roi-col.bad { background: rgba(255,90,44,0.07); border: 1px solid rgba(255,90,44,0.18); }
+.s-roi-col.good { background: rgba(208,255,58,0.07); border: 1px solid rgba(208,255,58,0.18); }
+.s-roi-col-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--s-muted); margin-bottom: 6px; }
+.s-roi-col-val { font-family: 'Fraunces', serif; font-size: clamp(32px, 4.5vw, 42px); font-weight: 400; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.05; }
 .s-roi-col.bad .s-roi-col-val { color: var(--s-accent); }
 .s-roi-col.good .s-roi-col-val { color: var(--s-accent2); }
-.s-roi-col-sub { font-size: 13px; color: var(--s-muted); margin-top: 6px; }
-.s-roi-saves { text-align: center; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--s-line); }
-.s-roi-saves-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--s-muted); text-transform: uppercase; letter-spacing: 0.15em; }
-.s-roi-saves-val { font-family: 'Fraunces', serif; font-style: italic; font-size: clamp(40px, 5vw, 64px); color: var(--s-fg); margin-top: 6px; }
+.s-roi-col-sub { font-size: 12px; color: var(--s-muted); margin-top: 6px; line-height: 1.4; }
+.s-roi-saves { text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--s-line); }
+.s-roi-saves-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--s-muted); text-transform: uppercase; letter-spacing: 0.12em; }
+.s-roi-saves-val { font-family: 'Fraunces', serif; font-style: italic; font-size: clamp(30px, 4.5vw, 48px); color: var(--s-fg); margin-top: 4px; }
 .s-roi-saves-val em { color: var(--s-accent2); font-style: normal; }
+
+.s-price-toggle-wrap { display: flex; justify-content: center; margin: 8px 0 56px; }
+.s-price-toggle { display: inline-flex; padding: 4px; background: var(--s-bg2); border: 1px solid var(--s-line); border-radius: 99px; gap: 4px; }
+.s-price-toggle button { padding: 10px 22px; background: transparent; border: none; color: var(--s-muted); font-size: 13px; font-weight: 600; cursor: none; border-radius: 99px; transition: all 0.25s; display: inline-flex; align-items: center; gap: 8px; font-family: inherit; }
+.s-price-toggle button:hover { color: var(--s-fg); }
+.s-price-toggle button.active { background: var(--s-fg); color: var(--s-bg); }
+.s-price-toggle-badge { font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 2px 7px; border-radius: 99px; background: rgba(255,90,44,0.16); color: var(--s-accent); letter-spacing: 0.05em; font-weight: 700; }
+.s-price-toggle button.active .s-price-toggle-badge { background: rgba(255,90,44,0.25); }
+.s-price-billing { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--s-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: -8px; }
+@media (max-width: 600px) { .s-price-toggle-wrap { margin: 4px 0 40px; } .s-price-toggle button { padding: 9px 18px; font-size: 12px; } }
 
 .s-price-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 @media (max-width: 1000px) { .s-price-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -886,6 +1089,17 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-faq-a { max-height: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.2,0.8,0.2,1); color: var(--s-muted); font-size: 16px; line-height: 1.6; max-width: 720px; }
 .s-faq-item.open .s-faq-a { max-height: 200px; padding-top: 14px; }
 
+/* === AFFILIATE STRIP === */
+.s-aff { padding: 40px 0 80px; }
+.s-aff-card { max-width: 880px; margin: 0 auto; padding: 22px 28px; background: linear-gradient(135deg, rgba(208, 255, 58, 0.08), rgba(208, 255, 58, 0.02)); border: 1px solid rgba(208, 255, 58, 0.28); border-radius: 18px; display: flex; align-items: center; gap: 28px; }
+@media (max-width: 720px) { .s-aff-card { flex-direction: column; align-items: flex-start; gap: 16px; padding: 22px; } }
+.s-aff-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--s-accent2); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.s-aff-eyebrow::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--s-accent2); }
+.s-aff-text { flex: 1; font-size: 16px; line-height: 1.5; color: var(--s-fg); }
+.s-aff-text strong { color: var(--s-accent2); font-weight: 600; }
+.s-aff-cta { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; background: transparent; border: 1px solid rgba(208, 255, 58, 0.5); border-radius: 99px; color: var(--s-accent2); font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; text-decoration: none; white-space: nowrap; transition: all 0.25s; flex-shrink: 0; }
+.s-aff-cta:hover { background: rgba(208, 255, 58, 0.14); border-color: var(--s-accent2); transform: translateY(-2px); }
+
 /* === CLOSURE === */
 .s-close { padding: 160px 0 120px; text-align: center; position: relative; overflow: hidden; }
 .s-close-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(255,90,44,0.15) 0%, transparent 60%); pointer-events: none; }
@@ -913,7 +1127,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-how-step-n { font-family: 'Fraunces', serif; font-size: 72px; font-style: italic; color: var(--s-accent); line-height: 1; margin-bottom: 20px; }
 .s-how-step h3 { font-size: 22px; margin-bottom: 10px; }
 .s-how-step p { color: var(--s-muted); font-size: 14px; line-height: 1.55; }
-.s-how-cta { text-align: center; margin-top: 40px; }
+.s-how-cta { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: 40px; }
 
 /* Reveal */
 .s-reveal { opacity: 0; transform: translateY(40px); transition: all 0.8s cubic-bezier(0.2,0.8,0.2,1); }
@@ -1025,7 +1239,7 @@ function Cursor() {
     rafId = requestAnimationFrame(tick);
     const over = (e) => {
       const t = e.target;
-      if (t.closest('a, button, input, .s-hoverable, .s-faq-item, .s-chat-prompt, .s-tl-scrub-pill')) {
+      if (t.closest('a, button, input, .s-hoverable, .s-faq-item, .s-chat-tab, .s-tl-scrub-pill')) {
         dotRef.current?.classList.add('hover');
       }
     };
@@ -1053,26 +1267,28 @@ function Progress() {
 }
 
 // ---- Nav ----
-function SNav({ D }) {
+function SNav() {
   const [hidden, setHidden] = useState(false);
+  const [transparent, setTransparent] = useState(true);
   const lastY = useRef(0);
   useEffect(() => {
     const onScroll = () => {
       const y = window.scrollY;
+      setTransparent(y < 60);
       const down = y > lastY.current && y > 80;
       setHidden(down);
       lastY.current = y;
     };
     window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   return (
-    <nav className={`s-nav ${hidden ? 'hidden' : ''}`}>
+    <nav className={`s-nav ${hidden ? 'hidden' : ''} ${transparent ? 'transparent' : ''}`}>
       <div className="s-nav-logo">
         <span className="s-nav-logo-dot"></span>
-        SmartKubik
-        <span className="s-nav-logo-tag">/ belleza</span>
+        Skubik
       </div>
       <div className="s-nav-links">
         <a href="#dolor">Dolor</a>
@@ -1080,10 +1296,17 @@ function SNav({ D }) {
         <a href="#precios">Precios</a>
         <a href="#faq">FAQ</a>
       </div>
-      <a href={D.brand.waMsg('Hola, SmartKubik.')} target="_blank" rel="noreferrer" className="s-wa-btn">
-        {WA_ICON}
-        WhatsApp
-      </a>
+      <div className="s-nav-cta">
+        <Link to="/login" className="s-nav-icon-btn" aria-label="Iniciar sesión">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </Link>
+        <Link to="/register/beauty" state={{ source: 'skubik-landing', category: 'barbershop-salon' }} className="s-nav-register-btn">
+          Regístrate
+        </Link>
+      </div>
     </nav>
   );
 }
@@ -1191,9 +1414,27 @@ function HeroHeadline({ title }) {
 
 function SHero({ D }) {
   const h = D.hero;
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 960px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
   return (
-    <section className="s-hero" data-screen-label="01 Hero">
+    <section className={`s-hero ${isMobile ? 's-hero-mobile' : ''}`} data-screen-label="01 Hero">
       <div className="s-hero-grid-bg"></div>
+      {isMobile && (
+        <div className="s-hero-mobile-bg" aria-hidden="true">
+          <video autoPlay muted loop playsInline preload="metadata" poster="/videos/skubik-hero-poster.jpg">
+            <source src="/videos/skubik-hero.webm" type="video/webm" />
+            <source src="/videos/skubik-hero.mp4" type="video/mp4" />
+          </video>
+          <div className="s-hero-mobile-bg-overlay"></div>
+        </div>
+      )}
       <div className="s-container s-hero-inner">
         <div className="s-hero-left">
           <span className="s-eyebrow">{h.eyebrow}</span>
@@ -1208,11 +1449,31 @@ function SHero({ D }) {
               {h.secondaryCTA}
             </a>
           </div>
-          <div className="s-hero-micro">{h.microcopy}</div>
+          <div className="s-hero-micro">
+            {h.microBadges.map((b, i) => (
+              <span key={i} className="s-hero-micro-badge">{b}</span>
+            ))}
+          </div>
         </div>
-        <div className="s-hero-right">
-          <HeroCalendar />
-        </div>
+        {!isMobile && (
+          <div className="s-hero-right">
+            <div className="s-hero-video-wrap">
+              <div className="s-hero-video">
+                <video
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  poster="/videos/skubik-hero-poster.jpg"
+                >
+                  <source src="/videos/skubik-hero.webm" type="video/webm" />
+                  <source src="/videos/skubik-hero.mp4" type="video/mp4" />
+                </video>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <div className="s-hero-hint">
         <span>Scroll</span>
@@ -1365,7 +1626,6 @@ function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
   const [activeIdx, setActiveIdx] = useState(0);
   const rafRef = useRef(null);
   const progressRef = useRef(0);
-  const isLockedRef = useRef(false);
 
   useEffect(() => {
     const wrap = wrapRef.current;
@@ -1373,15 +1633,24 @@ function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
     const sticky = stickyRef.current;
     if (!wrap || !track || !sticky) return;
 
+    const isVertical = () => window.matchMedia('(max-width: 900px)').matches;
+
     const getMetrics = () => {
       const cards = track.querySelectorAll('.s-pain-card');
       if (!cards.length) return null;
+      const vertical = isVertical();
+      if (vertical) {
+        track.style.removeProperty('--pain-card-hw');
+        return { cards, vertical, maxOffset: 0 };
+      }
       const cardWidth = cards[0].offsetWidth;
+      // Set CSS var so padding centers first card exactly
+      track.style.setProperty('--pain-card-hw', `${cardWidth / 2}px`);
       const gap = 28;
       const padLeft = parseFloat(getComputedStyle(track).paddingLeft);
       const firstCenter = padLeft + cardWidth / 2;
       const lastCenter = padLeft + (cardWidth + gap) * (count - 1) + cardWidth / 2;
-      return { cards, cardWidth, gap, maxOffset: lastCenter - firstCenter };
+      return { cards, vertical, maxOffset: lastCenter - firstCenter };
     };
 
     const applyProgress = (p) => {
@@ -1389,31 +1658,89 @@ function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
       if (!m) return;
       progressRef.current = p;
 
-      track.style.transform = `translateX(${-p * m.maxOffset}px)`;
+      if (m.vertical) {
+        // ── Stacking mode (mobile) ──
+        // Cards absolute-positioned at same spot. Card N (N>0) rises from below during its
+        // slot [(N-1)/L, N/L] to cover the previous card. Buried cards peek + recede in 3D:
+        // progressively darker, more blurred, lower opacity and pushed back (translateZ).
+        track.style.transform = '';
+        const lastIdx = Math.max(1, count - 1);
+        const viewportH = window.innerHeight;
+        const activeIdx = Math.min(count - 1, Math.round(p * lastIdx));
+        const peekOffset = 8;      // px peek per stack level
+        const maxPeekLevels = 4;   // cap so it doesn't push too far up
 
-      const vCenter = window.innerWidth / 2;
+        const buriedStyle = (depth) => {
+          // depth is continuous (0..maxPeekLevels) so transitions are smooth
+          const d = Math.min(depth, maxPeekLevels);
+          return {
+            translateY: -d * peekOffset,
+            translateZ: -d * 32,
+            blur: d * 2.4,
+            opacity: Math.max(0, 1 - d * 0.18),
+            brightness: Math.max(0.2, 1 - d * 0.17),
+          };
+        };
+
+        m.cards.forEach((card, idx) => {
+          let translateY = 0, translateZ = 0, blur = 0, opacity = 1, brightness = 1;
+          let rising = false;
+
+          if (idx === 0) {
+            // Card 0 is always present; recedes as newer cards arrive on top
+            const s = buriedStyle(p * lastIdx);
+            ({ translateY, translateZ, blur, opacity, brightness } = s);
+          } else {
+            const slotStart = (idx - 1) / lastIdx;
+            const slotEnd = idx / lastIdx;
+            const localP = (p - slotStart) / (slotEnd - slotStart);
+
+            if (localP <= 0) {
+              translateY = viewportH * 1.1; // below viewport
+              opacity = 1;
+            } else if (localP >= 1) {
+              const s = buriedStyle(p * lastIdx - idx);
+              ({ translateY, translateZ, blur, opacity, brightness } = s);
+            } else {
+              const eased = 1 - Math.pow(1 - localP, 3); // ease-out cubic
+              translateY = viewportH * 1.1 * (1 - eased);
+              rising = true;
+            }
+          }
+
+          card.style.transform = `translate(-50%, calc(-50% + ${translateY}px)) translateZ(${translateZ}px)`;
+          card.style.filter = blur ? `blur(${blur}px) brightness(${brightness})` : 'none';
+          card.style.opacity = opacity;
+          card.style.zIndex = idx;
+          card.style.transition = 'none';
+        });
+        setActiveIdx(activeIdx);
+        return;
+      }
+
+      // ── Horizontal dock mode (desktop) ──
+      track.style.transform = `translateX(${-p * m.maxOffset}px)`;
+      const center = window.innerWidth / 2;
+      const maxDist = window.innerWidth * 0.6;
+
       let closest = 0;
       let closestDist = Infinity;
-
-      // First pass: find closest
-      m.cards.forEach((card, idx) => {
-        const rect = card.getBoundingClientRect();
-        const dist = Math.abs(rect.left + rect.width / 2 - vCenter);
-        if (dist < closestDist) { closestDist = dist; closest = idx; }
-      });
-
-      // Second pass: apply transforms with neighbor awareness
       m.cards.forEach((card, idx) => {
         const rect = card.getBoundingClientRect();
         const cardCenter = rect.left + rect.width / 2;
-        const dist = Math.abs(cardCenter - vCenter);
-        const maxDist = window.innerWidth * 0.6;
+        const dist = Math.abs(cardCenter - center);
+        if (dist < closestDist) { closestDist = dist; closest = idx; }
+      });
+
+      m.cards.forEach((card, idx) => {
+        const rect = card.getBoundingClientRect();
+        const cardCenter = rect.left + rect.width / 2;
+        const dist = Math.abs(cardCenter - center);
         const norm = Math.min(dist / maxDist, 1);
-        const cardDist = Math.abs(idx - closest); // 0=focused, 1=neighbor, 2+=far
+        const cardDist = Math.abs(idx - closest);
 
         const scale = 1 - norm * 0.2;
         const z = -norm * 140;
-        // Blur scales with distance from focused card: 0→0, 1→2, 2→4, 3+→6
         const maxBlur = cardDist <= 0 ? 0 : cardDist === 1 ? 2 : cardDist === 2 ? 4 : 6;
         const blur = norm * maxBlur;
         const brightness = 1 - norm * (cardDist <= 1 ? 0.2 : 0.4);
@@ -1421,13 +1748,14 @@ function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
 
         card.style.transform = `translateZ(${z}px) scale(${scale})`;
         card.style.filter = `blur(${blur}px) brightness(${brightness})`;
+        card.style.opacity = 1;
         card.style.zIndex = zIdx;
         card.style.transition = 'none';
       });
       setActiveIdx(closest);
     };
 
-    // Vertical scroll drives progress
+    // Vertical document scroll drives progress (same logic in both modes)
     const onScroll = () => {
       const wrapRect = wrap.getBoundingClientRect();
       const wrapTop = window.scrollY + wrapRect.top;
@@ -1438,20 +1766,16 @@ function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
       rafRef.current = requestAnimationFrame(() => applyProgress(p));
     };
 
-    // Convert horizontal scroll (deltaX) into vertical scroll within the section
-    // Vertical scroll (deltaY) flows naturally — it already drives the carousel
+    // Trackpad horizontal-to-vertical relay (desktop only)
     const onWheel = (e) => {
-      // Only act on predominantly horizontal scroll (trackpad gesture)
+      if (isVertical()) return;
       if (Math.abs(e.deltaX) < 5 || Math.abs(e.deltaY) > Math.abs(e.deltaX)) return;
-      // Only while sticky is pinned
       const stickyRect = sticky.getBoundingClientRect();
       const wrapRect = wrap.getBoundingClientRect();
       const isInSection = stickyRect.top <= 1 && wrapRect.bottom > window.innerHeight;
       if (!isInSection) return;
-
       const p = progressRef.current;
       if ((p <= 0 && e.deltaX < 0) || (p >= 1 && e.deltaX > 0)) return;
-
       e.preventDefault();
       window.scrollBy({ top: e.deltaX * 2 });
     };
@@ -1459,12 +1783,19 @@ function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
     window.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('load', onScroll);
     onScroll();
+    // Re-measure after layout settles (fonts, images, video metadata)
+    const t1 = setTimeout(onScroll, 300);
+    const t2 = setTimeout(onScroll, 1200);
 
     return () => {
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
       window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('load', onScroll);
+      clearTimeout(t1);
+      clearTimeout(t2);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, [wrapRef, trackRef, stickyRef, count]);
@@ -2335,7 +2666,7 @@ function SWebShowcase() {
     <section className="s-web s-reveal" ref={revealRef} id="web" data-screen-label="04 Web">
       <div className="s-web-head">
         <span className="s-eyebrow">Tu web propia</span>
-        <h2>Tu salón en internet, <em>listo en 30 minutos.</em></h2>
+        <h2>Tu salón en internet, <em>listo en 10 minutos.</em></h2>
         <p>Sin diseñador, sin hosting, sin código. Elige plantilla, sube tus fotos y compártelo. Funciona desde el primer día.</p>
       </div>
 
@@ -2415,82 +2746,200 @@ function SWebShowcase() {
 }
 
 // ---- Chat ----
+// Inline bold formatter: *texto* → <strong>
+function formatWA(text) {
+  const parts = text.split(/(\*[^*\n]+\*)/g);
+  return parts.map((p, i) => {
+    if (p.startsWith('*') && p.endsWith('*') && p.length > 2) {
+      return <strong key={i}>{p.slice(1, -1)}</strong>;
+    }
+    return <span key={i}>{p}</span>;
+  });
+}
+
+const WA_ICONS = {
+  template: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/></svg>
+  ),
+  auto: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+  ),
+  inbox: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+  ),
+  ai: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v0a3 3 0 0 0-3 3v0a3 3 0 0 0-3 3v0a3 3 0 0 0 3 3v0a3 3 0 0 0 3 3v0a3 3 0 0 0 3 3 3 3 0 0 0 3-3v0a3 3 0 0 0 3-3v0a3 3 0 0 0 3-3v0a3 3 0 0 0-3-3v0a3 3 0 0 0-3-3v0a3 3 0 0 0-3-3z"/><path d="M9 12h0M15 12h0M12 9v6"/></svg>
+  ),
+  scissors: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+  ),
+  video: (
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+  ),
+  phone: (
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg>
+  ),
+  kebab: (
+    <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+  ),
+  emoji: (
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+  ),
+  clip: (
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5S13.5 3.62 13.5 5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
+  ),
+  mic: (
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+  ),
+  ticks: (
+    <svg viewBox="0 0 16 11" fill="currentColor"><path d="M11.071.653a.5.5 0 0 0-.696.122l-5.81 7.793-2.51-2.748a.5.5 0 0 0-.738.675l2.939 3.217a.5.5 0 0 0 .77-.045L11.193 1.35a.5.5 0 0 0-.122-.697z"/><path d="M15.215.653a.5.5 0 0 0-.697.122l-5.811 7.793-1.04-1.139a.5.5 0 0 0-.738.675l1.47 1.61a.5.5 0 0 0 .77-.046L15.336 1.35a.5.5 0 0 0-.121-.697z"/></svg>
+  ),
+};
+
 function SChat({ D }) {
   const ref = useReveal();
-  const [msgs, setMsgs] = useState([{ from: 'bot', text: '¡Hola! Soy Kubia 👋 Cuéntame de tu salón y te digo si somos buena match. ¿Qué haces?', id: 0 }]);
+  const [activeTab, setActiveTab] = useState(0);
+  const [visibleMsgs, setVisibleMsgs] = useState([]);
   const [typing, setTyping] = useState(false);
-  const [input, setInput] = useState('');
+  const [started, setStarted] = useState(false);
   const bodyRef = useRef(null);
+  const sectionRef = useRef(null);
+  const timersRef = useRef([]);
 
+  // Compose refs: useReveal returns a ref, we also need our own
+  const setSectionRef = (node) => {
+    sectionRef.current = node;
+    if (ref) ref.current = node;
+  };
+
+  const clearTimers = () => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  };
+
+  // Start animation only when the section enters viewport
+  useEffect(() => {
+    if (!sectionRef.current || started) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setStarted(true);
+        obs.disconnect();
+      }
+    }, { threshold: 0.25 });
+    obs.observe(sectionRef.current);
+    return () => obs.disconnect();
+  }, [started]);
+
+  // Drive conversation when started or activeTab changes
+  useEffect(() => {
+    if (!started) return;
+    clearTimers();
+    setVisibleMsgs([]);
+    setTyping(false);
+
+    const conv = D.chat.tabs[activeTab].conv;
+    let cumulative = 0;
+
+    conv.forEach((msg, idx) => {
+      if (idx === 0) {
+        const t = setTimeout(() => {
+          setVisibleMsgs(prev => [...prev, { ...msg, id: idx }]);
+        }, 220);
+        timersRef.current.push(t);
+        cumulative = 220;
+        return;
+      }
+
+      // Typing indicator before subsequent messages
+      const typingShow = setTimeout(() => setTyping(true), cumulative + 350);
+      timersRef.current.push(typingShow);
+
+      // Reveal message
+      const msgPause = Math.min(900 + msg.text.length * 14, 2200);
+      const reveal = setTimeout(() => {
+        setTyping(false);
+        setVisibleMsgs(prev => [...prev, { ...msg, id: idx }]);
+      }, cumulative + 350 + msgPause);
+      timersRef.current.push(reveal);
+
+      cumulative += 350 + msgPause;
+    });
+
+    return clearTimers;
+  }, [activeTab, started, D.chat.tabs]);
+
+  // Auto-scroll body to latest
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-  }, [msgs, typing]);
-
-  const addBot = (text, delay = 1200) => {
-    setTyping(true);
-    setTimeout(() => {
-      setTyping(false);
-      setMsgs(m => [...m, { from: 'bot', text, id: Date.now() }]);
-    }, delay);
-  };
-
-  const replies = {
-    '¿Cuánto cuesta para un salón de 3 estilistas?': 'Para 3 estilistas el plan Estudio ($35/mes) es perfecto. Incluye comisiones, inventario, reportes y hasta 5 agendas. ¿Cobrar en Zelle/Pago Móvil? También sin comisión extra.',
-    '¿Cómo funcionan los anticipos en Venezuela?': 'Configuras el % por servicio (típico: 30%). La clienta paga al reservar vía Pago Móvil, Zelle, tarjeta, Binance o efectivo. El dinero va directo a tu cuenta. Nosotros no tocamos un centavo.',
-    '¿Puedo migrar desde mi cuaderno/Excel?': 'Sí, gratis. Nos mandas fotos del cuaderno o tu Excel. En 48h tu salón está completo: clientas, servicios, precios, historial. Humanos reales haciéndolo, no un bot que se equivoca.',
-    '¿Cobran comisión por cita?': 'No. Cero. Tu plan mensual es todo. Cobras 50 citas o 500: mismo precio. Los anticipos van 100% a tu cuenta. Esto nos diferencia de Fresha, Booksy y compañía.',
-  };
-
-  const sendPrompt = (p) => {
-    setMsgs(m => [...m, { from: 'user', text: p, id: Date.now() }]);
-    const reply = replies[p] || 'Interesante. Para eso mejor hablemos por WhatsApp y te conecto con el equipo. ¿Te pasamos el link?';
-    addBot(reply, 1400);
-    setTimeout(() => {
-      addBot('¿Quieres que te pasemos al equipo por WhatsApp? Responden en menos de 2h.', 1800);
-    }, 2200);
-  };
-
-  const handleSend = () => {
-    if (!input.trim()) return;
-    setMsgs(m => [...m, { from: 'user', text: input, id: Date.now() }]);
-    const q = input.toLowerCase();
-    setInput('');
-    let reply = 'Buena pregunta. ¿Me cuentas más? O mejor: escríbenos por WhatsApp y te respondemos en segundos.';
-    if (q.includes('precio') || q.includes('cuesta') || q.includes('cuanto')) reply = replies['¿Cuánto cuesta para un salón de 3 estilistas?'];
-    else if (q.includes('anticipo') || q.includes('seña') || q.includes('sena') || q.includes('pago')) reply = replies['¿Cómo funcionan los anticipos en Venezuela?'];
-    else if (q.includes('migrar') || q.includes('cuaderno') || q.includes('excel')) reply = replies['¿Puedo migrar desde mi cuaderno/Excel?'];
-    else if (q.includes('comisi')) reply = replies['¿Cobran comisión por cita?'];
-    addBot(reply, 1200);
-  };
+  }, [visibleMsgs, typing]);
 
   return (
-    <section className="s-chat s-reveal" ref={ref} data-screen-label="05 Chat">
+    <section className="s-chat s-reveal" ref={setSectionRef} data-screen-label="05 WhatsApp">
       <div className="s-container">
+        <div className="s-chat-section-head">
+          <span className="s-eyebrow">{D.chat.eyebrow}</span>
+          <h2>{D.chat.titleStart} <em>{D.chat.titleEm}</em></h2>
+          <p>{D.chat.subtitle}</p>
+        </div>
         <div className="s-chat-wrap">
           <div className="s-chat-left">
-            <span className="s-eyebrow">Habla con nosotros</span>
-            <h2>Pregunta <em>lo que sea.</em></h2>
-            <p>{D.chat.subtitle}</p>
-            <div className="s-founder">
-              <div className="s-founder-ph">J</div>
-              <div>
-                <div className="s-founder-name">{D.chat.founder.name}</div>
-                <div className="s-founder-role">{D.chat.founder.role}</div>
-                <div className="s-founder-q">"{D.chat.founder.quote}"</div>
-              </div>
+            <div className="s-wa-features">
+              {D.chat.features.map((f, i) => (
+                <div key={i} className="s-wa-feat">
+                  <div className="s-wa-feat-icon">{WA_ICONS[f.icon]}</div>
+                  <div className="s-wa-feat-body">
+                    <div className="s-wa-feat-title">{f.title}</div>
+                    <p className="s-wa-feat-desc">{f.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="s-wa-stat">
+              <div className="s-wa-stat-big">{D.chat.stat.big}</div>
+              <div className="s-wa-stat-label">{D.chat.stat.label}</div>
+              <div className="s-wa-stat-foot">{D.chat.stat.foot}</div>
             </div>
           </div>
+
           <div className="s-chat-window">
             <div className="s-chat-head">
-              <div className="s-chat-avatar">K</div>
+              <div className="s-chat-avatar">{WA_ICONS.scissors}</div>
               <div className="s-chat-head-info">
-                <div className="s-chat-head-name">Kubia</div>
-                <div className="s-chat-head-status">En línea · responde al toque</div>
+                <div className="s-chat-head-name">{D.chat.salonName}</div>
+                <div className="s-chat-head-status">en línea</div>
+              </div>
+              <div className="s-chat-head-icons">
+                {WA_ICONS.video}
+                {WA_ICONS.phone}
+                {WA_ICONS.kebab}
               </div>
             </div>
+
+            <div className="s-chat-tabs" role="tablist">
+              {D.chat.tabs.map((t, i) => (
+                <button
+                  key={t.key}
+                  className={`s-chat-tab ${i === activeTab ? 'active' : ''}`}
+                  onClick={() => setActiveTab(i)}
+                  role="tab"
+                  aria-selected={i === activeTab}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
             <div className="s-chat-body" ref={bodyRef}>
-              {msgs.map(m => (
-                <div key={m.id} className={`s-chat-msg ${m.from}`}>{m.text}</div>
+              <div className="s-chat-date">HOY</div>
+              {visibleMsgs.map(m => (
+                <div key={m.id} className={`s-chat-msg ${m.from}`}>
+                  <span className="s-chat-msg-text">{formatWA(m.text)}</span>
+                  <span className="s-chat-msg-meta">
+                    <span className="s-chat-msg-time">{m.time}</span>
+                    <span className="s-chat-msg-ticks">{WA_ICONS.ticks}</span>
+                  </span>
+                </div>
               ))}
               {typing && (
                 <div className="s-chat-typing">
@@ -2498,14 +2947,14 @@ function SChat({ D }) {
                 </div>
               )}
             </div>
-            <div className="s-chat-prompts">
-              {D.chat.prompts.map((p, i) => (
-                <button key={i} className="s-chat-prompt" onClick={() => sendPrompt(p)}>{p}</button>
-              ))}
-            </div>
+
             <div className="s-chat-input">
-              <input placeholder="Escribe tu pregunta..." value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSend()} />
-              <button onClick={handleSend}>Enviar</button>
+              <div className="s-chat-input-btn">{WA_ICONS.emoji}</div>
+              <div className="s-chat-input-field">
+                <div className="s-chat-input-field-text">Escribe un mensaje</div>
+                <div className="s-chat-input-btn" style={{ width: 22, height: 22, marginRight: -4 }}>{WA_ICONS.clip}</div>
+              </div>
+              <div className="s-chat-input-mic">{WA_ICONS.mic}</div>
             </div>
           </div>
         </div>
@@ -2522,7 +2971,7 @@ function SHow({ D }) {
       <div className="s-container">
         <div className="s-how-head">
           <span className="s-eyebrow">Cómo empezar</span>
-          <h2>Empezar toma <em>12 minutos.</em><br/>Lo medimos.</h2>
+          <h2>Empezar toma <em>10 minutos.</em><br/>Lo medimos.</h2>
         </div>
         <div className="s-how-steps">
           {D.start.steps.map((s, i) => (
@@ -2534,7 +2983,10 @@ function SHow({ D }) {
           ))}
         </div>
         <div className="s-how-cta">
-          <a className="s-btn s-btn-primary" href={D.brand.waMsg('Arranquemos.')} target="_blank" rel="noreferrer">
+          <Link to="/register/beauty" state={{ source: 'skubik-how', category: 'barbershop-salon' }} className="s-btn s-btn-primary">
+            Regístrate →
+          </Link>
+          <a className="s-btn s-btn-ghost" href={D.brand.waMsg('Arranquemos.')} target="_blank" rel="noreferrer">
             {WA_ICON}
             {D.start.cta}
           </a>
@@ -2547,6 +2999,8 @@ function SHow({ D }) {
 // ---- Pricing ----
 function SPricing({ D }) {
   const ref = useReveal();
+  const [billingCycle, setBillingCycle] = useState('annual');
+  const isAnnual = billingCycle === 'annual';
   const [clientsPerMonth, setClientsPerMonth] = useState(120);
   const [ticket, setTicket] = useState(40);
   const cancelRate = 0.22;
@@ -2554,7 +3008,9 @@ function SPricing({ D }) {
   const lostWithout = Math.round(clientsPerMonth * cancelRate * ticket);
   const lostWith = Math.round(clientsPerMonth * withSK * ticket);
   const saved = lostWithout - lostWith;
-  const plan = clientsPerMonth < 80 ? 15 : clientsPerMonth < 300 ? 35 : 65;
+  const planAnnual = clientsPerMonth < 80 ? 15 : clientsPerMonth < 300 ? 25 : 50;
+  const planMonthly = clientsPerMonth < 80 ? 18 : clientsPerMonth < 300 ? 28 : 60;
+  const plan = isAnnual ? planAnnual : planMonthly;
   const net = saved - plan;
 
   return (
@@ -2571,7 +3027,7 @@ function SPricing({ D }) {
             <h3>Calculadora de plantones</h3>
             <span className="s-roi-badge">En vivo</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+          <div className="s-roi-sliders">
             <div>
               <div className="s-roi-slider-row">
                 <span className="s-roi-label">Clientas por mes</span>
@@ -2605,6 +3061,25 @@ function SPricing({ D }) {
           </div>
         </div>
 
+        <div className="s-price-toggle-wrap">
+          <div className="s-price-toggle" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!isAnnual}
+              className={!isAnnual ? 'active' : ''}
+              onClick={() => setBillingCycle('monthly')}
+            >Mensual</button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={isAnnual}
+              className={isAnnual ? 'active' : ''}
+              onClick={() => setBillingCycle('annual')}
+            >Anual <span className="s-price-toggle-badge">−21%</span></button>
+          </div>
+        </div>
+
         <div className="s-price-grid">
           {D.pricing.plans.map(p => (
             <div key={p.name} className={`s-price-card ${p.featured ? 'featured' : ''}`}>
@@ -2615,8 +3090,11 @@ function SPricing({ D }) {
               </div>
               <div className="s-price-amt">
                 <span className="s-price-sym">$</span>
-                <span className="s-price-val">{p.price}</span>
+                <span className="s-price-val">{isAnnual ? p.priceAnnual : p.priceMonthly}</span>
                 <span className="s-price-per">{p.per}</span>
+              </div>
+              <div className="s-price-billing">
+                {isAnnual ? `Facturado anualmente · $${Number(p.priceAnnual) * 12}/año` : 'Sin compromiso · mes a mes'}
               </div>
               <div className="s-price-feats">
                 {p.features.map(f => <div key={f} className="s-price-feat">{f}</div>)}
@@ -2661,6 +3139,26 @@ function SFAQ({ D }) {
   );
 }
 
+// ---- Affiliate strip ----
+function SAffiliateStrip() {
+  const ref = useReveal();
+  return (
+    <section className="s-aff s-reveal" ref={ref} data-screen-label="08b Afiliados">
+      <div className="s-container">
+        <div className="s-aff-card">
+          <div className="s-aff-text">
+            <div className="s-aff-eyebrow">Programa de afiliados</div>
+            ¿No es para ti, pero conoces a quién podría servirle? Gana <strong>hasta 20% cada mes</strong> recomendando Skubik.
+          </div>
+          <Link to="/skubik/afiliados" className="s-aff-cta">
+            Quiero unirme →
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ---- Closure ----
 function SClose({ D }) {
   const ref = useReveal();
@@ -2668,8 +3166,8 @@ function SClose({ D }) {
     <section className="s-close s-reveal" ref={ref} data-screen-label="09 Closure">
       <div className="s-close-bg"></div>
       <div className="s-container">
-        <h2>Tu sábado<br/>empieza a las <em>8am.</em></h2>
-        <p>Que tu agenda ya esté lista. En media hora tienes tu salón online.</p>
+        <h2>Empieza <em>gratis</em> hoy.</h2>
+        <p>10 minutos para configurarlo. 14 días para probar. Sin tarjeta. Sin compromiso. Si no funciona, te ayudamos a migrar tus datos a donde quieras.</p>
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
           <Link to="/register/beauty" state={{ source: 'skubik-landing' }} className="s-btn s-btn-primary">
             Prueba gratis 14 días →
@@ -2762,6 +3260,7 @@ export default function SkubikBeautyLanding() {
       <SHow D={D} />
       <SPricing D={D} />
       <SFAQ D={D} />
+      <SAffiliateStrip />
       <SClose D={D} />
       <SFoot D={D} />
       <SWAFloat D={D} />

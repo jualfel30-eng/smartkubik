@@ -15,7 +15,7 @@ import {
   CashRegisterClosing,
   CashRegisterClosingDocument,
 } from "../../schemas/cash-register-closing.schema";
-import * as PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 import { Order, OrderDocument } from "../../schemas/order.schema";
 import { Payment, PaymentDocument } from "../../schemas/payment.schema";
 import { User, UserDocument } from "../../schemas/user.schema";

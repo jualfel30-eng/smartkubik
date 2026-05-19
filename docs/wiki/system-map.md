@@ -108,7 +108,9 @@ CREAR PRODUCTO:
     }],
     pricingRules: { cashDiscount, cardSurcharge, minimumMargin, maximumDiscount, ... },
     inventoryConfig: { trackLots, trackExpiration, minimumStock, maximumStock, reorderPoint, reorderQuantity, fefoEnabled },
-    suppliers: [{ supplierId: string(MongoId), supplierSku: string, costPrice: number, ... }] | undefined
+    suppliers: [{ supplierId: string(MongoId), supplierSku: string, costPrice: number, ... }] | undefined,
+    initialInventoryQuantity: number | undefined,            ← opcional, min 0. Stock inicial SOLO en tenant del usuario
+    initialInventoryWarehouseId: string(MongoId) | undefined  ← opcional. Si falta, se usa el default warehouse del owner
   }
 
   Backend retorna: { success: true, data: ProductDocument }
@@ -116,6 +118,16 @@ CREAR PRODUCTO:
   ⚠️ images son BASE64, NO URLs. El tamaño se trackea en tenant.usage.currentStorage
   ⚠️ Si el frontend envía SKU vacío para variante → backend genera "{productSku}-VAR{N}"
   ⚠️ ivaRate es NUMBER (0, 8, 16), NO string. Frontend debe enviar número, no "16%"
+  ⚠️ Side effect (desde commit bb76281ce, 2026-05-05): el controller arma
+       inventoryContext = { ownerTenantId: req.user.tenantId, warehouseId, initialQuantity }
+     y ProductsService.create() invoca InventoryService.createInitialInventoriesForProductInGroup().
+     Esto crea documentos Inventory en TODOS los tenants del grupo (matriz + sucursales):
+       - Owner tenant: qty = initialInventoryQuantity (default 0) + InventoryMovement IN si > 0
+       - Resto del grupo: qty = 0
+       - Idempotente: pre-existentes (tenantId, productId, variantId) se saltean
+       - Si falla: log error, NO aborta la creación del producto
+     ownerTenantId proviene del JWT del usuario, NO del tenant del catálogo (req.tenantId).
+     El bulk endpoint (POST /products/bulk) propaga el mismo contexto pero con initialQuantity=0 forzado.
 
 LISTAR PRODUCTOS:
   Frontend envía: GET /products?page=1&limit=20&search=harina&category=Alimentos&sortBy=createdAt&sortOrder=desc
@@ -506,6 +518,192 @@ CERRAR CAJA:
     Si diferencia < 0 → "shortage" (pendiente aprobación)
 ```
 
+### 1.11 Stripe Pay — Contrato de Datos
+
+```
+CREAR PAYMENT INTENT (storefront público):
+  Frontend envía:  POST /public/stripe/payment-intent
+  {
+    tenantId: string,                       ← REQUERIDO
+    orderId: string(MongoId),               ← REQUERIDO. Order debe existir y matchear tenantId
+    customerEmail: string | undefined,      ← si falta usa Order.customerEmail
+    customerName: string | undefined        ← si falta usa Order.customerName
+  }
+
+  Backend retorna:
+  {
+    success: true,
+    data: {
+      clientSecret: "pi_3O.._secret_..",    ← se pasa a Stripe.js confirmCardPayment()
+      publishableKey: "pk_test_..." | "pk_live_...",
+      paymentIntentId: "pi_3O...",
+      orderNumber: "ORD-...",
+      amountCents: number,                  ← Order.totalAmount × 100 redondeado
+      currency: "usd"
+    }
+  }
+
+  ⚠️ Idempotente por orderId. Llamadas repetidas devuelven el mismo intent vivo.
+  ⚠️ Si Order.totalAmount cambia entre llamadas → cancela el viejo y crea uno nuevo.
+  ⚠️ idempotencyKey enviado a Stripe = `order_${orderId}_${amountCents}` — previene duplicados.
+  ⚠️ Si la orden ya está paid → 400 "La orden ya está pagada".
+  ⚠️ Tenant isolation: si el orderId no pertenece al tenantId → 404 (anti-IDOR).
+
+WEBHOOK STRIPE:
+  Stripe envía:    POST /webhooks/stripe
+  Headers: stripe-signature: t=...,v1=...
+  Body: raw JSON del evento (NO parsear antes de verificar firma)
+
+  Backend:
+    1. Lee req.rawBody (capturado en main.ts express.json verify hook)
+    2. stripe.webhooks.constructEvent(rawBody, signature, STRIPE_WEBHOOK_SECRET)
+       → si la firma falla, 400
+    3. Dedupe por event.id (processedWebhookEvents[]) — Stripe puede reintentar 3 días
+    4. Persiste status, statusHistory, charge details (cardBrand, cardLast4, receiptUrl)
+    5. Si event.type='payment_intent.succeeded': emite EventEmitter
+       'stripe.payment_intent.succeeded' → StripePaymentListener (en orders/) →
+       OrdersService.registerPayments({orderId, payments: [{
+         method: 'stripe_card_usd', amount: cents/100, currency: 'USD',
+         reference: '${paymentIntentId} (visa ****4242)',
+         isConfirmed: true, idempotencyKey: paymentIntentId
+       }]})
+       → marca Order.paymentStatus='paid', dispara backflush BOM + OUT movements + evento order.paid
+
+  ⚠️ NUNCA leer el body via JSON.stringify(req.body) — Stripe firma los bytes crudos
+  ⚠️ Devolver siempre 200 a Stripe (incluso para eventos no manejados) salvo firma inválida
+  ⚠️ El receptor es @Public() — la auth es la verificación de firma HMAC
+  ⚠️ Si STRIPE_SECRET_KEY no está set, /payment-intent retorna 400; el módulo carga sin error
+
+CONFIG:
+  STRIPE_SECRET_KEY=sk_test_... | sk_live_...
+  STRIPE_PUBLISHABLE_KEY=pk_test_... | pk_live_...
+  STRIPE_WEBHOOK_SECRET=whsec_...
+
+  ⚠️ El módulo asume USD. NO cobrar en VES — Stripe no opera en VES (usar Pago Móvil)
+  ⚠️ Tenants con fiscalProfile.igtfApplicable=false NO acumulan IGTF al recibir pago Stripe
+     (se procesará en PR 2 dentro de OrderPaymentsService)
+```
+
+---
+
+### 1.12 Payment Requests — Contrato de Datos
+
+**Backend → Cliente (portal público, `GET /public/payment-portal/:token`)**
+
+```ts
+PublicPaymentInfoDto {
+  status: "pending" | "submitted" | "info_mismatch" | "proof_unclear" | "partial" | "awaiting_settlement"
+  expiresAt: string                  // ISO
+  amountDue: number
+  currency: "USD" | "VES"
+  exchangeRateSnapshot?: number
+  allowPartialPayments: boolean
+  allowMethodOverride: boolean
+  entity: { type, snapshot: { items[], subtotal, tax, total, customerName?, createdAt? } }
+  selectedMethod: { type, label, methodId?, accountDetails }     // accountDetails frozen del tenant config
+  diagnostic: null | { reason, note?, rejectedProofId?, rejectedAt? }
+  tenant: { name?, branding?: { logoUrl?, primaryColor? } }
+}
+```
+
+**Cliente → Backend (subir comprobante, multipart)**
+
+```ts
+{
+  amount: number                     // string en multipart, coerced
+  currency: "USD" | "VES"
+  method: "transfer" | "pago_movil" | "zelle" | "cash" | "card"
+  originBank: string                 // sanitized
+  payerIdNumber: string              // sanitized
+  payerPhone: string                 // sanitized
+  referenceNumber: string            // sanitized, min 6 chars
+  replacesProofId?: string           // re-submission hint
+  image: File                        // JPG/PNG/WebP/HEIC, ≤10MB, magic-byte validated
+}
+```
+
+**Admin → Backend (crear manual)**
+
+```ts
+POST /api/v1/payment-requests
+{
+  entityType: "order"                // PR1: sólo order
+  entityId: ObjectId
+  methodId?: string                  // de TenantPaymentConfig.paymentMethods[].methodId
+  deliveryPhone?: string             // VE formats
+  deliveryChannel?: "whatsapp" | "manual"
+  allowMethodOverride?: boolean
+}
+→ { paymentRequest, portalUrl: "<STOREFRONT_PUBLIC_URL>/pago/<token>" }
+```
+
+**Admin → Backend (list / detail responses incluyen portalUrl derivado)**
+
+```ts
+GET /api/v1/payment-requests
+GET /api/v1/payment-requests/:id
+→ cada PR en la response trae portalUrl: "<STOREFRONT_PUBLIC_URL>/pago/<token>"
+  (derivado en el controller via PaymentRequestsService.attachPortalUrl,
+  el admin lo usa para el "Copiar enlace" sin conocer STOREFRONT_PUBLIC_URL)
+```
+
+**AR report (admin) ahora incluye orderId / customerPhone / source**
+
+```ts
+GET /api/v1/accounting/reports/accounts-receivable
+→ row: { orderId, orderNumber, customerName, customerPhone, source, ... }
+  (necesario para que SolicitarComprobanteButton se auto-gatee por row)
+```
+
+**Bridge `Tenant.settings.paymentMethods` → `TenantPaymentConfig`**
+
+Los métodos de pago (con datos bancarios) se configuran en
+`Tenant.settings.paymentMethods` vía la pantalla admin existente
+(`PaymentMethodsSettings.jsx → PUT /tenant/settings`).
+
+`TenantPaymentConfig.paymentMethods` queda vestigial / fallback. Los 3
+campos de PR siguen viviendo en `TenantPaymentConfig`:
+`requirePaymentProof`, `allowPartialPayments`, `paymentRequestExpiryDays`.
+
+`PaymentRequestsService.resolveTenantMethods()` lee de `Tenant.settings.paymentMethods`
+primero y mapea los field names al shape del portal:
+
+| Admin (`details.X`) | Portal (`accountDetails.X`) | Method type |
+|---|---|---|
+| `bank` | `bankName` o `pagoMovilBank` | transfer / pago_movil |
+| `accountNumber` | `accountNumber` | transfer |
+| `accountName` | `accountHolderName` | transfer / zelle |
+| `cid` | `pagoMovilCI` | pago_movil |
+| `phoneNumber` | `pagoMovilPhone` o `zellePhone` | pago_movil / zelle |
+| `email` | `zelleEmail` | zelle |
+
+**Notification types emitidos**
+
+```
+payment-request.submitted        priority: high   → toast auto en admin
+payment-request.confirmed        priority: medium
+payment-request.status-changed   priority: medium / low
+```
+
+Todas bajo `category: 'finance'` (no nuevo enum value). El admin frontend
+discrimina por `type` cuando hace falta (e.g. badge invalidation).
+
+**Permisos**
+
+```
+payment_requests_review  →  granted to: admin, employee (seed)
+                            grantable to custom roles via /permissions UI
+                            (la página existente lo recoge automáticamente)
+```
+
+**Gotchas**:
+- El JWT del portal usa el mismo `JWT_SECRET` que auth pero con claim `scope: 'payment_portal'`. El `PaymentTokenGuard` rechaza scopes distintos.
+- Estados terminales (`confirmed`, `rejected_final`, `expired`) hacen el guard devolver 403/401 — el portal muestra mensaje específico.
+- El `imageHash` PR1 es SHA-256 del webp optimizado (exact-duplicate). Phase 2 lo cambia a perceptual hash.
+- La auto-creación por `order.created` requiere **3** gates: `source='storefront'` + `TenantPaymentConfig.requirePaymentProof=true` + tenant tiene método activo no-cash en `Tenant.settings.paymentMethods` (después del bridge de PR3).
+- Soft-delete: `isDeleted: { $ne: true }`. NO usar `deletedAt`.
+- El backend NO dedupe PRs por entity — dos `Solicitar comprobante` en la misma orden crearán 2 PRs. El admin UI no checkea "PR activo existente" para esa orden. Riesgo bajo (cashier suele revisar primero).
+
 ---
 
 ## SECCIÓN 2: TIPOS Y GOTCHAS GLOBALES
@@ -636,8 +834,9 @@ SUPER_ADMIN → [25+ módulos]
 
 ```
 products.service.ts → wiki/modules/products/{functions,flows,api-reference}.md + help/inventario/gestionar-productos.md + guides/purchase-to-stock.md
+products.controller.ts → wiki/modules/products/api-reference.md + system-map.md §1.3 (cuando agrega side effects cross-módulo, ej. inventoryContext)
 products.schema.ts → wiki/modules/products/data-model.md + wiki/data-model.md
-inventory.service.ts → wiki/modules/inventory/{functions,flows,api-reference}.md + help/inventario/{control-de-stock,problemas-inventario}.md + guides/{purchase-to-stock,order-lifecycle,transfer-between-locations}.md
+inventory.service.ts → wiki/modules/inventory/{functions,flows,api-reference,data-model}.md + help/inventario/{control-de-stock,problemas-inventario}.md + guides/{purchase-to-stock,order-lifecycle,transfer-between-locations}.md
 orders.service.ts → wiki/modules/orders/{functions,flows,api-reference}.md + help/ventas/{crear-ventas-pos,problemas-ventas}.md + guides/order-lifecycle.md
 order-payments.service.ts → wiki/modules/orders/{functions,flows}.md + help/ventas/crear-ventas-pos.md
 order-inventory.service.ts → wiki/modules/orders/flows.md + guides/order-lifecycle.md
@@ -656,6 +855,15 @@ beauty/*.service.ts → wiki/modules/beauty/overview.md + help/salon/guia-salon-
 production/*.service.ts → wiki/modules/production/overview.md + help/produccion/guia-produccion.md
 marketing/*.service.ts → wiki/modules/marketing/overview.md + help/marketing-docs/guia-marketing.md
 tables/*.service.ts → wiki/modules/restaurant/overview.md + help/restaurante/guia-restaurante.md
+stripe-pay/*.ts → wiki/modules/stripe-pay/{overview,functions,api-reference,data-model}.md + system-map.md §1.11
+payment-requests/services/*.ts → wiki/modules/payment-requests/{functions,api-reference}.md + system-map.md §1.12, §5, §6
+payment-requests/schemas/*.ts → wiki/modules/payment-requests/data-model.md + system-map.md §1.12
+payment-requests/controllers/**/*.ts → wiki/modules/payment-requests/api-reference.md + system-map.md §1.12, §5
+food-inventory-admin/src/components/payment-requests/**/*.jsx → wiki/modules/payment-requests/admin.md + system-map.md §1.12
+food-inventory-admin/src/hooks/use-payment-requests.js → wiki/modules/payment-requests/admin.md
+food-inventory-admin/src/lib/paymentRequestsApi.js → wiki/modules/payment-requests/admin.md + api-reference.md
+food-inventory-storefront/src/app/pago/[token]/**/*.{tsx,ts} → wiki/modules/payment-requests/portal.md
+food-inventory-storefront/src/lib/payment-portal.ts → wiki/modules/payment-requests/portal.md
 App.jsx → wiki/index.md + wiki/frontend/overview.md
 navLinks.js → wiki/index.md + wiki/frontend/overview.md
 api.js → wiki/frontend/overview.md
@@ -684,11 +892,15 @@ POST   /public/beauty-bookings, /public/beauty-bookings/availability
 GET    /public/beauty-bookings/booking-number/:num, /public/beauty-bookings/client-status, /public/beauty-bookings/checkin
 POST   /customers/auth/register, /customers/auth/login
 GET    /public/tenant-payment-config/:id/payment-methods
+GET    /public/payment-portal/:token           ← portal de comprobante (JWT scope=payment_portal)
+POST   /public/payment-portal/:token/proofs    ← subir comprobante (multipart, rate-limit 5/h)
 POST   /public/delivery/calculate
 GET    /feature-flags, /social-links
 POST   /newsletter/subscribe, /newsletter/unsubscribe
 GET    /restaurant-dishes-public
 POST   /restaurant-orders
+POST   /public/stripe/payment-intent       ← crear/reutilizar PaymentIntent para una orden
+POST   /webhooks/stripe                    ← receptor de webhooks Stripe (firma verificada)
 ```
 
 ---
@@ -696,10 +908,11 @@ POST   /restaurant-orders
 ## SECCIÓN 6: EVENTOS DEL SISTEMA
 
 ```
-order.created → Consumables deduction, Analytics, Marketing triggers
+order.created → Consumables deduction, Analytics, Marketing triggers, PaymentRequests auto-issue (si source=storefront + requirePaymentProof)
 order.updated → KDS (Kitchen Display)
 order.paid → Inventory backflush + OUT movements + Billing triggers
 order.fulfillment.updated → WhatsApp delivery notifications
+stripe.payment_intent.succeeded → StripePaymentListener (orders/) → OrdersService.registerPayments() → marca orden paid
 billing.document.issued → BillingAccountingListener (asiento + libro ventas)
 inventory.alert.triggered → NotificationCenter + EventsService
 payroll.run.approved → PayrollWebhooks

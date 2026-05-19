@@ -29,6 +29,13 @@ if [ -z "$CHANGED_FILES" ]; then
   exit 0
 fi
 
+# Excluir rutas que NO forman parte del wiki técnico (landing comercial, blog, assets)
+# Si tras filtrar no queda nada, salir silencioso para no escribir entradas vacías.
+CHANGED_FILES=$(echo "$CHANGED_FILES" | grep -v -E '^(food-inventory-admin/src/pages/Skubik|food-inventory-admin/public/(videos|images)/skubik|smartkubik-blog/|docs/wiki/\.pending-reviews\.md$)' || true)
+if [ -z "$CHANGED_FILES" ]; then
+  exit 0
+fi
+
 # Obtener metadata del commit
 COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null)
 COMMIT_MSG=$(git log -1 --pretty=format:"%s" 2>/dev/null)

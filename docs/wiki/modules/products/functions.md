@@ -1,7 +1,7 @@
 # Productos — Catálogo de Funciones
 
 > Todas las funciones/acciones disponibles en el módulo de Productos.
-> Última actualización: 2026-04-28
+> Última actualización: 2026-05-09
 
 ---
 
@@ -18,6 +18,7 @@
 | Actualizar producto | Modifica datos, precios, variantes, SKU | Administrador | Price History, Price Lists, Inventory |
 | Eliminar producto | Borra un producto del catálogo | Administrador | Tenant (usage) |
 | Vincular proveedor | Agrega un proveedor al producto | Administrador | Suppliers |
+| Auto-crear Inventario al crear Producto | Helper interno: crea `Inventory` (qty=0) en cada tenant del grupo + IN movement opcional para owner | Sistema (auto al crear producto) | Inventory, Tenant (group resolution) |
 | Listar categorías | Obtiene categorías únicas del catálogo | Todos | — |
 | Listar subcategorías | Obtiene subcategorías (opcionalmente por categoría) | Todos | — |
 | Escanear etiqueta (IA) | Extrae datos de producto desde fotos de etiquetas | Administrador | OpenAI |
@@ -60,6 +61,7 @@ Cuando el negocio incorpora un nuevo artículo a su catálogo — ya sea mercanc
   - Incrementa `tenant.usage.currentStorage` por el tamaño de imágenes
   - Auto-genera SKUs para variantes (variante 0 = SKU del producto, demás = `{SKU}-VAR{N}`)
   - Procesa estrategia de precios (markup/margin) si está configurada
+  - **Auto-crea documentos `Inventory` en todo el grupo del tenant** vía `InventoryService.createInitialInventoriesForProductInGroup()` — ver sección "Auto-creación de Inventario" abajo. Si esta sub-operación falla, el error se loguea pero NO aborta la creación del producto.
 - **Permisos requeridos**: `products_create`
 
 ### Errores comunes
@@ -68,6 +70,50 @@ Cuando el negocio incorpora un nuevo artículo a su catálogo — ya sea mercanc
 | "Has alcanzado el límite de productos" | Plan del tenant excedido | Actualizar plan de suscripción |
 | "SKU ya existe" | Otro producto usa ese SKU | Cambiar el SKU o dejar vacío para auto-generar |
 | "Barcode duplicado" | Otro producto tiene ese código de barras | Verificar que el barcode es correcto |
+
+---
+
+## Auto-creación de Inventario (helper)
+
+### ¿Qué hace?
+Cuando se crea un producto (vía `create()` o `bulkCreate()`), el `ProductsController` arma un `inventoryContext` y se lo pasa al service. Este invoca `InventoryService.createInitialInventoriesForProductInGroup()`, que crea automáticamente documentos de `Inventory` para el producto recién guardado en **todos los tenants del grupo operacional** (matriz + sucursales).
+
+### ¿Cuándo se usa?
+Siempre que un producto se cree desde un endpoint autenticado. Históricamente, el usuario "tech-resistant" tenía que (a) crear el producto y (b) ir a otra pantalla a crear el inventario manualmente — esta automatización elimina (b) desde la perspectiva del usuario.
+
+### Inputs (`inventoryContext` armado por el controller)
+| Campo | Origen | Notas |
+|---|---|---|
+| `ownerTenantId` | `req.user.tenantId` | El tenant REAL del usuario (no el del catálogo). Es el único que puede recibir `initialQuantity > 0` |
+| `warehouseId` | `createProductDto.initialInventoryWarehouseId` | Opcional. Si se omite, el helper resuelve `getDefaultWarehouse(ownerTenantId)` |
+| `initialQuantity` | `createProductDto.initialInventoryQuantity` | Opcional, default 0. En `bulkCreate()` siempre se fuerza a 0 |
+| `createdBy` | `user.id` (lo añade el service) | Si falta y `qty > 0`, el helper omite el `IN movement` con warning |
+
+### Comportamiento del helper
+1. **Resuelve grupo**: `getTenantGroup(ownerTenantId)` retorna `[matrixId, ...siblingIds]`. Funciona si `ownerTenantId` es la matriz O una sucursal.
+2. **Por cada tenant del grupo**:
+   - Si es el owner: usa `warehouseId` solicitado o el default. Cantidad = `initialQuantity`.
+   - Si NO es el owner: siempre default warehouse del tenant. Cantidad = 0.
+   - Si el tenant no tiene warehouse usable: warning + skip (no aborta el resto).
+3. **Por cada variante** del producto (o `[null]` si no tiene variantes):
+   - Chequea idempotencia con `findOne({ tenantId, productId, variantId })` — si existe, `skipped++` y continúa.
+   - Inserta el `Inventory` con `totalQuantity`, `availableQuantity`, `averageCostPrice = costPrice` (de la variante o 0).
+4. **Audit trail**: si `isOwner && qty > 0 && createdBy`, inserta también un `InventoryMovement` tipo `IN` con `reason: "Stock inicial al crear producto"` y `balanceAfter` poblado.
+5. Retorna `{ created, skipped, warnings }`.
+
+### Lo que pasa por detrás (técnico)
+- **Helper público**: `InventoryService.createInitialInventoriesForProductInGroup(product, options, session?)`
+- **Helper privado**: `InventoryService.getTenantGroup(tenantId)` — resuelve matriz + sucursales (lee `Tenant.parentTenantId`/`isSubsidiary`).
+- **Llamado desde**: `ProductsService.create()` y `ProductsService.bulkCreate()` (este último propaga la `ClientSession` de la transacción).
+- **Bug fix asociado**: `getDefaultWarehouse()` ahora filtra por `isDefault: true` (antes filtraba por `isPrimary`, campo inexistente — caía en fallback al "primer warehouse activo" silenciosamente).
+- **Tests**: `inventory.service.initial-inventories.spec.ts` (13 tests) y `products.service.create-with-inventory.spec.ts` (5 tests). Cubren: fan-out de variantes, allocation owner-only, IN movement, idempotencia, missing-warehouse, missing-createdBy, ownerTenantId vs user.tenantId.
+
+### Errores y warnings comunes
+| Síntoma | Causa | Comportamiento |
+|---|---|---|
+| `"Tenant X has no usable warehouse — skipping..."` | Sucursal sin warehouse `isDefault` ni activos | Warning logueado, helper continúa con los demás tenants |
+| `"initialQuantity=N requested but no createdBy provided — IN movement skipped..."` | El controller no propagó `user.id` | Inventory se crea con qty correcta pero sin movement de auditoría |
+| Helper completo falla | Cualquier error en la fan-out | `ProductsService.create()` loguea el error pero retorna el producto creado igual |
 
 ---
 
@@ -265,5 +311,5 @@ Estos endpoints NO requieren autenticación y son usados por la tienda online.
 
 ---
 
-*Última actualización: 2026-04-28*
-*Archivos fuente: `products.controller.ts`, `products-public.controller.ts`, `products.service.ts`*
+*Última actualización: 2026-05-09*
+*Archivos fuente: `products.controller.ts`, `products-public.controller.ts`, `products.service.ts`, `inventory.service.ts` (createInitialInventoriesForProductInGroup, getTenantGroup)*

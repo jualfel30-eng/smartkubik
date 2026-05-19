@@ -5,7 +5,7 @@ import { WithholdingDocumentDocument } from '../../schemas/withholding-document.
 import { Tenant, TenantDocument } from '../../schemas/tenant.schema';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as QRCode from 'qrcode';
+import QRCode from 'qrcode';
 
 @Injectable()
 export class WithholdingPdfService {
