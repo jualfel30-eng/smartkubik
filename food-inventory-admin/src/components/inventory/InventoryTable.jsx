@@ -6,7 +6,8 @@
  */
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
-import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body.jsx';
 import { ContentTransition } from '@/components/ui/content-transition.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
@@ -204,8 +205,55 @@ export function InventoryTable({
                 {visibleColumns.category && <TableCell>{formatProductCategory(item.productId?.category)}</TableCell>}
                 {visibleColumns.available && (
                   <TableCell>
-                    <span>{item.availableQuantity} unidades</span>
-                    <StockBar quantity={item.availableQuantity} />
+                    {item.productId?.hasMultipleSellingUnits && item.productId?.sellingUnits?.length > 0 ? (
+                      <div className="flex flex-col gap-1">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <div className="font-medium cursor-pointer inline-flex items-center gap-1 group hover:bg-muted/50 px-1 rounded transition-colors w-fit">
+                              <span>{item.availableQuantity} {item.productId.unitOfMeasure || 'und'}</span>
+                              <span className="text-xs text-emerald-500 font-bold group-hover:underline decoration-emerald-500">(+)</span>
+                            </div>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-0" align="start">
+                            <div className="p-3 border-b">
+                              <h4 className="text-sm font-medium">Stock por unidad</h4>
+                            </div>
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="text-xs">Unidad</TableHead>
+                                  <TableHead className="text-right text-xs">Cantidad</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {item.productId.sellingUnits.map((unit, idx) => {
+                                  const qty = unit.conversionFactor > 0
+                                    ? parseFloat((item.availableQuantity / unit.conversionFactor).toFixed(2))
+                                    : item.availableQuantity;
+                                  return (
+                                    <TableRow key={idx}>
+                                      <TableCell className="text-xs py-2">
+                                        <div className="font-medium">{unit.name}</div>
+                                        <div className="text-muted-foreground text-[10px]">{unit.abbreviation}</div>
+                                      </TableCell>
+                                      <TableCell className="text-right text-xs py-2 font-medium">
+                                        {qty} {unit.abbreviation}
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                          </PopoverContent>
+                        </Popover>
+                        <StockBar quantity={item.availableQuantity} />
+                      </div>
+                    ) : (
+                      <>
+                        <span>{item.availableQuantity} {item.productId?.unitOfMeasure || 'unidades'}</span>
+                        <StockBar quantity={item.availableQuantity} />
+                      </>
+                    )}
                   </TableCell>
                 )}
                 {visibleColumns.cost && <TableCell>${item.averageCostPrice.toFixed(2)}</TableCell>}
