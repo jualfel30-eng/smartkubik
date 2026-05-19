@@ -106,6 +106,8 @@ export class RolesSeed {
         // Appointments permissions for Employee
         "appointments_read",
         "appointments_create",
+        // Payment Requests review (Cashier-equivalent in current role taxonomy)
+        "payment_requests_review",
       ],
     },
   ];

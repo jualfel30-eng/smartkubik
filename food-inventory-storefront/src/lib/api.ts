@@ -24,6 +24,60 @@ import {
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 /**
+ * Hostname-aware API base resolver.
+ *
+ * Why this exists:
+ *   - `NEXT_PUBLIC_API_URL` is set to the production API in `.env.local` so
+ *     tenant storefronts deployed under their own domain hit prod, never
+ *     localhost. Switching this var to localhost for local dev has broken
+ *     prod for tenants in the past (someone forgets to toggle it back).
+ *   - Solution: keep the env var pointed to prod, but at request time
+ *     detect "am I running on localhost?" and reroute to the local API
+ *     dynamically.
+ *
+ * Behavior:
+ *   - Client-side (browser): inspect `window.location.hostname`. If it's
+ *     localhost/127.0.0.1/::1 → use `http://localhost:3000`. Otherwise use
+ *     `NEXT_PUBLIC_API_URL`.
+ *   - Server-side (SSR / RSC): inspect the incoming request's `host`
+ *     header via `next/headers`. Same rules. Falls back to env var when
+ *     headers aren't available (e.g. during static prerender).
+ *
+ * Always returns a Promise so the API is consistent across contexts.
+ * Callers must `await`.
+ */
+const DEV_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1']);
+const LOCAL_API_URL = 'http://localhost:3000';
+
+function isDevHostname(host?: string | null): boolean {
+  if (!host) return false;
+  const hostname = host.split(':')[0];
+  return DEV_HOSTNAMES.has(hostname);
+}
+
+export async function getApiBaseUrl(): Promise<string> {
+  if (typeof window !== 'undefined') {
+    return isDevHostname(window.location.hostname)
+      ? LOCAL_API_URL
+      : API_BASE;
+  }
+
+  // Server-side: only available in dynamic request scopes. Wrap in try
+  // because `headers()` throws in pure static contexts and during build.
+  try {
+    const { headers } = await import('next/headers');
+    const h = await headers();
+    if (isDevHostname(h.get('host'))) {
+      return LOCAL_API_URL;
+    }
+  } catch {
+    // Static prerender / build — env var wins
+  }
+
+  return API_BASE;
+}
+
+/**
  * Transforma un producto del backend al formato esperado por el frontend
  */
 function transformProduct(product: any): any {

@@ -85,6 +85,15 @@ export class TenantPaymentConfig {
   @Prop({ type: Boolean, default: false })
   requirePaymentConfirmation: boolean; // Require manual confirmation for online orders
 
+  @Prop({ type: Boolean, default: false })
+  requirePaymentProof: boolean; // Auto-issue a PaymentRequest for non-cash storefront orders
+
+  @Prop({ type: Boolean, default: false })
+  allowPartialPayments: boolean; // Tenant accepts abonos on PaymentRequests
+
+  @Prop({ type: Number, default: 7, min: 1, max: 30 })
+  paymentRequestExpiryDays: number;
+
   @Prop({ type: String })
   generalPaymentInstructions?: string; // General instructions shown to customers
 

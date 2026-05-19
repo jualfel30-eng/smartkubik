@@ -16,8 +16,8 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage, diskStorage } from "multer";
 import { extname, join } from "path";
-import * as sharp from "sharp";
-import * as ffmpeg from "fluent-ffmpeg";
+import sharp from "sharp";
+import ffmpeg from "fluent-ffmpeg";
 import * as fs from "fs/promises";
 import { StorefrontConfigService } from "./storefront-config.service";
 import {

@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { Printer, Download, Truck, Package, Ship, Users } from 'lucide-react';
 import { fetchApi } from '@/lib/api.js';
 import SplitBillModal from '@/components/restaurant/SplitBillModal.jsx';
+import { SolicitarComprobanteButton } from '@/components/payment-requests/SolicitarComprobanteButton.jsx';
 import { useAuth } from '@/hooks/use-auth.jsx';
 import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
 
@@ -366,6 +367,7 @@ export function OrderDetailsDialog({ isOpen, onClose, order, tenantSettings, onU
                     Dividir Cuenta
                   </Button>
                 )}
+                <SolicitarComprobanteButton order={order} />
                 <Button variant="outline" onClick={() => handlePdfAction('print')} disabled={isGenerating || !tenantSettings}>
                     <Printer className="mr-2 h-4 w-4" />
                     {isGenerating ? 'Generando...' : 'Imprimir'}

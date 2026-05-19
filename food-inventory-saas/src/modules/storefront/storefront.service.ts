@@ -7,8 +7,8 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
-import * as sharp from "sharp";
-import * as ffmpeg from "fluent-ffmpeg";
+import sharp from "sharp";
+import ffmpeg from "fluent-ffmpeg";
 import * as fs from "fs/promises";
 import * as path from "path";
 import {

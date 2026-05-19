@@ -7,7 +7,7 @@ import {
 } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
-import * as moment from "moment-timezone";
+import moment from "moment-timezone";
 import { format } from "date-fns";
 import {
   ChartOfAccounts,
@@ -1091,8 +1091,11 @@ export class AccountingService {
       );
       const balance = order.totalAmount - totalPaid;
       return {
+        orderId: order._id?.toString(),
         orderNumber: order.orderNumber,
         customerName: order.customerName,
+        customerPhone: (order as any).customerPhone,
+        source: (order as any).source,
         orderDate: (order as any).createdAt,
         dueDate: (order as any).createdAt, // This should be improved
         totalAmount: order.totalAmount,

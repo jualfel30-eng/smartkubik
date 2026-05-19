@@ -620,6 +620,13 @@ export class PermissionsSeed {
       description: "Aprobar órdenes de transferencia",
       module: "transfer_orders",
     },
+
+    // Payment Requests (Solicitudes de comprobante de pago)
+    {
+      name: "payment_requests_review",
+      description: "Revisar y confirmar solicitudes de pago",
+      module: "payment_requests",
+    },
   ];
 
   constructor(@InjectConnection() private readonly connection: Connection) { }

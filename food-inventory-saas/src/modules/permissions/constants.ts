@@ -101,4 +101,6 @@ export const ALL_PERMISSIONS = [
   "data_import_create",
   "data_import_read",
   "data_import_delete",
+  // Payment Requests Module
+  "payment_requests_review",
 ];

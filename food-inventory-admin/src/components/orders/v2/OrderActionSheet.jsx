@@ -1,4 +1,4 @@
-import { Eye, FileText, ChefHat, MessageCircle, XCircle, Receipt, RotateCcw } from 'lucide-react';
+import { Eye, FileText, ChefHat, MessageCircle, XCircle, Receipt, ReceiptText, RotateCcw } from 'lucide-react';
 import MobileActionSheet from '@/components/mobile/MobileActionSheet';
 import { cn } from '@/lib/utils';
 import { getPrimaryCTA } from '@/lib/orders/getPrimaryCTA';
@@ -6,6 +6,13 @@ import haptics from '@/lib/haptics';
 
 const SECONDARY_ACTIONS = [
   { id: 'view-detail', label: 'Ver detalle completo', icon: Eye },
+  {
+    id: 'request-payment',
+    label: 'Pedir comprobante al cliente',
+    sublabel: 'Le envías un enlace por WhatsApp para que pague',
+    icon: ReceiptText,
+    requires: 'can-request-payment',
+  },
   { id: 'invoice', label: 'Generar factura', icon: Receipt, requires: 'paid' },
   { id: 'view-invoice', label: 'Ver factura', icon: FileText, requires: 'has-invoice' },
   { id: 'kitchen', label: 'Enviar a cocina', icon: ChefHat, requires: 'restaurant' },
@@ -27,6 +34,10 @@ function passesRequires(action, ctx) {
       return ctx.isCancelled;
     case 'not-cancelled':
       return !ctx.isCancelled;
+    case 'can-request-payment':
+      // Three gates per spec: permission, not already paid, and not a
+      // storefront order (those auto-issue PaymentRequests upstream).
+      return ctx.canRequestPayment && !ctx.isPaid && !ctx.isStorefrontOrder;
     default:
       return true;
   }
@@ -41,6 +52,7 @@ export function OrderActionSheet({
   onClose,
   order,
   restaurantEnabled = false,
+  canRequestPayment = false,
   onPrimary,
   onSecondary,
 }) {
@@ -52,7 +64,15 @@ export function OrderActionSheet({
   const isPaid = order.paymentStatus === 'paid';
   const isCancelled = order.status === 'cancelled' || order.status === 'refunded';
   const hasInvoice = Boolean(order.billingDocumentId);
-  const ctx = { isPaid, isCancelled, hasInvoice, restaurantEnabled };
+  const isStorefrontOrder = order.source === 'storefront';
+  const ctx = {
+    isPaid,
+    isCancelled,
+    hasInvoice,
+    restaurantEnabled,
+    canRequestPayment,
+    isStorefrontOrder,
+  };
 
   const handlePrimary = () => {
     haptics.select();
@@ -106,12 +126,25 @@ export function OrderActionSheet({
                     type="button"
                     onClick={() => handleSecondary(action.id)}
                     className={cn(
-                      'w-full flex items-center gap-3 px-3 py-3 text-left text-sm tap-target no-tap-highlight hover:bg-muted/50',
+                      'w-full flex items-start gap-3 px-3 py-3 text-left text-sm tap-target no-tap-highlight hover:bg-muted/50',
                       action.danger && 'text-destructive',
                     )}
                   >
-                    <Icon size={18} className={action.danger ? 'text-destructive' : 'text-muted-foreground'} />
-                    <span className="flex-1">{action.label}</span>
+                    <Icon
+                      size={18}
+                      className={cn(
+                        'mt-0.5 shrink-0',
+                        action.danger ? 'text-destructive' : 'text-muted-foreground',
+                      )}
+                    />
+                    <span className="flex-1">
+                      <span className="block">{action.label}</span>
+                      {action.sublabel && (
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          {action.sublabel}
+                        </span>
+                      )}
+                    </span>
                   </button>
                 </li>
               );

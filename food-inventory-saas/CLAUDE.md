@@ -33,6 +33,8 @@ Cada módulo en `src/modules/<X>/` sigue el patrón:
 - **Soft-delete**: filtra siempre con `{ isDeleted: { $ne: true } }`, nunca `{ isDeleted: false }`. Ver pattern.
 - **Multi-unit items**: preserva `selectedUnit`, `conversionFactor`, `unitOfMeasure` en TODO mapping DTO ↔ Schema.
 - **Sequential numbers**: usa MAX+1, no `countDocuments()`. Ver pattern.
+- **Permisos nuevos**: hay **4 fuentes de verdad** (`ALL_PERMISSIONS` const + seed + migration + DB). Olvidar `ALL_PERMISSIONS` hace que el permiso quede invisible en super-admin. Ver `../docs/wiki/patterns/adding-permissions-modules.md` — **checklist obligado** antes de declarar "done" cualquier feature que introduzca un permiso.
+- **Standalone scripts para migraciones**: toda migración HTTP debe tener su gemelo `scripts/bootstrap-*.ts` + entry `npm run db:bootstrap:*`. Sin esto, las migraciones se posponen indefinidamente porque correrlas requiere backend up + JWT en mano.
 
 ## Comandos
 

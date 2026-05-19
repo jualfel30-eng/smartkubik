@@ -125,7 +125,9 @@ import { CalendarsModule } from "./modules/calendars/calendars.module";
 import { ActivitiesModule } from "./modules/activities/activities.module";
 import { RemindersModule } from "./modules/reminders/reminders.module";
 import { TenantPaymentConfigModule } from "./modules/tenant-payment-config/tenant-payment-config.module";
+import { PaymentRequestsModule } from "./modules/payment-requests/payment-requests.module";
 import { BinancePayModule } from "./modules/binance-pay/binance-pay.module";
+import { StripePayModule } from "./modules/stripe-pay/stripe-pay.module";
 import { DriversModule } from "./modules/drivers/drivers.module";
 import { CashRegisterModule } from "./modules/cash-register/cash-register.module";
 import { FixedAssetsModule } from "./modules/fixed-assets/fixed-assets.module";
@@ -562,7 +564,9 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     ActivitiesModule,
     RemindersModule,
     TenantPaymentConfigModule,
+    PaymentRequestsModule,
     BinancePayModule,
+    StripePayModule,
     DriversModule,
     CashRegisterModule,
     FixedAssetsModule,

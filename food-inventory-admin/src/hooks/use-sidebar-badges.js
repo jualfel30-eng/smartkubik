@@ -44,6 +44,19 @@ export function useSidebarBadges(tenant, intervalMs = 60_000) {
       // Endpoint may not exist — silently skip
     }
 
+    try {
+      // Payment requests waiting for review. 403 (no permission) and
+      // missing endpoint both fall through silently — the sidebar item
+      // is permission-gated separately, so a missing badge is the safe
+      // default for users without the permission.
+      const prRes = await fetchApi('/payment-requests/pending-count');
+      if (prRes?.data?.count > 0) {
+        counts['payment-requests'] = prRes.data.count;
+      }
+    } catch {
+      // ignored
+    }
+
     setBadges(counts);
   }, [enabled, hasAppointments]);
 

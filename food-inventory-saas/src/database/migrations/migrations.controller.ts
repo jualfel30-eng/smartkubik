@@ -9,6 +9,8 @@ import { LinkPaymentsToOrdersMigration } from "./link-payments-to-orders.migrati
 import { AddCountryCodeMigration } from "./add-country-code.migration";
 import { SeedDefaultBusinessLocationsMigration } from "./seed-default-business-locations.migration";
 import { FixVariantSkusMigration } from "./fix-variant-skus.migration";
+import { ExtendTenantPaymentConfigForPaymentRequestsMigration } from "./extend-tenant-payment-config-for-payment-requests.migration";
+import { SeedPaymentRequestsReviewPermissionMigration } from "./seed-payment-requests-review-permission.migration";
 
 @ApiTags("Migrations")
 @Controller("migrations")
@@ -23,6 +25,8 @@ export class MigrationsController {
     private readonly addCountryCodeMigration: AddCountryCodeMigration,
     private readonly seedDefaultBusinessLocationsMigration: SeedDefaultBusinessLocationsMigration,
     private readonly fixVariantSkusMigration: FixVariantSkusMigration,
+    private readonly extendTenantPaymentConfigForPaymentRequestsMigration: ExtendTenantPaymentConfigForPaymentRequestsMigration,
+    private readonly seedPaymentRequestsReviewPermissionMigration: SeedPaymentRequestsReviewPermissionMigration,
   ) {}
 
   @Post("add-marketing-permissions")
@@ -167,6 +171,46 @@ export class MigrationsController {
     return {
       success: true,
       message: `Variant SKU migration completed: ${result.productsFixed} products fixed, ${result.inventoriesFixed} inventory records updated`,
+    };
+  }
+
+  @Post("extend-tenant-payment-config-for-payment-requests")
+  @ApiOperation({
+    summary:
+      "[SUPER ADMIN] Backfill TenantPaymentConfig with PaymentRequest settings",
+    description:
+      "Adds requirePaymentProof=false, allowPartialPayments=false, paymentRequestExpiryDays=7 to existing TenantPaymentConfig documents that lack them. Idempotent.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "TenantPaymentConfig backfill completed",
+  })
+  async extendTenantPaymentConfigForPaymentRequests() {
+    const result =
+      await this.extendTenantPaymentConfigForPaymentRequestsMigration.run();
+    return {
+      success: true,
+      message: `TenantPaymentConfig extension completed: requirePaymentProof ${result.updatedRequirePaymentProof}, allowPartialPayments ${result.updatedAllowPartialPayments}, expiryDays ${result.updatedExpiryDays}`,
+    };
+  }
+
+  @Post("seed-payment-requests-review-permission")
+  @ApiOperation({
+    summary:
+      "[SUPER ADMIN] Seed payment_requests_review permission and grant to admin/employee roles",
+    description:
+      "Inserts payment_requests_review into the permissions collection if missing and grants it to existing admin and employee role documents. Idempotent.",
+  })
+  @ApiResponse({
+    status: 200,
+    description: "payment_requests_review permission seeded",
+  })
+  async seedPaymentRequestsReviewPermission() {
+    const result =
+      await this.seedPaymentRequestsReviewPermissionMigration.run();
+    return {
+      success: true,
+      message: `payment_requests_review permission seeded (inserted: ${result.permissionInserted}, roles updated: ${result.rolesUpdated})`,
     };
   }
 }

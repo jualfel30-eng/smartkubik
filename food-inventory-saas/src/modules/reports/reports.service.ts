@@ -8,7 +8,7 @@ import {
   AppointmentDocument,
 } from "../../schemas/appointment.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
-import * as moment from "moment-timezone";
+import moment from "moment-timezone";
 
 interface HospitalityAppointmentReportOptions {
   startDate?: string;

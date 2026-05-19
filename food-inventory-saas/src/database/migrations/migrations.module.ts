@@ -9,6 +9,8 @@ import { LinkPaymentsToOrdersMigration } from "./link-payments-to-orders.migrati
 import { AddCountryCodeMigration } from "./add-country-code.migration";
 import { SeedDefaultBusinessLocationsMigration } from "./seed-default-business-locations.migration";
 import { FixVariantSkusMigration } from "./fix-variant-skus.migration";
+import { ExtendTenantPaymentConfigForPaymentRequestsMigration } from "./extend-tenant-payment-config-for-payment-requests.migration";
+import { SeedPaymentRequestsReviewPermissionMigration } from "./seed-payment-requests-review-permission.migration";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import { Payment, PaymentSchema } from "../../schemas/payment.schema";
 import {
@@ -46,6 +48,8 @@ import { ProductAffinityModule } from "../../modules/product-affinity/product-af
     AddCountryCodeMigration,
     SeedDefaultBusinessLocationsMigration,
     FixVariantSkusMigration,
+    ExtendTenantPaymentConfigForPaymentRequestsMigration,
+    SeedPaymentRequestsReviewPermissionMigration,
   ],
   exports: [
     AddMarketingPermissionsMigration,
@@ -56,6 +60,8 @@ import { ProductAffinityModule } from "../../modules/product-affinity/product-af
     AddCountryCodeMigration,
     SeedDefaultBusinessLocationsMigration,
     FixVariantSkusMigration,
+    ExtendTenantPaymentConfigForPaymentRequestsMigration,
+    SeedPaymentRequestsReviewPermissionMigration,
   ],
 })
 export class MigrationsModule {}

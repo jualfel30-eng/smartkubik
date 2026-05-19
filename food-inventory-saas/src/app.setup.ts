@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 import helmet from "helmet";
-import * as compression from "compression";
+import compression from "compression";
 import { ValidationError } from "class-validator";
 import { ConfigService } from "@nestjs/config";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";

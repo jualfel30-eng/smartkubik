@@ -8,6 +8,7 @@ import { OrderAnalyticsService } from "./services/order-analytics.service";
 import { OrderFulfillmentService } from "./services/order-fulfillment.service";
 import { OrderInventoryService } from "./services/order-inventory.service";
 import { OrderPaymentsService } from "./services/order-payments.service";
+import { StripePaymentListener } from "./services/stripe-payment.listener";
 import { WhatsAppOrderNotificationsService } from "./whatsapp-order-notifications.service";
 import { AuthModule } from "../../auth/auth.module";
 import { InventoryModule } from "../inventory/inventory.module";
@@ -85,6 +86,7 @@ import { PriceListsModule } from "../price-lists/price-lists.module";
     OrderFulfillmentService,
     OrderInventoryService,
     OrderPaymentsService,
+    StripePaymentListener,
     WhatsAppOrderNotificationsService,
   ],
   exports: [

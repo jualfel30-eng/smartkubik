@@ -47,6 +47,7 @@ import { CashRegisterProvider } from './contexts/CashRegisterContext.jsx';
 import { FabProvider } from './contexts/FabContext.jsx';
 import { BusinessLocationProvider } from './context/BusinessLocationContext.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
+import { PaymentRequestsBadge } from './components/payment-requests/PaymentRequestsBadge.jsx';
 import TrialBanner from './components/TrialBanner.jsx';
 import { CountryPluginProvider } from './country-plugins/CountryPluginContext.jsx';
 import { TenantPickerDialog } from '@/components/auth/TenantPickerDialog.jsx';
@@ -92,6 +93,7 @@ const InventoryDashboard = lazy(() => import('@/components/InventoryDashboard.js
 const PayablesManagement = lazy(() => import('@/components/PayablesManagement.jsx'));
 const AccountingManagement = lazy(() => import('@/components/AccountingManagement.jsx'));
 const AccountsReceivableReport = lazy(() => import('@/components/AccountsReceivableReport.jsx'));
+const PaymentRequestsPage = lazy(() => import('@/components/payment-requests/PaymentRequestsPage.jsx'));
 const ElectronicInvoicesManager = lazy(() => import('@/components/accounting/ElectronicInvoicesManager.jsx'));
 // DEPRECATED: Legacy ISLR module - replaced by unified WithholdingManagement
 // const IslrWithholdingList = lazy(() => import('@/components/accounting/IslrWithholdingList.jsx'));
@@ -516,6 +518,7 @@ function TenantLayout() {
                   <span className="text-xs">⌘</span>K
                 </kbd>
               </Button>
+              <PaymentRequestsBadge />
               <NotificationCenter />
               <Button
                 variant="ghost"
@@ -654,6 +657,7 @@ function TenantLayout() {
                 <Route path="accounts-payable" element={<PayablesManagement />} />
                 <Route path="accounting" element={<AccountingManagement />} />
                 <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />
+                <Route path="payment-requests" element={<PaymentRequestsPage />} />
                 <Route path="accounting/reports/trial-balance" element={<TrialBalance />} />
                 <Route path="accounting/reports/general-ledger" element={<GeneralLedger />} />
                 <Route path="accounting/periods" element={<AccountingPeriods />} />

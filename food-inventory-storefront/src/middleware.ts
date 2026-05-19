@@ -7,6 +7,8 @@ export async function middleware(request: NextRequest) {
   // Evitar loops de redirección - no procesar rutas especiales
   if (pathname.startsWith('/_next') ||
       pathname.startsWith('/api') ||
+      pathname.startsWith('/pago/') ||
+      pathname === '/pago' ||
       pathname.includes('/404') ||
       pathname.includes('/error') ||
       pathname.includes('favicon.ico')) {
