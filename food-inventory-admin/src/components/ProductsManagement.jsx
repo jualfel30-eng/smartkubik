@@ -4301,7 +4301,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                             onUpdateSellingUnit={(idx, field, val) => handleSellingUnitInlineUpdate(product._id, idx, field, val)}
                           >
                             <div className="font-medium cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
-                              ${(product.variants?.[0]?.basePrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              ${((product.sellingUnits.find(u => u.isDefault) || product.sellingUnits[0])?.pricePerUnit || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               <span className="text-xs text-emerald-500 font-bold group-hover:underline decoration-emerald-500">(+)</span>
                             </div>
                           </SellingUnitsPopover>
@@ -4334,7 +4334,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                             onUpdateSellingUnit={(idx, field, val) => handleSellingUnitInlineUpdate(product._id, idx, field, val)}
                           >
                             <div className="text-muted-foreground cursor-pointer inline-flex items-center justify-end gap-1 group hover:bg-muted/50 p-1 rounded transition-colors">
-                              ${(product.variants?.[0]?.costPrice || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                              ${((product.sellingUnits.find(u => u.isDefault) || product.sellingUnits[0])?.costPerUnit || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                               <span className="text-[10px] text-emerald-500 font-bold group-hover:underline decoration-emerald-500">(+)</span>
                             </div>
                           </SellingUnitsPopover>
