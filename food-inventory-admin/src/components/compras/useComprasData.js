@@ -962,7 +962,7 @@ export function useComprasData() {
   const loadProductOptions = useCallback(async (searchQuery) => {
     try {
       const response = await fetchApi(
-        `/products?search=${encodeURIComponent(searchQuery)}&includeInactive=true&limit=20`
+        `/products?search=${encodeURIComponent(searchQuery)}&includeInactive=true&limit=200`
       );
       return (response.data || []).map((p) => {
         const parts = [p.name];
