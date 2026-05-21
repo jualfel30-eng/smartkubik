@@ -391,7 +391,7 @@ export function useComprasData() {
     const isPerishable = !isNonFoodRetailVertical && newProduct.isPerishable;
 
     const inventoryConfig = {
-      trackLots: showLotFields,
+      trackLots: showLotFields && isPerishable,
       trackExpiration: showExpirationFields && isPerishable,
       minimumStock: Number(newProduct.inventoryConfig?.minimumStock) || 10,
       maximumStock: Number(newProduct.inventoryConfig?.maximumStock) || 100,
