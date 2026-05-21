@@ -63,6 +63,10 @@ import {
   BanknoteArrowUp,
   BanknoteArrowDown,
   Settings,
+  GraduationCap,
+  School,
+  CheckSquare,
+  UserPlus,
 } from 'lucide-react';
 
 /**
@@ -291,8 +295,7 @@ export function getNavLinks(tenant) {
           icon: Users,
           children: [
             { name: 'Empleados', href: 'payroll/employees', icon: Users },
-            { name: 'Turnos', href: 'hr/shifts', icon: Clock },
-            { name: 'Ausencias', href: 'payroll/absences', icon: CalendarDays },
+            { name: 'Asistencia', href: 'hr/asistencia', icon: Clock },
           ]
         },
         {
@@ -330,5 +333,23 @@ export function getNavLinks(tenant) {
 
     // 5. Asistente
     { name: 'Asistente', href: 'assistant', icon: Sparkles, permission: 'dashboard_read' },
+
+    // 6. Vertical Educación
+    {
+      name: 'Académico',
+      href: 'education',
+      icon: GraduationCap,
+      permission: 'edu_dashboard_read',
+      requiresVertical: ['EDUCATION'],
+      children: [
+        { name: 'Dashboard', href: 'education', icon: LayoutDashboard, permission: 'edu_dashboard_read' },
+        { name: 'Salones', href: 'education/classrooms', icon: School, permission: 'edu_classrooms_read' },
+        { name: 'Horarios', href: 'education/schedules', icon: CalendarDays, permission: 'edu_schedules_read' },
+        { name: 'Calificaciones', href: 'education/grades', icon: BookOpen, permission: 'edu_grades_read' },
+        { name: 'Asistencia', href: 'education/attendance', icon: CheckSquare, permission: 'edu_attendance_read' },
+        { name: 'Cuotas', href: 'education/tuition', icon: Receipt, permission: 'edu_tuition_read' },
+        { name: 'Matricular alumno', href: 'education/students/new', icon: UserPlus, permission: 'edu_students_write' },
+      ],
+    },
   ];
 }

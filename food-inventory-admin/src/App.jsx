@@ -74,7 +74,7 @@ const OrdersHistory = lazy(() => import('@/components/orders/v2/OrdersHistoryV2.
 const CalendarView = lazy(() => import('@/components/CalendarView.jsx').then(module => ({ default: module.CalendarView })));
 const CalendarManagement = lazy(() => import('@/components/CalendarManagement.jsx').then(module => ({ default: module.CalendarManagement })));
 const CalendarModule = lazy(() => import('@/components/CalendarModule.jsx').then(module => ({ default: module.CalendarModule })));
-const ShiftManagement = lazy(() => import('@/components/ShiftManagement.jsx'));
+const AsistenciaView = lazy(() => import('@/components/payroll/AsistenciaView.jsx'));
 const Login = lazy(() => import('./pages/Login'));
 const LoginRouteGate = lazy(() => import('./pages/LoginRouteGate'));
 const Register = lazy(() => import('./pages/Register'));
@@ -174,6 +174,7 @@ const PayrollStructuresManager = lazy(() => import('@/components/payroll/Payroll
 const PayrollCalendarTimeline = lazy(() => import('@/components/payroll/PayrollCalendarTimeline.jsx'));
 const PayrollAbsencesManager = lazy(() => import('@/components/payroll/PayrollAbsencesManager.jsx'));
 const PayrollRunWizard = lazy(() => import('@/components/payroll/PayrollRunWizard.jsx'));
+const HRTodayHub = lazy(() => import('@/components/payroll/HRTodayHub.jsx'));
 const BillingDashboard = lazy(() => import('@/components/billing/BillingDashboard.jsx'));
 const BillingCreateForm = lazy(() => import('@/components/billing/BillingCreateForm.jsx'));
 const BillingDocumentDetail = lazy(() => import('@/components/billing/BillingDocumentDetail.jsx'));
@@ -185,6 +186,18 @@ const CashRegisterRouteGate = lazy(() => import('./components/mobile/cash-regist
 const DataImportPage = lazy(() => import('./components/data-import/DataImportPage.jsx'));
 const BusinessLocationsManagement = lazy(() => import('./components/BusinessLocationsManagement.jsx'));
 const SubsidiariesPanel = lazy(() => import('./components/SubsidiariesPanel.jsx'));
+
+// Education vertical
+const EduDashboard = lazy(() => import('@/components/education/EduDashboard.jsx'));
+const ClassroomManagement = lazy(() => import('@/components/education/ClassroomManagement.jsx'));
+const ClassroomRoster = lazy(() => import('@/components/education/ClassroomRoster.jsx'));
+const ScheduleGrid = lazy(() => import('@/components/education/ScheduleGrid.jsx'));
+const GradesManager = lazy(() => import('@/components/education/GradesManager.jsx'));
+const AttendanceSheet = lazy(() => import('@/components/education/AttendanceSheet.jsx'));
+const TuitionManagement = lazy(() => import('@/components/education/TuitionManagement.jsx'));
+const StudentRegistration = lazy(() => import('@/components/education/StudentRegistration.jsx'));
+const MobileAttendanceSheet = lazy(() => import('@/components/mobile/education/MobileAttendanceSheet.jsx'));
+const MobileGradeEntry = lazy(() => import('@/components/mobile/education/MobileGradeEntry.jsx'));
 
 // Loading fallback component - RubikLoader is now directly imported (not lazy)
 const LoadingFallback = () => (
@@ -597,6 +610,14 @@ function TenantLayout() {
                   }
                 />
                 <Route
+                  path="payroll/today"
+                  element={
+                    tenant?.enabledModules?.payroll
+                      ? <HRTodayHub />
+                      : <Navigate to="/dashboard" replace />
+                  }
+                />
+                <Route
                   path="payroll/runs"
                   element={
                     tenant?.enabledModules?.payroll
@@ -630,11 +651,7 @@ function TenantLayout() {
                 />
                 <Route
                   path="payroll/absences"
-                  element={
-                    tenant?.enabledModules?.payroll
-                      ? <PayrollAbsencesManager />
-                      : <Navigate to="/dashboard" replace />
-                  }
+                  element={<Navigate to="/hr/asistencia" replace />}
                 />
                 <Route path="orders" element={<Navigate to="orders/new" replace />} />
                 <Route path="orders/new" element={
@@ -722,14 +739,32 @@ function TenantLayout() {
                 } />
                 <Route
                   path="hr/shifts"
+                  element={<Navigate to="/hr/asistencia" replace />}
+                />
+                <Route
+                  path="hr/asistencia"
                   element={
-                    <ShiftManagement />
+                    tenant?.enabledModules?.payroll
+                      ? <AsistenciaView />
+                      : <Navigate to="/dashboard" replace />
                   }
                 />
                 <Route path="settings" element={<SettingsRouteGate />} />
                 <Route path="business-locations" element={<BusinessLocationsManagement />} />
                 <Route path="subsidiaries" element={<SubsidiariesPanel />} />
                 <Route path="data-import" element={<DataImportPage />} />
+
+                {/* Education vertical */}
+                <Route path="education" element={<EduDashboard />} />
+                <Route path="education/classrooms" element={<ClassroomManagement />} />
+                <Route path="education/classrooms/:classroomId/roster" element={<ClassroomRoster />} />
+                <Route path="education/schedules" element={<ScheduleGrid />} />
+                <Route path="education/grades" element={<GradesManager />} />
+                <Route path="education/attendance" element={<AttendanceSheet />} />
+                <Route path="education/tuition" element={<TuitionManagement />} />
+                <Route path="education/students/new" element={<StudentRegistration />} />
+                <Route path="education/classrooms/:classroomId/attendance/mobile" element={<MobileAttendanceSheet />} />
+                <Route path="education/classrooms/:classroomId/grades/:period/mobile" element={<MobileGradeEntry />} />
                 <Route path="reports" element={<ReportsRouteGate />} />
                 <Route path="assistant" element={<AssistantPage />} />
                 <Route path="system-map" element={<SystemMapPage />} />

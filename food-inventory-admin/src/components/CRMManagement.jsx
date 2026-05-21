@@ -43,6 +43,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { usePriceLists } from '@/hooks/usePriceLists';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 import EmployeeDetailDrawer from '@/components/payroll/EmployeeDetailDrawer.jsx';
+import HRTeamOnboardingWizard from '@/components/payroll/HRTeamOnboardingWizard.jsx';
 import { CustomerDetailDialog } from '@/components/CustomerDetailDialog.jsx';
 import { toast } from 'sonner';
 import { fetchApi } from '@/lib/api';
@@ -495,6 +496,9 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
   const [selectedEmployeeSnapshot, setSelectedEmployeeSnapshot] = useState(null);
   const [isEmployeeDrawerOpen, setIsEmployeeDrawerOpen] = useState(false);
+  const [onboardingWizardOpen, setOnboardingWizardOpen] = useState(false);
+  const [bulkOnlyWizard, setBulkOnlyWizard] = useState(false);
+  const [addOneOrManyOpen, setAddOneOrManyOpen] = useState(false);
   const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
   const [notifyTemplate, setNotifyTemplate] = useState('payroll-status-update');
   const [notifyChannels, setNotifyChannels] = useState(['email']);
@@ -1995,17 +1999,19 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                     </Button>
                   )}
 
-                  {/* Botón para empleados: abre el drawer directamente sin diálogo */}
+                  {/* Botón para empleados */}
                   {isEmployeeTab ? (
                     <Button
                       className="w-full sm:w-auto"
                       onClick={() => {
-                        setSelectedEmployeeId(null);
-                        setSelectedEmployeeSnapshot(null);
-                        setIsEmployeeDrawerOpen(true);
+                        if (employeesData.length === 0) {
+                          setOnboardingWizardOpen(true);
+                        } else {
+                          setAddOneOrManyOpen(true);
+                        }
                       }}
                     >
-                      <Plus className="h-4 w-4 mr-2" /> Crear empleado
+                      <Plus className="h-4 w-4 mr-2" /> Agregar empleado
                     </Button>
                   ) : (
                     /* Botón para contactos: abre el diálogo del CRM */
@@ -2163,88 +2169,6 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                   )}
                 </div>
               </div>
-              {isEmployeeTab && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Resumen de empleados</CardTitle>
-                    <CardDescription>Estado general de los colaboradores y contratos activos.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                      <Card className="border-none bg-muted/40 shadow-none">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Empleados totales
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-2xl font-semibold text-foreground">{employeeTotals.employees || 0}</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-none bg-muted/40 shadow-none">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Contratos activos
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-2xl font-semibold text-foreground">{employeeTotals.activeContracts || 0}</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-none bg-muted/40 shadow-none">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Contratos por vencer (30 días)
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-2xl font-semibold text-foreground">{employeeTotals.expiringContracts || 0}</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-none bg-muted/40 shadow-none">
-                        <CardHeader className="pb-2">
-                          <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Departamentos activos
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-2xl font-semibold text-foreground">{Object.keys(employeeDepartmentBreakdown).length || 0}</p>
-                        </CardContent>
-                      </Card>
-                    </div>
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <div className="rounded-lg border p-4">
-                        <p className="text-sm font-semibold text-muted-foreground mb-2">Por estado</p>
-                        <div className="space-y-2">
-                          {Object.keys(employeeStatusBreakdown).length === 0 && (
-                            <p className="text-sm text-muted-foreground">Sin información disponible.</p>
-                          )}
-                          {Object.entries(employeeStatusBreakdown).map(([status, count]) => (
-                            <div key={status} className="flex items-center justify-between text-sm">
-                              <span className="capitalize">{status}</span>
-                              <Badge variant="outline">{count}</Badge>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="rounded-lg border p-4">
-                        <p className="text-sm font-semibold text-muted-foreground mb-2">Por departamento</p>
-                        <div className="space-y-2">
-                          {Object.keys(employeeDepartmentBreakdown).length === 0 && (
-                            <p className="text-sm text-muted-foreground">Aún no se registran departamentos.</p>
-                          )}
-                          {Object.entries(employeeDepartmentBreakdown).map(([dept, count]) => (
-                            <div key={dept} className="flex items-center justify-between text-sm">
-                              <span>{dept}</span>
-                              <Badge variant="outline">{count}</Badge>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
 
               <Card>
                 <CardHeader>
@@ -2434,8 +2358,17 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                           <TableBody>
                             {employeesData.length === 0 && (
                               <TableRow>
-                                <TableCell colSpan={9} className="text-center text-sm text-muted-foreground">
-                                  No hay empleados registrados.
+                                <TableCell colSpan={9}>
+                                  <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
+                                    <div className="text-5xl">👥</div>
+                                    <div>
+                                      <p className="font-semibold text-base">Aún no hay empleados registrados</p>
+                                      <p className="text-sm text-muted-foreground mt-1">Agrega a tu equipo completo en un solo paso — el asistente te guía.</p>
+                                    </div>
+                                    <Button size="lg" onClick={() => setOnboardingWizardOpen(true)}>
+                                      Configurar mi equipo →
+                                    </Button>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             )}
@@ -2778,6 +2711,54 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
             initialEmployee={selectedEmployeeSnapshot}
             onDataChanged={refreshEmployeesData}
           />
+
+          <HRTeamOnboardingWizard
+            open={onboardingWizardOpen}
+            onOpenChange={setOnboardingWizardOpen}
+            bulkOnly={bulkOnlyWizard}
+            onComplete={() => {
+              setOnboardingWizardOpen(false);
+              setBulkOnlyWizard(false);
+              refreshEmployeesData();
+            }}
+          />
+
+          {/* ¿Agregar uno o varios? */}
+          <Dialog open={addOneOrManyOpen} onOpenChange={setAddOneOrManyOpen}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Agregar empleado</DialogTitle>
+                <DialogDescription>¿Quieres agregar uno o varios a la vez?</DialogDescription>
+              </DialogHeader>
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <Button
+                  variant="outline"
+                  className="h-20 flex-col gap-2 text-sm"
+                  onClick={() => {
+                    setAddOneOrManyOpen(false);
+                    setSelectedEmployeeId(null);
+                    setSelectedEmployeeSnapshot(null);
+                    setIsEmployeeDrawerOpen(true);
+                  }}
+                >
+                  <span className="text-2xl">👤</span>
+                  Uno
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-20 flex-col gap-2 text-sm"
+                  onClick={() => {
+                    setAddOneOrManyOpen(false);
+                    setBulkOnlyWizard(true);
+                    setOnboardingWizardOpen(true);
+                  }}
+                >
+                  <span className="text-2xl">👥</span>
+                  Varios
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Dialog de edición */}
           {isEditDialogOpen && (

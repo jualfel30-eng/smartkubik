@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { format, startOfWeek, addDays, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -26,12 +26,20 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 
 export default function ShiftRosterView() {
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [selectedDay, setSelectedDay] = useState(new Date());
+    const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
     const [shifts, setShifts] = useState([]);
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showShiftDialog, setShowShiftDialog] = useState(false);
     const [selectedShift, setSelectedShift] = useState(null);
     const [newShiftDefaults, setNewShiftDefaults] = useState(null);
+
+    useEffect(() => {
+        const handler = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handler);
+        return () => window.removeEventListener('resize', handler);
+    }, []);
 
     // Helper to get week dates
     const getWeekDates = (date) => {
@@ -153,8 +161,68 @@ export default function ShiftRosterView() {
             </div>
 
             {/* Roster Grid */}
+            {isMobile ? (
+              /* Mobile Day-View */
+              <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-900 shadow-sm">
+                <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50 dark:bg-gray-800">
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedDay(d => addDays(d, -1))}>
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-center">
+                    <div className="text-xs text-muted-foreground uppercase">{format(selectedDay, 'EEEE', { locale: es })}</div>
+                    <div className={`text-lg font-bold ${isSameDay(selectedDay, new Date()) ? 'text-info' : ''}`}>
+                      {format(selectedDay, 'd MMMM', { locale: es })}
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedDay(d => addDays(d, 1))}>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="divide-y">
+                  {loading ? (
+                    <div className="p-8 text-center text-gray-500">Cargando turnos...</div>
+                  ) : users.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">No hay empleados registrados</div>
+                  ) : users.map(user => {
+                    const dayShifts = shifts.filter(s => {
+                      const shiftEmpId = s.employeeId?._id || s.employeeId;
+                      const shiftUserId = s.userId?._id || s.userId;
+                      return (shiftEmpId === user._id || shiftUserId === user._id) && isSameDay(new Date(s.scheduledStart), selectedDay);
+                    });
+                    return (
+                      <div key={user._id} className="flex items-start gap-3 px-4 py-3">
+                        <Avatar className="h-8 w-8 shrink-0 mt-0.5">
+                          <AvatarImage src={user.customerId?.avatar} />
+                          <AvatarFallback className="text-xs">{(user.customerId?.name || user.name || '?').substring(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">{user.customerId?.name || user.name}</div>
+                          {dayShifts.length === 0 ? (
+                            <button
+                              className="text-xs text-muted-foreground hover:text-foreground mt-0.5"
+                              onClick={() => handleCreateShift(user, selectedDay)}
+                            >
+                              + Asignar turno
+                            </button>
+                          ) : dayShifts.map(shift => (
+                            <div
+                              key={shift._id}
+                              onClick={() => handleEditShift(shift)}
+                              className="cursor-pointer mt-1 rounded px-2 py-1 text-xs bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700"
+                            >
+                              {format(new Date(shift.scheduledStart), 'HH:mm')} – {format(new Date(shift.scheduledEnd), 'HH:mm')}
+                              {shift.role && <span className="ml-1 text-muted-foreground">· {shift.role}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
             <div className="border rounded-lg overflow-hidden flex-1 bg-white dark:bg-gray-900 shadow-sm overflow-x-auto">
-                <table className="w-full border-collapse min-w-[1000px]">
+                <table className="w-full border-collapse" style={{ minWidth: 0 }}>
                     <thead>
                         <tr>
                             <th className="p-3 border-b border-r bg-gray-50 dark:bg-gray-800 w-[200px] sticky left-0 z-10 text-left font-medium text-gray-500">
@@ -251,6 +319,7 @@ export default function ShiftRosterView() {
                     </tbody>
                 </table>
             </div>
+            )} {/* end mobile/desktop conditional */}
 
             <Sheet open={showShiftDialog} onOpenChange={setShowShiftDialog}>
                 <SheetContent className="w-full sm:max-w-md overflow-y-auto dark:bg-gray-900 dark:border-gray-800 p-6">

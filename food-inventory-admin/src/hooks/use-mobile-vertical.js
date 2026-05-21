@@ -24,6 +24,8 @@ export function useMobileVertical() {
     isManufacturing
   );
 
+  const isEducation = key === 'education' || tenant?.vertical === 'EDUCATION';
+
   return {
     key,
     isBeauty,
@@ -32,5 +34,6 @@ export function useMobileVertical() {
     isServices,
     isManufacturing,
     isCommerce,
+    isEducation,
   };
 }

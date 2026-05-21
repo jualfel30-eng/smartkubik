@@ -72,28 +72,20 @@ export default function TimeClock() {
     const handleClockAction = async (action) => {
         setLoading(true);
         try {
-            // endpoint: /shifts/clock-in or /shifts/clock-out
-            // If they don't exist, we might need to create them or mock them via run_command if I was backend dev.
-            // Since I am frontend oriented here, I will assume they might exist or I'll handle the UI state optimistically
-
-            /* 
-               REAL IMPLEMENTATION:
-               const res = await fetchApi(`/shifts/${action}`, { method: 'POST' });
-            */
-
-            // SIMULATION FOR UI DEMO
-            await new Promise(r => setTimeout(r, 1000));
-
-            if (action === 'in') {
-                setStatus('in');
-                setCurrentShift({ _id: 'temp', scheduledStart: new Date().toISOString() });
-                toast.success("Has iniciado turno exitosamente");
-            } else {
-                setStatus('out');
-                setCurrentShift(null);
-                toast.success("Has finalizado turno exitosamente");
+            const endpoint = action === 'in' ? '/shifts/clock-in' : '/shifts/clock-out';
+            const res = await fetchApi(endpoint, { method: 'POST' });
+            if (res.success || res._id || res.data) {
+                if (action === 'in') {
+                    setStatus('in');
+                    setCurrentShift(res.data || res);
+                    toast.success(`Entrada registrada · ${format(new Date(), 'HH:mm', { locale: es })}`);
+                } else {
+                    const duration = res.data?.durationInHours;
+                    setStatus('out');
+                    setCurrentShift(null);
+                    toast.success(`Turno completado${duration ? ` · ${duration.toFixed(1)}h trabajadas` : ''}`);
+                }
             }
-
         } catch (error) {
             toast.error("Error al registrar marca de tiempo");
         } finally {
