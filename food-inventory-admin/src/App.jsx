@@ -213,6 +213,92 @@ import { useCelebration } from '@/hooks/use-celebration';
 const OnboardingTour = lazy(() => import('@/components/OnboardingTour'));
 
 
+function ShiftTimer() {
+  const { activeShift } = useShift();
+  const [duration, setDuration] = useState('');
+
+  useEffect(() => {
+    if (!activeShift) {
+      setDuration('');
+      return;
+    }
+
+    const timer = setInterval(() => {
+      const now = new Date();
+      const start = new Date(activeShift.clockIn);
+      const diff = now - start;
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setDuration(
+        `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+      );
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [activeShift]);
+
+  if (!duration) return null;
+
+  return <Badge variant="outline" className="bg-info/10 text-blue-800">{duration}</Badge>;
+}
+
+function SidebarHeaderContent({ openTenantDialog, activeTab }) {
+  const { isMultiTenantEnabled, memberships, tenant } = useAuth();
+  const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
+  const navigate = useNavigate();
+
+  const handleOrganizationsClick = () => {
+    if (!isMobile && state === 'collapsed') {
+      setOpen(true);
+    }
+    navigate('/organizations');
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
+
+  return (
+    <SidebarMenu>
+      {isMultiTenantEnabled && memberships.length > 0 && (
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            tooltip={tenant?.name || 'Seleccionar organización'}
+            className=""
+            onClick={openTenantDialog}
+          >
+            {tenant?.isSubsidiary ? <MapPin strokeWidth={1.25} /> : <Building2 strokeWidth={1.25} />}
+            <span className="text-sm font-medium group-data-[collapsible=icon]:hidden flex items-center gap-1.5">
+              {tenant?.name || 'Seleccionar organización'}
+              {tenant?.isSubsidiary && (
+                <span className="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300 ring-1 ring-inset ring-blue-700/10 dark:ring-blue-300/20">
+                  Sede
+                </span>
+              )}
+            </span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      )}
+      <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
+        <BusinessLocationSelector />
+      </SidebarMenuItem>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          tooltip="Mis Organizaciones"
+          isActive={activeTab === 'organizations'}
+          className="justify-start"
+          onClick={handleOrganizationsClick}
+        >
+          <Building strokeWidth={1.25} />
+          <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Mis Organizaciones</span>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
 // Tenant Layout Component
 function TenantLayout() {
   const location = useLocation();
@@ -334,38 +420,6 @@ function TenantLayout() {
     setTenantDialogError('');
   };
 
-  const ShiftTimer = () => {
-    const { activeShift } = useShift();
-    const [duration, setDuration] = useState('');
-
-    useEffect(() => {
-      if (!activeShift) {
-        setDuration('');
-        return;
-      }
-
-      const timer = setInterval(() => {
-        const now = new Date();
-        const start = new Date(activeShift.clockIn);
-        const diff = now - start;
-
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-        setDuration(
-          `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-        );
-      }, 1000);
-
-      return () => clearInterval(timer);
-    }, [activeShift]);
-
-    if (!duration) return null;
-
-    return <Badge variant="outline" className="bg-info/10 text-blue-800">{duration}</Badge>;
-  };
-
   const restaurantModuleEnabled = Boolean(
     tenant?.enabledModules?.restaurant ||
     tenant?.enabledModules?.tables ||
@@ -373,63 +427,7 @@ function TenantLayout() {
     tenant?.enabledModules?.menuEngineering
   );
 
-  const navLinks = getNavLinks(tenant);
-
-  // SidebarNavigation extracted to @/components/sidebar/SidebarNavigation.jsx
-
-  const SidebarHeaderContent = () => {
-    const { state, setOpen, isMobile, setOpenMobile } = useSidebar();
-
-    const handleOrganizationsClick = () => {
-      if (!isMobile && state === 'collapsed') {
-        setOpen(true);
-      }
-
-      handleTabChange('organizations');
-
-      if (isMobile) {
-        setOpenMobile(false);
-      }
-    };
-
-    return (
-      <SidebarMenu>
-        {isMultiTenantEnabled && memberships.length > 0 && (
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip={tenant?.name || 'Seleccionar organización'}
-              className=""
-              onClick={openTenantDialog}
-            >
-              {tenant?.isSubsidiary ? <MapPin strokeWidth={1.25} /> : <Building2 strokeWidth={1.25} />}
-              <span className="text-sm font-medium group-data-[collapsible=icon]:hidden flex items-center gap-1.5">
-                {tenant?.name || 'Seleccionar organización'}
-                {tenant?.isSubsidiary && (
-                  <span className="inline-flex items-center rounded-md bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300 ring-1 ring-inset ring-blue-700/10 dark:ring-blue-300/20">
-                    Sede
-                  </span>
-                )}
-              </span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        )}
-        <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
-          <BusinessLocationSelector />
-        </SidebarMenuItem>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            tooltip="Mis Organizaciones"
-            isActive={activeTab === 'organizations'}
-            className="justify-start"
-            onClick={handleOrganizationsClick}
-          >
-            <Building strokeWidth={1.25} />
-            <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">Mis Organizaciones</span>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-    );
-  };
+  const navLinks = useMemo(() => getNavLinks(tenant), [tenant]);
 
   // SidebarFooterContent extracted to @/components/sidebar/SidebarFooterContent.jsx
 
@@ -439,7 +437,7 @@ function TenantLayout() {
       <Sidebar collapsible="icon" className="bg-card border-r border-border">
 
         <SidebarHeader className="border-b border-border px-2 py-3">
-          <SidebarHeaderContent />
+          <SidebarHeaderContent openTenantDialog={openTenantDialog} activeTab={activeTab} />
         </SidebarHeader>
         <SidebarContent className="px-2 py-4">
           <SidebarNavigation
