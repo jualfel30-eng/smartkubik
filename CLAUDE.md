@@ -2,6 +2,23 @@
 
 Plataforma multi-tenant SaaS con 6 verticales (food inventory, restaurant, beauty, billing, payroll, marketing). Monorepo de 4 apps + CMS.
 
+## Razonamiento obligatorio antes de cualquier tarea no trivial
+
+**Este bloque tiene prioridad sobre todo lo demás. Sin excepción.**
+
+Antes de proponer un enfoque, generar un blueprint, escribir código o ejecutar cualquier tarea que no sea trivial, debes escribir explícitamente:
+
+1. **PROBLEMA REAL**: Qué necesita lograr el usuario — en sus términos, no en términos técnicos. Si no puedes articularlo con claridad, pregunta antes de continuar.
+2. **ENFOQUE**: Cómo lo que vas a hacer resuelve ese problema específico. Conexión directa, no genérica.
+3. **LO QUE NO VAS A HACER**: Qué estás descartando y por qué. Si un skill, template o herramienta genera output que no conecta directamente con el problema real, descártalo y replantea.
+4. **RIESGO**: Qué podría salir mal o no resolver realmente el problema.
+
+Luego **espera confirmación explícita** antes de ejecutar.
+
+**Regla de corte**: Si no puedes conectar el punto 1 con el punto 2 de forma directa y honesta, NO ejecutes. Replantea primero y dilo.
+
+**Por qué existe esta regla**: En el pasado se ejecutaron tareas de forma descerebrada — aceptando output de skills y blueprints sin evaluar si realmente resolvían lo que el usuario necesitaba. El resultado fue trabajo que parecía completo pero no resolvía el problema real. Esto no puede volver a ocurrir.
+
 ## Antes de tocar código (obligatorio)
 
 1. **Lee [`docs/wiki/system-map.md`](docs/wiki/system-map.md)** — contratos frontend↔backend, gotchas de tipos (String vs ObjectId), mapa archivo→docs a actualizar. Es la fuente de verdad.
@@ -64,8 +81,9 @@ Definidas en [`.claude/skills/`](.claude/skills/) y agentes en [`.claude/agents/
 | `migration-create` | `/migration-create <name>` | Scaffold migration MongoDB idempotente |
 | `deploy-saas` | `/deploy-saas <admin\|saas\|all> [--dry-run]` | Deploy con pre/post checks + rollback |
 | `incident-archive` | `/incident-archive [slug\|all]` | Migra bugs históricos del MEMORY.md a wiki |
+| `module-simplify` | `/module-simplify <moduleName>` | **Obligatorio antes de /ux-redesign.** Audita estructura, clasifica cada elemento en 3 capas (Esencial/Avanzado/Enterprise), produce plan de acción concreto |
 | `ux-audit` | `/ux-audit <screenPath>` | Análisis UX/A11y de un componente |
-| `ux-redesign` | `/ux-redesign <screen>` | Genera `PROMPT-*-REDESIGN.md` blueprint |
+| `ux-redesign` | `/ux-redesign <screen>` | Genera `PROMPT-*-REDESIGN.md` blueprint. Solo usar después de /module-simplify |
 | `beta-test` | `/beta-test <feature\|flow>` | Invoca agente `beta-tester` (API-only) |
 
 Hooks (automáticos):
