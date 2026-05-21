@@ -79,7 +79,7 @@ function PayableMobileCard({ payable, onPay, onView, usdRate, eurRate }) {
   );
 }
 
-export default function MonthlyPayables({ suppliers, accounts, fetchPayables, payables, fetchSuppliers, highlightId, onHighlightConsumed }) {
+export default function MonthlyPayables({ suppliers, accounts, fetchPayables, payables, fetchSuppliers, highlightId, onHighlightConsumed, urgencyFilter = 'all' }) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -88,8 +88,10 @@ export default function MonthlyPayables({ suppliers, accounts, fetchPayables, pa
   const isMobile = useMediaQuery('(max-width: 768px)');
 
   const pendingPayables = useMemo(() => {
-    return payables.filter(payable => !['paid', 'void'].includes(payable.status));
-  }, [payables]);
+    const pending = payables.filter(payable => !['paid', 'void'].includes(payable.status));
+    if (!urgencyFilter || urgencyFilter === 'all') return pending;
+    return pending.filter(p => getUrgency(p.dueDate) === urgencyFilter);
+  }, [payables, urgencyFilter]);
 
   useEffect(() => {
     if (!highlightId) return;

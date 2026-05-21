@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -17,16 +17,28 @@ import PayablesSummaryCards from './PayablesSummaryCards';
 import MonthlyPayables from './accounts-payable/MonthlyPayables';
 import RecurringPayables from './accounts-payable/RecurringPayables';
 import CompletedPayables from './accounts-payable/CompletedPayables';
+import FilterPill from './accounts-receivable/FilterPill';
 import { PaymentDialog } from './PaymentDialog';
 import { formatCurrency } from '@/lib/currency-utils';
-import { getPayableStatusInfo, getTotalAmount } from '@/lib/invoice-constants';
+import { getPayableStatusInfo, getTotalAmount, getUrgency } from '@/lib/invoice-constants';
 import { CURRENCY_LABELS } from '@/lib/currency-utils';
 import { useLocalStorageState } from '@/hooks/use-local-storage-state';
 import { fadeUp } from '@/lib/motion';
 
+const PILLS = [
+  { key: 'all',      label: 'Todas',        color: 'muted' },
+  { key: 'overdue',  label: 'Urgentes',     color: 'red' },
+  { key: 'due-soon', label: 'Esta semana',  color: 'amber' },
+  { key: 'current',  label: 'Al día',       color: 'emerald' },
+  { key: 'paid',     label: 'Pagadas',      color: 'muted' },
+];
+
 const PayablesManagement = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'monthly');
+  const [activePill, setActivePill] = useState(() =>
+    searchParams.get('tab') === 'completed' ? 'paid' : 'all'
+  );
   const [payables, setPayables] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -42,6 +54,8 @@ const PayablesManagement = () => {
     const tabFromUrl = searchParams.get('tab');
     if (tabFromUrl && tabFromUrl !== activeTab) {
       setActiveTab(tabFromUrl);
+      if (tabFromUrl === 'completed') setActivePill('paid');
+      else if (tabFromUrl === 'monthly') setActivePill(prev => prev === 'paid' ? 'all' : prev);
     }
   }, [searchParams, activeTab]);
 
@@ -52,7 +66,10 @@ const PayablesManagement = () => {
     const target = payables.find((p) => p._id === highlightId);
     if (!target) return;
     const targetTab = ['paid', 'void'].includes(target.status) ? 'completed' : 'monthly';
-    if (targetTab !== activeTab) setActiveTab(targetTab);
+    if (targetTab !== activeTab) {
+      setActiveTab(targetTab);
+      if (targetTab === 'completed') setActivePill('paid');
+    }
   }, [highlightId, payables, searchParams, activeTab]);
 
   const clearHighlight = () => {
@@ -65,15 +82,35 @@ const PayablesManagement = () => {
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
     setSearchParams({ tab: newTab }, { replace: true });
+    if (newTab === 'monthly') setActivePill('all');
+  };
+
+  const handlePillChange = (pillKey) => {
+    setActivePill(pillKey);
+    const newTab = pillKey === 'paid' ? 'completed' : 'monthly';
+    setActiveTab(newTab);
+    setSearchParams({ tab: newTab }, { replace: true });
   };
 
   const handleFilterChange = (filter) => {
     setActiveFilter(filter);
     if (filter !== null) {
       setActiveTab('monthly');
+      setActivePill('all');
       setSearchParams({ tab: 'monthly' }, { replace: true });
     }
   };
+
+  const pillCounts = useMemo(() => {
+    const pending = payables.filter(p => !['paid', 'void'].includes(p.status));
+    return {
+      all:        pending.length,
+      overdue:    pending.filter(p => getUrgency(p.dueDate) === 'overdue').length,
+      'due-soon': pending.filter(p => getUrgency(p.dueDate) === 'due-soon').length,
+      current:    pending.filter(p => getUrgency(p.dueDate) === 'current').length,
+      paid:       payables.filter(p => ['paid', 'void'].includes(p.status)).length,
+    };
+  }, [payables]);
 
   const clearFilter = () => {
     setActiveFilter(null);
@@ -206,27 +243,39 @@ const PayablesManagement = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs value={activeTab === 'completed' ? 'monthly' : activeTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="monthly">Por Pagar</TabsTrigger>
               <TabsTrigger value="recurring">Recurrentes</TabsTrigger>
-              <TabsTrigger value="completed">Completados</TabsTrigger>
             </TabsList>
+
+            {(activeTab === 'monthly' || activeTab === 'completed') && (
+              <div className="flex gap-2 overflow-x-auto scrollbar-none pt-4 pb-0.5">
+                {PILLS.map(pill => (
+                  <FilterPill
+                    key={pill.key}
+                    label={pill.label}
+                    count={pillCounts[pill.key]}
+                    color={pill.color}
+                    active={activePill === pill.key}
+                    onClick={() => handlePillChange(pill.key)}
+                  />
+                ))}
+              </div>
+            )}
+
             <AnimatePresence mode="wait">
-              <motion.div key={activeTab} variants={fadeUp} initial="initial" animate="animate" exit="exit">
-                <TabsContent value="monthly" forceMount={activeTab === 'monthly' ? true : undefined}>
-                  {activeTab === 'monthly' && (
-                    <MonthlyPayables payables={payables} fetchPayables={() => fetchPayables(activeFilter)} suppliers={suppliers} accounts={accounts} fetchSuppliers={fetchSuppliers} highlightId={highlightId} onHighlightConsumed={clearHighlight} />
+              <motion.div key={activePill === 'paid' ? 'completed' : activeTab} variants={fadeUp} initial="initial" animate="animate" exit="exit">
+                <TabsContent value="monthly" forceMount={(activeTab === 'monthly' || activeTab === 'completed') ? true : undefined}>
+                  {(activeTab === 'monthly' || activeTab === 'completed') && (
+                    activePill === 'paid'
+                      ? <CompletedPayables payables={payables} fetchPayables={() => fetchPayables(activeFilter)} highlightId={highlightId} onHighlightConsumed={clearHighlight} />
+                      : <MonthlyPayables payables={payables} fetchPayables={() => fetchPayables(activeFilter)} suppliers={suppliers} accounts={accounts} fetchSuppliers={fetchSuppliers} highlightId={highlightId} onHighlightConsumed={clearHighlight} urgencyFilter={activePill} />
                   )}
                 </TabsContent>
                 <TabsContent value="recurring" forceMount={activeTab === 'recurring' ? true : undefined}>
                   {activeTab === 'recurring' && (
                     <RecurringPayables suppliers={suppliers} accounts={accounts} />
-                  )}
-                </TabsContent>
-                <TabsContent value="completed" forceMount={activeTab === 'completed' ? true : undefined}>
-                  {activeTab === 'completed' && (
-                    <CompletedPayables payables={payables} fetchPayables={() => fetchPayables(activeFilter)} highlightId={highlightId} onHighlightConsumed={clearHighlight} />
                   )}
                 </TabsContent>
               </motion.div>
