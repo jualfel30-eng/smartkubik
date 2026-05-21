@@ -24,13 +24,23 @@ export class PermissionsGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    // Si no hay usuario o no tiene permisos cargados, permitir (fallback de compatibilidad)
-    if (!user || !Array.isArray(user.permissions)) {
+    if (!user) {
+      return true;
+    }
+
+    // Permisos pueden estar en user.permissions (JWT payload root) o en user.role.permissions (cargado por JwtStrategy desde DB)
+    const userPermissions: string[] = Array.isArray(user.permissions)
+      ? user.permissions
+      : Array.isArray(user.role?.permissions)
+        ? user.role.permissions
+        : [];
+
+    if (userPermissions.length === 0) {
       return true;
     }
 
     const hasAll = requiredPermissions.every((perm) =>
-      user.permissions.includes(perm),
+      userPermissions.includes(perm),
     );
 
     if (!hasAll) {

@@ -31,8 +31,8 @@ export class EduSchedulesController {
 
   @Post()
   @UseGuards(PermissionsGuard)
-  @Permissions("edu_schedules_create")
-  @ApiOperation({ summary: "Crear horario" })
+  @Permissions("edu_schedules_write")
+  @ApiOperation({ summary: "Crear horario (409 si conflicto de docente o salón)" })
   async create(@Request() req, @Body() dto: CreateScheduleDto) {
     try {
       const result = await this.service.create(dto, req.user.tenantId, req.user.id);
@@ -61,6 +61,47 @@ export class EduSchedulesController {
     }
   }
 
+  // Debe ir antes de GET :id para que Express no interprete "teacher" como un ID
+  @Get("teacher/:teacherId")
+  @UseGuards(PermissionsGuard)
+  @Permissions("edu_schedules_read")
+  @ApiOperation({ summary: "Horario semanal del docente agrupado por día" })
+  async findByTeacher(
+    @Request() req,
+    @Param("teacherId") teacherId: string,
+    @Query("academicYear") academicYear?: string,
+  ) {
+    try {
+      const result = await this.service.findByTeacher(teacherId, req.user.tenantId, academicYear);
+      return { success: true, data: result };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al obtener horario del docente",
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get("classroom/:classroomId")
+  @UseGuards(PermissionsGuard)
+  @Permissions("edu_schedules_read")
+  @ApiOperation({ summary: "Horario semanal del salón agrupado por día" })
+  async findByClassroom(
+    @Request() req,
+    @Param("classroomId") classroomId: string,
+    @Query("academicYear") academicYear?: string,
+  ) {
+    try {
+      const result = await this.service.findByClassroom(classroomId, req.user.tenantId, academicYear);
+      return { success: true, data: result };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al obtener horario del salón",
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   @Get(":id")
   @UseGuards(PermissionsGuard)
   @Permissions("edu_schedules_read")
@@ -79,8 +120,8 @@ export class EduSchedulesController {
 
   @Patch(":id")
   @UseGuards(PermissionsGuard)
-  @Permissions("edu_schedules_update")
-  @ApiOperation({ summary: "Actualizar horario" })
+  @Permissions("edu_schedules_write")
+  @ApiOperation({ summary: "Actualizar horario (re-valida conflictos)" })
   async update(@Request() req, @Param("id") id: string, @Body() dto: UpdateScheduleDto) {
     try {
       const result = await this.service.update(id, req.user.tenantId, dto);
@@ -95,7 +136,7 @@ export class EduSchedulesController {
 
   @Delete(":id")
   @UseGuards(PermissionsGuard)
-  @Permissions("edu_schedules_delete")
+  @Permissions("edu_schedules_write")
   @ApiOperation({ summary: "Eliminar horario (soft-delete)" })
   async remove(@Request() req, @Param("id") id: string) {
     try {

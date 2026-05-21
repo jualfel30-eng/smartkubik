@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { EduClassroom, EduClassroomDocument } from "../../schemas/edu-classroom.schema";
@@ -24,7 +24,14 @@ export class EduClassroomsService {
       tenantId: this.toObjectId(tenantId),
       createdBy: this.toObjectId(userId),
     });
-    return classroom.save();
+    try {
+      return await classroom.save();
+    } catch (error) {
+      if (error.code === 11000) {
+        throw new ConflictException("Ya existe un salón con ese grado, sección y año académico");
+      }
+      throw error;
+    }
   }
 
   async findAll(tenantId: string, filters: ClassroomFiltersDto = {}) {

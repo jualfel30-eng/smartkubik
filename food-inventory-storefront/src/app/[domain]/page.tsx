@@ -21,6 +21,11 @@ export default async function StorefrontPage({
     redirect(`/${domain}/beauty`);
   }
 
+  // Education vertical has its own portal with dual auth
+  if ((config.templateType as string) === 'education') {
+    redirect(`/${domain}/education`);
+  }
+
   // Extract tenantId as string (could be object or string from backend)
   const tenantId: string = typeof config.tenantId === 'string'
     ? config.tenantId

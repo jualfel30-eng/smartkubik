@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, IsMongoId } from "class-validator";
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsMongoId, Min } from "class-validator";
 
 export class CreateClassroomDto {
   @IsString()
@@ -19,6 +19,7 @@ export class CreateClassroomDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(1)
   capacity?: number;
 
   @IsOptional()

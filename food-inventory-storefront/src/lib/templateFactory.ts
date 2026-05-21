@@ -9,6 +9,7 @@ const TEMPLATES = {
   // Alias para compatibilidad con backend
   'ecommerce': ModernEcommerce,
   'services': ModernServices,
+  // Education vertical handled via redirect — no direct template render
 };
 
 /**

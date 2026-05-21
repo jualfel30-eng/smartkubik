@@ -31,7 +31,7 @@ export class EduClassroomsController {
 
   @Post()
   @UseGuards(PermissionsGuard)
-  @Permissions("edu_classrooms_create")
+  @Permissions("edu_classrooms_write")
   @ApiOperation({ summary: "Crear salón" })
   async create(@Request() req, @Body() dto: CreateClassroomDto) {
     try {
@@ -79,7 +79,7 @@ export class EduClassroomsController {
 
   @Patch(":id")
   @UseGuards(PermissionsGuard)
-  @Permissions("edu_classrooms_update")
+  @Permissions("edu_classrooms_write")
   @ApiOperation({ summary: "Actualizar salón" })
   async update(@Request() req, @Param("id") id: string, @Body() dto: UpdateClassroomDto) {
     try {
@@ -95,7 +95,7 @@ export class EduClassroomsController {
 
   @Delete(":id")
   @UseGuards(PermissionsGuard)
-  @Permissions("edu_classrooms_delete")
+  @Permissions("edu_classrooms_write")
   @ApiOperation({ summary: "Eliminar salón (soft-delete)" })
   async remove(@Request() req, @Param("id") id: string) {
     try {

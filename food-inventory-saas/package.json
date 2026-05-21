@@ -194,6 +194,11 @@
     "moduleNameMapper": {
       "^src/(.*)$": "<rootDir>/src/$1",
       "^pdf-parse$": "<rootDir>/test/__mocks__/fileMock.js"
+    },
+    "globals": {
+      "ts-jest": {
+        "isolatedModules": true
+      }
     }
   }
 }

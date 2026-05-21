@@ -31,7 +31,7 @@ export class EduSubjectsController {
 
   @Post()
   @UseGuards(PermissionsGuard)
-  @Permissions("edu_subjects_create")
+  @Permissions("edu_subjects_write")
   @ApiOperation({ summary: "Crear asignatura" })
   async create(@Request() req, @Body() dto: CreateSubjectDto) {
     try {
@@ -79,7 +79,7 @@ export class EduSubjectsController {
 
   @Patch(":id")
   @UseGuards(PermissionsGuard)
-  @Permissions("edu_subjects_update")
+  @Permissions("edu_subjects_write")
   @ApiOperation({ summary: "Actualizar asignatura" })
   async update(@Request() req, @Param("id") id: string, @Body() dto: UpdateSubjectDto) {
     try {
@@ -95,7 +95,7 @@ export class EduSubjectsController {
 
   @Delete(":id")
   @UseGuards(PermissionsGuard)
-  @Permissions("edu_subjects_delete")
+  @Permissions("edu_subjects_write")
   @ApiOperation({ summary: "Eliminar asignatura (soft-delete)" })
   async remove(@Request() req, @Param("id") id: string) {
     try {
