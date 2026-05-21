@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Loader2, Plus, Trash2, ArrowRight } from 'lucide-react';
+import { Check, Loader2, Plus, Trash2, ArrowRight, User, Users, Sparkles } from 'lucide-react';
 import { fetchApi, inviteUser, getRoles } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -370,7 +370,7 @@ function BuildingStep({ employees, payFrequency, onDone }) {
                 <p className="text-sm font-medium truncate">{emp.name || `Empleado ${i + 1}`}</p>
                 {emp.position && <p className="text-xs text-muted-foreground">{emp.position}</p>}
               </div>
-              {isDone && <span className="text-xs text-primary font-medium">✓</span>}
+              {isDone && <Check size={13} style={{ color: 'var(--primary)' }} />}
               {isError && <span className="text-xs text-destructive font-medium">Error</span>}
             </motion.div>
           );
@@ -488,9 +488,10 @@ function DoneStep({ count, onFinish }) {
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-        className="text-6xl"
+        className="mx-auto w-20 h-20 rounded-2xl flex items-center justify-center"
+        style={{ background: 'color-mix(in srgb, var(--primary) 12%, transparent)' }}
       >
-        🎉
+        <Sparkles size={40} style={{ color: 'var(--primary)' }} />
       </motion.div>
       <h2 className="text-2xl font-bold">¡Tu equipo está listo!</h2>
       <p className="text-muted-foreground text-sm">

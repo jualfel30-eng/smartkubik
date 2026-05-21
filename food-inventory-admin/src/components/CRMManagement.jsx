@@ -23,6 +23,7 @@ import {
   Search,
   Edit,
   Trash2,
+  User,
   Users,
   Phone,
   Mail,
@@ -869,6 +870,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     loadEmployeeSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEmployeeTab]);
+
 
   useEffect(() => {
     if (!isEmployeeTab) return;
@@ -2360,7 +2362,9 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                               <TableRow>
                                 <TableCell colSpan={9}>
                                   <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-                                    <div className="text-5xl">👥</div>
+                                    <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center bg-muted">
+                                      <Users className="h-8 w-8 text-muted-foreground" />
+                                    </div>
                                     <div>
                                       <p className="font-semibold text-base">Aún no hay empleados registrados</p>
                                       <p className="text-sm text-muted-foreground mt-1">Agrega a tu equipo completo en un solo paso — el asistente te guía.</p>
@@ -2741,7 +2745,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                     setIsEmployeeDrawerOpen(true);
                   }}
                 >
-                  <span className="text-2xl">👤</span>
+                  <User className="h-6 w-6" />
                   Uno
                 </Button>
                 <Button
@@ -2753,7 +2757,7 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                     setOnboardingWizardOpen(true);
                   }}
                 >
-                  <span className="text-2xl">👥</span>
+                  <Users className="h-6 w-6" />
                   Varios
                 </Button>
               </div>
