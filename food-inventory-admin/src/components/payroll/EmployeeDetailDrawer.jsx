@@ -248,6 +248,10 @@ export function EmployeeDetailDrawer({
     bulkReinviteEmployees,
   } = useCRM();
   const [activeTab, setActiveTab] = useState('profile');
+  const [createStep, setCreateStep] = useState(1); // 1 | 2 | 3 — only used in create mode
+  const [skipBankTax, setSkipBankTax] = useState(true);
+  const [pendingCommissions, setPendingCommissions] = useState([]);
+  const [pendingCommissionsLoading, setPendingCommissionsLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [contractsLoading, setContractsLoading] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -513,6 +517,27 @@ export function EmployeeDetailDrawer({
       autoStructureAppliedRef.current = false;
     }
   }, [open, loadProfile, loadContracts]);
+
+  // Load pending commissions for edit mode Pendientes tab
+  useEffect(() => {
+    if (!open || isCreateMode || !employeeId) return;
+    const load = async () => {
+      setPendingCommissionsLoading(true);
+      try {
+        const res = await fetchApi(`/commissions/employees/${employeeId}/summary`);
+        if (res.success && Array.isArray(res.data?.pending)) {
+          setPendingCommissions(res.data.pending);
+        } else {
+          setPendingCommissions([]);
+        }
+      } catch {
+        setPendingCommissions([]);
+      } finally {
+        setPendingCommissionsLoading(false);
+      }
+    };
+    load();
+  }, [open, isCreateMode, employeeId]);
 
   // Precargar el siguiente número de empleado en modo create
   useEffect(() => {
@@ -1583,12 +1608,51 @@ export function EmployeeDetailDrawer({
               </Card>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-3">
+            {/* Stepper — create mode only */}
+            {isCreateMode && (
+              <div className="flex items-center gap-2 mb-2">
+                {[
+                  { n: 1, label: 'Datos básicos' },
+                  { n: 2, label: 'Compensación' },
+                  { n: 3, label: 'Confirmar' },
+                ].map(({ n, label }, i) => (
+                  <div key={n} className="flex items-center gap-2">
+                    <div
+                      className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+                        createStep > n
+                          ? 'bg-green-500 text-white'
+                          : createStep === n
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {createStep > n ? '✓' : n}
+                    </div>
+                    <span className={`text-xs hidden sm:inline ${createStep === n ? 'font-medium' : 'text-muted-foreground'}`}>
+                      {label}
+                    </span>
+                    {i < 2 && <div className="h-px w-6 bg-muted-foreground/30 mx-1" />}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <Tabs
+              value={isCreateMode ? (createStep === 2 ? 'contracts' : 'profile') : activeTab}
+              onValueChange={!isCreateMode ? setActiveTab : undefined}
+            >
+              {isCreateMode ? null : (
+              <TabsList className={`grid w-full ${pendingCommissions.length > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
                 <TabsTrigger value="profile">Perfil</TabsTrigger>
                 <TabsTrigger value="contracts">Contratos</TabsTrigger>
                 <TabsTrigger value="documents">Documentos & Bancos</TabsTrigger>
+                {pendingCommissions.length > 0 && (
+                  <TabsTrigger value="pending">
+                    Pendientes ({pendingCommissions.length})
+                  </TabsTrigger>
+                )}
               </TabsList>
+              )}
               <TabsContent value="profile" className="space-y-4 pt-4">
                 {profileValidation.errors.length > 0 && (
                   <Alert variant="destructive">
@@ -1647,69 +1711,77 @@ export function EmployeeDetailDrawer({
                           placeholder="+58 412 1234567"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Cédula/RIF</Label>
-                        <div className="flex gap-2">
-                          <Select
-                            value={contactData.taxType}
-                            onValueChange={(value) => setContactData({ ...contactData, taxType: value })}
-                          >
-                            <SelectTrigger className="w-20">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="V">V</SelectItem>
-                              <SelectItem value="E">E</SelectItem>
-                              <SelectItem value="J">J</SelectItem>
-                              <SelectItem value="G">G</SelectItem>
-                              <SelectItem value="P">P</SelectItem>
-                              <SelectItem value="N">N</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            value={contactData.taxId}
-                            onChange={(e) => setContactData({ ...contactData, taxId: e.target.value })}
-                            placeholder="12345678"
-                            className="flex-1"
-                          />
+                      {!isCreateMode && (
+                        <div className="space-y-2">
+                          <Label>Cédula/RIF</Label>
+                          <div className="flex gap-2">
+                            <Select
+                              value={contactData.taxType}
+                              onValueChange={(value) => setContactData({ ...contactData, taxType: value })}
+                            >
+                              <SelectTrigger className="w-20">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="V">V</SelectItem>
+                                <SelectItem value="E">E</SelectItem>
+                                <SelectItem value="J">J</SelectItem>
+                                <SelectItem value="G">G</SelectItem>
+                                <SelectItem value="P">P</SelectItem>
+                                <SelectItem value="N">N</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              value={contactData.taxId}
+                              onChange={(e) => setContactData({ ...contactData, taxId: e.target.value })}
+                              placeholder="12345678"
+                              className="flex-1"
+                            />
+                          </div>
                         </div>
-                      </div>
-                      <div className="col-span-2 space-y-2">
-                        <Label>Dirección</Label>
-                        <Input
-                          value={contactData.address}
-                          onChange={(e) => setContactData({ ...contactData, address: e.target.value })}
-                          placeholder="Av. Principal, Edif. X, Apto. Y"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Ciudad</Label>
-                        <Input
-                          value={contactData.city}
-                          onChange={(e) => setContactData({ ...contactData, city: e.target.value })}
-                          placeholder="Caracas"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Estado</Label>
-                        <Input
-                          value={contactData.state}
-                          onChange={(e) => setContactData({ ...contactData, state: e.target.value })}
-                          placeholder="Miranda"
-                        />
-                      </div>
+                      )}
+                      {!isCreateMode && (
+                        <>
+                          <div className="col-span-2 space-y-2">
+                            <Label>Dirección</Label>
+                            <Input
+                              value={contactData.address}
+                              onChange={(e) => setContactData({ ...contactData, address: e.target.value })}
+                              placeholder="Av. Principal, Edif. X, Apto. Y"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Ciudad</Label>
+                            <Input
+                              value={contactData.city}
+                              onChange={(e) => setContactData({ ...contactData, city: e.target.value })}
+                              placeholder="Caracas"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Estado</Label>
+                            <Input
+                              value={contactData.state}
+                              onChange={(e) => setContactData({ ...contactData, state: e.target.value })}
+                              placeholder="Miranda"
+                            />
+                          </div>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 )}
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Número de empleado</Label>
-                    <Input
-                      value={profileForm.employeeNumber}
-                      onChange={(e) => handleProfileInputChange('employeeNumber', e.target.value)}
-                    />
-                  </div>
+                  {!isCreateMode && (
+                    <div className="space-y-2">
+                      <Label>Número de empleado</Label>
+                      <Input
+                        value={profileForm.employeeNumber}
+                        onChange={(e) => handleProfileInputChange('employeeNumber', e.target.value)}
+                      />
+                    </div>
+                  )}
                   <div className="space-y-2">
                     <Label>Posición</Label>
                     <Input
@@ -2535,6 +2607,148 @@ export function EmployeeDetailDrawer({
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              {/* Pendientes tab — edit mode only, commissions pending approval */}
+              {!isCreateMode && pendingCommissions.length > 0 && (
+                <TabsContent value="pending" className="space-y-4 pt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      {pendingCommissions.length} comisión{pendingCommissions.length !== 1 ? 'es' : ''} pendiente{pendingCommissions.length !== 1 ? 's' : ''} de aprobación
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await fetchApi('/commissions/records/bulk-approve', {
+                            method: 'PATCH',
+                            body: JSON.stringify({ ids: pendingCommissions.map(c => c._id) }),
+                          });
+                          toast.success(`${pendingCommissions.length} comisiones aprobadas`);
+                          setPendingCommissions([]);
+                        } catch {
+                          toast.error('No se pudieron aprobar las comisiones');
+                        }
+                      }}
+                    >
+                      Aprobar todas ({pendingCommissions.length})
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {pendingCommissionsLoading ? (
+                      <div className="text-sm text-muted-foreground">Cargando...</div>
+                    ) : pendingCommissions.map(c => (
+                      <div key={c._id} className="flex items-center justify-between rounded-lg border px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium">{c.description || c.concept || 'Comisión'}</p>
+                          <p className="text-xs text-muted-foreground">{c.amount ? `${c.currency || ''} ${c.amount}` : ''}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={async () => {
+                              try {
+                                await fetchApi(`/commissions/records/${c._id}/approve`, { method: 'PATCH' });
+                                setPendingCommissions(prev => prev.filter(x => x._id !== c._id));
+                                toast.success('Comisión aprobada');
+                              } catch { toast.error('Error al aprobar'); }
+                            }}
+                          >
+                            Aprobar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              try {
+                                await fetchApi(`/commissions/records/${c._id}/reject`, { method: 'PATCH' });
+                                setPendingCommissions(prev => prev.filter(x => x._id !== c._id));
+                                toast.success('Comisión rechazada');
+                              } catch { toast.error('Error al rechazar'); }
+                            }}
+                          >
+                            Rechazar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+              )}
+
+              {/* Create mode step 3 — confirmation */}
+              {isCreateMode && createStep === 3 && (
+                <div className="space-y-4 pt-4">
+                  <div className="rounded-lg border p-4 space-y-2 bg-muted/30">
+                    <p className="font-semibold">{contactData.name || '—'}</p>
+                    {profileForm.position && <p className="text-sm text-muted-foreground">{profileForm.position}</p>}
+                    {profileForm.startDate && (
+                      <p className="text-sm text-muted-foreground">Ingresa: {profileForm.startDate}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 rounded-lg border px-4 py-3">
+                    <input
+                      type="checkbox"
+                      id="skipBankTax"
+                      checked={skipBankTax}
+                      onChange={e => setSkipBankTax(e.target.checked)}
+                      className="h-4 w-4"
+                    />
+                    <label htmlFor="skipBankTax" className="text-sm cursor-pointer">
+                      Completar datos bancarios y tributarios después (recomendado)
+                    </label>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setCreateStep(2)} className="flex-1">
+                      ← Atrás
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        await handleSaveProfile();
+                      }}
+                      disabled={savingProfile}
+                      className="flex-1"
+                    >
+                      {savingProfile ? 'Creando...' : 'Crear empleado'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Create mode step navigation buttons for steps 1 and 2 */}
+              {isCreateMode && createStep < 3 && (
+                <div className="flex gap-2 mt-4">
+                  {createStep > 1 && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setCreateStep(s => s - 1);
+                        if (createStep === 2) setActiveTab('profile');
+                      }}
+                      className="flex-1"
+                    >
+                      ← Atrás
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => {
+                      if (createStep === 1) {
+                        if (!contactData.name || !contactData.email) {
+                          toast.error('Nombre y email son obligatorios');
+                          return;
+                        }
+                        setCreateStep(2);
+                        setActiveTab('contracts');
+                      } else if (createStep === 2) {
+                        setCreateStep(3);
+                      }
+                    }}
+                    className="flex-1"
+                  >
+                    Continuar →
+                  </Button>
+                </div>
+              )}
             </Tabs>
           </div>
         </ScrollArea>

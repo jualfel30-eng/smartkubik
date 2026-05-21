@@ -79,6 +79,19 @@ export class PayrollRunsController {
     return this.payrollRunsService.listRuns(req.user.tenantId, filters);
   }
 
+  @Post("runs/generate-draft")
+  @Permissions("payroll_employees_write")
+  @ApiOperation({
+    summary:
+      "Auto-generar borrador de nómina para el período actual según contratos activos",
+  })
+  async generateDraft(@Req() req) {
+    return this.payrollRunsService.generateDraftForCurrentPeriod(
+      req.user.tenantId,
+      req.user.id,
+    );
+  }
+
   @Post("runs")
   @Permissions("payroll_employees_write")
   @ApiOperation({ summary: "Crear / calcular una nómina" })

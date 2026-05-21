@@ -511,7 +511,7 @@ const PayrollCalendarTimeline = () => {
                                   size="sm"
                                   variant="outline"
                                   onClick={() =>
-                                    navigate(`/payroll/absences?status=pending&calendarId=${calendar._id}`)
+                                    navigate(`/hr/asistencia`)
                                   }
                                 >
                                   Revisar ausencias

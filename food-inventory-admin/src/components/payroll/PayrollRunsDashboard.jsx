@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth.jsx";
 import { fetchApi } from "@/lib/api";
 import { useCountryPlugin } from "@/country-plugins/CountryPluginContext";
 import { HRNavigation } from '@/components/payroll/HRNavigation.jsx';
+import HRKpiCard from '@/components/payroll/HRKpiCard.jsx';
 import { Button } from "@/components/ui/button.jsx";
 import { Badge } from "@/components/ui/badge.jsx";
 import {
@@ -246,18 +247,7 @@ const getApiBaseUrl = () => {
     : "https://api.smartkubik.com/api/v1";
 };
 
-const KpiCard = ({ label, value, currency }) => (
-  <Card>
-    <CardHeader className="pb-2">
-      <CardTitle className="text-sm font-medium">{label}</CardTitle>
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold">
-        {typeof value === "number" && currency ? formatCurrency(value, currency) : value}
-      </div>
-    </CardContent>
-  </Card>
-);
+// KpiCard replaced by HRKpiCard (imported above)
 
 const PayrollRunsDashboard = () => {
   const { tenant, hasPermission } = useAuth();
@@ -286,6 +276,7 @@ const PayrollRunsDashboard = () => {
   const [concepts, setConcepts] = useState([]);
   const [loadingRuns, setLoadingRuns] = useState(false);
   const [loadingConcepts, setLoadingConcepts] = useState(false);
+  const [generatingDraft, setGeneratingDraft] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -525,6 +516,21 @@ const PayrollRunsDashboard = () => {
     filters.calendarId,
     pagination.page,
   ]);
+
+  const handleAutoGenerate = useCallback(async () => {
+    if (!canWritePayroll) return;
+    setGeneratingDraft(true);
+    try {
+      const res = await fetchApi('/payroll/runs/generate-draft', { method: 'POST' });
+      const created = res?.created ?? true;
+      toast.success(created ? 'Borrador de nómina creado automáticamente' : 'Ya existe un borrador para este período');
+      await loadRuns();
+    } catch (err) {
+      toast.error(err.message || 'No se pudo generar el borrador');
+    } finally {
+      setGeneratingDraft(false);
+    }
+  }, [canWritePayroll, loadRuns]);
 
   const loadConcepts = useCallback(async () => {
     if (!payrollEnabled || !canReadPayroll) return;
@@ -1589,10 +1595,9 @@ const PayrollRunsDashboard = () => {
       <HRNavigation />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Nómina y payroll runs</h1>
+          <h1 className="text-3xl font-bold">Pagar salarios</h1>
           <p className="text-sm text-muted-foreground">
-            Controla tus ciclos de nómina, valida los asientos automáticos y
-            revisa la auditoría desde un solo dashboard.
+            Crea, revisa y paga la nómina de tu equipo cada período.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1632,21 +1637,16 @@ const PayrollRunsDashboard = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="operations" className="space-y-4">
+      <Tabs defaultValue="runs" className="space-y-4">
         <TabsList className="w-full justify-start overflow-x-auto">
-          <TabsTrigger value="operations">Operaciones</TabsTrigger>
-          <TabsTrigger value="reports">Reportes y Auditoría</TabsTrigger>
+          <TabsTrigger value="runs">Nómina Regular</TabsTrigger>
+          <TabsTrigger value="special">Especiales</TabsTrigger>
+          <TabsTrigger value="liquidations">Liquidaciones</TabsTrigger>
+          <TabsTrigger value="reports">Reportes</TabsTrigger>
           <TabsTrigger value="settings">Configuración</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="operations" className="space-y-4">
-          <Tabs defaultValue="runs">
-            <TabsList className="bg-muted/50 p-1">
-              <TabsTrigger value="runs">Nómina Regular</TabsTrigger>
-              <TabsTrigger value="special">Especiales</TabsTrigger>
-              <TabsTrigger value="liquidations">Liquidaciones</TabsTrigger>
-            </TabsList>
-            <TabsContent value="runs" className="space-y-4">
+        <TabsContent value="runs" className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -1699,6 +1699,70 @@ const PayrollRunsDashboard = () => {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Active run pipeline cards */}
+              {runs.filter(r => ['draft', 'calculating', 'calculated', 'posted'].includes(r.status)).length > 0 && (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">En proceso</p>
+                  {runs
+                    .filter(r => ['draft', 'calculating', 'calculated', 'posted'].includes(r.status))
+                    .map(run => {
+                      const NEXT_ACTION = {
+                        draft: { label: 'Calcular nómina', color: 'var(--warning, #f59e0b)' },
+                        calculating: { label: 'Calculando…', color: 'var(--primary)', disabled: true },
+                        calculated: { label: 'Contabilizar y pagar', color: 'var(--success, #22c55e)' },
+                        posted: { label: 'Registrar pago', color: 'var(--success, #22c55e)' },
+                      };
+                      const next = NEXT_ACTION[run.status];
+                      const daysLeft = run.periodEnd ? Math.ceil((new Date(run.periodEnd) - Date.now()) / 86400000) : null;
+                      const urgent = daysLeft !== null && daysLeft <= 3;
+                      const PIPELINE = ['draft', 'calculating', 'calculated', 'posted', 'paid'];
+                      const stepIdx = PIPELINE.indexOf(run.status);
+                      return (
+                        <Card
+                          key={run._id}
+                          className="overflow-hidden"
+                          style={{ borderLeft: `3px solid ${urgent ? 'var(--destructive, #ef4444)' : next?.color}` }}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                              <div className="space-y-1">
+                                <p className="font-semibold">{run.label || 'Sin título'} · {run.periodType}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {run.totalEmployees || 0} empleados · {formatCurrency(run.netPay || 0, currency)} neto
+                                </p>
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  {PIPELINE.slice(0, 4).map((s, i) => (
+                                    <span key={s} className="flex items-center gap-1">
+                                      <span className={i <= stepIdx ? 'font-semibold text-foreground' : ''}>{s}</span>
+                                      {i < 3 && <span className="opacity-30">→</span>}
+                                    </span>
+                                  ))}
+                                </div>
+                                {next && (
+                                  <p className="text-sm font-medium" style={{ color: next.color }}>
+                                    Próxima acción: {next.label}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex gap-2 shrink-0">
+                                <Button size="sm" variant="outline" onClick={() => openDetail(run)}>
+                                  Ver detalle
+                                </Button>
+                                {next && !next.disabled && (
+                                  <Button size="sm" onClick={() => openDetail(run)} style={{ background: next.color, color: '#fff', border: 'none' }}>
+                                    {next.label} →
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                </div>
+              )}
+
               <Card>
                 <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -1792,11 +1856,23 @@ const PayrollRunsDashboard = () => {
                           </TableRow>
                         ) : runs.length === 0 ? (
                           <TableRow>
-                            <TableCell
-                              colSpan={7}
-                              className="text-center text-sm text-muted-foreground"
-                            >
-                              Aún no se han generado nóminas.
+                            <TableCell colSpan={7}>
+                              <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
+                                <div className="text-4xl">💰</div>
+                                <div>
+                                  <p className="font-semibold text-base">No hay nómina activa para este período</p>
+                                  <p className="text-sm text-muted-foreground mt-1">El sistema detecta automáticamente el período según tus contratos y prepara un borrador listo para revisar.</p>
+                                </div>
+                                <Button onClick={handleAutoGenerate} size="lg" disabled={!canWritePayroll || generatingDraft}>
+                                  {generatingDraft ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Preparando nómina...</> : `Preparar nómina de ${new Date().toLocaleString('es', { month: 'long' })} →`}
+                                </Button>
+                                <button
+                                  className="text-xs text-muted-foreground underline underline-offset-2"
+                                  onClick={() => setCreateDialogOpen(true)}
+                                >
+                                  Configurar período manualmente
+                                </button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ) : (
@@ -1959,98 +2035,6 @@ const PayrollRunsDashboard = () => {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <CardTitle>Conceptos de nómina</CardTitle>
-                      <CardDescription>
-                        Sincroniza cuentas contables para cada concepto y evita asientos
-                        huérfanos.
-                      </CardDescription>
-                    </div>
-                    <Badge variant="secondary" className="text-xs font-normal">
-                      {concepts.length} conceptos
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    {conceptStats.earning} devengos · {conceptStats.deduction}{" "}
-                    deducciones · {conceptStats.employer} aportes patronales.
-                  </p>
-                  {conceptWarnings.length > 0 && (
-                    <Alert variant="destructive">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Asignaciones contables pendientes</AlertTitle>
-                      <AlertDescription>
-                        {conceptWarnings.length} concepto(s) sin cuenta de débito o
-                        crédito. Configúralos para mantener la trazabilidad de los
-                        asientos.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  <div className="overflow-x-auto rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Código</TableHead>
-                          <TableHead>Nombre</TableHead>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead>Débito</TableHead>
-                          <TableHead>Crédito</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {loadingConcepts ? (
-                          <TableRow>
-                            <TableCell colSpan={5} className="text-center">
-                              <Loader2 className="mx-auto h-5 w-5 animate-spin" />
-                            </TableCell>
-                          </TableRow>
-                        ) : concepts.length === 0 ? (
-                          <TableRow>
-                            <TableCell
-                              colSpan={5}
-                              className="text-center text-sm text-muted-foreground"
-                            >
-                              No hay conceptos configurados todavía.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          concepts.map((concept) => (
-                            <TableRow key={concept._id}>
-                              <TableCell>{concept.code}</TableCell>
-                              <TableCell>{concept.name}</TableCell>
-                              <TableCell className="capitalize">
-                                {concept.conceptType}
-                              </TableCell>
-                              <TableCell>
-                                {concept.debitAccountId ? (
-                                  concept.debitAccountId
-                                ) : (
-                                  <Badge variant="outline" className="text-[11px]">
-                                    Pendiente
-                                  </Badge>
-                                )}
-                              </TableCell>
-                              <TableCell>
-                                {concept.creditAccountId ? (
-                                  concept.creditAccountId
-                                ) : (
-                                  <Badge variant="outline" className="text-[11px]">
-                                    Pendiente
-                                  </Badge>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
             </TabsContent>
             <TabsContent value="special" className="mt-0">
               <Card>
@@ -2768,8 +2752,6 @@ const PayrollRunsDashboard = () => {
                   </div>
                 </CardContent>
               </Card>
-            </TabsContent>
-          </Tabs>
         </TabsContent>
         <TabsContent value="reports" className="space-y-4">
           <Card className="mt-6">
@@ -2813,10 +2795,10 @@ const PayrollRunsDashboard = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-4">
-                <KpiCard label="Costo bruto" value={reportSummary?.totals?.grossPay || 0} currency={currency} />
-                <KpiCard label="Deducciones" value={reportSummary?.totals?.deductions || 0} currency={currency} />
-                <KpiCard label="Aportes patronales" value={reportSummary?.totals?.employerCosts || 0} currency={currency} />
-                <KpiCard label="Empleados" value={reportSummary?.totals?.employees || 0} />
+                <HRKpiCard label="Costo bruto" value={reportSummary?.totals?.grossPay || 0} currency={currency} />
+                <HRKpiCard label="Deducciones" value={reportSummary?.totals?.deductions || 0} currency={currency} />
+                <HRKpiCard label="Aportes patronales" value={reportSummary?.totals?.employerCosts || 0} currency={currency} />
+                <HRKpiCard label="Empleados" value={reportSummary?.totals?.employees || 0} />
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -3115,6 +3097,49 @@ const PayrollRunsDashboard = () => {
           </Card>
         </TabsContent>
         <TabsContent value="settings" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <CardTitle>Conceptos de nómina</CardTitle>
+                  <CardDescription>Sincroniza cuentas contables para cada concepto y evita asientos huérfanos.</CardDescription>
+                </div>
+                <Badge variant="secondary" className="text-xs font-normal">{concepts.length} conceptos</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">{conceptStats.earning} devengos · {conceptStats.deduction} deducciones · {conceptStats.employer} aportes patronales.</p>
+              {conceptWarnings.length > 0 && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Asignaciones contables pendientes</AlertTitle>
+                  <AlertDescription>{conceptWarnings.length} concepto(s) sin cuenta de débito o crédito.</AlertDescription>
+                </Alert>
+              )}
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader><TableRow><TableHead>Código</TableHead><TableHead>Nombre</TableHead><TableHead>Tipo</TableHead><TableHead>Débito</TableHead><TableHead>Crédito</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {loadingConcepts ? (
+                      <TableRow><TableCell colSpan={5} className="text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></TableCell></TableRow>
+                    ) : concepts.length === 0 ? (
+                      <TableRow><TableCell colSpan={5} className="text-center text-sm text-muted-foreground">No hay conceptos configurados todavía.</TableCell></TableRow>
+                    ) : (
+                      concepts.map((concept) => (
+                        <TableRow key={concept._id}>
+                          <TableCell>{concept.code}</TableCell>
+                          <TableCell>{concept.name}</TableCell>
+                          <TableCell className="capitalize">{concept.conceptType}</TableCell>
+                          <TableCell>{concept.debitAccountId ? concept.debitAccountId : <Badge variant="outline" className="text-[11px]">Pendiente</Badge>}</TableCell>
+                          <TableCell>{concept.creditAccountId ? concept.creditAccountId : <Badge variant="outline" className="text-[11px]">Pendiente</Badge>}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div>

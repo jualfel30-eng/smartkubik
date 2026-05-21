@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/use-auth.jsx';
 import { fetchApi } from '@/lib/api.js';
 import { HRNavigation } from '@/components/payroll/HRNavigation.jsx';
+import AbsenceHeatmap from '@/components/payroll/AbsenceHeatmap.jsx';
+import { listItem, STAGGER, EASE } from '@/lib/motion';
 import {
   Card,
   CardContent,
@@ -31,14 +34,12 @@ import {
   SelectValue,
 } from '@/components/ui/select.jsx';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog.jsx';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { CalendarDays, ShieldAlert, UserCheck, UserCircle } from 'lucide-react';
@@ -84,7 +85,7 @@ const formatDate = (value) => {
   }
 };
 
-export default function PayrollAbsencesManager() {
+export default function PayrollAbsencesManager({ hideNav = false }) {
   const { tenant, hasPermission } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -204,7 +205,7 @@ export default function PayrollAbsencesManager() {
     }
   };
 
-  const handleStatusUpdate = async (requestId, status) => {
+  const handleStatusUpdate = async (requestId, status, employeeName) => {
     if (!canWrite) {
       toast.error('No tienes permisos para modificar la ausencia');
       return;
@@ -214,7 +215,16 @@ export default function PayrollAbsencesManager() {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       });
-      toast.success(status === 'approved' ? 'Ausencia aprobada' : 'Ausencia rechazada');
+      if (status !== 'pending') {
+        const label = status === 'approved' ? 'aprobada' : 'rechazada';
+        toast.success(`Ausencia ${label}${employeeName ? ` — ${employeeName}` : ''}`, {
+          action: {
+            label: 'Deshacer',
+            onClick: () => handleStatusUpdate(requestId, 'pending'),
+          },
+          duration: 5000,
+        });
+      }
       loadRequests();
     } catch (error) {
       toast.error(error.message || 'No se pudo actualizar la ausencia');
@@ -255,7 +265,7 @@ export default function PayrollAbsencesManager() {
 
   return (
     <div className="space-y-6">
-      <HRNavigation />
+      {!hideNav && <HRNavigation />}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Ausencias y permisos</h1>
@@ -275,91 +285,91 @@ export default function PayrollAbsencesManager() {
           </div>
         ) : null}
         {canWrite && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>Registrar ausencia</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Nueva solicitud</DialogTitle>
-                <DialogDescription>Registra permisos, vacaciones o ausencias médicas.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Empleado</Label>
-                  <Select
-                    value={form.employeeId}
-                    onValueChange={(value) => setForm((prev) => ({ ...prev, employeeId: value }))}
-                    disabled={loadingEmployees}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={loadingEmployees ? 'Cargando...' : 'Selecciona empleado'} />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      {employees.map((employee) => (
-                        <SelectItem key={employee._id || employee.id} value={employee._id || employee.id}>
-                          {getEmployeeName(employee)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <Select
-                    value={form.leaveType}
-                    onValueChange={(value) => setForm((prev) => ({ ...prev, leaveType: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Tipo de ausencia" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {leaveTypeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2">
+          <>
+            <Button onClick={() => setDialogOpen(true)}>Registrar ausencia</Button>
+            <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
+              <SheetContent side="right" className="w-[420px] sm:max-w-[480px] overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Nueva solicitud</SheetTitle>
+                  <SheetDescription>Registra permisos, vacaciones o ausencias médicas.</SheetDescription>
+                </SheetHeader>
+                <div className="space-y-4 mt-4">
                   <div className="space-y-2">
-                    <Label>Inicio</Label>
-                    <Input
-                      type="date"
-                      value={form.startDate}
-                      onChange={(event) => setForm((prev) => ({ ...prev, startDate: event.target.value }))}
-                    />
+                    <Label>Empleado</Label>
+                    <Select
+                      value={form.employeeId}
+                      onValueChange={(value) => setForm((prev) => ({ ...prev, employeeId: value }))}
+                      disabled={loadingEmployees}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={loadingEmployees ? 'Cargando...' : 'Selecciona empleado'} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        {employees.map((employee) => (
+                          <SelectItem key={employee._id || employee.id} value={employee._id || employee.id}>
+                            {getEmployeeName(employee)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Fin</Label>
-                    <Input
-                      type="date"
-                      value={form.endDate}
-                      onChange={(event) => setForm((prev) => ({ ...prev, endDate: event.target.value }))}
+                    <Label>Tipo</Label>
+                    <Select
+                      value={form.leaveType}
+                      onValueChange={(value) => setForm((prev) => ({ ...prev, leaveType: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Tipo de ausencia" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {leaveTypeOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Inicio</Label>
+                      <Input
+                        type="date"
+                        value={form.startDate}
+                        onChange={(event) => setForm((prev) => ({ ...prev, startDate: event.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Fin</Label>
+                      <Input
+                        type="date"
+                        value={form.endDate}
+                        onChange={(event) => setForm((prev) => ({ ...prev, endDate: event.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Motivo (opcional)</Label>
+                    <Textarea
+                      rows={3}
+                      value={form.reason}
+                      onChange={(event) => setForm((prev) => ({ ...prev, reason: event.target.value }))}
+                      placeholder="Describe el motivo o adjunta observaciones."
                     />
                   </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={creating} className="flex-1">
+                      Cancelar
+                    </Button>
+                    <Button onClick={handleCreate} disabled={creating} className="flex-1">
+                      {creating ? 'Guardando...' : 'Guardar'}
+                    </Button>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Motivo (opcional)</Label>
-                  <Textarea
-                    rows={3}
-                    value={form.reason}
-                    onChange={(event) => setForm((prev) => ({ ...prev, reason: event.target.value }))}
-                    placeholder="Describe el motivo o adjunta observaciones."
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={creating}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleCreate} disabled={creating}>
-                  {creating ? 'Guardando...' : 'Guardar'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </SheetContent>
+            </Sheet>
+          </>
         )}
       </div>
 
@@ -405,6 +415,8 @@ export default function PayrollAbsencesManager() {
           </CardContent>
         </Card>
       </div>
+
+      <AbsenceHeatmap employees={employees} />
 
       <Card>
         <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -454,51 +466,60 @@ export default function PayrollAbsencesManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {requests.map((request) => {
-                  const meta = statusBadge[request.status] || statusBadge.pending;
-                  return (
-                    <TableRow key={request._id}>
-                      <TableCell className="whitespace-normal">
-                        <div className="font-medium">{request.employeeName || request.employeeId}</div>
-                        {request.reason ? (
-                          <div className="text-xs text-muted-foreground max-w-sm">{request.reason}</div>
-                        ) : null}
-                      </TableCell>
-                      <TableCell className="capitalize">{request.leaveType || '—'}</TableCell>
-                      <TableCell>
-                        {formatDate(request.startDate)} – {formatDate(request.endDate)}
-                      </TableCell>
-                      <TableCell>{request.totalDays ?? '—'}</TableCell>
-                      <TableCell>
-                        <Badge variant={meta.variant}>{meta.label}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {request.status === 'pending' ? (
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() => handleStatusUpdate(request._id, 'approved')}
-                            >
-                              Aprobar
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleStatusUpdate(request._id, 'rejected')}
-                            >
-                              Rechazar
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            Actualizado {formatDate(request.updatedAt || request.createdAt)}
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                <AnimatePresence>
+                  {requests.map((request) => {
+                    const meta = statusBadge[request.status] || statusBadge.pending;
+                    return (
+                      <motion.tr
+                        key={request._id}
+                        variants={listItem}
+                        initial="initial"
+                        animate="animate"
+                        exit={{ opacity: 0, height: 0, overflow: 'hidden', transition: { duration: 0.2, ease: EASE.out } }}
+                        className="border-b transition-colors hover:bg-muted/50"
+                      >
+                        <TableCell className="whitespace-normal">
+                          <div className="font-medium">{request.employeeName || request.employeeId}</div>
+                          {request.reason ? (
+                            <div className="text-xs text-muted-foreground max-w-sm">{request.reason}</div>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="capitalize">{request.leaveType || '—'}</TableCell>
+                        <TableCell>
+                          {formatDate(request.startDate)} – {formatDate(request.endDate)}
+                        </TableCell>
+                        <TableCell>{request.totalDays ?? '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant={meta.variant}>{meta.label}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {request.status === 'pending' ? (
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleStatusUpdate(request._id, 'approved', request.employeeName)}
+                              >
+                                Aprobar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleStatusUpdate(request._id, 'rejected', request.employeeName)}
+                              >
+                                Rechazar
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              Actualizado {formatDate(request.updatedAt || request.createdAt)}
+                            </span>
+                          )}
+                        </TableCell>
+                      </motion.tr>
+                    );
+                  })}
+                </AnimatePresence>
               </TableBody>
             </Table>
           )}

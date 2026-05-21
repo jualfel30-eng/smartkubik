@@ -3174,4 +3174,73 @@ export class PayrollRunsService {
       after: params.after,
     });
   }
+
+  async generateDraftForCurrentPeriod(tenantId: string, userId?: string) {
+    const tenantObjectId = this.toObjectId(tenantId);
+
+    const contracts = await this.contractModel
+      .find({ tenantId: tenantObjectId, status: { $in: ["active", "draft"] } })
+      .select(["payFrequency"])
+      .lean();
+
+    const freqCount: Record<string, number> = {};
+    for (const c of contracts) {
+      const f = (c as any).payFrequency || "monthly";
+      freqCount[f] = (freqCount[f] || 0) + 1;
+    }
+    const dominantFreq =
+      Object.entries(freqCount).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      "monthly";
+
+    const now = new Date();
+    let periodStart: Date;
+    let periodEnd: Date;
+    let periodType: string;
+
+    if (dominantFreq === "weekly") {
+      periodType = "custom";
+      const day = now.getDay();
+      const diffToMon = (day === 0 ? -6 : 1 - day);
+      periodStart = new Date(now);
+      periodStart.setDate(now.getDate() + diffToMon);
+      periodEnd = new Date(periodStart);
+      periodEnd.setDate(periodStart.getDate() + 6);
+    } else if (dominantFreq === "biweekly") {
+      periodType = "biweekly";
+      if (now.getDate() <= 15) {
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        periodEnd = new Date(now.getFullYear(), now.getMonth(), 15);
+      } else {
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 16);
+        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      }
+    } else {
+      periodType = "monthly";
+      periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    }
+
+    periodStart.setHours(0, 0, 0, 0);
+    periodEnd.setHours(23, 59, 59, 999);
+
+    const existingRun = await this.runModel.findOne({
+      tenantId: tenantObjectId,
+      periodStart: { $gte: periodStart },
+      periodEnd: { $lte: periodEnd },
+      status: { $in: ["draft", "calculating", "calculated", "posted"] },
+    });
+
+    if (existingRun) {
+      return { data: existingRun, created: false };
+    }
+
+    const dto: CreatePayrollRunDto = {
+      periodType: periodType as any,
+      periodStart: periodStart.toISOString(),
+      periodEnd: periodEnd.toISOString(),
+    };
+
+    const run = await this.createRun(tenantId, dto, userId);
+    return { data: run, created: true };
+  }
 }
