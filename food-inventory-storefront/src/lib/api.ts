@@ -181,7 +181,7 @@ async function parseJsonError(res: Response): Promise<never> {
 export async function getStorefrontConfig(domain: string): Promise<StorefrontConfig> {
   try {
     const res = await fetch(`${API_BASE}/api/v1/public/storefront/by-domain/${domain}`, {
-      next: { revalidate: 60 },
+      cache: 'no-store',
     });
 
     if (!res.ok) {
