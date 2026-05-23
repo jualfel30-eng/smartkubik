@@ -17,9 +17,43 @@ export const getApiBaseUrl = () => {
     : 'https://api.smartkubik.com';
 };
 
+// In-flight deduplication: concurrent GET requests for the same URL share
+// a single network request instead of creating multiple simultaneous calls.
+const _inFlight = new Map();
+
+const _doFetch = async (fullUrl, options, headers) => {
+  const response = await fetch(fullUrl, { ...options, headers });
+
+  if (!response.ok) {
+    let errorData;
+    try { errorData = await response.json(); }
+    catch { errorData = { message: response.statusText }; }
+    if (!errorData) errorData = { message: response.statusText || 'Error en la petición a la API' };
+
+    if (response.status === 403) {
+      let parsedMessage = null;
+      try { parsedMessage = typeof errorData.message === 'string' ? JSON.parse(errorData.message) : null; } catch { /* noop */ }
+      if (parsedMessage?.code === 'TRIAL_EXPIRED') {
+        window.location.href = '/trial-expired';
+        throw new Error(parsedMessage.message || 'Trial expired');
+      }
+    }
+
+    let errorMessage = errorData?.message || errorData?.error || `Error ${response.status}: ${response.statusText}`;
+    if (Array.isArray(errorMessage)) errorMessage = errorMessage.join(', ');
+    throw new Error(typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage));
+  }
+
+  if (response.status === 204) return null;
+  const text = await response.text();
+  try { return text ? JSON.parse(text) : {}; }
+  catch { return {}; }
+};
+
 // Updated fetchApi to handle FormData for file uploads
 export const fetchApi = async (url, options = {}) => {
   const token = getAuthToken();
+  const method = (options.method || 'GET').toUpperCase();
 
   const headers = { ...options.headers };
 
@@ -27,11 +61,6 @@ export const fetchApi = async (url, options = {}) => {
   if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
-
-  // Aggressive cache prevention
-  headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
-  headers['Pragma'] = 'no-cache';
-  headers['Expires'] = '0';
 
   if (token && !options.isPublic) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -45,8 +74,18 @@ export const fetchApi = async (url, options = {}) => {
 
   // Check if baseUrl already includes /api/v1
   const apiPath = baseUrl.endsWith('/api/v1') ? '' : '/api/v1';
+  const fullUrl = `${baseUrl}${apiPath}${url}`;
 
-  const response = await fetch(`${baseUrl}${apiPath}${url}`, {
+  // Deduplicate concurrent GET requests: if an identical request is already
+  // in-flight, return its Promise so only one network call goes out.
+  if (method === 'GET') {
+    if (_inFlight.has(url)) return _inFlight.get(url);
+    const promise = _doFetch(fullUrl, options, headers).finally(() => _inFlight.delete(url));
+    _inFlight.set(url, promise);
+    return promise;
+  }
+
+  const response = await fetch(fullUrl, {
     ...options,
     headers,
   });
