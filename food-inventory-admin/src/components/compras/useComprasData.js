@@ -57,6 +57,7 @@ export function useComprasData() {
   const rifInputRef = useRef(null);
   const rifDropdownRef = useRef(null);
   const [variantSelection, setVariantSelection] = useState(null);
+  const [unitSelection, setUnitSelection] = useState(null);
   const [additionalVariants, setAdditionalVariants] = useState([]);
 
   // Invoice scanning state
@@ -986,7 +987,7 @@ export function useComprasData() {
     return value.toString();
   }, []);
 
-  const upsertPurchaseItem = useCallback((product, variant, quantity, costPrice) => {
+  const upsertPurchaseItem = useCallback((product, variant, quantity, costPrice, selectedUnit = null) => {
     if (!product || !quantity || Number.isNaN(quantity) || quantity <= 0) return;
     const productId = normalizeId(product._id);
     const variantId = variant ? normalizeId(variant._id) : null;
@@ -996,7 +997,8 @@ export function useComprasData() {
       const items = [...prev.items];
       const matchIndex = items.findIndex(item =>
         normalizeId(item.productId) === productId &&
-        normalizeId(item.variantId) === variantId
+        normalizeId(item.variantId) === variantId &&
+        (item.selectedUnitName || null) === (selectedUnit?.name || null)
       );
       if (matchIndex !== -1) {
         const existing = items[matchIndex];
@@ -1011,6 +1013,8 @@ export function useComprasData() {
           variantId: variantId || undefined,
           variantName: variant?.name,
           variantSku: variant?.sku,
+          selectedUnitName: selectedUnit?.name || undefined,
+          selectedUnitAbbr: selectedUnit?.abbreviation || undefined,
           quantity,
           costPrice: resolvedCost,
           isPerishable: product.isPerishable,
@@ -1039,6 +1043,22 @@ export function useComprasData() {
   const closeVariantSelection = useCallback(() => {
     setVariantSelection(null);
   }, []);
+
+  const openUnitSelection = useCallback((product, variant, units) => {
+    setUnitSelection({ product, variant, units });
+  }, []);
+
+  const closeUnitSelection = useCallback(() => {
+    setUnitSelection(null);
+  }, []);
+
+  const selectUnit = useCallback((unit) => {
+    if (!unitSelection) return;
+    const { product, variant } = unitSelection;
+    const cost = unit.costPerUnit ?? variant?.costPrice ?? 0;
+    upsertPurchaseItem(product, variant, 1, cost, unit);
+    setUnitSelection(null);
+  }, [unitSelection, upsertPurchaseItem]);
 
   const updateVariantSelectionRow = useCallback((index, field, value) => {
     setVariantSelection(prev => {
@@ -1080,6 +1100,14 @@ export function useComprasData() {
     }
     if (variants.length === 1) {
       const variant = variants[0];
+      // If product has multiple selling units, let user pick which unit to purchase in
+      const activeSellingUnits = Array.isArray(product.sellingUnits)
+        ? product.sellingUnits.filter(u => u && u.isActive !== false)
+        : [];
+      if (product.hasMultipleSellingUnits && activeSellingUnits.length > 1) {
+        openUnitSelection(product, variant, activeSellingUnits);
+        return;
+      }
       const defaultCost = variant?.costPrice ?? 0;
       upsertPurchaseItem(product, variant, 1, defaultCost);
       return;
@@ -1943,6 +1971,12 @@ export function useComprasData() {
     closeVariantSelection,
     updateVariantSelectionRow,
     confirmVariantSelection,
+
+    // Unit selection (multi-unit products)
+    unitSelection,
+    openUnitSelection,
+    closeUnitSelection,
+    selectUnit,
 
     // Invoice scanning
     isScanning,

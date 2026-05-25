@@ -144,6 +144,40 @@ function InlineVariantPicker({ variantSelection, updateVariantSelectionRow, conf
   );
 }
 
+// ─── Inline Unit Picker ───────────────────────────────────────────────────
+function InlineUnitPicker({ unitSelection, selectUnit, closeUnitSelection }) {
+  if (!unitSelection) return null;
+  return (
+    <div className="border-2 border-primary/30 rounded-lg p-4 bg-primary/5 space-y-3 mb-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="font-semibold text-sm">Unidad de compra — {unitSelection.product?.name}</h4>
+          <p className="text-xs text-muted-foreground">Selecciona la unidad en la que estás comprando este producto</p>
+        </div>
+        <Button variant="ghost" size="icon" onClick={closeUnitSelection} className="h-8 w-8">
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {unitSelection.units?.map((unit, index) => (
+          <button
+            key={unit._id || index}
+            type="button"
+            onClick={() => selectUnit(unit)}
+            className="flex flex-col items-start rounded-lg border border-border bg-background p-3 text-left hover:border-primary hover:bg-primary/5 transition-colors"
+          >
+            <span className="font-semibold text-sm">{unit.name}</span>
+            <span className="text-xs text-muted-foreground font-mono">{unit.abbreviation}</span>
+            {unit.costPerUnit > 0 && (
+              <span className="text-xs text-primary mt-1">${unit.costPerUnit.toFixed(2)} / {unit.abbreviation}</span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Sticky Summary Panel ───────────────────────────────────────────────
 function StickySummary({ po, poTotals, setPo, isCreating, onCancel, onSubmit, validationErrors, purchaseDateOpen, setPurchaseDateOpen, touched, markTouched, errors }) {
   const itemCount = po.items.length;
@@ -322,6 +356,10 @@ export default function CompraCreateDialog({
   closeVariantSelection,
   updateVariantSelectionRow,
   confirmVariantSelection,
+  // Inline unit selection (multi-unit products)
+  unitSelection,
+  closeUnitSelection,
+  selectUnit,
   // Inline product creation (unified flow popup)
   isInlineProductDialogOpen,
   inlineProductInitialQuery,
@@ -592,6 +630,13 @@ export default function CompraCreateDialog({
                 closeVariantSelection={closeVariantSelection}
               />
 
+              {/* Inline unit picker — for products with multiple selling units */}
+              <InlineUnitPicker
+                unitSelection={unitSelection}
+                selectUnit={selectUnit}
+                closeUnitSelection={closeUnitSelection}
+              />
+
               {/* Items table — Lot/Expiration always visible */}
               {po.items.length === 0 ? (
                 <div className="text-center py-8 text-sm text-muted-foreground border rounded-md border-dashed">
@@ -631,6 +676,7 @@ export default function CompraCreateDialog({
                               <div className="text-xs text-muted-foreground">
                                 {[
                                   item.variantName,
+                                  item.selectedUnitName ? `Unidad: ${item.selectedUnitName}${item.selectedUnitAbbr ? ` (${item.selectedUnitAbbr})` : ''}` : null,
                                   item.productSku ? `SKU: ${item.productSku}` : null,
                                   item.productBrand ? `Marca: ${item.productBrand}` : null,
                                 ].filter(Boolean).join(' · ')}

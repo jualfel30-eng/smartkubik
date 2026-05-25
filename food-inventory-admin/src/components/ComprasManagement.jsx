@@ -100,6 +100,9 @@ export default function ComprasManagement() {
           closeVariantSelection={data.closeVariantSelection}
           updateVariantSelectionRow={data.updateVariantSelectionRow}
           confirmVariantSelection={data.confirmVariantSelection}
+          unitSelection={data.unitSelection}
+          closeUnitSelection={data.closeUnitSelection}
+          selectUnit={data.selectUnit}
           isInlineProductDialogOpen={data.isInlineProductDialogOpen}
           inlineProductInitialQuery={data.inlineProductInitialQuery}
           inlineProductLoading={data.inlineProductLoading}

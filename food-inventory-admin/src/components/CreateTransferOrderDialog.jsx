@@ -325,7 +325,7 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
   const handleSave = async (mode = 'request') => {
     // mode: 'draft' | 'request' | 'express'
     // Validation
-    if (transferMode === 'sedes') {
+    if (transferMode === 'sedes' && !isSingleTenant) {
       if (!form.destinationTenantId) {
         toast.error('Selecciona sede destino');
         return;
@@ -424,13 +424,19 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     }
   };
 
+  // Single-tenant mode: standalone tenant with no subsidiaries — skip sede selector,
+  // allow direct warehouse-to-warehouse transfer within the same tenant.
+  const isSingleTenant = transferMode === 'sedes' && subsidiaries.length === 0;
+
   const sourceWarehouses = transferMode === 'locations'
     ? getWarehousesForLocation(form.sourceLocationId)
     : warehouses;
 
   const destWarehouses = transferMode === 'locations'
     ? getWarehousesForLocation(form.destinationLocationId)
-    : destinationWarehouses;
+    : isSingleTenant
+      ? warehouses.filter(w => (w._id || w.id) !== form.sourceWarehouseId)
+      : destinationWarehouses;
 
   if (loading) {
     return (
@@ -550,7 +556,7 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
                 </div>
               )}
 
-              {transferMode === 'sedes' && (
+              {transferMode === 'sedes' && !isSingleTenant && (
                 <div>
                   <Label>Sede destino</Label>
                   <Select
@@ -591,14 +597,14 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
                   onValueChange={(v) => setForm((f) => ({ ...f, destinationWarehouseId: v }))}
                   disabled={
                     (transferMode === 'locations' && !form.destinationLocationId) ||
-                    (transferMode === 'sedes' && !form.destinationTenantId)
+                    (transferMode === 'sedes' && !isSingleTenant && !form.destinationTenantId)
                   }
                 >
                   <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                   <SelectContent>
                     {destWarehouses.length === 0 && (
                       <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                        {transferMode === 'sedes' && !form.destinationTenantId
+                        {transferMode === 'sedes' && !isSingleTenant && !form.destinationTenantId
                           ? 'Selecciona una sede primero'
                           : 'No hay almacenes disponibles'}
                       </div>
