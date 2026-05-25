@@ -99,6 +99,12 @@ export class SuperAdminService {
 
     const updatePayload: any = { ...updateTenantDto };
 
+    // Re-cast parentTenantId to ObjectId if present — JSON deserialization loses the BSON type
+    // and saving as string breaks findSubsidiaries queries.
+    if (updatePayload.parentTenantId && typeof updatePayload.parentTenantId === "string") {
+      updatePayload.parentTenantId = new Types.ObjectId(updatePayload.parentTenantId);
+    }
+
     if (updateTenantDto.subscriptionPlan) {
       const newLimits = getPlanLimits(updateTenantDto.subscriptionPlan);
       updatePayload.limits = newLimits;

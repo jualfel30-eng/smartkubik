@@ -432,7 +432,10 @@ export class OrganizationsService {
   async findSubsidiaries(parentTenantId: string): Promise<TenantDocument[]> {
     return this.tenantModel
       .find({
-        parentTenantId: new Types.ObjectId(parentTenantId),
+        $or: [
+          { parentTenantId: new Types.ObjectId(parentTenantId) },
+          { parentTenantId: parentTenantId },
+        ],
         status: { $ne: "suspended" },
       })
       .select("name contactInfo status usage parentTenantId isSubsidiary vertical businessType")
@@ -445,7 +448,10 @@ export class OrganizationsService {
    */
   async hasSubsidiaries(tenantId: string): Promise<boolean> {
     const count = await this.tenantModel.countDocuments({
-      parentTenantId: new Types.ObjectId(tenantId),
+      $or: [
+        { parentTenantId: new Types.ObjectId(tenantId) },
+        { parentTenantId: tenantId },
+      ],
     });
     return count > 0;
   }
@@ -471,9 +477,15 @@ export class OrganizationsService {
       ? tenant.parentTenantId
       : new Types.ObjectId(tenantId);
 
-    // Get all children
+    // Get all children — use $or to handle parentTenantId stored as string or ObjectId
+    const parentIdStr = parentId.toString();
     const children = await this.tenantModel
-      .find({ parentTenantId: parentId })
+      .find({
+        $or: [
+          { parentTenantId: parentId },
+          { parentTenantId: parentIdStr },
+        ],
+      })
       .select("_id")
       .lean()
       .exec();

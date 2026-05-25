@@ -97,6 +97,7 @@ export const ALL_PERMISSIONS = [
   // Billing Module
   "billing_create",
   "billing_void",
+  "billing_issue",
   // Data Import Module
   "data_import_create",
   "data_import_read",
@@ -120,4 +121,34 @@ export const ALL_PERMISSIONS = [
   "edu_tuition_read",
   "edu_tuition_write",
   "edu_dashboard_read",
+  // Business Locations & Transfer Orders
+  "locations_read",
+  "locations_write",
+  "transfer_orders_read",
+  "transfer_orders_write",
+  "transfer_orders_approve",
+  // Payments Module
+  "payments_read",
+  "payments_write",
+  "payments_confirm",
+  // Payroll (shared with commissions/tips)
+  "payroll_read",
+  "payroll_write",
+  // Pricing
+  "pricing_manage",
+  // Products (alternate format used in price-lists)
+  "products:read",
+  // Product Deduplication
+  "products_dedup_read",
+  "products_dedup_write",
+  "products_dedup_admin",
+  // Customers
+  "customers_write",
+  // Analytics
+  "analytics_read",
+  // Reports
+  "reports_create",
+  // Security Monitoring
+  "view_security_alerts",
+  "view_security_metrics",
 ];

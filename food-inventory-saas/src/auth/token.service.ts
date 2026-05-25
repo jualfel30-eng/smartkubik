@@ -102,6 +102,29 @@ export class TokenService {
             .filter((name): name is string => Boolean(name))
         : [];
       roleName = resolvedRoleDoc.name ?? roleName;
+
+      // Fallback for BSON type mismatch: role.permissions stored as strings but Permission._id is ObjectId.
+      // Mongoose populate query returns 0 results when types differ, so retry with explicit ObjectId cast.
+      if (
+        permissionNames.length === 0 &&
+        Array.isArray(resolvedRoleDoc.permissions) &&
+        resolvedRoleDoc.permissions.length > 0
+      ) {
+        const rawIds = (resolvedRoleDoc.permissions as any[]).map((p: any) => {
+          const str = typeof p === "string" ? p : p?.toString();
+          try {
+            return new Types.ObjectId(str);
+          } catch {
+            return str;
+          }
+        });
+        const PermissionModel = this.roleModel.db.model("Permission");
+        const perms = await PermissionModel.find(
+          { _id: { $in: rawIds } },
+          { name: 1 },
+        ).lean();
+        permissionNames = (perms as any[]).map((p) => p.name).filter(Boolean);
+      }
     }
 
     // Emergency fallback: if still empty, use defaults by role name or grant full set to admin
