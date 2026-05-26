@@ -29,6 +29,7 @@ import InventoryHeaderSection from '@/components/inventory/InventoryHeaderSectio
 import InventoryModuleCards from '@/components/inventory/InventoryModuleCards.jsx';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 import { useVerticalKey } from '@/hooks/useVerticalConfig.js';
+import { useAuth } from '@/hooks/use-auth.jsx';
 import { fetchApi } from '@/lib/api';
 import { DUR, EASE, SPRING } from '@/lib/motion';
 
@@ -92,6 +93,8 @@ export default function InventoryDashboard() {
     return TAB_COMPAT[raw] || raw;
   });
   const { flags } = useFeatureFlags();
+  const { tenant } = useAuth();
+  const currentTenantId = tenant?.id || tenant?._id || null;
   const multiWarehouseEnabled = flags.MULTI_WAREHOUSE;
   const multiLocationEnabled = flags.MULTI_LOCATION;
   const verticalKey = useVerticalKey();
@@ -131,15 +134,17 @@ export default function InventoryDashboard() {
     setSearchParams({}, { replace: true });
   };
 
-  // Fetch KPI data
+  // Fetch KPI data — re-runs when the active tenant changes (sede switch)
   const fetchKPIs = useCallback(async () => {
+    if (!currentTenantId) return;
     setKpiLoading(true);
     try {
+      const bust = `_t=${currentTenantId}`;
       const [prodRes, alertRes, poRes, toRes] = await Promise.allSettled([
-        fetchApi('/products?limit=1'),
-        fetchApi('/inventory-alerts?limit=1'),
-        fetchApi('/purchases?status=pending&limit=1'),
-        fetchApi('/transfer-orders?status=in_transit&limit=1'),
+        fetchApi(`/products?limit=1&${bust}`),
+        fetchApi(`/inventory-alerts?limit=1&${bust}`),
+        fetchApi(`/purchases?status=pending&limit=1&${bust}`),
+        fetchApi(`/transfer-orders?status=in_transit&limit=1&${bust}`),
       ]);
       setKpiData({
         products: prodRes.status === 'fulfilled' ? (prodRes.value?.pagination?.total || 0) : 0,
@@ -153,9 +158,13 @@ export default function InventoryDashboard() {
     } finally {
       setKpiLoading(false);
     }
-  }, []);
+  }, [currentTenantId]);
 
-  useEffect(() => { fetchKPIs(); }, [fetchKPIs]);
+  useEffect(() => {
+    // Reset KPIs so the previous sede's numbers don't linger during the switch
+    setKpiData({ products: 0, value: 0, lowStock: 0, pendingPOs: 0, inTransit: 0 });
+    fetchKPIs();
+  }, [fetchKPIs]);
 
   // KPI card click
   const handleKPIClick = (key) => {
