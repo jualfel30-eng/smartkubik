@@ -158,22 +158,55 @@ export class InventoryService {
         const variantSku = (variant as any)?.sku;
         const costPrice = (variant as any)?.costPrice ?? 0;
 
-        const existsFilter: Record<string, any> = {
-          tenantId,
+        const baseFilter: Record<string, any> = {
+          tenantId: this.buildTenantFilter(tenantId),
+          warehouseId,
           productId: new Types.ObjectId(product._id.toString()),
         };
+
+        // 1) Exact match (with variantId if present, or explicitly without).
+        const exactFilter: Record<string, any> = { ...baseFilter };
         if (variantId) {
-          existsFilter.variantId = variantId;
+          exactFilter.variantId = variantId;
         } else {
-          existsFilter.$or = [
+          exactFilter.$or = [
             { variantId: { $exists: false } },
             { variantId: null },
           ];
         }
 
-        const existing = await this.inventoryModel
-          .findOne(existsFilter)
+        let existing = await this.inventoryModel
+          .findOne(exactFilter)
           .session(session ?? null);
+
+        // 2) When creating inventory for a variant, also check for a
+        // pre-existing "no-variant" record for the same product+warehouse.
+        // This happens when a product gains variants AFTER inventory was
+        // already stocked (the historical record has no variantId). Without
+        // this check we'd create a parallel zero-quantity duplicate.
+        // Only safe to adopt the legacy record when there is exactly ONE
+        // variant — with multiple variants we can't decide which one owns it.
+        if (!existing && variantId && variantsList.length === 1) {
+          const legacyFilter = {
+            ...baseFilter,
+            $or: [
+              { variantId: { $exists: false } },
+              { variantId: null },
+            ],
+          };
+          const legacy = await this.inventoryModel
+            .findOne(legacyFilter)
+            .session(session ?? null);
+          if (legacy) {
+            legacy.variantId = variantId;
+            if (variantSku) legacy.variantSku = variantSku;
+            await legacy.save({ session });
+            existing = legacy;
+            warnings.push(
+              `Adopted legacy no-variant inventory for ${product.sku} into variant ${variantSku || variantId}`,
+            );
+          }
+        }
 
         if (existing) {
           skipped++;
@@ -1656,21 +1689,36 @@ export class InventoryService {
         ? new Types.ObjectId(item.variantId)
         : undefined;
 
-    // Search by productId first to avoid cross-product collisions
-    // (e.g. two different products both having variantSku "-VAR1")
+    // Resolve target warehouse for this receipt. Required to avoid
+    // updating the wrong record when multiple warehouses exist for the
+    // same product in a tenant.
+    const targetWarehouseId = item.warehouseId
+      ? this.toObjectIdIfValid(item.warehouseId)
+      : await this.getDefaultWarehouse(user.tenantId);
+
+    const warehouseFilter = targetWarehouseId
+      ? { $in: [targetWarehouseId, targetWarehouseId?.toString()] }
+      : undefined;
+
+    // Search by productId + warehouseId to land on the exact record that
+    // this purchase is replenishing. Without warehouseId the query could
+    // pick a sibling record from a different warehouse and leave the real
+    // target at 0.
     let inventory = await this.inventoryModel
       .findOne({
         productId: item.productId,
         tenantId: this.buildTenantFilter(user.tenantId),
+        ...(warehouseFilter ? { warehouseId: warehouseFilter } : {}),
       })
       .session(session ?? null);
 
-    // Fallback: search by SKU for backwards compatibility
+    // Fallback: search by SKU for backwards compatibility (still warehouse-scoped)
     if (!inventory) {
       const skuInventory = await this.inventoryModel
         .findOne({
           productSku: sku,
           tenantId: this.buildTenantFilter(user.tenantId),
+          ...(warehouseFilter ? { warehouseId: warehouseFilter } : {}),
         })
         .session(session ?? null);
 
@@ -1686,13 +1734,8 @@ export class InventoryService {
 
     if (!inventory) {
       this.logger.log(
-        `Inventory not found for SKU: ${sku}. Creating new inventory record.`,
+        `Inventory not found for SKU: ${sku} in warehouse ${targetWarehouseId}. Creating new inventory record.`,
       );
-
-      // Get warehouseId from item or use default warehouse
-      const warehouseId = item.warehouseId
-        ? this.toObjectIdIfValid(item.warehouseId)
-        : await this.getDefaultWarehouse(user.tenantId);
 
       const inventoryData = {
         productId: item.productId,
@@ -1701,7 +1744,7 @@ export class InventoryService {
         variantId: resolvedVariantId,
         variantSku: item.variantSku || sku,
         tenantId: this.normalizeTenantValue(user.tenantId),
-        warehouseId: warehouseId, // ✅ Now includes warehouseId
+        warehouseId: targetWarehouseId,
         totalQuantity: 0,
         availableQuantity: 0,
         reservedQuantity: 0,
