@@ -452,8 +452,13 @@ export class InventoryController {
   @ApiResponse({ status: 200, description: "Resumen obtenido exitosamente" })
   async getInventorySummary(@Request() req) {
     try {
+      const catalogTenantId =
+        req.tenant?.isSubsidiary && req.tenant?.parentTenantId
+          ? req.tenant.parentTenantId.toString()
+          : req.user.tenantId;
       const summary = await this.inventoryService.getInventorySummary(
         req.user.tenantId,
+        catalogTenantId,
       );
       return {
         success: true,

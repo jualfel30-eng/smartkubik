@@ -494,10 +494,14 @@ export class FoodRetailInventoryService implements IInventoryService {
       .exec();
   }
 
-  async getInventorySummary(tenantId: string) {
+  async getInventorySummary(tenantId: string, catalogTenantId?: string) {
+    const catalogId = catalogTenantId || tenantId;
     const [totalProducts, lowStockCount, expirationCount, totalValue] =
       await Promise.all([
-        this.inventoryModel.countDocuments({ tenantId }),
+        this.productModel.countDocuments({
+          tenantId: catalogId,
+          isDeleted: { $ne: true },
+        }),
         this.inventoryModel.countDocuments({
           tenantId,
           "alerts.lowStock": true,

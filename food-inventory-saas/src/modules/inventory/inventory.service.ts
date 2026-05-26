@@ -1445,12 +1445,13 @@ export class InventoryService {
     ]);
   }
 
-  async getInventorySummary(tenantId: string) {
+  async getInventorySummary(tenantId: string, catalogTenantId?: string) {
+    const catalogId = catalogTenantId || tenantId;
     const [totalProducts, lowStockCount, expirationCount, totalValue] =
       await Promise.all([
-        this.inventoryModel.countDocuments({
-          tenantId: this.buildTenantFilter(tenantId),
-          isActive: { $ne: false },
+        this.productModel.countDocuments({
+          tenantId: this.buildTenantFilter(catalogId),
+          isDeleted: { $ne: true },
         }),
         this.inventoryModel.countDocuments({
           tenantId: this.buildTenantFilter(tenantId),

@@ -47,5 +47,5 @@ export interface IInventoryService {
   getMovements(query: any, tenantId: string): Promise<any>;
   getLowStockAlerts(tenantId: string): Promise<any>;
   getExpirationAlerts(tenantId: string, days?: number): Promise<any>;
-  getInventorySummary(tenantId: string): Promise<any>;
+  getInventorySummary(tenantId: string, catalogTenantId?: string): Promise<any>;
 }
