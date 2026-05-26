@@ -135,14 +135,14 @@ export default function InventoryDashboard() {
   const fetchKPIs = useCallback(async () => {
     setKpiLoading(true);
     try {
-      const [invRes, alertRes, poRes, toRes] = await Promise.allSettled([
-        fetchApi('/inventory?limit=1'),
+      const [prodRes, alertRes, poRes, toRes] = await Promise.allSettled([
+        fetchApi('/products?limit=1'),
         fetchApi('/inventory-alerts?limit=1'),
         fetchApi('/purchases?status=pending&limit=1'),
         fetchApi('/transfer-orders?status=in_transit&limit=1'),
       ]);
       setKpiData({
-        products: invRes.status === 'fulfilled' ? (invRes.value?.pagination?.total || 0) : 0,
+        products: prodRes.status === 'fulfilled' ? (prodRes.value?.pagination?.total || 0) : 0,
         value: 0,
         lowStock: alertRes.status === 'fulfilled' ? (alertRes.value?.pagination?.total || 0) : 0,
         pendingPOs: poRes.status === 'fulfilled' ? (poRes.value?.pagination?.total || 0) : 0,
