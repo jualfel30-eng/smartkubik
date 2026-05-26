@@ -10,6 +10,20 @@ import './custom.css';
 import './styles/mobile-tokens.css';
 import App from './App.jsx';
 
+// Unregister any previously installed service worker and drop its caches.
+// The PWA was retired because workbox runtimeCaching returned stale tenant
+// responses across sede switches.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then((regs) => {
+    regs.forEach((reg) => reg.unregister());
+  }).catch(() => { /* noop */ });
+  if (window.caches?.keys) {
+    window.caches.keys().then((keys) => {
+      keys.forEach((key) => window.caches.delete(key));
+    }).catch(() => { /* noop */ });
+  }
+}
+
 // Prevent scroll from accidentally changing values in number inputs.
 // When a focused number input detects a wheel event, blur it so the scroll
 // passes through to the page instead of incrementing/decrementing the value.

@@ -1,56 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+
+// PWA removed: workbox runtime cache was returning stale tenant data
+// across sede switches. Admin is a desktop dashboard that requires
+// network — no offline support needed.
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
-      includeAssets: ['favicon-smartkubik.png', 'robots.txt'],
-      manifest: false, // usamos /public/manifest.webmanifest manual
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest}'],
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
-        cleanupOutdatedCaches: true,
-        runtimeCaching: [
-          {
-            // API GET: nunca cachear. NetworkFirst causaba que las KPIs
-            // mostraran datos de la sede anterior tras un switch.
-            urlPattern: ({ url, request }) =>
-              request.method === 'GET' && url.pathname.startsWith('/api/'),
-            handler: 'NetworkOnly',
-          },
-          {
-            // Imágenes
-            urlPattern: ({ request }) => request.destination === 'image',
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'image-cache',
-              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 30 },
-            },
-          },
-          {
-            // Fuentes Google
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts',
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
-            },
-          },
-        ],
-      },
-      devOptions: {
-        enabled: false, // evitar SW en dev (HMR friendly)
-      },
-    }),
   ],
   assetsInclude: ['**/*.lottie'],
   test: {
