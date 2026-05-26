@@ -21,16 +21,11 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
-            // Cache de API GET — NetworkFirst con fallback offline
+            // API GET: nunca cachear. NetworkFirst causaba que las KPIs
+            // mostraran datos de la sede anterior tras un switch.
             urlPattern: ({ url, request }) =>
               request.method === 'GET' && url.pathname.startsWith('/api/'),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-get-cache',
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
+            handler: 'NetworkOnly',
           },
           {
             // Imágenes
