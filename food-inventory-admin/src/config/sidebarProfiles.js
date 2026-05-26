@@ -16,6 +16,43 @@
 
 export const SIDEBAR_PROFILE_WHITELIST = {
 
+  'grocery': new Set([
+    'dashboard',
+    'subsidiaries',
+    'orders',
+    'orders/new',
+    'orders/history',
+    'inventory-management',
+    'inventory-management?tab=products',
+    'inventory-management?tab=raw-materials',
+    'inventory-management?tab=consumables',
+    'inventory-management?tab=supplies',
+    'inventory-management?tab=pricing-engine',
+    'inventory-management?tab=inventory',
+    'inventory-management?tab=inventory-warehouses',
+    'inventory-management?tab=inventory-movements',
+    'inventory-management?tab=inventory-alerts',
+    'inventory-management?tab=inventory-reports',
+    'inventory-management?tab=transfers',
+    'inventory-management?tab=purchases',
+    'inventory-management?tab=suppliers',
+    'waste-control',
+    'business-locations',
+    'fulfillment',
+    'driver',
+    'purchases',
+    'crm',
+    'marketing',
+    'accounting',
+    'bank-accounts',
+    'cash-register',
+    'receivables?tab=pending',
+    'storefront',
+    'reports',
+    'whatsapp',
+    'assistant',
+  ]),
+
   'barbershop-salon': new Set([
     'dashboard',              // Panel de Control
     'subsidiaries',           // Mis Sedes (filtered by requiresSubsidiaries)

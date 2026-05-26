@@ -8,6 +8,7 @@
 
 export type VerticalProfileKey =
   | "food-service"
+  | "grocery"
   | "retail-fashion"
   | "retail-footwear"
   | "retail-hardware"
@@ -156,9 +157,26 @@ export function getVerticalProfileKey(
       return "retail-toys";
     }
 
-    // Por defecto, RETAIL sin especificar usa food-service
-    // (esto maneja casos de retail de alimentos)
-    return "food-service";
+    // Supermercados / Abastos / Abarrotes / Distribuidores de alimentos
+    if (
+      businessTypeLower.includes("supermercado") ||
+      businessTypeLower.includes("abasto") ||
+      businessTypeLower.includes("abarrote") ||
+      businessTypeLower.includes("aliment") ||
+      businessTypeLower.includes("grocery") ||
+      businessTypeLower.includes("mayorista") ||
+      businessTypeLower.includes("distribuidor") ||
+      businessTypeLower.includes("bodega") ||
+      businessTypeLower.includes("minimarket") ||
+      businessTypeLower.includes("mini market") ||
+      businessTypeLower === "retail"
+    ) {
+      return "grocery";
+    }
+
+    // Por defecto, RETAIL sin especificar va a grocery
+    // (comercio genérico de alimentos — el caso más común)
+    return "grocery";
   }
 
   // FOOD_SERVICE vertical (default)
@@ -173,6 +191,7 @@ export function isValidVerticalProfileKey(
 ): key is VerticalProfileKey {
   const validKeys: VerticalProfileKey[] = [
     "food-service",
+    "grocery",
     "retail-fashion",
     "retail-footwear",
     "retail-hardware",
@@ -193,7 +212,8 @@ export function isValidVerticalProfileKey(
  */
 export function getVerticalProfileLabel(key: VerticalProfileKey): string {
   const labels: Record<VerticalProfileKey, string> = {
-    "food-service": "Alimentación / Restaurantes",
+    "food-service": "Restaurante / Servicio de comida",
+    grocery: "Supermercados / Abastos / Abarrotes",
     "retail-fashion": "Retail - Moda y Ropa",
     "retail-footwear": "Retail - Calzado",
     "retail-hardware": "Retail - Ferretería",

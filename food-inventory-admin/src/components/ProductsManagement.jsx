@@ -676,9 +676,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   }, [isAddDialogOpen, draftKey]);
 
   const isNonFoodRetailVertical = useMemo(() => {
-    // For retail verticals, hide food-specific fields ONLY if they are not using the food-service profile
-    // This allows Supermarkets (Retail vertical + Food Service profile) to see food fields
-    return verticalConfig?.key !== 'food-service';
+    if (!verticalConfig) return false;
+    return verticalConfig.baseVertical === 'RETAIL' && verticalConfig.allowsWeight === false;
   }, [verticalConfig]);
 
   const supportsVariants = verticalConfig?.supportsVariants !== false;

@@ -15,3 +15,8 @@ food-inventory-saas/logs/
 restaurant-storefront/.env.local
 restaurant-storefront/tsconfig.tsbuildinfo
 restaurant-storefront/temp_next_logs.txt
+
+# Operational artifacts (backups, logs, ad-hoc inspections)
+scripts/_backups/
+scripts/migrations/_logs/
+.claude/skills/tenant-inspect/scripts/_inspections/

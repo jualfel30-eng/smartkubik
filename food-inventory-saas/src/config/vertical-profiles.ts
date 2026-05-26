@@ -8,6 +8,7 @@ export const DEFAULT_VERTICAL_KEY = "food-service" as const;
 
 export type VerticalKey =
   | "food-service"
+  | "grocery"
   | "retail-fashion"
   | "retail-footwear"
   | "retail-hardware"
@@ -91,6 +92,48 @@ export const verticalProfiles: Record<VerticalKey, VerticalProfile> = {
         label: "Condición de almacenamiento",
         type: "enum",
         options: ["ambiente", "refrigerado", "congelado"],
+        scope: "product",
+      },
+    ],
+    inventory: {
+      supportsLots: true,
+      supportsAttributeMatrix: false,
+      requiresSerialTracking: false,
+      alerts: ["lowStock", "nearExpiration"],
+    },
+    orderLine: {
+      requireAttributesOnAdd: false,
+      allowCustomPrice: true,
+      notesPlaceholder: "Notas para preparación o entrega",
+    },
+  },
+  "grocery": {
+    key: "grocery",
+    label: "Supermercados / Abastos / Abarrotes",
+    baseVertical: "RETAIL",
+    allowsWeight: true,
+    hasSizeMatrix: false,
+    requiresSerial: false,
+    supportsVariants: true,
+    defaultUnits: ["kg", "g", "unidad", "pack", "saco", "litro", "ml"],
+    attributeSchema: [
+      {
+        key: "origin",
+        label: "Origen",
+        type: "string",
+        scope: "product",
+      },
+      {
+        key: "storageCondition",
+        label: "Condición de almacenamiento",
+        type: "enum",
+        options: ["ambiente", "refrigerado", "congelado"],
+        scope: "product",
+      },
+      {
+        key: "brand",
+        label: "Marca",
+        type: "string",
         scope: "product",
       },
     ],
