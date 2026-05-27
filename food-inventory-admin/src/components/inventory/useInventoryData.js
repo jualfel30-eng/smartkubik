@@ -250,6 +250,9 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
         sortBy: currentSortBy,
         sortOrder: currentSortOrder,
       });
+      if (usingSearch) {
+        params.set('search', safeSearch);
+      }
 
       const [inventoryResponse, binLocationsResponse, warehousesResponse] = await Promise.all([
         fetchApi(`/inventory?${params.toString()}`),
