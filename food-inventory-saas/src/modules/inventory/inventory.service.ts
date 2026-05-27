@@ -1576,10 +1576,15 @@ export class InventoryService {
     if (isSearching) {
       const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
 
+      // Tenant isolation is enforced by the inventories.tenantId filter
+      // below. The product lookup deliberately spans tenants because
+      // historical data has inventories whose productId points to products
+      // living in a sibling tenant (parent <-> sedes <-> old parent set).
+      // Restricting by tenant here was hiding 159 of the 167 Mary results
+      // the Transfer dialog correctly surfaces.
       const matchingProducts = await this.productModel
         .find(
           {
-            tenantId: this.buildTenantFilter(tenantId),
             isDeleted: { $ne: true },
             $or: [
               { name: regex },
