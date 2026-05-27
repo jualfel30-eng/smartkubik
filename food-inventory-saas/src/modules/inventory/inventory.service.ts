@@ -1544,6 +1544,7 @@ export class InventoryService {
 
     const filter: any = {
       tenantId: this.buildTenantFilter(tenantId),
+      isDeleted: { $ne: true },
     };
 
     if (!includeInactive) {
@@ -1567,21 +1568,16 @@ export class InventoryService {
     if (minAvailable !== undefined) {
       filter.availableQuantity = { $gte: minAvailable };
     }
-    // PERFORMANCE OPTIMIZATION: Use indexed fields for search, avoid extra DB query
+    // Search on name + sku + variantSku without trying to guess if the term
+    // "looks like a SKU". The previous heuristic flagged brand names like
+    // "mary" as SKU-only and missed product-name matches entirely.
     if (isSearching) {
-      // Check if search looks like a SKU (alphanumeric, no spaces)
-      const looksLikeSku = /^[A-Z0-9\-_]+$/i.test(searchTerm);
-
-      if (looksLikeSku) {
-        // For SKU searches, use optimized regex on indexed fields only
-        const regex = new RegExp(`^${this.escapeRegExp(searchTerm)}`, "i");
-        filter.$or = [{ productSku: regex }, { variantSku: regex }];
-      } else {
-        // For text searches, use case-insensitive regex on indexed productName
-        // This avoids the expensive extra query to products collection
-        const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
-        filter.$or = [{ productName: regex }, { productSku: regex }];
-      }
+      const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
+      filter.$or = [
+        { productName: regex },
+        { productSku: regex },
+        { variantSku: regex },
+      ];
     }
     const sortField = sortBy || "updatedAt";
     const sortDirection: SortOrder = sortOrder === "asc" ? "asc" : "desc";
