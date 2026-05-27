@@ -1568,15 +1568,41 @@ export class InventoryService {
     if (minAvailable !== undefined) {
       filter.availableQuantity = { $gte: minAvailable };
     }
-    // Search on name + sku + variantSku without trying to guess if the term
-    // "looks like a SKU". The previous heuristic flagged brand names like
-    // "mary" as SKU-only and missed product-name matches entirely.
+    // Search across product-level fields (brand, category) by resolving
+    // matching productIds first, then unioning with inventory-local fields
+    // (productName, productSku, variantSku). Without the product pre-lookup
+    // a search by brand like "mary" returns nothing because inventory docs
+    // don't carry the brand field.
     if (isSearching) {
       const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
+
+      const matchingProducts = await this.productModel
+        .find(
+          {
+            tenantId: this.buildTenantFilter(tenantId),
+            isDeleted: { $ne: true },
+            $or: [
+              { name: regex },
+              { sku: regex },
+              { brand: regex },
+              { category: regex },
+              { subcategory: regex },
+              { "variants.sku": regex },
+              { "variants.name": regex },
+            ],
+          },
+          { _id: 1 },
+        )
+        .lean();
+      const matchingProductIds = matchingProducts.map((p) => p._id);
+
       filter.$or = [
         { productName: regex },
         { productSku: regex },
         { variantSku: regex },
+        ...(matchingProductIds.length > 0
+          ? [{ productId: { $in: matchingProductIds } }]
+          : []),
       ];
     }
     const sortField = sortBy || "updatedAt";
