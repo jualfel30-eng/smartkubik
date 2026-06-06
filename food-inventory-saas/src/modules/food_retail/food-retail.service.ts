@@ -337,6 +337,15 @@ export class FoodRetailInventoryService implements IInventoryService {
       return;
     }
 
+    if (!inventory.alerts) {
+      inventory.alerts = {
+        lowStock: false,
+        nearExpiration: false,
+        expired: false,
+        overstock: false,
+      };
+    }
+
     const today = new Date();
     const oneDayAgo = new Date(today.valueOf() - 24 * 60 * 60 * 1000);
     if (

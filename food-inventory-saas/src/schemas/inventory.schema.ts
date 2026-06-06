@@ -142,7 +142,15 @@ export class Inventory {
     bin: string;
   };
 
-  @Prop({ type: Object })
+  @Prop({
+    type: Object,
+    default: () => ({
+      lowStock: false,
+      nearExpiration: false,
+      expired: false,
+      overstock: false,
+    }),
+  })
   alerts: {
     lowStock: boolean;
     nearExpiration: boolean;
@@ -151,7 +159,15 @@ export class Inventory {
     lastAlertSent?: Date;
   };
 
-  @Prop({ type: Object })
+  @Prop({
+    type: Object,
+    default: () => ({
+      turnoverRate: 0,
+      daysOnHand: 0,
+      averageDailySales: 0,
+      seasonalityFactor: 1,
+    }),
+  })
   metrics: {
     turnoverRate: number;
     daysOnHand: number;

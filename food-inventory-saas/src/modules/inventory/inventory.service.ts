@@ -228,6 +228,18 @@ export class InventoryService {
           averageCostPrice: costPrice,
           lastCostPrice: costPrice,
           lots: [],
+          alerts: {
+            lowStock: false,
+            nearExpiration: false,
+            expired: false,
+            overstock: false,
+          },
+          metrics: {
+            turnoverRate: 0,
+            daysOnHand: 0,
+            averageDailySales: 0,
+            seasonalityFactor: 1,
+          },
           isActive: true,
         };
         if (variantId) inventoryDoc.variantId = variantId;
@@ -1264,6 +1276,15 @@ export class InventoryService {
         `Product with ID ${inventory.productId} not found when checking alerts for inventory ${inventory._id}`,
       );
       return;
+    }
+
+    if (!inventory.alerts) {
+      inventory.alerts = {
+        lowStock: false,
+        nearExpiration: false,
+        expired: false,
+        overstock: false,
+      };
     }
 
     const today = new Date();
