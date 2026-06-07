@@ -31,10 +31,7 @@ const baseProfiles = {
       'tips',
       'menu-engineering',
       'performance',
-      'ar',
-      'ap',
       'cash-flow',
-      'tips-management'
     ],
     orderLine: {
       requireAttributesOnAdd: false,
@@ -92,8 +89,6 @@ const baseProfiles = {
     },
     availableReports: [
       'performance',
-      'ar',
-      'ap',
       'cash-flow',
     ],
     orderLine: {
@@ -167,9 +162,7 @@ const baseProfiles = {
     },
     availableReports: [
       'performance',
-      'ar',
-      'ap',
-      'cash-flow'
+      'cash-flow',
     ],
     orderLine: {
       requireAttributesOnAdd: true,
@@ -233,9 +226,7 @@ const baseProfiles = {
     },
     availableReports: [
       'performance',
-      'ar',
-      'ap',
-      'cash-flow'
+      'cash-flow',
     ],
     orderLine: {
       requireAttributesOnAdd: true,
@@ -365,9 +356,7 @@ const baseProfiles = {
     },
     availableReports: [
       'performance',
-      'ar',
-      'ap',
-      'cash-flow'
+      'cash-flow',
     ],
     orderLine: {
       requireAttributesOnAdd: true,
@@ -442,9 +431,7 @@ const baseProfiles = {
     },
     availableReports: [
       'performance',
-      'ar',
-      'ap',
-      'cash-flow'
+      'cash-flow',
     ],
     orderLine: {
       requireAttributesOnAdd: false,

@@ -1,12 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import PerformanceReport from '../components/PerformanceReport';
-import AccountsReceivableReport from '../components/AccountsReceivableReport';
-import AccountsPayableReport from '../components/AccountsPayableReport';
 import CashFlowStatement from '../components/CashFlowStatement';
 import FoodCostWidget from '../components/FoodCostWidget';
 import TipsReportWidget from '../components/TipsReportWidget';
-import TipsManagementDashboard from '../components/TipsManagementDashboard';
 import MenuEngineeringWidget from '../components/MenuEngineeringWidget';
 import BeautyReportsWidget from '../components/BeautyReportsWidget';
 
@@ -129,31 +126,10 @@ const ReportsPage = () => {
           </motion.div>
         )}
 
-        {/* Tips Management */}
-        {isAllowed('tips-management') && (
-          <motion.div variants={fadeUp}>
-            <TipsManagementDashboard dateRange={dateRange} />
-          </motion.div>
-        )}
-
         {/* Performance Report */}
         {isAllowed('performance') && (
           <motion.div variants={fadeUp}>
             <PerformanceReport dateRange={dateRange} />
-          </motion.div>
-        )}
-
-        {/* Accounts Receivable */}
-        {isAllowed('ar') && (
-          <motion.div variants={fadeUp}>
-            <AccountsReceivableReport dateRange={dateRange} />
-          </motion.div>
-        )}
-
-        {/* Accounts Payable */}
-        {isAllowed('ap') && (
-          <motion.div variants={fadeUp}>
-            <AccountsPayableReport dateRange={dateRange} />
           </motion.div>
         )}
 
