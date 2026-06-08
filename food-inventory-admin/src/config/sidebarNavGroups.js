@@ -64,7 +64,6 @@ export const SIDEBAR_NAV_GROUPS = [
       'bank-accounts',
       'fixed-assets',
       'investments',
-      'reports',
     ],
   },
   {

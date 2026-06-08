@@ -101,7 +101,6 @@ const TrialBalance = lazy(() => import('@/components/accounting/TrialBalance.jsx
 const GeneralLedger = lazy(() => import('@/components/accounting/GeneralLedger.jsx'));
 const AccountingPeriods = lazy(() => import('@/components/accounting/AccountingPeriods.jsx'));
 const RecurringEntries = lazy(() => import('@/components/accounting/RecurringEntries.jsx'));
-const ReportsRouteGate = lazy(() => import('./components/mobile/reports/ReportsRouteGate.jsx'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const MobileBottomNav = lazy(() => import('./components/mobile/MobileBottomNav.jsx'));
 const MobileMoreMenu = lazy(() => import('./components/mobile/MobileMoreMenu.jsx'));
@@ -772,7 +771,6 @@ function TenantLayout() {
                 <Route path="education/students/new" element={<StudentRegistration />} />
                 <Route path="education/classrooms/:classroomId/attendance/mobile" element={<MobileAttendanceSheet />} />
                 <Route path="education/classrooms/:classroomId/grades/:period/mobile" element={<MobileGradeEntry />} />
-                <Route path="reports" element={<ReportsRouteGate />} />
                 <Route path="beauty/analytics" element={<BeautyAnalyticsPage />} />
                 <Route path="restaurant/food-cost" element={<FoodCostPage />} />
                 <Route

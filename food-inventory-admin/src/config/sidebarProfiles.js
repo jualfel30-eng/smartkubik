@@ -39,7 +39,6 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'fixed-assets',
     'investments',
     'cash-register',
-    'reports',
     'storefront',
     'whatsapp',
     'assistant',
@@ -60,7 +59,6 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (reservas online)
     'reviews',                // Reseñas (moderación)
-    'reports',                // Reportes
     'beauty/analytics',       // Analítica (ingresos/profesional, retención, no-show, horas pico)
     'whatsapp',               // WhatsApp (gated by permission: chat_read)
     'assistant',              // Asistente IA
@@ -81,7 +79,6 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'bank-accounts',          // Cuentas Bancarias
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (citas online)
-    'reports',                // Reportes
     'whatsapp',               // WhatsApp (gated by permission)
     'assistant',              // Asistente IA
   ]),
@@ -100,7 +97,6 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (reservas online)
     'reviews',                // Reseñas (moderación)
-    'reports',                // Reportes
     'beauty/analytics',       // Analítica (ingresos/profesional, retención, no-show, horas pico)
     'whatsapp',               // WhatsApp (gated by permission)
     'assistant',              // Asistente IA
@@ -118,7 +114,6 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'bank-accounts',          // Cuentas Bancarias
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (catálogo online)
-    'reports',                // Reportes
     'whatsapp',               // WhatsApp (gated by permission)
     'assistant',              // Asistente IA
   ]),

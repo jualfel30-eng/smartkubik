@@ -47,7 +47,6 @@ export const MOBILE_NAV_GROUPS = [
     label: 'Finanzas y Equipo',
     hrefs: [
       'commissions',
-      'reports',
       'bank-accounts',
       'accounting',
       'accounts-payable',

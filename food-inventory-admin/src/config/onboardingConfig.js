@@ -124,7 +124,7 @@ export const VERTICAL_CONFIG = {
     categoryPlaceholder: 'Ej: General',
     moduleTour: [
       'inventory', 'orders', 'pos',
-      'customers', 'reports', 'cashRegister',
+      'customers', 'cashRegister',
     ],
     moduleDescriptions: MODULE_DESC,
   },
