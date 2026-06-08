@@ -28,7 +28,6 @@ const baseProfiles = {
     },
     availableReports: [
       'food-cost',
-      'tips',
       'menu-engineering',
       'performance',
       'cash-flow',

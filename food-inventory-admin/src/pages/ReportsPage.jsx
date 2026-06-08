@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import PerformanceReport from '../components/PerformanceReport';
 import CashFlowStatement from '../components/CashFlowStatement';
 import FoodCostWidget from '../components/FoodCostWidget';
-import TipsReportWidget from '../components/TipsReportWidget';
 import MenuEngineeringWidget from '../components/MenuEngineeringWidget';
 import BeautyReportsWidget from '../components/BeautyReportsWidget';
 
@@ -109,13 +108,6 @@ const ReportsPage = () => {
         {isAllowed('food-cost') && (
           <motion.div variants={fadeUp}>
             <FoodCostWidget dateRange={dateRange} />
-          </motion.div>
-        )}
-
-        {/* Tips Report */}
-        {isAllowed('tips') && (
-          <motion.div variants={fadeUp}>
-            <TipsReportWidget dateRange={dateRange} />
           </motion.div>
         )}
 
