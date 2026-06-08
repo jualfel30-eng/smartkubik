@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import PerformanceReport from '../components/PerformanceReport';
 import MenuEngineeringWidget from '../components/MenuEngineeringWidget';
 
 import { useVerticalConfig, useVerticalKey } from '../hooks/useVerticalConfig';
@@ -101,13 +100,6 @@ const ReportsPage = () => {
         {isAllowed('menu-engineering') && (
           <motion.div variants={fadeUp}>
             <MenuEngineeringWidget dateRange={dateRange} />
-          </motion.div>
-        )}
-
-        {/* Performance Report */}
-        {isAllowed('performance') && (
-          <motion.div variants={fadeUp}>
-            <PerformanceReport dateRange={dateRange} />
           </motion.div>
         )}
 

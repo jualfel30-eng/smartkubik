@@ -193,6 +193,9 @@ const BeautyAnalyticsPage = lazy(() => import('./pages/BeautyAnalyticsPage.jsx')
 // Food-service: Food Cost % page
 const FoodCostPage = lazy(() => import('./pages/FoodCostPage.jsx'));
 
+// Payroll: Performance report page
+const PayrollPerformancePage = lazy(() => import('./pages/PayrollPerformancePage.jsx'));
+
 // Education vertical
 const EduDashboard = lazy(() => import('@/components/education/EduDashboard.jsx'));
 const ClassroomManagement = lazy(() => import('@/components/education/ClassroomManagement.jsx'));
@@ -772,6 +775,14 @@ function TenantLayout() {
                 <Route path="reports" element={<ReportsRouteGate />} />
                 <Route path="beauty/analytics" element={<BeautyAnalyticsPage />} />
                 <Route path="restaurant/food-cost" element={<FoodCostPage />} />
+                <Route
+                  path="payroll/performance"
+                  element={
+                    tenant?.enabledModules?.payroll
+                      ? <PayrollPerformancePage />
+                      : <Navigate to="/dashboard" replace />
+                  }
+                />
                 <Route path="assistant" element={<AssistantPage />} />
                 <Route path="system-map" element={<SystemMapPage />} />
                 <Route path="mas" element={<MobileMoreMenu />} />

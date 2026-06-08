@@ -298,6 +298,7 @@ export function getNavLinks(tenant) {
           children: [
             { name: 'Empleados', href: 'payroll/employees', icon: Users },
             { name: 'Asistencia', href: 'hr/asistencia', icon: Clock },
+            { name: 'Rendimiento', href: 'payroll/performance', icon: TrendingUp },
           ]
         },
         {

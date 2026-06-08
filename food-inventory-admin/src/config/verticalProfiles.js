@@ -28,7 +28,6 @@ const baseProfiles = {
     },
     availableReports: [
       'menu-engineering',
-      'performance',
     ],
     orderLine: {
       requireAttributesOnAdd: false,
@@ -84,9 +83,7 @@ const baseProfiles = {
       requiresSerialTracking: false,
       alerts: ['lowStock', 'nearExpiration'],
     },
-    availableReports: [
-      'performance',
-    ],
+    availableReports: [],
     orderLine: {
       requireAttributesOnAdd: false,
       allowCustomPrice: true,
@@ -156,9 +153,7 @@ const baseProfiles = {
       requiresSerialTracking: false,
       alerts: ['lowStock'],
     },
-    availableReports: [
-      'performance',
-    ],
+    availableReports: [],
     orderLine: {
       requireAttributesOnAdd: true,
       notesPlaceholder: 'Instrucciones de empaque o personalización',
@@ -219,9 +214,7 @@ const baseProfiles = {
       requiresSerialTracking: false,
       alerts: ['lowStock'],
     },
-    availableReports: [
-      'performance',
-    ],
+    availableReports: [],
     orderLine: {
       requireAttributesOnAdd: true,
     },
@@ -348,9 +341,7 @@ const baseProfiles = {
       requiresSerialTracking: true,
       alerts: ['lowStock', 'warranty'],
     },
-    availableReports: [
-      'performance',
-    ],
+    availableReports: [],
     orderLine: {
       requireAttributesOnAdd: true,
       notesPlaceholder: 'Registrar notas sobre activación o configuración',
@@ -422,9 +413,7 @@ const baseProfiles = {
       requiresSerialTracking: false,
       alerts: ['lowStock', 'ageRange'],
     },
-    availableReports: [
-      'performance',
-    ],
+    availableReports: [],
     orderLine: {
       requireAttributesOnAdd: false,
       notesPlaceholder: 'Notas para envoltura o armado',
