@@ -317,6 +317,11 @@ export function getNavLinks(tenant) {
     { name: 'Inversiones', href: 'investments', icon: Briefcase, permission: 'reports_read', requiresModule: 'investments' },
     { name: 'Cierre de Caja', href: 'cash-register', icon: Receipt, permission: 'cash_register_read', requiresModule: 'cashRegister' },
     { name: 'Reportes', href: 'reports', icon: AreaChart, permission: 'reports_read' },
+    // Analítica: solo para perfiles beauty (barbershop-salon, clinic-spa).
+    // Reportes estratégicos del negocio — complementa al BeautyDashboardView operativo.
+    ...(['barbershop-salon', 'clinic-spa'].includes(tenant?.verticalProfile?.key) ? [
+      { name: 'Analítica', href: 'beauty/analytics', icon: TrendingUp, permission: 'reports_read' },
+    ] : []),
     { name: 'Importar Datos', href: 'data-import', icon: Upload, permission: 'data_import_read' },
 
     // 4. Calendario

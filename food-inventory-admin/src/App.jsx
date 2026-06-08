@@ -187,6 +187,9 @@ const DataImportPage = lazy(() => import('./components/data-import/DataImportPag
 const BusinessLocationsManagement = lazy(() => import('./components/BusinessLocationsManagement.jsx'));
 const SubsidiariesPanel = lazy(() => import('./components/SubsidiariesPanel.jsx'));
 
+// Beauty vertical analytics page
+const BeautyAnalyticsPage = lazy(() => import('./pages/BeautyAnalyticsPage.jsx'));
+
 // Education vertical
 const EduDashboard = lazy(() => import('@/components/education/EduDashboard.jsx'));
 const ClassroomManagement = lazy(() => import('@/components/education/ClassroomManagement.jsx'));
@@ -764,6 +767,7 @@ function TenantLayout() {
                 <Route path="education/classrooms/:classroomId/attendance/mobile" element={<MobileAttendanceSheet />} />
                 <Route path="education/classrooms/:classroomId/grades/:period/mobile" element={<MobileGradeEntry />} />
                 <Route path="reports" element={<ReportsRouteGate />} />
+                <Route path="beauty/analytics" element={<BeautyAnalyticsPage />} />
                 <Route path="assistant" element={<AssistantPage />} />
                 <Route path="system-map" element={<SystemMapPage />} />
                 <Route path="mas" element={<MobileMoreMenu />} />

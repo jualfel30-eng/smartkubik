@@ -4,7 +4,6 @@ import PerformanceReport from '../components/PerformanceReport';
 import CashFlowStatement from '../components/CashFlowStatement';
 import FoodCostWidget from '../components/FoodCostWidget';
 import MenuEngineeringWidget from '../components/MenuEngineeringWidget';
-import BeautyReportsWidget from '../components/BeautyReportsWidget';
 
 import { useVerticalConfig, useVerticalKey } from '../hooks/useVerticalConfig';
 import AnimatedPageWrapper from '../components/shared/AnimatedPageWrapper';
@@ -13,6 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Calendar, Download } from 'lucide-react';
 
+// Beauty profiles (barbershop-salon, clinic-spa) tienen su propia página
+// /beauty/analytics — aquí solo excluimos los reportes food-service que
+// hereda food-service profile por defecto.
 const BEAUTY_PROFILES = ['barbershop-salon', 'clinic-spa'];
 const BEAUTY_EXCLUDED_REPORTS = ['food-cost', 'menu-engineering'];
 
@@ -122,13 +124,6 @@ const ReportsPage = () => {
         {isAllowed('performance') && (
           <motion.div variants={fadeUp}>
             <PerformanceReport dateRange={dateRange} />
-          </motion.div>
-        )}
-
-        {/* Beauty Reports */}
-        {BEAUTY_PROFILES.includes(verticalKey) && (
-          <motion.div variants={fadeUp}>
-            <BeautyReportsWidget dateRange={dateRange} />
           </motion.div>
         )}
 
