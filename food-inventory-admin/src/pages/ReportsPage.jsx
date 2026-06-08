@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import PerformanceReport from '../components/PerformanceReport';
-import CashFlowStatement from '../components/CashFlowStatement';
 import MenuEngineeringWidget from '../components/MenuEngineeringWidget';
 
 import { useVerticalConfig, useVerticalKey } from '../hooks/useVerticalConfig';
@@ -97,13 +96,6 @@ const ReportsPage = () => {
       </Card>
 
       <motion.div className="space-y-6" variants={STAGGER(0.08)} initial="initial" animate="animate">
-
-        {/* Cash Flow */}
-        {isAllowed('cash-flow') && (
-          <motion.div variants={fadeUp}>
-            <CashFlowStatement dateRange={dateRange} />
-          </motion.div>
-        )}
 
         {/* Menu Engineering */}
         {isAllowed('menu-engineering') && (

@@ -34,6 +34,7 @@ import GeneralLedger from './accounting/GeneralLedger';
 import IslrWithholdingList from './accounting/IslrWithholdingList';
 import AccountingPeriods from './accounting/AccountingPeriods';
 import RecurringEntries from './accounting/RecurringEntries';
+import CashFlowStatement from './CashFlowStatement';
 
 // Definición de grupos y sus sub-pestañas
 const TAB_GROUPS = [
@@ -73,6 +74,7 @@ const TAB_GROUPS = [
       { id: 'trial-balance', label: 'Bal. Comprobación' },
       { id: 'profit-loss', label: 'Estado de Resultados' },
       { id: 'balance-sheet', label: 'Balance General' },
+      { id: 'cash-flow', label: 'Flujo de Caja' },
       { id: 'reports', label: 'Informes' },
     ],
   },
@@ -222,6 +224,9 @@ const AccountingManagement = () => {
                     <BalanceSheetView />
                   </CardContent>
                 </Card>
+              </TabsContent>
+              <TabsContent value="cash-flow">
+                <CashFlowStatement />
               </TabsContent>
               <TabsContent value="reports">
                 <Card>

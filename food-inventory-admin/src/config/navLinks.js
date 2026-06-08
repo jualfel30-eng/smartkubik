@@ -257,6 +257,7 @@ export function getNavLinks(tenant) {
         { name: 'Balance de Comprobación', href: 'accounting?tab=trial-balance', icon: BarChart3 },
         { name: 'Estado de Resultados', href: 'accounting?tab=profit-loss', icon: TrendingUp },
         { name: 'Balance General', href: 'accounting?tab=balance-sheet', icon: AreaChart },
+        { name: 'Flujo de Caja', href: 'accounting?tab=cash-flow', icon: TrendingUp },
         { name: 'Informes', href: 'accounting?tab=reports', icon: FileText },
       ]
     },

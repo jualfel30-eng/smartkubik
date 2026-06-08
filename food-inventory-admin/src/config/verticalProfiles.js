@@ -29,7 +29,6 @@ const baseProfiles = {
     availableReports: [
       'menu-engineering',
       'performance',
-      'cash-flow',
     ],
     orderLine: {
       requireAttributesOnAdd: false,
@@ -87,7 +86,6 @@ const baseProfiles = {
     },
     availableReports: [
       'performance',
-      'cash-flow',
     ],
     orderLine: {
       requireAttributesOnAdd: false,
@@ -160,7 +158,6 @@ const baseProfiles = {
     },
     availableReports: [
       'performance',
-      'cash-flow',
     ],
     orderLine: {
       requireAttributesOnAdd: true,
@@ -224,7 +221,6 @@ const baseProfiles = {
     },
     availableReports: [
       'performance',
-      'cash-flow',
     ],
     orderLine: {
       requireAttributesOnAdd: true,
@@ -354,7 +350,6 @@ const baseProfiles = {
     },
     availableReports: [
       'performance',
-      'cash-flow',
     ],
     orderLine: {
       requireAttributesOnAdd: true,
@@ -429,7 +424,6 @@ const baseProfiles = {
     },
     availableReports: [
       'performance',
-      'cash-flow',
     ],
     orderLine: {
       requireAttributesOnAdd: false,
