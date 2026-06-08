@@ -27,7 +27,6 @@ const baseProfiles = {
       alerts: ['lowStock', 'nearExpiration'],
     },
     availableReports: [
-      'food-cost',
       'menu-engineering',
       'performance',
       'cash-flow',

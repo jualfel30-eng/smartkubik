@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import PerformanceReport from '../components/PerformanceReport';
 import CashFlowStatement from '../components/CashFlowStatement';
-import FoodCostWidget from '../components/FoodCostWidget';
 import MenuEngineeringWidget from '../components/MenuEngineeringWidget';
 
 import { useVerticalConfig, useVerticalKey } from '../hooks/useVerticalConfig';
@@ -103,13 +102,6 @@ const ReportsPage = () => {
         {isAllowed('cash-flow') && (
           <motion.div variants={fadeUp}>
             <CashFlowStatement dateRange={dateRange} />
-          </motion.div>
-        )}
-
-        {/* Food Cost */}
-        {isAllowed('food-cost') && (
-          <motion.div variants={fadeUp}>
-            <FoodCostWidget dateRange={dateRange} />
           </motion.div>
         )}
 

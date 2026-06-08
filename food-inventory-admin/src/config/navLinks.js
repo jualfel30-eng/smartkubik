@@ -166,6 +166,7 @@ export function getNavLinks(tenant) {
     { name: 'Recetas', href: 'restaurant/recipes', icon: BookOpen, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Reservas', href: 'restaurant/reservations', icon: Calendar, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Ingeniería de Menú', href: 'restaurant/menu-engineering', icon: Target, permission: 'restaurant_read', requiresModule: 'restaurant' },
+    { name: 'Food Cost %', href: 'restaurant/food-cost', icon: CircleDollarSign, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Órdenes de Compra', href: 'restaurant/purchase-orders', icon: FileText, permission: 'restaurant_read', requiresModule: 'restaurant' },
     { name: 'Menú en Línea', href: 'restaurant/storefront', icon: Globe, permission: 'restaurant_read', requiresModule: 'restaurant' },
 
