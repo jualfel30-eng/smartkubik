@@ -57,6 +57,7 @@ import DashboardGreeting from '@/components/dashboard/DashboardGreeting';
 import DashboardKpiCard from '@/components/dashboard/DashboardKpiCard';
 import PriorityAlerts from '@/components/dashboard/PriorityAlerts';
 import QuickActions from '@/components/dashboard/QuickActions';
+import CashFlowKpiCard from '@/components/dashboard/CashFlowKpiCard';
 import { useDashboardAutoRefresh } from '@/hooks/use-dashboard-auto-refresh';
 import { useDashboardMilestones } from '@/hooks/use-dashboard-milestones';
 
@@ -201,6 +202,11 @@ function DashboardView() {
 
         {/* ── Resumen ── */}
         <TabsContent value="resumen" className="space-y-6">
+          {/* Cash Flow KPI — quick health check + link to /accounting?tab=cash-flow */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <CashFlowKpiCard />
+          </div>
+
           {/* Inventory Value Cards */}
           {summaryData.inventoryValue && (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
