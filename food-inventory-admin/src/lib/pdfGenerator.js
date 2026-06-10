@@ -1,7 +1,6 @@
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import QRCode from "qrcode";
 import { resolvePlugin } from "../country-plugins/registry";
+import { getPdfLib } from "./pdfLazy";
 
 // Helper function to load an image and get its dimensions
 const loadImage = (url) => {
@@ -52,6 +51,9 @@ const buildQrFallbackText = (orderData, tenantSettings, documentType) => {
 };
 
 export const generateDocumentPDF = async ({ documentType, orderData, customerData, tenantSettings, action = 'download' }) => {
+  // Lazy-load the heavy PDF libs only when a PDF is actually generated.
+  const { jsPDF, autoTable } = await getPdfLib();
+
   // Resolve country plugin from tenant settings
   const countryCode = tenantSettings?.countryCode || 'VE';
   const plugin = resolvePlugin(countryCode);
@@ -336,6 +338,8 @@ const generateThermalPDF = async ({
   defaultTax,
   transactionTax
 }) => {
+  // Lazy-load the heavy PDF lib only when a thermal PDF is actually generated.
+  const { jsPDF } = await getPdfLib();
   // 80mm = 226.77 pixels at 72 DPI, use 80mm x auto height
   const doc = new jsPDF({
     unit: 'mm',

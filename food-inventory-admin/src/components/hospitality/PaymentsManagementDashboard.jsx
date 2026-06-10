@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import * as XLSX from 'xlsx';
+import { getXLSX } from '@/lib/xlsxLazy';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
@@ -175,11 +175,12 @@ export default function PaymentsManagementDashboard() {
     : false;
 
   // Export helpers (retail)
-  const exportToXlsx = (rows, filename) => {
+  const exportToXlsx = async (rows, filename) => {
     if (!rows || rows.length === 0) {
       toast.info('No hay datos para exportar');
       return;
     }
+    const XLSX = await getXLSX();
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'data');
@@ -947,8 +948,9 @@ export default function PaymentsManagementDashboard() {
   };
 
   // Export functions
-  const exportToExcel = (data, filename) => {
+  const exportToExcel = async (data, filename) => {
     try {
+      const XLSX = await getXLSX();
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Datos');
@@ -1012,13 +1014,14 @@ export default function PaymentsManagementDashboard() {
     exportToExcel(data, `cuentas-por-cobrar-${new Date().toISOString().split('T')[0]}`);
   };
 
-  const handleExportRevenueReport = () => {
+  const handleExportRevenueReport = async () => {
     if (!revenueReport) {
       toast.error('No hay datos para exportar');
       return;
     }
 
     // Create workbook with multiple sheets
+    const XLSX = await getXLSX();
     const wb = XLSX.utils.book_new();
 
     // Sheet 1: Summary

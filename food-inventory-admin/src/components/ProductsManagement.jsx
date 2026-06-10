@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible.jsx';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs.jsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu.jsx';
-import * as XLSX from 'xlsx';
+import { getXLSX } from '@/lib/xlsxLazy';
 import { saveAs } from 'file-saver';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
@@ -1974,7 +1974,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     });
   };
 
-  const handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
+    const XLSX = await getXLSX();
     const baseHeaders = [
       "sku",
       "name",
@@ -2108,8 +2109,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
+        const XLSX = await getXLSX();
         const data = event.target.result;
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
@@ -2323,6 +2325,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
   const handleConfirmExport = async (selectedColumnKeys) => {
     try {
+      const XLSX = await getXLSX();
       // 1. Fetch ALL data matching current filters (using high limit)
       const params = new URLSearchParams({
         page: '1',

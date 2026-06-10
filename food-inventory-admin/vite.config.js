@@ -70,11 +70,13 @@ export default defineConfig({
           ],
           // Icons - separate chunk
           'icons': ['lucide-react'],
-          // Heavy libraries
-          'xlsx-vendor': ['xlsx'],
-          'pdf-vendor': ['jspdf', 'jspdf-autotable'],
           // Charts
           'charts-vendor': ['recharts'],
+          // NOTE: xlsx and jspdf are intentionally NOT pinned here. They are
+          // loaded lazily via src/lib/xlsxLazy.js and src/lib/pdfLazy.js, so
+          // Rollup emits them as pure async chunks. Pinning them made Vite's
+          // __vitePreload helper get co-located in the heavy chunk, dragging
+          // it into the eager graph (it loaded on every screen, even login).
         },
       },
     },

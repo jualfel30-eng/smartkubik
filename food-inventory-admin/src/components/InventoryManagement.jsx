@@ -12,7 +12,7 @@ import { InventoryImportDialog } from './inventory/InventoryImportDialog';
 import { InventoryLotsDialog } from './inventory/InventoryLotsDialog';
 import { InventoryTransferDialog } from './inventory/InventoryTransferDialog';
 import { useInventoryData } from './inventory/useInventoryData';
-import * as XLSX from 'xlsx';
+import { getXLSX } from '@/lib/xlsxLazy';
 import { saveAs } from 'file-saver';
 import { fetchApi } from '../lib/api';
 import { toast } from 'sonner';
@@ -62,7 +62,8 @@ function InventoryManagement({ highlightProductId } = {}) {
 
   // --- Export / Import handlers (use XLSX, so kept in orchestrator) ---
 
-  const handleDownloadTemplate = useCallback(() => {
+  const handleDownloadTemplate = useCallback(async () => {
+    const XLSX = await getXLSX();
     const baseHeaders = ['SKU', 'VariantSKU', 'NuevaCantidad'];
     const attributeHeaders = inv.inventoryAttributeColumns.map(({ header }) => header);
     const headers = [...baseHeaders, ...attributeHeaders];
@@ -118,6 +119,7 @@ function InventoryManagement({ highlightProductId } = {}) {
 
   const handleConfirmExport = useCallback(async (selectedColumnKeys) => {
     try {
+      const XLSX = await getXLSX();
       const params = new URLSearchParams({ page: '1', limit: '10000' });
       const response = await fetchApi(`/inventory?${params.toString()}`);
       let allItems = response.data || [];
@@ -196,8 +198,9 @@ function InventoryManagement({ highlightProductId } = {}) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
+        const XLSX = await getXLSX();
         const data = event.target.result;
         const workbook = XLSX.read(data, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
