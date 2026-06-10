@@ -33,7 +33,7 @@ const BEAUTY_DATA = {
     subtitle: 'Cada tarjeta tiene un final diferente. Tócala.',
     items: [
       { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'La Esclavitud', video: '/videos/late-night-scroll.webm', backVideo: '/videos/late-night-back.webm', backVideoBg: '#ef4444' },
-      { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm' },
+      { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm', backImage: '/videos/double-booking-back.webp', backImageBg: '#ef4444' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'El Embarque', video: '/videos/no-show.webm' },
       { q: '"Ni idea de cuánto vendí el mes pasado, cuál de mis estilistas produjo menos, ni quién es mi mejor clienta activa"', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Viviendo al Límite', video: '/videos/reports.webm' },
       { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'La Traición', video: '/videos/data-loss.webm' },
@@ -490,6 +490,13 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-back.has-back-video::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 55%; border-radius: 28px 28px 0 0; background: linear-gradient(to bottom, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.15) 70%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-back.has-back-video .s-pain-back-label,
 .s-pain-back.has-back-video .s-pain-back-a { position: relative; z-index: 2; text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
+
+/* Static screenshot floating over the card's solid background (matches card-1 reel framing) */
+.s-pain-back.has-back-image { justify-content: flex-start; }
+.s-pain-back.has-back-image .s-pain-back-label,
+.s-pain-back.has-back-image .s-pain-back-a { position: relative; z-index: 2; text-shadow: 0 1px 6px rgba(0,0,0,0.35); }
+.s-pain-back.has-back-image .s-pain-back-a { color: #fff; }
+.s-pain-back-image { position: relative; z-index: 1; flex: 1 1 auto; min-height: 0; width: 100%; margin: 18px 0 8px; object-fit: contain; object-position: center; pointer-events: none; filter: drop-shadow(0 18px 38px rgba(0,0,0,0.45)); }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
@@ -1620,8 +1627,8 @@ function PainCard({ item, i, activeIdx }) {
           </div>
         </div>
         <div
-          className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : ''}`}
-          style={item.backVideoBg ? { background: item.backVideoBg } : undefined}
+          className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : item.backImage ? 'has-back-image' : ''}`}
+          style={(item.backVideoBg || item.backImageBg) ? { background: item.backVideoBg || item.backImageBg } : undefined}
           onClick={item.backVideo ? handleBackTap : undefined}
         >
           {item.backVideo && (
@@ -1640,9 +1647,17 @@ function PainCard({ item, i, activeIdx }) {
               </button>
             </>
           )}
+          {item.backImage && !item.backVideo && (
+            <button className="s-pain-back-return" onClick={flipBack} aria-label="Volver">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h12a4 4 0 010 8h-3"/></svg>
+            </button>
+          )}
           <div className="s-pain-back-label">Skubik lo resuelve</div>
           <div className="s-pain-back-a">{item.a}</div>
-          {!item.backVideo && <div className="s-pain-back-hint">← Toca para volver</div>}
+          {item.backImage && !item.backVideo && (
+            <img className="s-pain-back-image" src={item.backImage} alt="Pantalla de Skubik mostrando horarios ocupados bloqueados" loading="lazy" />
+          )}
+          {!item.backVideo && !item.backImage && <div className="s-pain-back-hint">← Toca para volver</div>}
         </div>
       </div>
     </div>
