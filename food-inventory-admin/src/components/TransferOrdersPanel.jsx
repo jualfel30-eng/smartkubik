@@ -9,9 +9,10 @@ import { Badge } from '@/components/ui/badge.jsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { toast } from 'sonner';
 import { getTransferOrders } from '@/lib/api';
-import { Plus, Loader2, ArrowRightLeft, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Loader2, ArrowRightLeft, Eye, ChevronLeft, ChevronRight, Package } from 'lucide-react';
 import CreateTransferOrderDialog from '@/components/CreateTransferOrderDialog.jsx';
 import TransferOrderDetail from '@/components/TransferOrderDetail.jsx';
+import TransferItemsPopover from '@/components/TransferItemsPopover.jsx';
 
 const STATUS_CONFIG = {
   draft: { label: 'Borrador', variant: 'outline' },
@@ -169,7 +170,18 @@ export default function TransferOrdersPanel() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>{order.items?.length || 0}</TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <TransferItemsPopover items={order.items || []} status={order.status}>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-0.5 text-sm hover:bg-accent hover:border-solid transition-colors"
+                              title="Ver productos trasladados"
+                            >
+                              <Package className="h-3.5 w-3.5 text-muted-foreground" />
+                              {order.items?.length || 0}
+                            </button>
+                          </TransferItemsPopover>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={status.variant}>{status.label}</Badge>
                         </TableCell>
