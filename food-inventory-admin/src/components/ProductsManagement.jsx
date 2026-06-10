@@ -1696,7 +1696,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       updatedProduct.variants[variantIndex][field] = Number(value);
     } else {
       // Updating root field or simple product logic
-      if (field === 'name' || field === 'sku') {
+      if (field === 'name' || field === 'sku' || field === 'brand') {
         updatedProduct[field] = value;
       } else if (field === 'category') {
         // Handle category array (split by comma for tag-like behavior)
@@ -1738,27 +1738,28 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       category: updatedProduct.category,
       variants: updatedProduct.variants, // This sends ALL variants
       name: updatedProduct.name,
-      sku: updatedProduct.sku
+      sku: updatedProduct.sku,
+      brand: updatedProduct.brand
     };
-    toast.success('Actualizado', {
-      action: {
-        label: 'Deshacer',
-        onClick: () => {
-          revert();
-          // Fire reversion PATCH
-          fetchApi(`/products/${productId}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ variants: product.variants, category: product.category })
-          }).catch(err => console.error("Undo failed on server", err));
-        }
-      },
-      duration: 4000
-    });
-
     try {
       await fetchApi(`/products/${productId}`, {
         method: 'PATCH',
         body: JSON.stringify(payload)
+      });
+      // Only confirm success after the server acknowledges the change.
+      toast.success('Actualizado', {
+        action: {
+          label: 'Deshacer',
+          onClick: () => {
+            revert();
+            // Fire reversion PATCH
+            fetchApi(`/products/${productId}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ variants: product.variants, category: product.category, brand: product.brand })
+            }).catch(err => console.error("Undo failed on server", err));
+          }
+        },
+        duration: 4000
       });
     } catch (error) {
       console.error("Inline update failed", error);
