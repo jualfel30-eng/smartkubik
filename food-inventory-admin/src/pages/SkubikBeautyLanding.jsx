@@ -476,18 +476,18 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 /* Back video — plays on flip. Keep opaque bg so Safari backface-visibility works */
 .s-pain-back-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; pointer-events: none; z-index: 0; }
 /* Centered play button (IG reel style) — paddle in the middle, fades out on play, padding-left optically centers the triangle */
-.s-pain-back-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3; width: 72px; height: 72px; padding-left: 4px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.4); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity 0.3s ease, transform 0.2s ease, background 0.2s ease; opacity: 1; }
+.s-pain-back-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3; width: 72px; height: 72px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.4); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity 0.3s ease, transform 0.2s ease, background 0.2s ease; opacity: 1; }
 .s-pain-back-play:hover { background: rgba(0,0,0,0.6); border-color: rgba(255,255,255,0.5); transform: translate(-50%, -50%) scale(1.08); }
 .s-pain-back-play.is-playing { opacity: 0; pointer-events: none; transition: opacity 0.4s ease 0.2s; }
 @media (max-width: 600px) { .s-pain-back-play { width: 64px; height: 64px; } }
 
 /* Return-to-front control — the only flip-back affordance when there's a back video */
-.s-pain-back-return { position: absolute; top: 18px; left: 18px; z-index: 4; width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
+.s-pain-back-return { position: absolute; bottom: 18px; left: 18px; z-index: 4; width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
 .s-pain-back-return:hover { background: rgba(0,0,0,0.6); transform: scale(1.08); }
 
 /* Caption sits at the bottom over a gradient, video fills the rest */
-.s-pain-back.has-back-video { justify-content: flex-end; }
-.s-pain-back.has-back-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 55%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.15) 70%, transparent 100%); z-index: 1; pointer-events: none; }
+.s-pain-back.has-back-video { justify-content: flex-start; }
+.s-pain-back.has-back-video::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 55%; border-radius: 28px 28px 0 0; background: linear-gradient(to bottom, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.15) 70%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-back.has-back-video .s-pain-back-label,
 .s-pain-back.has-back-video .s-pain-back-a { position: relative; z-index: 2; text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
 /* Bottom gradient overlay for text legibility */
