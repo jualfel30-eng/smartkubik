@@ -475,13 +475,21 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-front.has-video { background: var(--s-bg2); }
 /* Back video — plays on flip. Keep opaque bg so Safari backface-visibility works */
 .s-pain-back-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 28px; pointer-events: none; z-index: 0; }
-.s-pain-back-play { position: absolute; bottom: 28px; right: 28px; z-index: 3; width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; opacity: 1; }
-.s-pain-back-play:hover { background: rgba(0,0,0,0.65); border-color: rgba(255,255,255,0.4); transform: scale(1.08); }
-.s-pain-back-play.is-playing { opacity: 0; transition: opacity 1.5s 2s; }
-.s-pain-back-play.is-playing:hover { opacity: 1; transition: opacity 0.2s; }
+/* Centered play button (IG reel style) — paddle in the middle, fades out on play, padding-left optically centers the triangle */
+.s-pain-back-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3; width: 72px; height: 72px; padding-left: 4px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.3); background: rgba(0,0,0,0.4); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity 0.3s ease, transform 0.2s ease, background 0.2s ease; opacity: 1; }
+.s-pain-back-play:hover { background: rgba(0,0,0,0.6); border-color: rgba(255,255,255,0.5); transform: translate(-50%, -50%) scale(1.08); }
+.s-pain-back-play.is-playing { opacity: 0; pointer-events: none; transition: opacity 0.4s ease 0.2s; }
+@media (max-width: 600px) { .s-pain-back-play { width: 64px; height: 64px; } }
+
+/* Return-to-front control — the only flip-back affordance when there's a back video */
+.s-pain-back-return { position: absolute; top: 18px; left: 18px; z-index: 4; width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s ease, transform 0.2s ease; }
+.s-pain-back-return:hover { background: rgba(0,0,0,0.6); transform: scale(1.08); }
+
+/* Caption sits at the bottom over a gradient, video fills the rest */
+.s-pain-back.has-back-video { justify-content: flex-end; }
+.s-pain-back.has-back-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 55%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.15) 70%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-back.has-back-video .s-pain-back-label,
-.s-pain-back.has-back-video .s-pain-back-a,
-.s-pain-back.has-back-video .s-pain-back-hint { position: relative; z-index: 2; }
+.s-pain-back.has-back-video .s-pain-back-a { position: relative; z-index: 2; text-shadow: 0 1px 8px rgba(0,0,0,0.5); }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
@@ -1534,8 +1542,7 @@ function PainCard({ item, i, activeIdx }) {
     }
   }, [flipped]);
 
-  const toggleBackVideo = (e) => {
-    e.stopPropagation(); // Don't trigger card flip
+  const toggleBackVideo = () => {
     const vid = backVideoRef.current;
     if (!vid) return;
     if (backPlaying) {
@@ -1545,6 +1552,18 @@ function PainCard({ item, i, activeIdx }) {
       vid.play().catch(() => {});
       setBackPlaying(true);
     }
+  };
+
+  // IG-style: tap anywhere on the back video toggles play/pause (does NOT flip back)
+  const handleBackTap = (e) => {
+    e.stopPropagation();
+    toggleBackVideo();
+  };
+
+  // Dedicated return control — the only way to flip back when there's a back video
+  const flipBack = (e) => {
+    e.stopPropagation();
+    setFlipped(false);
   };
 
   const handlePointerMove = (e) => {
@@ -1600,22 +1619,30 @@ function PainCard({ item, i, activeIdx }) {
             </div>
           </div>
         </div>
-        <div className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : ''}`} style={item.backVideoBg ? { background: item.backVideoBg } : undefined}>
+        <div
+          className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : ''}`}
+          style={item.backVideoBg ? { background: item.backVideoBg } : undefined}
+          onClick={item.backVideo ? handleBackTap : undefined}
+        >
           {item.backVideo && (
             <>
               <video ref={backVideoRef} className="s-pain-back-video" src={item.backVideo} loop muted playsInline preload="metadata" />
-              <button className={`s-pain-back-play ${backPlaying ? 'is-playing' : ''}`} onClick={toggleBackVideo} aria-label={backPlaying ? 'Pausar' : 'Reproducir'}>
-                {backPlaying ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v14.72a1 1 0 001.5.86l11-7.36a1 1 0 000-1.72l-11-7.36A1 1 0 008 5.14z"/></svg>
-                )}
+              <button className="s-pain-back-return" onClick={flipBack} aria-label="Volver">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h12a4 4 0 010 8h-3"/></svg>
+              </button>
+              <button
+                className={`s-pain-back-play ${backPlaying ? 'is-playing' : ''}`}
+                onClick={(e) => { e.stopPropagation(); toggleBackVideo(); }}
+                aria-label={backPlaying ? 'Pausar' : 'Reproducir'}
+                tabIndex={-1}
+              >
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v14.72a1 1 0 001.5.86l11-7.36a1 1 0 000-1.72l-11-7.36A1 1 0 008 5.14z"/></svg>
               </button>
             </>
           )}
           <div className="s-pain-back-label">Skubik lo resuelve</div>
           <div className="s-pain-back-a">{item.a}</div>
-          <div className="s-pain-back-hint">← Toca para volver</div>
+          {!item.backVideo && <div className="s-pain-back-hint">← Toca para volver</div>}
         </div>
       </div>
     </div>
