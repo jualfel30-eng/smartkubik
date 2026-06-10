@@ -151,22 +151,29 @@ export default function TransferOrdersPanel() {
                   {orders.map((order) => {
                     const id = order._id || order.id;
                     const status = STATUS_CONFIG[order.status] || STATUS_CONFIG.draft;
+                    // La "sede" puede venir como BusinessLocation (modo Entre Ubicaciones)
+                    // o como Tenant (modo Entre Sedes). Para traslados intra-tenant el
+                    // destino no trae tenant propio -> cae al tenant de origen.
+                    const sourceSede = order.sourceLocationId?.name || order.sourceTenantId?.name;
+                    const destSede = order.destinationLocationId?.name || order.destinationTenantId?.name || order.sourceTenantId?.name;
+                    const sourceWh = order.sourceWarehouseId?.name;
+                    const destWh = order.destinationWarehouseId?.name;
                     return (
                       <AnimatedTableRow key={id} className="cursor-pointer" onClick={() => setSelectedOrderId(id)}>
                         <TableCell className="font-mono font-medium">{order.orderNumber}</TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <span>{order.sourceLocationId?.name || 'N/A'}</span>
-                            {order.sourceWarehouseId?.name && (
-                              <span className="text-xs text-muted-foreground block">{order.sourceWarehouseId.name}</span>
+                            <span>{sourceSede || sourceWh || 'N/A'}</span>
+                            {sourceWh && sourceSede && (
+                              <span className="text-xs text-muted-foreground block">{sourceWh}</span>
                             )}
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            <span>{order.destinationLocationId?.name || 'N/A'}</span>
-                            {order.destinationWarehouseId?.name && (
-                              <span className="text-xs text-muted-foreground block">{order.destinationWarehouseId.name}</span>
+                            <span>{destSede || destWh || 'N/A'}</span>
+                            {destWh && destSede && (
+                              <span className="text-xs text-muted-foreground block">{destWh}</span>
                             )}
                           </div>
                         </TableCell>

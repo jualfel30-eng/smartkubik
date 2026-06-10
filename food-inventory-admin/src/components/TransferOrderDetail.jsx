@@ -391,7 +391,7 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="font-medium">{order.sourceLocationId?.name || 'N/A'}</p>
+            <p className="font-medium">{order.sourceLocationId?.name || order.sourceTenantId?.name || 'N/A'}</p>
             <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
               <Warehouse className="h-3 w-3" />
               {order.sourceWarehouseId?.name || 'N/A'}
@@ -405,7 +405,7 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="font-medium">{order.destinationLocationId?.name || 'N/A'}</p>
+            <p className="font-medium">{order.destinationLocationId?.name || order.destinationTenantId?.name || order.sourceTenantId?.name || 'N/A'}</p>
             <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
               <Warehouse className="h-3 w-3" />
               {order.destinationWarehouseId?.name || 'N/A'}
