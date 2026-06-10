@@ -33,7 +33,7 @@ const BEAUTY_DATA = {
     subtitle: 'Cada tarjeta tiene un final diferente. Tócala.',
     items: [
       { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'La Esclavitud', video: '/videos/late-night-scroll.webm', backVideo: '/videos/late-night-back.webm', backVideoBg: '#ef4444' },
-      { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm', backImage: '/videos/double-booking-back.webp', backImageBg: '#ef4444' },
+      { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm', backImage: '/videos/double-booking-ocupado.webp', backImageBg: '#ef4444' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'El Embarque', video: '/videos/no-show.webm' },
       { q: '"Ni idea de cuánto vendí el mes pasado, cuál de mis estilistas produjo menos, ni quién es mi mejor clienta activa"', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Viviendo al Límite', video: '/videos/reports.webm' },
       { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'La Traición', video: '/videos/data-loss.webm' },
@@ -496,7 +496,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-back.has-back-image .s-pain-back-label,
 .s-pain-back.has-back-image .s-pain-back-a { position: relative; z-index: 2; text-shadow: 0 1px 6px rgba(0,0,0,0.35); }
 .s-pain-back.has-back-image .s-pain-back-a { color: #fff; }
-.s-pain-back-image { position: relative; z-index: 1; flex: 1 1 auto; min-height: 0; width: 100%; margin: 18px 0 8px; object-fit: contain; object-position: center; pointer-events: none; filter: drop-shadow(0 18px 38px rgba(0,0,0,0.45)); }
+.s-pain-back-image { position: relative; z-index: 1; flex: 1 1 auto; min-height: 0; width: 100%; margin: 18px 0 8px; object-fit: contain; object-position: center; pointer-events: none; filter: drop-shadow(0 12px 28px rgba(0,0,0,0.3)); }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
