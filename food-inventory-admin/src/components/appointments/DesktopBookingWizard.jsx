@@ -54,6 +54,7 @@ export default function DesktopBookingWizard({ open, onClose, preselectedDate, i
   // Step 3: Date, Time, Professional
   const [professionals, setProfessionals] = useState([]);
   const [selectedProfessional, setSelectedProfessional] = useState(null);
+  const [proPicked, setProPicked] = useState(false); // distinguishes "no choice yet" from "chose Sin preferencia"
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('10:00');
 
@@ -75,28 +76,48 @@ export default function DesktopBookingWizard({ open, onClose, preselectedDate, i
 
     fetchApi(`${ep}?${params}`).then(res => {
       const items = Array.isArray(res) ? res : res?.data || res?.items || [];
-      const occupied = new Set();
-      items.forEach(apt => {
-        if (apt.status === 'cancelled') return;
+      // Slots (HH:MM, 30-min grid) covered by an appointment's duration
+      const coveredSlots = (apt) => {
+        if (apt.status === 'cancelled') return [];
         const start = apt.startTime || '';
         // Extract HH:MM — handle both "14:30" and ISO "2026-04-27T14:30:00.000Z"
         const timeStr = start.includes('T')
           ? new Date(start).toTimeString().slice(0, 5)
           : start.slice(0, 5);
-        // Mark the start slot and subsequent slots based on duration
         const duration = apt.totalDuration || 30;
         const [h, m] = timeStr.split(':').map(Number);
-        if (isNaN(h)) return;
+        if (isNaN(h)) return [];
+        const out = [];
         for (let offset = 0; offset < duration; offset += 30) {
           const totalMin = h * 60 + m + offset;
-          const sh = Math.floor(totalMin / 60);
-          const sm = totalMin % 60;
-          occupied.add(`${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}`);
+          out.push(`${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`);
         }
-      });
+        return out;
+      };
+
+      // "Sin preferencia" (beauty): a slot is unavailable only if EVERY professional is busy.
+      // Avoids the old bug of merging all professionals' schedules into one occupancy view.
+      if (!selectedProfessional && isBeautyVertical && professionals.length > 0) {
+        const busyBySlot = new Map(); // slot -> Set(professionalId)
+        items.forEach(apt => {
+          const proId = apt.professionalId ? String(apt.professionalId) : `u:${apt._id}`;
+          coveredSlots(apt).forEach(slot => {
+            if (!busyBySlot.has(slot)) busyBySlot.set(slot, new Set());
+            busyBySlot.get(slot).add(proId);
+          });
+        });
+        const occupied = [];
+        busyBySlot.forEach((set, slot) => { if (set.size >= professionals.length) occupied.push(slot); });
+        setOccupiedSlots(occupied);
+        return;
+      }
+
+      // Specific professional (or non-beauty resource): occupancy is already pre-filtered by the API.
+      const occupied = new Set();
+      items.forEach(apt => coveredSlots(apt).forEach(s => occupied.add(s)));
       setOccupiedSlots([...occupied]);
     }).catch(() => setOccupiedSlots([]));
-  }, [selectedDate, selectedProfessional, isBeautyVertical]);
+  }, [selectedDate, selectedProfessional, isBeautyVertical, professionals.length]);
 
   // ─── Load Data ──────────────────────────────────────────────────
   useEffect(() => {
@@ -110,6 +131,7 @@ export default function DesktopBookingWizard({ open, onClose, preselectedDate, i
     setCustomerId(null);
     setSelectedServiceIds([]);
     setSelectedProfessional(null);
+    setProPicked(false);
     setSelectedDate(preselectedDate || addDays(new Date(), 1).toISOString().split('T')[0]);
     setSelectedTime('10:00');
     setNotes('');
@@ -303,7 +325,7 @@ export default function DesktopBookingWizard({ open, onClose, preselectedDate, i
   const canGoNext =
     (step === 1 && (customerName || clientQuery.trim().length >= 2)) ||
     (step === 2 && selectedServiceIds.length > 0) ||
-    (step === 3 && selectedDate && selectedTime) ||
+    (step === 3 && selectedDate && selectedTime && (professionals.length === 0 || proPicked)) ||
     (step === 4);
 
   // ─── Slide ──────────────────────────────────────────────────────
@@ -464,7 +486,7 @@ export default function DesktopBookingWizard({ open, onClose, preselectedDate, i
                 </div>
               )}
 
-              {/* ── STEP 3: When + Who ── */}
+              {/* ── STEP 3: Who + When ── */}
               {step === 3 && (
                 <div className="space-y-4">
                   {/* Date */}
@@ -474,45 +496,55 @@ export default function DesktopBookingWizard({ open, onClose, preselectedDate, i
                       className="h-9 text-sm" min={new Date().toISOString().split('T')[0]} />
                   </div>
 
-                  {/* Time wheel picker */}
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground">Hora</p>
-                    <WheelTimePicker
-                      slots={timeSlots}
-                      value={selectedTime}
-                      onChange={setSelectedTime}
-                      occupiedSlots={occupiedSlots}
-                    />
-                    <p className="text-xs text-muted-foreground text-center">
-                      {selectedTime} — {endTime} ({totalDuration}min)
-                    </p>
-                  </div>
-
-                  {/* Professional */}
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground">¿Con quién? (opcional)</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      <button type="button"
-                        onClick={() => setSelectedProfessional(null)}
-                        className={`text-xs px-2.5 py-1.5 rounded-full border transition-all ${
-                          !selectedProfessional ? 'border-primary bg-primary/10 text-primary' : 'border-border/40 hover:border-border text-muted-foreground'
-                        }`}>
-                        Sin preferencia
-                      </button>
-                      {professionals.map(pro => {
-                        const sel = selectedProfessional?._id === pro._id;
-                        return (
-                          <button key={pro._id} type="button" onClick={() => setSelectedProfessional(pro)}
-                            className={`text-xs px-2.5 py-1.5 rounded-full border transition-all flex items-center gap-1.5 ${
-                              sel ? 'border-primary bg-primary/10 text-primary' : 'border-border/40 hover:border-border text-muted-foreground'
-                            }`}>
-                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: pro.color || '#6366f1' }} />
-                            {pro.name}
-                          </button>
-                        );
-                      })}
+                  {/* Professional FIRST — the wheel below shows THIS professional's real availability */}
+                  {professionals.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-sm font-medium">¿Con quién?</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button type="button"
+                          onClick={() => { setSelectedProfessional(null); setProPicked(true); }}
+                          className={`text-xs px-2.5 py-1.5 rounded-full border transition-all ${
+                            proPicked && !selectedProfessional ? 'border-primary bg-primary/10 text-primary' : 'border-border/40 hover:border-border text-muted-foreground'
+                          }`}>
+                          Sin preferencia
+                        </button>
+                        {professionals.map(pro => {
+                          const sel = selectedProfessional?._id === pro._id;
+                          return (
+                            <button key={pro._id} type="button" onClick={() => { setSelectedProfessional(pro); setProPicked(true); }}
+                              className={`text-xs px-2.5 py-1.5 rounded-full border transition-all flex items-center gap-1.5 ${
+                                sel ? 'border-primary bg-primary/10 text-primary' : 'border-border/40 hover:border-border text-muted-foreground'
+                              }`}>
+                              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: pro.color || '#6366f1' }} />
+                              {pro.name}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* Time wheel — gated on a professional choice so availability is never a merged/incongruent view */}
+                  {(professionals.length === 0 || proPicked) ? (
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-muted-foreground">
+                        Hora{selectedProfessional ? ` · ${selectedProfessional.name}` : professionals.length > 0 ? ' · cualquier profesional libre' : ''}
+                      </p>
+                      <WheelTimePicker
+                        slots={timeSlots}
+                        value={selectedTime}
+                        onChange={setSelectedTime}
+                        occupiedSlots={occupiedSlots}
+                      />
+                      <p className="text-xs text-muted-foreground text-center">
+                        {selectedTime} — {endTime} ({totalDuration}min)
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed border-border/40 p-4 text-center text-xs text-muted-foreground">
+                      Elige con quién será la cita para ver los horarios disponibles.
+                    </div>
+                  )}
                 </div>
               )}
 

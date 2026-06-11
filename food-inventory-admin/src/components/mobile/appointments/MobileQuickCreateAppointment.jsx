@@ -76,6 +76,7 @@ export default function MobileQuickCreateAppointment({
   // Package selection
   const [selectedPackageId, setSelectedPackageId] = useState('');
   const [resourceId, setResourceId] = useState('');
+  const [proPicked, setProPicked] = useState(false); // distinguishes "no choice yet" from "chose Sin preferencia"
   const [startAt, setStartAt] = useState(
     initialStart ? new Date(initialStart) : nextQuarterHour(new Date()),
   );
@@ -109,22 +110,42 @@ export default function MobileQuickCreateAppointment({
     if (resourceId) params.append(isBeauty ? 'professionalId' : 'resourceId', resourceId);
     fetchApi(`${endpoint}?${params}`).then(res => {
       const items = Array.isArray(res) ? res : res?.data || res?.items || [];
-      const occupied = new Set();
-      items.forEach(apt => {
-        if (apt.status === 'cancelled') return;
+      const coveredSlots = (apt) => {
+        if (apt.status === 'cancelled') return [];
         const start = apt.startTime || '';
         const timeStr = start.includes('T') ? new Date(start).toTimeString().slice(0, 5) : start.slice(0, 5);
         const dur = apt.totalDuration || 30;
         const [h, m] = timeStr.split(':').map(Number);
-        if (isNaN(h)) return;
+        if (isNaN(h)) return [];
+        const out = [];
         for (let offset = 0; offset < dur; offset += 30) {
           const totalMin = h * 60 + m + offset;
-          occupied.add(`${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`);
+          out.push(`${String(Math.floor(totalMin / 60)).padStart(2, '0')}:${String(totalMin % 60).padStart(2, '0')}`);
         }
-      });
+        return out;
+      };
+
+      // "Sin preferencia" (beauty): a slot is unavailable only if EVERY professional is busy (union availability).
+      if (!resourceId && isBeauty && resources.length > 0) {
+        const busyBySlot = new Map(); // slot -> Set(professionalId)
+        items.forEach(apt => {
+          const proId = apt.professionalId ? String(apt.professionalId) : `u:${apt._id}`;
+          coveredSlots(apt).forEach(slot => {
+            if (!busyBySlot.has(slot)) busyBySlot.set(slot, new Set());
+            busyBySlot.get(slot).add(proId);
+          });
+        });
+        const occupied = [];
+        busyBySlot.forEach((set, slot) => { if (set.size >= resources.length) occupied.push(slot); });
+        setOccupiedSlots(occupied);
+        return;
+      }
+
+      const occupied = new Set();
+      items.forEach(apt => coveredSlots(apt).forEach(s => occupied.add(s)));
       setOccupiedSlots([...occupied]);
     }).catch(() => setOccupiedSlots([]));
-  }, [date, resourceId, isBeauty, endpoint]);
+  }, [date, resourceId, isBeauty, endpoint, resources.length]);
 
   const handleTimeChange = useCallback((slot) => {
     setSelectedTime(slot);
@@ -435,7 +456,7 @@ export default function MobileQuickCreateAppointment({
   const canGoNext =
     (step === 1 && (customerName || query.trim().length >= 2)) ||
     (step === 2 && selectedServiceIds.length > 0) ||
-    (step === 3) ||
+    (step === 3 && (resources.length === 0 || proPicked)) ||
     (step === 4);
 
   const slideVariants = {
@@ -661,7 +682,7 @@ export default function MobileQuickCreateAppointment({
             </div>
           )}
 
-          {/* ── STEP 3: Cuándo + Con quién ── */}
+          {/* ── STEP 3: Con quién + Cuándo ── */}
           {step === 3 && (
             <div className="space-y-4 px-4 pb-4">
               <p className="text-sm font-medium">¿Cuándo?</p>
@@ -675,24 +696,20 @@ export default function MobileQuickCreateAppointment({
                 }}
                 className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-3 text-base" />
 
-              <WheelTimePicker slots={timeSlots} value={selectedTime} onChange={handleTimeChange} occupiedSlots={occupiedSlots} />
-              <p className="text-xs text-muted-foreground text-center">
-                {selectedTime} — {format(endAt, 'HH:mm')} ({totalDuration}min)
-              </p>
-
+              {/* Professional FIRST — the wheel below shows THIS professional's real availability for the day */}
               {resources.length > 0 && (
                 <section>
-                  <p className="text-xs font-medium text-muted-foreground mb-1.5">¿Con quién?</p>
+                  <p className="text-sm font-medium mb-1.5">¿Con quién?</p>
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => { haptics.select(); setResourceId(''); }}
+                    <button type="button" onClick={() => { haptics.select(); setResourceId(''); setProPicked(true); }}
                       className={cn('rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
-                        !resourceId ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
+                        proPicked && !resourceId ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
                       Sin preferencia
                     </button>
                     {resources.map((r) => {
                       const id = String(r._id || r.id);
                       return (
-                        <button key={id} type="button" onClick={() => { haptics.select(); setResourceId(id); }}
+                        <button key={id} type="button" onClick={() => { haptics.select(); setResourceId(id); setProPicked(true); }}
                           className={cn('rounded-full px-3 py-2 text-sm font-medium border no-tap-highlight',
                             resourceId === id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border')}>
                           {r.name || r.fullName}
@@ -701,6 +718,20 @@ export default function MobileQuickCreateAppointment({
                     })}
                   </div>
                 </section>
+              )}
+
+              {/* Time wheel — gated on a professional choice so availability is never a merged/incongruent view */}
+              {(resources.length === 0 || proPicked) ? (
+                <div>
+                  <WheelTimePicker slots={timeSlots} value={selectedTime} onChange={handleTimeChange} occupiedSlots={occupiedSlots} />
+                  <p className="text-xs text-muted-foreground text-center mt-1.5">
+                    {selectedTime} — {format(endAt, 'HH:mm')} ({totalDuration}min)
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-[var(--mobile-radius-md)] border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+                  Elige con quién será la cita para ver los horarios disponibles.
+                </div>
               )}
             </div>
           )}
