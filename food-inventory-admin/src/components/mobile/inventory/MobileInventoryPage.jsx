@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Package, RefreshCw, Filter, ShoppingCart, AlertTriangle, ArrowLeftRight, Plus, X } from 'lucide-react';
+import { Package, RefreshCw, Filter, ShoppingCart, AlertTriangle, ArrowLeftRight, ArrowRightLeft, Plus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchApi } from '@/lib/api';
 import { toast } from '@/lib/toast';
@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { SPRING, STAGGER, DUR, EASE, listItem } from '@/lib/motion';
 import haptics from '@/lib/haptics';
 import { useFabContext } from '@/contexts/FabContext';
+import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import MobileSearchBar from '../primitives/MobileSearchBar.jsx';
 import MobileEmptyState from '../primitives/MobileEmptyState.jsx';
@@ -19,6 +20,8 @@ import MobileCreateProduct from './MobileCreateProduct.jsx';
 import MobileCreatePO from './MobileCreatePO.jsx';
 import MobileProductCatalog from './MobileProductCatalog.jsx';
 import MobileAddInventory from './MobileAddInventory.jsx';
+import MobileTransfersTab from './MobileTransfersTab.jsx';
+import MobileCreateTransfer from './MobileCreateTransfer.jsx';
 
 // ─── Pull-to-refresh hook (duplicated from MobileAppointmentsPage) ──────────
 function usePullToRefresh(onRefresh) {
@@ -53,20 +56,20 @@ function usePullToRefresh(onRefresh) {
 }
 
 // ─── Tab config ─────────────────────────────────────────────────────────────
-const TABS = [
+const BASE_TABS = [
   { id: 'stock', label: 'Stock', icon: Package },
   { id: 'movements', label: 'Movimientos', icon: ArrowLeftRight },
   { id: 'alerts', label: 'Alertas', icon: AlertTriangle },
   { id: 'orders', label: 'Pedidos', icon: ShoppingCart },
 ];
 
-function TabPills({ activeTab, onTabChange, alertCount }) {
+function TabPills({ tabs, activeTab, onTabChange, alertCount }) {
   return (
     <div
       className="flex gap-1 px-4 py-2 overflow-x-auto scrollbar-hide border-b border-border"
       style={{ scrollSnapType: 'x mandatory' }}
     >
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const Icon = tab.icon;
         const active = activeTab === tab.id;
         return (
@@ -185,6 +188,12 @@ function FilterSheet({ open, onClose, filters, onApply }) {
 // ─── Main component ─────────────────────────────────────────────────────────
 export default function MobileInventoryPage() {
   const { setContextAction, clearContextAction } = useFabContext();
+  const { flags } = useFeatureFlags();
+  const transfersEnabled = !!flags?.MULTI_LOCATION;
+  const tabs = useMemo(
+    () => (transfersEnabled ? [...BASE_TABS, { id: 'transfers', label: 'Traslados', icon: ArrowRightLeft }] : BASE_TABS),
+    [transfersEnabled],
+  );
   const [mode, setMode] = useState('products'); // 'products' | 'operations'
   const [activeTab, setActiveTab] = useState('stock');
 
@@ -216,6 +225,8 @@ export default function MobileInventoryPage() {
   const [creatingPO, setCreatingPO] = useState(false);
   const [poPreselect, setPoPreselect] = useState(null);
   const [addingInventory, setAddingInventory] = useState(false);
+  const [creatingTransfer, setCreatingTransfer] = useState(false);
+  const [transfersKey, setTransfersKey] = useState(0);
 
   // ─── Data loaders ───────────────────────────────────────────────────────
   const loadStock = useCallback(async () => {
@@ -308,6 +319,7 @@ export default function MobileInventoryPage() {
     else if (activeTab === 'movements') await loadMovements();
     else if (activeTab === 'alerts') await loadAlerts();
     else if (activeTab === 'orders') await loadOrders();
+    else if (activeTab === 'transfers') setTransfersKey((k) => k + 1);
   }, [activeTab, loadStock, loadMovements, loadAlerts, loadOrders]);
 
   // Pull to refresh
@@ -332,6 +344,12 @@ export default function MobileInventoryPage() {
         icon: ShoppingCart,
         label: 'Nueva compra',
         action: () => setCreatingPO(true),
+      });
+    } else if (activeTab === 'transfers') {
+      setContextAction({
+        icon: ArrowRightLeft,
+        label: 'Nuevo traslado',
+        action: () => setCreatingTransfer(true),
       });
     } else {
       clearContextAction();
@@ -495,7 +513,7 @@ export default function MobileInventoryPage() {
         </div>
 
         {mode === 'operations' && (
-          <TabPills activeTab={activeTab} onTabChange={setActiveTab} alertCount={displayAlertCount} />
+          <TabPills tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} alertCount={displayAlertCount} />
         )}
       </div>
 
@@ -719,6 +737,11 @@ export default function MobileInventoryPage() {
             )}
           </div>
         )}
+
+        {/* ── Transfers tab ─────────────────────────────────────────────── */}
+        {activeTab === 'transfers' && transfersEnabled && (
+          <MobileTransfersTab refreshKey={transfersKey} />
+        )}
         </>)}
       </div>
 
@@ -762,6 +785,20 @@ export default function MobileInventoryPage() {
               loadStock();
               loadedTabs.current.movements = false;
               loadedTabs.current.alerts = false;
+            }
+          }}
+        />
+      )}
+
+      {creatingTransfer && (
+        <MobileCreateTransfer
+          open={creatingTransfer}
+          onClose={(saved) => {
+            setCreatingTransfer(false);
+            if (saved) {
+              setTransfersKey((k) => k + 1);
+              loadStock();
+              loadedTabs.current.movements = false;
             }
           }}
         />
