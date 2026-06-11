@@ -33,7 +33,7 @@ const BEAUTY_DATA = {
     subtitle: 'Cada tarjeta tiene un final diferente. Tócala.',
     items: [
       { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'La Esclavitud', video: '/videos/late-night-scroll.webm', backVideo: '/videos/late-night-back.webm', backVideoBg: '#ef4444' },
-      { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm', backImage: '/videos/double-booking-ocupado-hd.webp', backImageBg: '#ef4444' },
+      { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm', backAnim: 'booking', backImageBg: '#ef4444' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'El Embarque', video: '/videos/no-show.webm' },
       { q: '"Ni idea de cuánto vendí el mes pasado, cuál de mis estilistas produjo menos, ni quién es mi mejor clienta activa"', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Viviendo al Límite', video: '/videos/reports.webm' },
       { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'La Traición', video: '/videos/data-loss.webm' },
@@ -497,6 +497,29 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-back.has-back-image .s-pain-back-a { position: relative; z-index: 2; text-shadow: 0 1px 6px rgba(0,0,0,0.35); }
 .s-pain-back.has-back-image .s-pain-back-a { color: #fff; }
 .s-pain-back-image { position: relative; z-index: 1; flex: 1 1 auto; min-height: 0; width: 100%; margin: 18px 0 8px; object-fit: contain; object-position: center; pointer-events: none; filter: drop-shadow(0 12px 28px rgba(0,0,0,0.3)); }
+
+/* Animated booking-flow mini-UI (floats on the card's solid bg like a phone screen) */
+.s-pain-anim { position: relative; z-index: 1; align-self: center; width: 100%; max-width: 246px; margin: 16px auto 4px; background: #0b1018; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 13px 13px 15px; display: flex; flex-direction: column; gap: 9px; box-shadow: 0 18px 40px rgba(0,0,0,0.4); overflow: hidden; pointer-events: none; }
+.s-anim-head { display: flex; align-items: center; justify-content: space-between; }
+.s-anim-title { font-family: 'Inter Tight', system-ui, sans-serif; font-size: 13px; font-weight: 600; color: #fff; }
+.s-anim-prog { display: flex; gap: 4px; }
+.s-anim-prog i { width: 15px; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.15); transition: background 0.35s ease; }
+.s-anim-prog i.on { background: #5b6ef5; }
+.s-anim-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(255,255,255,0.45); }
+.s-anim-pros { display: flex; flex-wrap: wrap; gap: 5px; }
+.s-anim-pill { display: inline-flex; align-items: center; gap: 5px; font-family: 'Inter Tight', system-ui, sans-serif; font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.7); padding: 5px 9px; border-radius: 99px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.03); transition: background 0.35s cubic-bezier(0.2,0.8,0.2,1), border-color 0.35s, color 0.35s, box-shadow 0.35s; white-space: nowrap; }
+.s-anim-pill.sel { background: #5b6ef5; border-color: #5b6ef5; color: #fff; box-shadow: 0 4px 14px rgba(91,110,245,0.4); }
+.s-anim-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.s-anim-when { display: flex; flex-direction: column; gap: 6px; opacity: 0; transform: translateY(8px); transition: opacity 0.45s ease, transform 0.45s ease; }
+.s-anim-when.show { opacity: 1; transform: none; }
+.s-anim-wheel { position: relative; }
+.s-anim-sel { position: absolute; left: 0; right: 0; top: 0; height: 26px; border-radius: 8px; border: 1.5px solid #5b6ef5; background: rgba(91,110,245,0.14); transition: transform 0.5s cubic-bezier(0.22,1,0.36,1), opacity 0.3s ease; }
+.s-anim-slot { position: relative; height: 26px; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(255,255,255,0.8); transition: color 0.3s; }
+.s-anim-slot.occ { color: rgba(255,255,255,0.26); text-decoration: line-through; }
+.s-anim-slot.land { color: #fff; font-weight: 600; }
+.s-anim-occ { font-size: 8px; letter-spacing: 0.04em; color: #ef6a6a; text-decoration: none; text-transform: uppercase; }
+.s-anim-badge { align-self: center; display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #34d399; opacity: 0; transform: scale(0.9); transition: opacity 0.3s ease, transform 0.3s ease; }
+.s-anim-badge.show { opacity: 1; transform: none; }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
@@ -1512,6 +1535,91 @@ function SMarquee() {
   );
 }
 
+// ---- Booking-flow animation (back of pain card 2) ----
+// Loops the CORRECTED flow: pick the professional FIRST, then the wheel shows
+// that professional's real availability for the day (occupied slots blocked).
+// Cycles between two professionals to show availability is per-person, not merged.
+const BOOK_PROS = [
+  { name: 'Carlos', dot: '#a78bfa' },
+  { name: 'Miguel', dot: '#34d399' },
+  { name: 'José', dot: '#60a5fa' },
+];
+const BOOK_SLOTS = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00'];
+const BOOK_CYCLE = [
+  { pro: 0, occupied: ['08:30', '09:00'], land: '11:00' },
+  { pro: 1, occupied: ['10:00', '10:30'], land: '09:30' },
+];
+const BOOK_STAGES = 5; // 0 idle · 1 pro selected · 2 wheel reveal · 3 land on free slot · 4 "sin cruces"
+const BOOK_SLOT_H = 26; // px per slot row, must match .s-anim-slot height
+
+function BookingFlowAnim({ active }) {
+  const [frame, setFrame] = useState(0);
+
+  useEffect(() => {
+    if (!active) { setFrame(0); return; }
+    if (typeof window !== 'undefined' && window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setFrame(3); // hold a representative "landed" frame, no motion
+      return;
+    }
+    const id = setInterval(() => setFrame(f => (f + 1) % (BOOK_STAGES * BOOK_CYCLE.length)), 1150);
+    return () => clearInterval(id);
+  }, [active]);
+
+  const cycleIdx = Math.floor(frame / BOOK_STAGES) % BOOK_CYCLE.length;
+  const stage = frame % BOOK_STAGES;
+  const cyc = BOOK_CYCLE[cycleIdx];
+  const proSelected = stage >= 1;
+  const wheelVisible = stage >= 2;
+  const landed = stage >= 3;
+  const showBadge = stage >= 4;
+  const targetIdx = landed ? BOOK_SLOTS.indexOf(cyc.land) : 0;
+  const progOn = stage >= 2 ? 3 : stage >= 1 ? 2 : 1;
+
+  return (
+    <div className="s-pain-anim" aria-hidden="true">
+      <div className="s-anim-head">
+        <span className="s-anim-title">Agendar cita</span>
+        <div className="s-anim-prog">
+          {[1, 2, 3].map(i => <i key={i} className={i <= progOn ? 'on' : ''} />)}
+        </div>
+      </div>
+
+      <div className="s-anim-label">¿Con quién?</div>
+      <div className="s-anim-pros">
+        {BOOK_PROS.map((p, i) => (
+          <span key={p.name} className={`s-anim-pill ${proSelected && i === cyc.pro ? 'sel' : ''}`}>
+            <i className="s-anim-dot" style={{ background: p.dot }} />
+            {p.name}
+          </span>
+        ))}
+      </div>
+
+      <div className={`s-anim-when ${wheelVisible ? 'show' : ''}`}>
+        <div className="s-anim-label">Horarios{proSelected ? ` · ${BOOK_PROS[cyc.pro].name}` : ''}</div>
+        <div className="s-anim-wheel">
+          <div className="s-anim-sel" style={{ transform: `translateY(${targetIdx * BOOK_SLOT_H}px)`, opacity: landed ? 1 : 0.45 }} />
+          {BOOK_SLOTS.map(s => {
+            const occ = cyc.occupied.includes(s);
+            const isLand = landed && s === cyc.land;
+            return (
+              <div key={s} className={`s-anim-slot ${occ ? 'occ' : ''} ${isLand ? 'land' : ''}`}>
+                <span>{s}</span>
+                {occ && <span className="s-anim-occ">ocupado</span>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className={`s-anim-badge ${showBadge ? 'show' : ''}`}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+        Sin cruces
+      </div>
+    </div>
+  );
+}
+
 // ---- Pain / Scroll-Hijack Dock Carousel ----
 function PainCard({ item, i, activeIdx }) {
   const [flipped, setFlipped] = useState(false);
@@ -1627,7 +1735,7 @@ function PainCard({ item, i, activeIdx }) {
           </div>
         </div>
         <div
-          className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : item.backImage ? 'has-back-image' : ''}`}
+          className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : (item.backImage || item.backAnim) ? 'has-back-image' : ''}`}
           style={(item.backVideoBg || item.backImageBg) ? { background: item.backVideoBg || item.backImageBg } : undefined}
           onClick={item.backVideo ? handleBackTap : undefined}
         >
@@ -1647,17 +1755,18 @@ function PainCard({ item, i, activeIdx }) {
               </button>
             </>
           )}
-          {item.backImage && !item.backVideo && (
+          {(item.backImage || item.backAnim) && !item.backVideo && (
             <button className="s-pain-back-return" onClick={flipBack} aria-label="Volver">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h12a4 4 0 010 8h-3"/></svg>
             </button>
           )}
           <div className="s-pain-back-label">Skubik lo resuelve</div>
           <div className="s-pain-back-a">{item.a}</div>
+          {item.backAnim === 'booking' && <BookingFlowAnim active={flipped} />}
           {item.backImage && !item.backVideo && (
             <img className="s-pain-back-image" src={item.backImage} alt="Pantalla de Skubik mostrando horarios ocupados bloqueados" loading="lazy" />
           )}
-          {!item.backVideo && !item.backImage && <div className="s-pain-back-hint">← Toca para volver</div>}
+          {!item.backVideo && !item.backImage && !item.backAnim && <div className="s-pain-back-hint">← Toca para volver</div>}
         </div>
       </div>
     </div>
