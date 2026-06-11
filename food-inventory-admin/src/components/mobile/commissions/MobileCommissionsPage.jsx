@@ -18,16 +18,29 @@ import MobileCommissionPlans from './MobileCommissionPlans.jsx';
 // ─── Pull-to-refresh ────────────────────────────────────────────────────────
 function usePullToRefresh(onRefresh) {
   const startY = useRef(null);
+  const scrollRef = useRef(null);
   const [pulling, setPulling] = useState(false);
   const [distance, setDistance] = useState(0);
   const THRESHOLD = 64;
 
+  // La lista scrollea en un contenedor interno, no en window. Leer su scrollTop
+  // (no window.scrollY, que siempre es 0 aquí) evita que el pull se active a
+  // mitad de lista y dispare re-renders que rompen el scroll nativo en Android.
   const onTouchStart = useCallback((e) => {
-    if (window.scrollY === 0) startY.current = e.touches[0].clientY;
+    const top = scrollRef.current ? scrollRef.current.scrollTop <= 0 : window.scrollY <= 0;
+    startY.current = top ? e.touches[0].clientY : null;
   }, []);
 
   const onTouchMove = useCallback((e) => {
     if (startY.current === null) return;
+    // En cuanto dejamos de estar arriba del todo, ceder al scroll nativo.
+    const top = scrollRef.current ? scrollRef.current.scrollTop <= 0 : window.scrollY <= 0;
+    if (!top) {
+      startY.current = null;
+      setPulling(false);
+      setDistance(0);
+      return;
+    }
     const dy = e.touches[0].clientY - startY.current;
     if (dy > 0) {
       setPulling(true);
@@ -44,7 +57,7 @@ function usePullToRefresh(onRefresh) {
     }
   }, [distance, onRefresh]);
 
-  return { pulling, distance, THRESHOLD, onTouchStart, onTouchMove, onTouchEnd };
+  return { pulling, distance, THRESHOLD, scrollRef, onTouchStart, onTouchMove, onTouchEnd };
 }
 
 // ─── Period helpers ──────────────────────────────────────────────────────────
@@ -205,7 +218,7 @@ export default function MobileCommissionsPage() {
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-y-auto mobile-scroll" style={{ paddingBottom: 'calc(1rem + var(--safe-bottom, 0px))' }}>
+      <div ref={pull.scrollRef} className="flex-1 overflow-y-auto mobile-scroll" style={{ paddingBottom: 'calc(1rem + var(--safe-bottom, 0px))' }}>
         {activeTab === 'resumen' && (
           <MobileCommissionSummary
             key={`resumen-${refreshKey}`}
