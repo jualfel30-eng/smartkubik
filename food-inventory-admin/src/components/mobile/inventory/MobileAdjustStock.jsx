@@ -8,22 +8,25 @@ import MobileActionSheet from '../MobileActionSheet.jsx';
 
 const REASONS = ['Compra', 'Venta', 'Merma', 'Corrección', 'Otro'];
 
-export default function MobileAdjustStock({ product, mode = 'add', onClose, onSuccess }) {
+export default function MobileAdjustStock({ product, item, mode = 'add', onClose, onSuccess }) {
+  const record = product || item; // callers pass either `product` or `item`
   const [quantity, setQuantity] = useState(1);
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const currentStock = Number(
-    product?.availableQuantity ?? product?.totalQuantity ??
-    product?.currentStock ?? product?.quantity ?? 0
+    record?.availableQuantity ?? record?.totalQuantity ??
+    record?.currentStock ?? record?.quantity ?? 0
   );
   const newStock = mode === 'add'
     ? currentStock + quantity
     : Math.max(0, currentStock - quantity);
 
-  const productName = product?.productName || product?.name || 'Producto';
-  const productId = product?.productId?._id || product?.productId || product?._id;
+  const productName = record?.productName || record?.name || 'Producto';
+  // The backend adjusts an inventory record, so it needs the inventory _id
+  // (not the product id). In every caller `record` is an inventory document.
+  const inventoryId = record?._id;
 
   const handleStep = (delta) => {
     haptics.tap();
@@ -32,15 +35,16 @@ export default function MobileAdjustStock({ product, mode = 'add', onClose, onSu
 
   const submit = async () => {
     if (quantity <= 0) { toast.error('Cantidad debe ser mayor a 0'); return; }
+    if (!inventoryId) { toast.error('Este producto no tiene inventario registrado'); return; }
     try {
       setSubmitting(true);
+      const baseReason = reason || (mode === 'add' ? 'Ajuste positivo' : 'Ajuste negativo');
       await fetchApi('/inventory/adjust', {
         method: 'POST',
         body: JSON.stringify({
-          productId,
-          quantity: mode === 'add' ? quantity : -quantity,
-          reason: reason || (mode === 'add' ? 'Ajuste positivo' : 'Ajuste negativo'),
-          notes: note || undefined,
+          inventoryId,
+          newQuantity: newStock,
+          reason: note ? `${baseReason} — ${note}` : baseReason,
         }),
       });
       haptics.success();
