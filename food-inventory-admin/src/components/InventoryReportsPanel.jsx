@@ -452,7 +452,7 @@ export default function InventoryReportsPanel() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="font-medium">{doc.documentReference || doc.reference || '—'}</div>
-                                            <div className="text-xs text-muted-foreground">{doc.type}</div>
+                                            <div className="text-xs text-muted-foreground">{doc.documentSubLabel || doc.type}</div>
                                         </TableCell>
                                         <TableCell className="max-w-[150px] truncate">
                                             {doc.supplierName || '—'}
