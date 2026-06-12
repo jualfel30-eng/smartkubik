@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/table.jsx';
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
+import { Skeleton } from '@/components/ui/skeleton.jsx';
 import { Checkbox } from '@/components/ui/checkbox.jsx';
 import {
   Sheet,
@@ -266,6 +267,7 @@ export default function ComprasAlertCards({
   expiringProducts,
   handleCreatePoFromAlert,
   handleCreatePoFromAlertBatch,
+  loading = false,
 }) {
   const [openLowStock, setOpenLowStock] = useState(false);
   const [openExpiring, setOpenExpiring] = useState(false);
@@ -290,6 +292,26 @@ export default function ComprasAlertCards({
 
   const expiringPreview = sortedExpiring.slice(0, PREVIEW_COUNT);
   const expiringRest = Math.max(0, sortedExpiring.length - PREVIEW_COUNT);
+
+  // Las alertas cargan aparte del resto del módulo (no bloquean botón ni historial).
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {[0, 1].map((i) => (
+          <Card key={i}>
+            <CardHeader className="pb-3">
+              <Skeleton className="h-6 w-56 rounded" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Skeleton className="h-9 w-full rounded" />
+              <Skeleton className="h-9 w-full rounded" />
+              <Skeleton className="h-9 w-3/4 rounded" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
