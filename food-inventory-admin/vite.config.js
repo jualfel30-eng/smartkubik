@@ -68,15 +68,16 @@ export default defineConfig({
             '@radix-ui/react-toast',
             '@radix-ui/react-popover',
           ],
-          // Icons - separate chunk
-          'icons': ['lucide-react'],
-          // Charts
-          'charts-vendor': ['recharts'],
-          // NOTE: xlsx and jspdf are intentionally NOT pinned here. They are
-          // loaded lazily via src/lib/xlsxLazy.js and src/lib/pdfLazy.js, so
-          // Rollup emits them as pure async chunks. Pinning them made Vite's
-          // __vitePreload helper get co-located in the heavy chunk, dragging
-          // it into the eager graph (it loaded on every screen, even login).
+          // NOTE: 'icons' (lucide-react), 'charts-vendor' (recharts), xlsx and
+          // jspdf are intentionally NOT pinned here.
+          //  - recharts/xlsx/jspdf are only used by lazy route chunks, so
+          //    Rollup emits them as pure async chunks that load on demand.
+          //  - lucide-react is tree-shaken and co-located: the few icons the
+          //    eager shell (App.jsx) uses stay in the entry, the rest ship
+          //    inside their lazy route chunks.
+          // Pinning any of these dragged Vite's __vitePreload helper into the
+          // heavy chunk and forced it into the eager graph (loaded on every
+          // screen, even login). Measured eager payload dropped ~245 KB gz.
         },
       },
     },
