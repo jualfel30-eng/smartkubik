@@ -255,6 +255,7 @@ export class InventoryMovementsService {
           type: { $first: "$movementType" },
           reference: { $first: "$reference" },
           orderId: { $first: "$orderId" },
+          supplierId: { $first: "$supplierId" },
           date: { $first: "$createdAt" },
           itemsSet: { $addToSet: "$productId" },
           totalQuantity: { $sum: "$quantity" },
@@ -282,28 +283,137 @@ export class InventoryMovementsService {
           as: "usersData"
         }
       },
+      // Resolve supplier directly (fallback for manual entries without a PO)
+      {
+        $lookup: {
+          from: "suppliers",
+          localField: "supplierId",
+          foreignField: "_id",
+          as: "supplierData"
+        }
+      },
+      // Resolve products to enrich each movement with name + brand
+      {
+        $lookup: {
+          from: "products",
+          localField: "movements.productId",
+          foreignField: "_id",
+          as: "productsData"
+        }
+      },
       {
         $addFields: {
           itemsCount: { $size: "$itemsSet" },
-          supplierName: { $arrayElemAt: ["$orderData.supplierName", 0] },
+          supplierName: {
+            $ifNull: [
+              { $arrayElemAt: ["$orderData.supplierName", 0] },
+              { $arrayElemAt: ["$supplierData.name", 0] }
+            ]
+          },
           poNumber: { $arrayElemAt: ["$orderData.poNumber", 0] },
-          creatorName: { $arrayElemAt: ["$usersData.name", 0] }
+          creatorName: { $arrayElemAt: ["$usersData.name", 0] },
+          // Attach product name + brand to each movement line
+          movements: {
+            $map: {
+              input: "$movements",
+              as: "m",
+              in: {
+                $mergeObjects: [
+                  "$$m",
+                  {
+                    $let: {
+                      vars: {
+                        prod: {
+                          $arrayElemAt: [
+                            {
+                              $filter: {
+                                input: "$productsData",
+                                as: "p",
+                                cond: { $eq: ["$$p._id", "$$m.productId"] }
+                              }
+                            },
+                            0
+                          ]
+                        }
+                      },
+                      in: {
+                        productName: { $ifNull: ["$$prod.name", "$$m.productSku"] },
+                        productBrand: { $ifNull: ["$$prod.brand", null] }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
         }
       },
       {
         $addFields: {
           documentReference: {
-            $cond: [
-              { $ifNull: ["$poNumber", false] },
-              { $concat: ["Orden #", { $toString: "$poNumber" }] },
-              {
-                $cond: [
-                  { $ifNull: ["$reference", false] },
-                  "$reference",
-                  "Documento Automático"
-                ]
+            $switch: {
+              branches: [
+                // Purchase order → human-readable order number
+                {
+                  case: { $ifNull: ["$poNumber", false] },
+                  then: { $concat: ["Orden #", { $toString: "$poNumber" }] }
+                },
+                // Friendly reference already (e.g. "TO-0047") → keep as-is.
+                // Opaque ObjectId-shaped references get a type label + short suffix.
+                {
+                  case: {
+                    $and: [
+                      { $ifNull: ["$reference", false] },
+                      {
+                        $not: {
+                          $regexMatch: {
+                            input: { $toString: "$reference" },
+                            regex: "^[a-f0-9]{24}$"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  then: "$reference"
+                }
+              ],
+              // No PO, and either no reference or an opaque ObjectId → type label (+ suffix)
+              default: {
+                $let: {
+                  vars: {
+                    label: {
+                      $switch: {
+                        branches: [
+                          { case: { $eq: ["$type", "IN"] }, then: "Entrada manual" },
+                          { case: { $eq: ["$type", "OUT"] }, then: "Salida manual" },
+                          { case: { $eq: ["$type", "ADJUSTMENT"] }, then: "Ajuste de inventario" },
+                          { case: { $eq: ["$type", "TRANSFER"] }, then: "Traslado" }
+                        ],
+                        default: "Documento"
+                      }
+                    }
+                  },
+                  in: {
+                    $cond: [
+                      {
+                        $regexMatch: {
+                          input: { $toString: { $ifNull: ["$reference", ""] } },
+                          regex: "^[a-f0-9]{24}$"
+                        }
+                      },
+                      {
+                        $concat: [
+                          "$$label",
+                          " #",
+                          { $substrCP: [{ $toString: "$reference" }, 16, 8] }
+                        ]
+                      },
+                      "$$label"
+                    ]
+                  }
+                }
               }
-            ]
+            }
           }
         }
       },
@@ -312,7 +422,9 @@ export class InventoryMovementsService {
           itemsSet: 0,
           orderData: 0,
           poNumber: 0,
-          usersData: 0
+          usersData: 0,
+          supplierData: 0,
+          productsData: 0
         }
       },
       { $sort: { date: -1 } },

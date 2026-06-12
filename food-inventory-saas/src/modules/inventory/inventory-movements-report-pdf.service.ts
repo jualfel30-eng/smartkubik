@@ -470,7 +470,7 @@ export class InventoryMovementsReportPdfService {
         const tableRows = (document.movements || []).map((m: any) => {
             const productName = (m.productId && typeof m.productId === 'object' && m.productId.name)
                 ? m.productId.name
-                : m.productSku || 'N/A';
+                : m.productName || m.productSku || 'N/A';
             return [
                 m.productSku || "N/A",
                 productName,
