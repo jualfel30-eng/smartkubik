@@ -149,6 +149,48 @@ export default function InventoryReportsPanel() {
         fetchPreview();
     };
 
+    const handlePrintDocument = async (doc) => {
+        setPrintingDocId(doc.batchId);
+        try {
+            const token = getAuthToken();
+            let baseUrl = getApiBaseUrl();
+            if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+            const apiPath = baseUrl.endsWith('/api/v1') ? '' : '/api/v1';
+            const url = `${baseUrl}${apiPath}/inventory-movements/documents/export`;
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(doc),
+            });
+            if (!response.ok) throw new Error('Falló la generación del recibo');
+
+            const disposition = response.headers.get('Content-Disposition');
+            let filename = `recibo-inventario.pdf`;
+            if (disposition && disposition.indexOf('attachment') !== -1) {
+                const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                if (matches != null && matches[1]) filename = matches[1].replace(/['"]/g, '');
+            }
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(downloadUrl);
+        } catch (error) {
+            console.error('Print document error:', error);
+            toast.error('No se pudo generar el recibo de inventario');
+        } finally {
+            setPrintingDocId(null);
+        }
+    };
+
 
 
     const netMovement = useMemo(() => {
@@ -503,9 +545,16 @@ export default function InventoryReportsPanel() {
                                             const productName = typeof m.productId === 'object' && m.productId?.name
                                                 ? m.productId.name
                                                 : m.productName || m.productSku || '—';
+                                            const productBrand = m.productBrand
+                                                || (typeof m.productId === 'object' ? m.productId?.brand : null);
                                             return (
                                                 <TableRow key={`det-${i}`}>
-                                                    <TableCell className="font-medium max-w-[200px] truncate">{productName}</TableCell>
+                                                    <TableCell className="max-w-[220px]">
+                                                        <div className="font-medium truncate">{productName}</div>
+                                                        {productBrand && (
+                                                            <div className="text-xs text-muted-foreground truncate">{productBrand}</div>
+                                                        )}
+                                                    </TableCell>
                                                     <TableCell className="text-xs text-muted-foreground">{m.productSku || '—'}</TableCell>
                                                     <TableCell className="text-right font-medium">{m.quantity}</TableCell>
                                                     <TableCell className="text-right">${(m.totalCost || 0).toFixed(2)}</TableCell>
