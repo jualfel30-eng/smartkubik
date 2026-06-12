@@ -15,26 +15,41 @@ import MobileCommissionRecords from './MobileCommissionRecords.jsx';
 import MobileGoalsPanel from './MobileGoalsPanel.jsx';
 import MobileCommissionPlans from './MobileCommissionPlans.jsx';
 
+// Encuentra el ancestro que realmente scrollea (overflow auto/scroll con
+// contenido desbordado). En este layout el scroller real es el contenedor de
+// App.jsx, no esta página: su altura no se propaga a través de PageTransition,
+// así que window.scrollY siempre es 0. Resolverlo desde el elemento tocado
+// evita que el pull se crea "arriba" a mitad de lista.
+function getScrollParent(node) {
+  let el = node?.parentElement;
+  while (el) {
+    const oy = getComputedStyle(el).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
 // ─── Pull-to-refresh ────────────────────────────────────────────────────────
 function usePullToRefresh(onRefresh) {
   const startY = useRef(null);
-  const scrollRef = useRef(null);
+  const scrollEl = useRef(null);
   const [pulling, setPulling] = useState(false);
   const [distance, setDistance] = useState(0);
   const THRESHOLD = 64;
 
-  // La lista scrollea en un contenedor interno, no en window. Leer su scrollTop
-  // (no window.scrollY, que siempre es 0 aquí) evita que el pull se active a
-  // mitad de lista y dispare re-renders que rompen el scroll nativo en Android.
   const onTouchStart = useCallback((e) => {
-    const top = scrollRef.current ? scrollRef.current.scrollTop <= 0 : window.scrollY <= 0;
+    scrollEl.current = getScrollParent(e.target);
+    const el = scrollEl.current;
+    const top = el ? el.scrollTop <= 0 : window.scrollY <= 0;
     startY.current = top ? e.touches[0].clientY : null;
   }, []);
 
   const onTouchMove = useCallback((e) => {
     if (startY.current === null) return;
     // En cuanto dejamos de estar arriba del todo, ceder al scroll nativo.
-    const top = scrollRef.current ? scrollRef.current.scrollTop <= 0 : window.scrollY <= 0;
+    const el = scrollEl.current;
+    const top = el ? el.scrollTop <= 0 : window.scrollY <= 0;
     if (!top) {
       startY.current = null;
       setPulling(false);
@@ -57,7 +72,7 @@ function usePullToRefresh(onRefresh) {
     }
   }, [distance, onRefresh]);
 
-  return { pulling, distance, THRESHOLD, scrollRef, onTouchStart, onTouchMove, onTouchEnd };
+  return { pulling, distance, THRESHOLD, onTouchStart, onTouchMove, onTouchEnd };
 }
 
 // ─── Period helpers ──────────────────────────────────────────────────────────
@@ -217,8 +232,9 @@ export default function MobileCommissionsPage() {
         <TabPills activeTab={activeTab} onTabChange={setActiveTab} pendingCount={pendingCount} />
       </div>
 
-      {/* Tab content */}
-      <div ref={pull.scrollRef} className="flex-1 overflow-y-auto mobile-scroll" style={{ paddingBottom: 'calc(1rem + var(--safe-bottom, 0px))' }}>
+      {/* Tab content — fluye en el scroller real (App.jsx), sin scroller interno
+          que con overscroll-behavior:contain bloqueaba la propagación en Android */}
+      <div className="flex-1" style={{ paddingBottom: 'calc(1rem + var(--safe-bottom, 0px))' }}>
         {activeTab === 'resumen' && (
           <MobileCommissionSummary
             key={`resumen-${refreshKey}`}
