@@ -1920,6 +1920,9 @@ export class InventoryService {
           totalCost: item.quantity * item.costPrice,
           reason: "Compra a proveedor",
           reference: item.purchaseOrderId.toString(),
+          // Link the movement back to its purchase order so reports can resolve
+          // supplier + invoice/PO number directly (not just via `reference`).
+          orderId: item.purchaseOrderId,
           supplierId: item.supplierId,
           balanceAfter: {
             totalQuantity: inventory.totalQuantity,

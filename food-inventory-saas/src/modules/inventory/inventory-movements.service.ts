@@ -265,13 +265,37 @@ export class InventoryMovementsService {
           movements: { $push: "$$ROOT" }
         }
       },
-      // Resolve purchase orders to get supplier info
+      // Resolve purchase orders to get supplier info (when orderId is linked)
       {
         $lookup: {
           from: "purchaseorders",
           localField: "orderId",
           foreignField: "_id",
           as: "orderData"
+        }
+      },
+      // Legacy/purchase movements store the PO _id in `reference` (not orderId).
+      // Resolve the PO from `reference` so supplier + invoice/PO number show up
+      // for historical purchases too. Non-ObjectId refs (e.g. "TO-0047") yield
+      // an empty match thanks to $convert onError:null.
+      {
+        $lookup: {
+          from: "purchaseorders",
+          let: { ref: "$reference" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: [
+                    "$_id",
+                    { $convert: { input: "$$ref", to: "objectId", onError: null, onNull: null } }
+                  ]
+                }
+              }
+            },
+            { $project: { supplierName: 1, poNumber: 1, invoiceNumber: 1 } }
+          ],
+          as: "refOrderData"
         }
       },
       // Resolve user who made the movements
@@ -307,10 +331,22 @@ export class InventoryMovementsService {
           supplierName: {
             $ifNull: [
               { $arrayElemAt: ["$orderData.supplierName", 0] },
+              { $arrayElemAt: ["$refOrderData.supplierName", 0] },
               { $arrayElemAt: ["$supplierData.name", 0] }
             ]
           },
-          poNumber: { $arrayElemAt: ["$orderData.poNumber", 0] },
+          poNumber: {
+            $ifNull: [
+              { $arrayElemAt: ["$orderData.poNumber", 0] },
+              { $arrayElemAt: ["$refOrderData.poNumber", 0] }
+            ]
+          },
+          invoiceNumber: {
+            $ifNull: [
+              { $arrayElemAt: ["$orderData.invoiceNumber", 0] },
+              { $arrayElemAt: ["$refOrderData.invoiceNumber", 0] }
+            ]
+          },
           creatorName: { $arrayElemAt: ["$usersData.name", 0] },
           // Attach product name + brand to each movement line
           movements: {
@@ -350,16 +386,21 @@ export class InventoryMovementsService {
       },
       {
         $addFields: {
+          // Primary (bold) label for the document.
           documentReference: {
             $switch: {
               branches: [
-                // Purchase order → human-readable order number
+                // Purchase with a physical invoice → that invoice number leads.
+                {
+                  case: { $ifNull: ["$invoiceNumber", false] },
+                  then: { $concat: ["Factura ", { $toString: "$invoiceNumber" }] }
+                },
+                // Purchase without invoice → the purchase order number.
                 {
                   case: { $ifNull: ["$poNumber", false] },
-                  then: { $concat: ["Orden #", { $toString: "$poNumber" }] }
+                  then: { $concat: ["Orden ", { $toString: "$poNumber" }] }
                 },
                 // Friendly reference already (e.g. "TO-0047") → keep as-is.
-                // Opaque ObjectId-shaped references get a type label + short suffix.
                 {
                   case: {
                     $and: [
@@ -377,7 +418,7 @@ export class InventoryMovementsService {
                   then: "$reference"
                 }
               ],
-              // No PO, and either no reference or an opaque ObjectId → type label (+ suffix)
+              // No PO/invoice, and either no reference or an opaque ObjectId → type label (+ suffix)
               default: {
                 $let: {
                   vars: {
@@ -414,6 +455,20 @@ export class InventoryMovementsService {
                 }
               }
             }
+          },
+          // Secondary (muted) line. For invoiced purchases, surface the PO number
+          // beneath the invoice so both physical and internal refs are visible.
+          documentSubLabel: {
+            $cond: [
+              {
+                $and: [
+                  { $ifNull: ["$invoiceNumber", false] },
+                  { $ifNull: ["$poNumber", false] }
+                ]
+              },
+              { $concat: ["Orden ", { $toString: "$poNumber" }] },
+              null
+            ]
           }
         }
       },
@@ -421,7 +476,7 @@ export class InventoryMovementsService {
         $project: {
           itemsSet: 0,
           orderData: 0,
-          poNumber: 0,
+          refOrderData: 0,
           usersData: 0,
           supplierData: 0,
           productsData: 0
