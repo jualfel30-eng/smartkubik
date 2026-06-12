@@ -264,6 +264,10 @@ function AlertListSheet({
 
 export default function ComprasAlertCards({
   lowStockProducts,
+  // Totales reales (el backend solo manda un preview de items). `lowStockTotal`
+  // = bajo stock (0 < qty <= mín); `outOfStockTotal` = agotados (qty <= 0).
+  lowStockTotal = 0,
+  outOfStockTotal = 0,
   expiringProducts,
   handleCreatePoFromAlert,
   handleCreatePoFromAlertBatch,
@@ -287,8 +291,11 @@ export default function ComprasAlertCards({
     );
   }, [expiringProducts]);
 
+  // Total real que necesita reabastecerse (agotados + bajo stock). El backend
+  // ya solo envía un preview de items, así que el contador usa los totales.
+  const restockTotal = lowStockTotal + outOfStockTotal;
   const lowStockPreview = sortedLowStock.slice(0, PREVIEW_COUNT);
-  const lowStockRest = Math.max(0, sortedLowStock.length - PREVIEW_COUNT);
+  const lowStockRest = Math.max(0, restockTotal - PREVIEW_COUNT);
 
   const expiringPreview = sortedExpiring.slice(0, PREVIEW_COUNT);
   const expiringRest = Math.max(0, sortedExpiring.length - PREVIEW_COUNT);
@@ -321,15 +328,20 @@ export default function ComprasAlertCards({
           <CardTitle className="flex items-center justify-between gap-2">
             <span className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              <span>Productos con Bajo Stock</span>
+              <span>Productos por Reabastecer</span>
             </span>
-            <Badge variant={sortedLowStock.length > 0 ? 'destructive' : 'secondary'}>
-              {sortedLowStock.length}
+            <Badge variant={restockTotal > 0 ? 'destructive' : 'secondary'}>
+              {restockTotal}
             </Badge>
           </CardTitle>
+          {restockTotal > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {outOfStockTotal} agotado{outOfStockTotal === 1 ? '' : 's'} · {lowStockTotal} bajo stock
+            </p>
+          )}
         </CardHeader>
         <CardContent className="space-y-2">
-          {sortedLowStock.length === 0 ? (
+          {restockTotal === 0 ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-500" />
               <span>Sin alertas de stock.</span>
@@ -443,7 +455,7 @@ export default function ComprasAlertCards({
       <AlertListSheet
         open={openLowStock}
         onOpenChange={setOpenLowStock}
-        title="Productos con Bajo Stock"
+        title="Productos por Reabastecer"
         icon={AlertTriangle}
         iconClassName="text-destructive"
         description="Selecciona varios productos para incluirlos en una sola orden de compra. Si comparten proveedor preferido, se preselecciona automáticamente."

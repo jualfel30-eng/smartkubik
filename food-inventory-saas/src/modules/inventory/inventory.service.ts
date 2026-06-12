@@ -1457,6 +1457,79 @@ export class InventoryService {
     ]);
   }
 
+  /**
+   * Versión liviana para las tarjetas de alerta de Compras: devuelve solo los
+   * N items más urgentes + los totales separados (bajo stock vs agotado), en una
+   * sola agregación. Evita transferir cientos/miles de docs cuando la UI solo
+   * muestra un contador + un preview. NO reemplaza getLowStockAlerts (que sigue
+   * devolviendo el array completo para mobile/dashboard/purchases).
+   */
+  async getLowStockAlertsSummary(tenantId: string, previewLimit = 50) {
+    const itemShape = {
+      _id: 1,
+      productName: { $ifNull: ["$productName", "$p.name"] },
+      productSku: {
+        $ifNull: ["$productSku", { $arrayElemAt: ["$p.variants.sku", 0] }],
+      },
+      availableQuantity: 1,
+      minimumStock: "$p.inventoryConfig.minimumStock",
+      productId: {
+        _id: "$p._id",
+        name: "$p.name",
+        variants: "$p.variants",
+        suppliers: "$p.suppliers",
+        isPerishable: "$p.isPerishable",
+        inventoryConfig: "$p.inventoryConfig",
+      },
+    };
+
+    const [res] = await this.inventoryModel.aggregate([
+      {
+        $match: {
+          tenantId: this.buildTenantFilter(tenantId),
+          isActive: { $ne: false },
+        },
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "productId",
+          foreignField: "_id",
+          as: "p",
+        },
+      },
+      { $unwind: "$p" },
+      {
+        $match: {
+          $expr: {
+            $lte: ["$availableQuantity", "$p.inventoryConfig.minimumStock"],
+          },
+        },
+      },
+      { $addFields: { _outOfStock: { $lte: ["$availableQuantity", 0] } } },
+      {
+        $facet: {
+          items: [
+            { $sort: { availableQuantity: 1 } },
+            { $limit: previewLimit },
+            { $project: itemShape },
+          ],
+          counts: [{ $group: { _id: "$_outOfStock", n: { $sum: 1 } } }],
+        },
+      },
+    ]);
+
+    const counts = res?.counts || [];
+    const outOfStockTotal = counts.find((c: any) => c._id === true)?.n || 0;
+    const lowStockTotal = counts.find((c: any) => c._id === false)?.n || 0;
+    return {
+      items: res?.items || [],
+      lowStockTotal,
+      outOfStockTotal,
+      total: lowStockTotal + outOfStockTotal,
+    };
+  }
+
   async getExpirationAlerts(tenantId: string, days: number = 7) {
     const alertDate = new Date();
     alertDate.setDate(alertDate.getDate() + days);

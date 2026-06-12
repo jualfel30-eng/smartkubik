@@ -423,6 +423,35 @@ export class InventoryController {
     }
   }
 
+  @Get("alerts/low-stock/summary")
+  @Permissions("inventory_read")
+  @ApiOperation({
+    summary: "Resumen liviano de bajo stock (items limitados + totales)",
+  })
+  @ApiResponse({ status: 200, description: "Resumen obtenido exitosamente" })
+  async getLowStockAlertsSummary(
+    @Request() req,
+    @Query("limit") limit?: string,
+  ) {
+    try {
+      const previewLimit = limit ? Math.min(Math.max(parseInt(limit), 1), 200) : 50;
+      const summary = await this.inventoryService.getLowStockAlertsSummary(
+        req.user.tenantId,
+        previewLimit,
+      );
+      return {
+        success: true,
+        message: "Resumen obtenido exitosamente",
+        data: summary,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al obtener el resumen de alertas",
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   @Get("alerts/near-expiration")
   @Permissions("inventory_read")
   @ApiOperation({ summary: "Obtener alertas de productos próximos a vencer" })

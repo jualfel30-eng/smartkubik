@@ -103,6 +103,8 @@ export default function ComprasManagement() {
       {/* Alert Cards — cargan aparte, no bloquean el resto del módulo */}
       <ComprasAlertCards
         lowStockProducts={data.lowStockProducts}
+        lowStockTotal={data.lowStockTotal}
+        outOfStockTotal={data.outOfStockTotal}
         expiringProducts={data.expiringProducts}
         handleCreatePoFromAlert={data.handleCreatePoFromAlert}
         handleCreatePoFromAlertBatch={data.handleCreatePoFromAlertBatch}

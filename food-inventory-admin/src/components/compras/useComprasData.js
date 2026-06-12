@@ -23,6 +23,8 @@ export function useComprasData() {
   const [usdRate, setUsdRate] = useState(null);
   const [eurRate, setEurRate] = useState(null);
   const [lowStockProducts, setLowStockProducts] = useState([]);
+  const [lowStockTotal, setLowStockTotal] = useState(0);
+  const [outOfStockTotal, setOutOfStockTotal] = useState(0);
   const [expiringProducts, setExpiringProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -151,17 +153,24 @@ export function useComprasData() {
     try {
       setLoading(true);
       setError(null);
-      const [lowStockData, expiringData, suppliersData] = await Promise.all([
-        fetchApi('/inventory/alerts/low-stock'),
+      const [lowStockResp, expiringData, suppliersData] = await Promise.all([
+        // Resumen liviano: items limitados + totales (bajo stock vs agotado),
+        // en vez de traer cientos/miles de docs que la UI no muestra.
+        fetchApi('/inventory/alerts/low-stock/summary'),
         fetchApi('/inventory/alerts/near-expiration?days=30'),
         fetchApi('/customers?customerType=supplier')
       ]);
-      setLowStockProducts(lowStockData.data || []);
+      const summary = lowStockResp.data || {};
+      setLowStockProducts(summary.items || []);
+      setLowStockTotal(summary.lowStockTotal || 0);
+      setOutOfStockTotal(summary.outOfStockTotal || 0);
       setExpiringProducts(expiringData.data || []);
       setSuppliers(suppliersData.data || []);
     } catch (err) {
       setError(err.message);
       setLowStockProducts([]);
+      setLowStockTotal(0);
+      setOutOfStockTotal(0);
       setExpiringProducts([]);
       setSuppliers([]);
     } finally {
@@ -1902,6 +1911,8 @@ export function useComprasData() {
 
     // Alert data
     lowStockProducts,
+    lowStockTotal,
+    outOfStockTotal,
     expiringProducts,
 
     // New Product Dialog state
