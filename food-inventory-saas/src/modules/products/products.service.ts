@@ -819,16 +819,24 @@ export class ProductsService {
         .select("productId availableQuantity totalQuantity lots")
         .lean();
 
-      const inventoryMap = new Map(
-        inventories.map((inv) => [
-          inv.productId.toString(),
-          {
-            availableQuantity: inv.availableQuantity ?? 0,
-            totalQuantity: inv.totalQuantity ?? 0,
-            lots: inv.lots ?? [],
-          },
-        ]),
-      );
+      // Accumulate across all inventory records of a product (multi-warehouse):
+      // the POS previously summed availableQuantity across warehouses, keep parity.
+      const inventoryMap = new Map<
+        string,
+        { availableQuantity: number; totalQuantity: number; lots: any[] }
+      >();
+      for (const inv of inventories) {
+        const key = inv.productId.toString();
+        const acc = inventoryMap.get(key) ?? {
+          availableQuantity: 0,
+          totalQuantity: 0,
+          lots: [],
+        };
+        acc.availableQuantity += inv.availableQuantity ?? 0;
+        acc.totalQuantity += inv.totalQuantity ?? 0;
+        if (inv.lots?.length) acc.lots = acc.lots.concat(inv.lots);
+        inventoryMap.set(key, acc);
+      }
 
       for (const product of products) {
         const inv = inventoryMap.get(product._id.toString());

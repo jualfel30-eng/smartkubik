@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -10,12 +10,24 @@ import { STAGGER, listItem, tapScale } from '@/lib/motion';
 const ProductListView = ({
   products = [],
   onProductSelect,
-  inventoryMap = {}
+  inventoryMap = {},
+  // Catálogos grandes: la búsqueda va al servidor en vez de filtrar en cliente.
+  serverMode = false,
+  isLoading = false,
+  onServerSearch,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Filtrar productos
+  // En modo server, el término dispara la búsqueda en el backend (debounced).
+  useEffect(() => {
+    if (!serverMode || !onServerSearch) return;
+    const t = setTimeout(() => onServerSearch(searchTerm.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchTerm, serverMode, onServerSearch]);
+
+  // Filtrar productos (solo en preload; en server los resultados ya vienen filtrados).
   const filteredProducts = useMemo(() => {
+    if (serverMode) return products;
     return products.filter(product => {
       const matchesSearch = searchTerm === '' ||
         product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -24,7 +36,9 @@ const ProductListView = ({
 
       return matchesSearch;
     });
-  }, [products, searchTerm]);
+  }, [products, searchTerm, serverMode]);
+
+  const showSearchPrompt = serverMode && searchTerm.trim() === '';
 
   // Obtener precio del producto
   const getProductPrice = (product) => {
@@ -75,7 +89,19 @@ const ProductListView = ({
       </div>
 
       {/* Grid compacto de productos - 3 columnas */}
-      {filteredProducts.length === 0 ? (
+      {showSearchPrompt ? (
+        <div className="text-center py-12">
+          <Search className="h-8 w-8 mx-auto mb-3 text-muted-foreground/50" />
+          <p className="text-muted-foreground">Busca un producto para ver opciones</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Tu catálogo es grande; escribe nombre, SKU o marca.
+          </p>
+        </div>
+      ) : isLoading ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Buscando productos…</p>
+        </div>
+      ) : filteredProducts.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">No se encontraron productos</p>
           {searchTerm && (

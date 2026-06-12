@@ -13,6 +13,8 @@ import { Plus, Trash2, Percent, Scan, ShoppingCart, List, RotateCcw, Tag, X, Che
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { fetchApi } from '@/lib/api.js';
+import { useQueryClient } from '@tanstack/react-query';
+import { usePosCatalog } from '@/hooks/usePosCatalog';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 import { venezuelaData } from '@/lib/venezuela-data.js';
 import { SearchableSelect } from './custom/SearchableSelect';
@@ -260,9 +262,18 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   const [pendingDraft, setPendingDraft] = useState(null);
 
   const { preferences, loading: loadingPreferences, setViewType } = useTenantViewPreferences();
-  const [products, setProducts] = useState([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
-  const [inventoryMap, setInventoryMap] = useState({});
+  const queryClient = useQueryClient();
+  // Carga adaptativa del catálogo: preload completo (catálogos chicos) o
+  // server-side por búsqueda/categoría (catálogos grandes). Cacheado por React Query.
+  const {
+    mode: catalogMode,
+    rawProducts,
+    isLoading: loadingProducts,
+    search: catalogSearch,
+    selectCategory: catalogSelectCategory,
+    categories: catalogCategories,
+  } = usePosCatalog({ tenantId: tenant?.id, enabled: !!tenant?.id });
+  const isServerCatalog = catalogMode === 'server';
   const [newOrder, setNewOrder] = useState(initialOrderState);
   const [municipios, setMunicipios] = useState([]);
   const [showModifierSelector, setShowModifierSelector] = useState(false);
@@ -505,6 +516,45 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
     tenant?.enabledModules?.retail ||
     tenant?.enabledModules?.variants
   );
+
+  const isRestaurant = Boolean(
+    tenant?.vertical === 'food-service' ||
+    tenant?.settings?.vertical === 'food-service' ||
+    restaurantEnabled
+  );
+
+  // Productos vendibles a mostrar (misma lógica de filtrado que el POS preload
+  // anterior): restaurantes ocultan insumos/materias primas; retail solo stock > 0.
+  // Se aplica tanto al preload completo como a los resultados server-side.
+  const products = useMemo(() => {
+    return (rawProducts || []).filter((product) => {
+      const type = product.productType || 'simple';
+      if (isRestaurant) {
+        if (['supply', 'raw_material', 'consumable'].includes(type) || product.isIngredient) {
+          return false;
+        }
+        return true;
+      }
+      const stock = product.availableQuantity ?? product.inventory?.availableQuantity ?? 0;
+      return stock > 0;
+    });
+  }, [rawProducts, isRestaurant]);
+
+  // Stock inline (availableQuantity) por productId, para los badges de las vistas.
+  const inventoryMap = useMemo(() => {
+    const m = {};
+    (rawProducts || []).forEach((p) => {
+      m[String(p._id)] = p.availableQuantity ?? p.inventory?.availableQuantity ?? 0;
+    });
+    return m;
+  }, [rawProducts]);
+
+  // En catálogos grandes, la vista Buscar dispara búsqueda server-side (debounced).
+  useEffect(() => {
+    if (!isServerCatalog) return;
+    const t = setTimeout(() => catalogSearch((productSearchInput || '').trim()), 300);
+    return () => clearTimeout(t);
+  }, [productSearchInput, isServerCatalog, catalogSearch]);
   const calculateModifierAdjustment = (item) =>
     (item?.modifiers || []).reduce(
       (sum, mod) => sum + ((mod.priceAdjustment || 0) * (mod.quantity || 1)),
@@ -643,107 +693,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
     }
   }, [newOrder.shippingAddress.state, newOrder.shippingAddress.city]);
 
-  // Ref to prevent duplicate loading in React Strict Mode
-  const hasLoadedProducts = useRef(false);
-
-  useEffect(() => {
-    const loadProducts = async () => {
-      // Prevent duplicate calls in React Strict Mode
-      if (hasLoadedProducts.current) {
-        console.log('⏭️ [NewOrderForm] Products already loading/loaded, skipping');
-        return;
-      }
-      hasLoadedProducts.current = true;
-
-      try {
-        setLoadingProducts(true);
-
-        // Helper for parallel fetching
-        const fetchAllPages = async (baseUrl) => {
-          const firstPage = await fetchApi(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}page=1&limit=100`);
-          let allItems = firstPage.data || firstPage.products || []; // Adapt to different response structures
-          const totalPages = firstPage.pagination?.totalPages || 1;
-
-          if (totalPages > 1) {
-            const promises = [];
-            for (let i = 2; i <= totalPages; i++) {
-              promises.push(fetchApi(`${baseUrl}${baseUrl.includes('?') ? '&' : '?'}page=${i}&limit=100`));
-            }
-            const responses = await Promise.all(promises);
-            responses.forEach(res => {
-              if (res.data || res.products) {
-                allItems = [...allItems, ...(res.data || res.products)];
-              }
-            });
-          }
-          return allItems;
-        };
-
-        // 1. Determine Vertical / Mode
-        const isRestaurant = Boolean(
-          tenant?.vertical === 'food-service' ||
-          tenant?.settings?.vertical === 'food-service' ||
-          restaurantEnabled
-        );
-        console.log('🏭 [NewOrderForm] Vertical Logic:', { vertical: tenant?.vertical, isRestaurant });
-
-        // 2. Fetch DATA in Parallel
-        // For Restaurants: We need ALL active products (even if no inventory record exists)
-        // For Retail: We typically only need products with inventory, but fetching all and filtering is safer/consistent
-        const [allActiveProducts, allInventories] = await Promise.all([
-          fetchAllPages('/products?isActive=true'),
-          fetchAllPages('/inventory?')
-        ]);
-
-        console.log(`📦 [NewOrderForm] Loaded ${allActiveProducts.length} Products and ${allInventories.length} Inventory Records`);
-
-        // 3. Create Inventory Map
-        const invMap = {};
-        allInventories.forEach(inv => {
-          let productId;
-          if (typeof inv.productId === 'object' && inv.productId !== null) {
-            productId = inv.productId._id ? String(inv.productId._id) : (inv.productId.$oid || String(inv.productId));
-          } else {
-            productId = String(inv.productId);
-          }
-          invMap[productId] = (invMap[productId] || 0) + (inv.availableQuantity || 0);
-        });
-        setInventoryMap(invMap);
-
-        // 4. Merge and Filter
-        const validProducts = allActiveProducts.filter(product => {
-          const productId = String(product._id);
-          const stock = invMap[productId] || 0;
-          const type = product.productType || 'simple';
-
-          // Restaurant Logic
-          if (isRestaurant) {
-            // HIDE Raw Materials / Supplies from POS (unless they are explicitly set as saleable, which we assume 'simple' implies)
-            // We assume 'supply', 'raw_material', 'consumable' are back-of-house items not for direct sale in a restaurant POS
-            if (['supply', 'raw_material', 'consumable'].includes(type) || product.isIngredient) {
-              return false;
-            }
-            // Show EVERYTHING else active (Made-to-Order has 0 stock)
-            return true;
-          }
-
-          // Retail Logic: Only show if stock > 0
-          return stock > 0;
-        });
-
-        console.log(`✅ [NewOrderForm] Final Display Products: ${validProducts.length} (Filtered from ${allActiveProducts.length})`);
-        setProducts(validProducts);
-
-      } catch (err) {
-        console.error("❌ [NewOrderForm] Failed to load products/inventory:", err);
-        toast.error("Error al cargar productos. Por favor recargue la página.");
-        setProducts([]);
-      } finally {
-        setLoadingProducts(false);
-      }
-    };
-    loadProducts();
-  }, [tenant?.id, restaurantEnabled]); // Added dependencies to re-run if tenant loads late
+  // La carga del catálogo (preload completo vs server-side adaptativo) y el stock
+  // inline ahora viven en usePosCatalog (ver arriba: rawProducts/products/inventoryMap).
 
 
   const loadAvailableTables = useCallback(async () => {
@@ -1802,6 +1753,12 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         orderData = response.data || response;
         toast.success('Orden creada correctamente');
 
+        // El stock cambió con la venta: invalida la cache del catálogo POS para
+        // que el próximo render / reentrada traiga stock fresco.
+        queryClient.invalidateQueries({ queryKey: ['pos-catalog-full'] });
+        queryClient.invalidateQueries({ queryKey: ['pos-catalog-search'] });
+        queryClient.invalidateQueries({ queryKey: ['pos-catalog-count'] });
+
         // FIXED: Only call onOrderCreated (triggering parent modal) if autoWizard is TRUE
         // If we are just sending to kitchen (autoWizard: false), we stay in form.
         if (onOrderCreated && options.autoWizard) {
@@ -2717,6 +2674,9 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 products={products}
                 onProductSelect={handleProductSelection}
                 inventoryMap={inventoryMap}
+                serverMode={isServerCatalog}
+                isLoading={loadingProducts}
+                onServerSearch={catalogSearch}
               />
             ) : (
               <ProductGridView
@@ -2728,6 +2688,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                 enableCategoryFilter={preferences.enableCategoryFilter}
                 inventoryMap={inventoryMap}
                 cartItems={newOrder.items}
+                serverMode={isServerCatalog}
+                isLoading={loadingProducts}
+                onServerSearch={catalogSearch}
+                onServerCategory={catalogSelectCategory}
+                serverCategories={catalogCategories}
               />
             )}
           </div>
@@ -3130,6 +3095,9 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                   products={products}
                   onProductSelect={handleProductSelection}
                   inventoryMap={inventoryMap}
+                  serverMode={isServerCatalog}
+                  isLoading={loadingProducts}
+                  onServerSearch={catalogSearch}
                 />
                 </motion.div>
               ) : (
@@ -3143,6 +3111,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                   enableCategoryFilter={preferences.enableCategoryFilter}
                   inventoryMap={inventoryMap}
                   cartItems={newOrder.items}
+                  serverMode={isServerCatalog}
+                  isLoading={loadingProducts}
+                  onServerSearch={catalogSearch}
+                  onServerCategory={catalogSelectCategory}
+                  serverCategories={catalogCategories}
                 />
                 </motion.div>
               )}

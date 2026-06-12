@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -91,9 +91,29 @@ const ProductGridView = ({
   enableCategoryFilter = true,
   inventoryMap = {},
   cartItems = [],
+  // Catálogos grandes: búsqueda y categoría van al servidor; no se precarga todo.
+  serverMode = false,
+  isLoading = false,
+  onServerSearch,
+  onServerCategory,
+  serverCategories = [],
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+
+  // En modo server, el término dispara la búsqueda en el backend (debounced).
+  useEffect(() => {
+    if (!serverMode || !onServerSearch) return;
+    const t = setTimeout(() => onServerSearch(searchTerm.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchTerm, serverMode, onServerSearch]);
+
+  const handleCategorySelect = (category) => {
+    setSelectedCategory(category);
+    if (serverMode && onServerCategory) {
+      onServerCategory(category === 'all' ? '' : category);
+    }
+  };
 
   // Build cart quantity map for badges
   const cartQtyMap = useMemo(() => {
@@ -105,8 +125,12 @@ const ProductGridView = ({
     return map;
   }, [cartItems]);
 
-  // Extract unique categories
+  // Extract unique categories — en modo server vienen del backend (no hay
+  // catálogo precargado del que derivarlas).
   const categories = useMemo(() => {
+    if (serverMode) {
+      return ['all', ...(serverCategories || [])];
+    }
     const cats = new Set();
     products.forEach((product) => {
       if (product.category && Array.isArray(product.category)) {
@@ -114,10 +138,11 @@ const ProductGridView = ({
       }
     });
     return ['all', ...Array.from(cats).sort()];
-  }, [products]);
+  }, [products, serverMode, serverCategories]);
 
-  // Filter products
+  // Filter products (en server los resultados ya vienen filtrados por el backend).
   const filteredProducts = useMemo(() => {
+    if (serverMode) return products;
     return products.filter((product) => {
       const matchesSearch =
         searchTerm === '' ||
@@ -131,7 +156,10 @@ const ProductGridView = ({
 
       return matchesSearch && matchesCategory;
     });
-  }, [products, searchTerm, selectedCategory]);
+  }, [products, searchTerm, selectedCategory, serverMode]);
+
+  const showSearchPrompt =
+    serverMode && searchTerm.trim() === '' && selectedCategory === 'all';
 
   const getProductImage = (product) => {
     if (product.variants && product.variants.length > 0) {
@@ -214,13 +242,25 @@ const ProductGridView = ({
           <CategoryFilterBar
             categories={categories}
             selected={selectedCategory}
-            onSelect={setSelectedCategory}
+            onSelect={handleCategorySelect}
           />
         )}
       </div>
 
       {/* Product grid */}
-      {filteredProducts.length === 0 ? (
+      {showSearchPrompt ? (
+        <div className="text-center py-12">
+          <Search className="h-8 w-8 mx-auto mb-3 text-muted-foreground/50" />
+          <p className="text-muted-foreground">Busca un producto o elige una categoría</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Tu catálogo es grande; mostramos resultados al buscar o filtrar.
+          </p>
+        </div>
+      ) : isLoading ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Cargando productos…</p>
+        </div>
+      ) : filteredProducts.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">No se encontraron productos</p>
           {searchTerm && (

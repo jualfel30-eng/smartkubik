@@ -57,6 +57,7 @@
     "@sanity/client": "^7.12.0",
     "@sanity/image-url": "^1.2.0",
     "@tailwindcss/vite": "^4.1.7",
+    "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.23",
     "@xyflow/react": "^12.10.2",

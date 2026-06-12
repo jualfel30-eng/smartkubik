@@ -884,6 +884,15 @@ export class ProductQueryDto {
   @IsBoolean()
   includeInactive?: boolean = false;
 
+  @ApiPropertyOptional({
+    description: "Incluir stock/inventario inline por producto (campo availableQuantity)",
+    default: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  @IsBoolean()
+  includeInventory?: boolean = false;
+
   // Uso interno: excluir ciertos IDs (p.ej. productos marcados como consumibles)
   @IsOptional()
   excludeProductIds?: string[];
