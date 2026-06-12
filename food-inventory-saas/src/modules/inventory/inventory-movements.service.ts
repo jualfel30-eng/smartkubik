@@ -265,34 +265,33 @@ export class InventoryMovementsService {
           movements: { $push: "$$ROOT" }
         }
       },
-      // Resolve purchase orders to get supplier info (when orderId is linked)
+      // NOTE: id fields (orderId, supplierId, productId, reference) live as
+      // String in some tenants and ObjectId in others. Every lookup below
+      // compares on $toString of both sides so it matches regardless of type.
+      // See docs/wiki/patterns/objectid-vs-string.md.
+      //
+      // Resolve purchase order via orderId (linked movements).
       {
         $lookup: {
           from: "purchaseorders",
-          localField: "orderId",
-          foreignField: "_id",
+          let: { oid: { $toString: "$orderId" } },
+          pipeline: [
+            { $match: { $expr: { $eq: [{ $toString: "$_id" }, "$$oid"] } } },
+            { $project: { supplierName: 1, poNumber: 1, invoiceNumber: 1 } }
+          ],
           as: "orderData"
         }
       },
       // Legacy/purchase movements store the PO _id in `reference` (not orderId).
       // Resolve the PO from `reference` so supplier + invoice/PO number show up
-      // for historical purchases too. Non-ObjectId refs (e.g. "TO-0047") yield
-      // an empty match thanks to $convert onError:null.
+      // for historical purchases too. Non-PO refs (e.g. "TO-0047") simply yield
+      // no match.
       {
         $lookup: {
           from: "purchaseorders",
-          let: { ref: "$reference" },
+          let: { ref: { $toString: "$reference" } },
           pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $eq: [
-                    "$_id",
-                    { $convert: { input: "$$ref", to: "objectId", onError: null, onNull: null } }
-                  ]
-                }
-              }
-            },
+            { $match: { $expr: { $eq: [{ $toString: "$_id" }, "$$ref"] } } },
             { $project: { supplierName: 1, poNumber: 1, invoiceNumber: 1 } }
           ],
           as: "refOrderData"
@@ -307,12 +306,15 @@ export class InventoryMovementsService {
           as: "usersData"
         }
       },
-      // Resolve supplier directly (fallback for manual entries without a PO)
+      // Resolve supplier directly (fallback for entries with supplierId but no PO)
       {
         $lookup: {
           from: "suppliers",
-          localField: "supplierId",
-          foreignField: "_id",
+          let: { sid: { $toString: "$supplierId" } },
+          pipeline: [
+            { $match: { $expr: { $eq: [{ $toString: "$_id" }, "$$sid"] } } },
+            { $project: { name: 1 } }
+          ],
           as: "supplierData"
         }
       },
@@ -320,8 +322,15 @@ export class InventoryMovementsService {
       {
         $lookup: {
           from: "products",
-          localField: "movements.productId",
-          foreignField: "_id",
+          let: {
+            pids: {
+              $map: { input: "$movements", as: "m", in: { $toString: "$$m.productId" } }
+            }
+          },
+          pipeline: [
+            { $match: { $expr: { $in: [{ $toString: "$_id" }, "$$pids"] } } },
+            { $project: { name: 1, brand: 1 } }
+          ],
           as: "productsData"
         }
       },
@@ -365,7 +374,7 @@ export class InventoryMovementsService {
                               $filter: {
                                 input: "$productsData",
                                 as: "p",
-                                cond: { $eq: ["$$p._id", "$$m.productId"] }
+                                cond: { $eq: [{ $toString: "$$p._id" }, { $toString: "$$m.productId" }] }
                               }
                             },
                             0

@@ -493,7 +493,7 @@ export default function InventoryReportsPanel() {
 
             {/* Document Details Dialog */}
             <Dialog open={!!selectedDocument} onOpenChange={(open) => !open && setSelectedDocument(null)}>
-                <DialogContent className="sm:max-w-[700px]">
+                <DialogContent className="sm:max-w-[820px]">
                     <DialogHeader>
                         <DialogTitle>Detalles del Documento</DialogTitle>
                     </DialogHeader>
@@ -537,6 +537,7 @@ export default function InventoryReportsPanel() {
                                             <TableHead>Producto</TableHead>
                                             <TableHead>SKU</TableHead>
                                             <TableHead className="text-right">Cant.</TableHead>
+                                            <TableHead className="text-right">Costo Unit.</TableHead>
                                             <TableHead className="text-right">Costo Total</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -547,6 +548,8 @@ export default function InventoryReportsPanel() {
                                                 : m.productName || m.productSku || '—';
                                             const productBrand = m.productBrand
                                                 || (typeof m.productId === 'object' ? m.productId?.brand : null);
+                                            const qty = m.quantity || 0;
+                                            const unitCost = m.unitCost != null ? m.unitCost : (qty ? (m.totalCost || 0) / qty : 0);
                                             return (
                                                 <TableRow key={`det-${i}`}>
                                                     <TableCell className="max-w-[220px]">
@@ -556,11 +559,18 @@ export default function InventoryReportsPanel() {
                                                         )}
                                                     </TableCell>
                                                     <TableCell className="text-xs text-muted-foreground">{m.productSku || '—'}</TableCell>
-                                                    <TableCell className="text-right font-medium">{m.quantity}</TableCell>
+                                                    <TableCell className="text-right font-medium">{qty}</TableCell>
+                                                    <TableCell className="text-right">${unitCost.toFixed(2)}</TableCell>
                                                     <TableCell className="text-right">${(m.totalCost || 0).toFixed(2)}</TableCell>
                                                 </TableRow>
                                             );
                                         })}
+                                        <TableRow className="bg-muted/30 border-t-2 hover:bg-muted/30">
+                                            <TableCell colSpan={2} className="font-semibold">Total</TableCell>
+                                            <TableCell className="text-right font-semibold">{selectedDocument.totalQuantity ?? '—'}</TableCell>
+                                            <TableCell />
+                                            <TableCell className="text-right font-semibold">${(selectedDocument.totalCost || 0).toFixed(2)}</TableCell>
+                                        </TableRow>
                                     </TableBody>
                                 </Table>
                             </div>
