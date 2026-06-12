@@ -12,26 +12,17 @@ const SERVER_PAGE_SIZE = 50;
 
 // Pagina todo el catálogo activo CON stock inline (una sola fuente; reemplaza el
 // viejo doble fetch de /products + /inventory completos del POS).
-async function fetchAllActiveProducts() {
-  const first = await getProducts({
-    isActive: true,
-    includeInventory: true,
-    page: 1,
-    limit: PRELOAD_PAGE_SIZE,
-  });
+// `inStockOnly` (retail) hace que el backend filtre stock>0 ANTES de paginar.
+async function fetchAllActiveProducts(inStockOnly) {
+  const base = { isActive: true, includeInventory: true, limit: PRELOAD_PAGE_SIZE };
+  if (inStockOnly) base.inStockOnly = true;
+  const first = await getProducts({ ...base, page: 1 });
   let all = first.data || [];
   const totalPages = first.pagination?.totalPages || 1;
   if (totalPages > 1) {
     const promises = [];
     for (let i = 2; i <= totalPages; i++) {
-      promises.push(
-        getProducts({
-          isActive: true,
-          includeInventory: true,
-          page: i,
-          limit: PRELOAD_PAGE_SIZE,
-        }),
-      );
+      promises.push(getProducts({ ...base, page: i }));
     }
     const rest = await Promise.all(promises);
     rest.forEach((r) => {
@@ -43,18 +34,21 @@ async function fetchAllActiveProducts() {
 
 /**
  * Carga adaptativa del catálogo para el POS.
- * - Devuelve `rawProducts` (sin filtrar por vertical/stock; eso lo hace el contenedor).
+ * - `inStockOnly` (retail): el backend filtra stock>0 server-side, así el conteo
+ *   y la precarga se basan en productos vendibles y no se pierden por el límite.
  * - mode 'preload': catálogo completo cacheado.
  * - mode 'server': vacío hasta que el usuario busca o elige categoría.
  */
-export function usePosCatalog({ tenantId, enabled = true }) {
+export function usePosCatalog({ tenantId, enabled = true, inStockOnly = false }) {
   const on = enabled && !!tenantId;
 
-  // Conteo barato para decidir el modo.
+  // Conteo barato para decidir el modo (en retail, cuenta solo productos con stock).
   const countQuery = useQuery({
-    queryKey: ['pos-catalog-count', tenantId],
+    queryKey: ['pos-catalog-count', tenantId, inStockOnly],
     queryFn: async () => {
-      const res = await getProducts({ isActive: true, limit: 1 });
+      const params = { isActive: true, limit: 1 };
+      if (inStockOnly) params.inStockOnly = true;
+      const res = await getProducts(params);
       return res.pagination?.total ?? 0;
     },
     enabled: on,
@@ -69,8 +63,8 @@ export function usePosCatalog({ tenantId, enabled = true }) {
 
   // Modo preload: catálogo completo.
   const preloadQuery = useQuery({
-    queryKey: ['pos-catalog-full', tenantId],
-    queryFn: fetchAllActiveProducts,
+    queryKey: ['pos-catalog-full', tenantId, inStockOnly],
+    queryFn: () => fetchAllActiveProducts(inStockOnly),
     enabled: on && mode === 'preload',
   });
 
@@ -78,15 +72,17 @@ export function usePosCatalog({ tenantId, enabled = true }) {
   const [serverParams, setServerParams] = useState({ search: '', category: '' });
   const serverActive = Boolean(serverParams.search || serverParams.category);
   const serverQuery = useQuery({
-    queryKey: ['pos-catalog-search', tenantId, serverParams],
+    queryKey: ['pos-catalog-search', tenantId, inStockOnly, serverParams],
     queryFn: async () => {
-      const res = await getProducts({
+      const params = {
         isActive: true,
         includeInventory: true,
         limit: SERVER_PAGE_SIZE,
+        ...(inStockOnly ? { inStockOnly: true } : {}),
         ...(serverParams.search ? { search: serverParams.search } : {}),
         ...(serverParams.category ? { category: serverParams.category } : {}),
-      });
+      };
+      const res = await getProducts(params);
       return res.data || [];
     },
     enabled: on && mode === 'server' && serverActive,

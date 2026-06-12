@@ -136,6 +136,9 @@ export class ProductsController {
     console.log(`GET /products called with query:`, query, `User:`, req.user.email);
     const result = await this.productsService.findAll(query, this.getCatalogTenantId(req), {
       includeInventory: query.includeInventory,
+      inStockOnly: query.inStockOnly,
+      // Stock por tenant operativo (el catálogo puede vivir en el padre).
+      inventoryTenantId: req.user.tenantId,
     });
     return {
       success: true,

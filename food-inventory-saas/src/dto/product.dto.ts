@@ -893,6 +893,15 @@ export class ProductQueryDto {
   @IsBoolean()
   includeInventory?: boolean = false;
 
+  @ApiPropertyOptional({
+    description: "Solo productos con stock > 0 (filtra server-side antes de paginar)",
+    default: false,
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === "true" || value === true)
+  @IsBoolean()
+  inStockOnly?: boolean = false;
+
   // Uso interno: excluir ciertos IDs (p.ej. productos marcados como consumibles)
   @IsOptional()
   excludeProductIds?: string[];

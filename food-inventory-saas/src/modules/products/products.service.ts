@@ -636,7 +636,17 @@ export class ProductsService {
   async findAll(
     query: ProductQueryDto,
     tenantId: string,
-    options?: { includeInventory?: boolean; minAvailableQuantity?: number },
+    options?: {
+      includeInventory?: boolean;
+      minAvailableQuantity?: number;
+      // Solo productos con stock > 0. Se aplica ANTES de la paginación, así el
+      // POS retail no pierde productos con stock por el límite de página.
+      inStockOnly?: boolean;
+      // Tenant operativo dueño del stock. El catálogo puede vivir en el tenant
+      // padre (subsidiarias), pero el inventario es por-tenant. Si no se pasa,
+      // se usa el tenant del catálogo.
+      inventoryTenantId?: string;
+    },
   ) {
     const {
       page = 1,
@@ -732,17 +742,33 @@ export class ProductsService {
 
     const skip = (pageNumber - 1) * limitNumber;
 
-    // If caller requests only products with stock, pre-filter using inventory
-    if (options?.minAvailableQuantity !== undefined) {
-      const productIdsWithStock = await this.inventoryModel
+    // Pre-filtro por stock usando inventario, ANTES de paginar. Sirve a:
+    //  - inStockOnly: solo productos con stock > 0 (POS retail). Crítico: si se
+    //    filtrara después del límite, los productos con stock más allá de la
+    //    página 1 desaparecerían (bug "no salen todos los productos con stock").
+    //  - minAvailableQuantity: umbral explícito.
+    // El inventario es por tenant OPERATIVO (puede diferir del catálogo en
+    // subsidiarias); tenantId/productId pueden estar como String u ObjectId.
+    const stockThreshold = options?.inStockOnly
+      ? 1
+      : options?.minAvailableQuantity;
+    if (stockThreshold !== undefined) {
+      const invTenantOid = new Types.ObjectId(
+        options?.inventoryTenantId ?? tenantId,
+      );
+      const rawStockIds = await this.inventoryModel
         .find({
-          tenantId: new Types.ObjectId(tenantId),
-          availableQuantity: { $gte: options.minAvailableQuantity },
+          tenantId: { $in: [invTenantOid, invTenantOid.toString()] },
+          availableQuantity: { $gte: stockThreshold },
         })
         .distinct("productId")
         .exec();
 
-      if (!productIdsWithStock.length) {
+      const inStockOids = rawStockIds
+        .filter((id: any) => Types.ObjectId.isValid(id))
+        .map((id: any) => new Types.ObjectId(id.toString()));
+
+      if (!inStockOids.length) {
         return {
           products: [],
           page: pageNumber,
@@ -752,7 +778,17 @@ export class ProductsService {
         };
       }
 
-      filter._id = { $in: productIdsWithStock };
+      // Intersecta con cualquier filtro _id existente (ids/excludeProductIds).
+      if (filter._id?.$in) {
+        const allowed = new Set(inStockOids.map((o) => o.toString()));
+        filter._id.$in = (filter._id.$in as any[]).filter((o) =>
+          allowed.has(o.toString()),
+        );
+      } else if (filter._id) {
+        filter._id = { ...filter._id, $in: inStockOids };
+      } else {
+        filter._id = { $in: inStockOids };
+      }
     }
 
     // Use text score for sorting when doing text search
@@ -813,7 +849,10 @@ export class ProductsService {
       // tenantId y productId en inventories pueden estar como String u ObjectId
       // (datos legacy). Si se matchea solo por ObjectId se pierden registros y el
       // producto sale con stock 0 (y se oculta en retail). Ver patterns/objectid-vs-string.md.
-      const tenantOid = new Types.ObjectId(tenantId);
+      // El stock es del tenant OPERATIVO (puede diferir del catálogo en subsidiarias).
+      const tenantOid = new Types.ObjectId(
+        options?.inventoryTenantId ?? tenantId,
+      );
       const productOids = products.map((p: any) => p._id);
       const productIds = [
         ...productOids,

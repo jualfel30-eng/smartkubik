@@ -263,8 +263,22 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
 
   const { preferences, loading: loadingPreferences, setViewType } = useTenantViewPreferences();
   const queryClient = useQueryClient();
+  // Vertical: restaurantes muestran todo (incl. made-to-order sin stock); retail
+  // solo productos con stock. Define el filtrado y el inStockOnly del catálogo.
+  const restaurantEnabled = Boolean(
+    tenant?.enabledModules?.restaurant ||
+    tenant?.enabledModules?.tables ||
+    tenant?.enabledModules?.kitchenDisplay
+  );
+  const isRestaurant = Boolean(
+    tenant?.vertical === 'food-service' ||
+    tenant?.settings?.vertical === 'food-service' ||
+    restaurantEnabled
+  );
   // Carga adaptativa del catálogo: preload completo (catálogos chicos) o
   // server-side por búsqueda/categoría (catálogos grandes). Cacheado por React Query.
+  // En retail, el backend filtra stock>0 (inStockOnly) para no perder productos
+  // con stock por el límite de página.
   const {
     mode: catalogMode,
     rawProducts,
@@ -272,7 +286,11 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
     search: catalogSearch,
     selectCategory: catalogSelectCategory,
     categories: catalogCategories,
-  } = usePosCatalog({ tenantId: tenant?.id, enabled: !!tenant?.id });
+  } = usePosCatalog({
+    tenantId: tenant?.id,
+    enabled: !!tenant?.id,
+    inStockOnly: !isRestaurant,
+  });
   const isServerCatalog = catalogMode === 'server';
   const [newOrder, setNewOrder] = useState(initialOrderState);
   const [municipios, setMunicipios] = useState([]);
@@ -506,21 +524,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   // ========== END DRAFT FUNCTIONALITY ==========
   const barcodeInputRef = useRef(null);
   const lastScannedRef = useRef({ code: '', at: 0 });
-  const restaurantEnabled = Boolean(
-    tenant?.enabledModules?.restaurant ||
-    tenant?.enabledModules?.tables ||
-    tenant?.enabledModules?.kitchenDisplay
-  );
   const supportsModifiers = Boolean(
     restaurantEnabled ||
     tenant?.enabledModules?.retail ||
     tenant?.enabledModules?.variants
-  );
-
-  const isRestaurant = Boolean(
-    tenant?.vertical === 'food-service' ||
-    tenant?.settings?.vertical === 'food-service' ||
-    restaurantEnabled
   );
 
   // Productos vendibles a mostrar (misma lógica de filtrado que el POS preload
