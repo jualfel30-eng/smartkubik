@@ -810,10 +810,18 @@ export class ProductsService {
     ]);
 
     if (options?.includeInventory && products.length) {
-      const productIds = products.map((p: any) => p._id);
+      // tenantId y productId en inventories pueden estar como String u ObjectId
+      // (datos legacy). Si se matchea solo por ObjectId se pierden registros y el
+      // producto sale con stock 0 (y se oculta en retail). Ver patterns/objectid-vs-string.md.
+      const tenantOid = new Types.ObjectId(tenantId);
+      const productOids = products.map((p: any) => p._id);
+      const productIds = [
+        ...productOids,
+        ...productOids.map((id: any) => id.toString()),
+      ];
       const inventories = await this.inventoryModel
         .find({
-          tenantId: new Types.ObjectId(tenantId),
+          tenantId: { $in: [tenantOid, tenantOid.toString()] },
           productId: { $in: productIds },
         })
         .select("productId availableQuantity totalQuantity lots")
