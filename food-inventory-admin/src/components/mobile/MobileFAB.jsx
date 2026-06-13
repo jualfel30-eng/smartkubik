@@ -61,18 +61,27 @@ export default function MobileFAB() {
     }, LONG_PRESS_MS);
   };
 
+  // Pointer events ONLY drive long-press detection. The actual tap action runs
+  // in onClick — the most reliable cross-browser tap signal. Relying on
+  // onPointerUp dropped the action on touch (Chrome device mode / Android),
+  // where pointerup gets canceled or swallowed; mouse (Safari narrow window)
+  // never hit that path, which is why it worked there but not on touch.
   const handlePressEnd = () => {
     clearTimer();
-    if (!isLongPress.current) {
-      if (contextAction) {
-        // Single tap with context: execute contextAction directly
-        haptics.tap();
-        contextAction.action();
-      } else {
-        // Single tap, no context: open standard menu
-        haptics.select();
-        setOpen(true);
-      }
+  };
+
+  const handleClick = () => {
+    if (isLongPress.current) {
+      // Long-press already opened the full menu — swallow the trailing click.
+      isLongPress.current = false;
+      return;
+    }
+    if (contextAction) {
+      haptics.tap();
+      contextAction.action();
+    } else {
+      haptics.select();
+      setOpen(true);
     }
   };
 
@@ -87,18 +96,18 @@ export default function MobileFAB() {
 
   return (
     <>
-      <motion.button
+      <button
         type="button"
         aria-label={open ? 'Cerrar acciones rápidas' : (contextAction?.label || 'Acciones rápidas')}
         aria-expanded={open}
         onPointerDown={handlePressStart}
         onPointerUp={handlePressEnd}
-        onPointerLeave={clearTimer}
-        onPointerCancel={clearTimer}
-        whileTap={{ scale: 0.92 }}
+        onPointerLeave={handlePressEnd}
+        onPointerCancel={handlePressEnd}
+        onClick={handleClick}
         className="no-tap-highlight no-select absolute left-1/2 -translate-x-1/2 -top-6
-                   rounded-full text-white
-                   flex items-center justify-center transition-all duration-300"
+                   rounded-full text-white active:scale-90
+                   flex items-center justify-center transition-transform duration-150"
         style={{
           width: 'var(--mobile-fab-size)',
           height: 'var(--mobile-fab-size)',
@@ -118,7 +127,7 @@ export default function MobileFAB() {
         >
           <FabIcon size={24} strokeWidth={2} />
         </motion.span>
-      </motion.button>
+      </button>
 
       {/* Context label tooltip — visible when a contextAction is active and menu is closed */}
       {contextAction && !open && (
