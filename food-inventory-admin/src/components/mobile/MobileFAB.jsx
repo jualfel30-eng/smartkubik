@@ -105,6 +105,10 @@ export default function MobileFAB() {
           zIndex: 'var(--z-mobile-fab)',
           background: 'var(--gradient-primary)',
           boxShadow: '0 4px 20px oklch(0.62 0.22 268 / 0.35), var(--elevation-floating)',
+          // Sin esto, en touch (Android / emulador) el navegador interpreta el
+          // toque como scroll y dispara pointercancel en vez de pointerup, por
+          // lo que la acción nunca se ejecuta y el botón "no hace nada".
+          touchAction: 'none',
         }}
       >
         <motion.span

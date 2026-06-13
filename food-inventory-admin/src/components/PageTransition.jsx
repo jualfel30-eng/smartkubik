@@ -62,7 +62,21 @@ const ROUTE_ORDER = [
 const EDGE_ZONE = 28;          // px from screen edge to initiate edge-swipe
 const SWIPE_THRESHOLD = 70;    // minimum horizontal px to count as swipe
 const MAX_VERT_DRIFT = 50;     // max vertical drift before cancelling
-const FULL_SWIPE_RATIO = 2.5;  // horiz/vert ratio required for non-edge swipe
+
+// True if `node` (or any ancestor up to body) is a horizontally-scrollable
+// container with actual overflow. Used to NOT hijack a horizontal scroll
+// gesture (TabPills, product catalog rows) as module navigation.
+function startedInHorizontalScroller(node) {
+  let el = node;
+  while (el && el.nodeType === 1 && el !== document.body) {
+    const ox = getComputedStyle(el).overflowX;
+    if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) {
+      return true;
+    }
+    el = el.parentElement;
+  }
+  return false;
+}
 
 function getBaseSegment(pathname) {
   const parts = pathname.split('/').filter(Boolean);
@@ -161,6 +175,9 @@ export default function PageTransition({ children }) {
         : touch.clientX > window.innerWidth - EDGE_ZONE
           ? 'right'
           : null,
+      // If the gesture begins inside a horizontal scroller, never treat it as
+      // module navigation — the user is scrolling content, not switching modules.
+      inHScroller: startedInHorizontalScroller(e.target),
     };
   }, []);
 
@@ -169,15 +186,20 @@ export default function PageTransition({ children }) {
     const touch = e.changedTouches[0];
     const dx = touch.clientX - touchStart.current.x;
     const dy = touch.clientY - touchStart.current.y;
-    const { screenEdge } = touchStart.current;
+    const { screenEdge, inHScroller } = touchStart.current;
     touchStart.current = null;
 
     const absDx = Math.abs(dx);
     const absDy = Math.abs(dy);
 
+    // Edge-only navigation: the gesture must start at the screen edge and never
+    // inside a horizontal scroller. This kills accidental module switches when
+    // scrolling TabPills / product rows, while keeping the intentional
+    // edge-swipe (iOS-style back/forward).
+    if (inHScroller) return;
+    if (!screenEdge) return;
     if (absDy > MAX_VERT_DRIFT) return;
     if (absDx < SWIPE_THRESHOLD) return;
-    if (!screenEdge && absDx / Math.max(absDy, 1) < FULL_SWIPE_RATIO) return;
 
     // Swipe RIGHT (dx > 0) = go back (prev sibling)
     const goingBack = dx > 0;
