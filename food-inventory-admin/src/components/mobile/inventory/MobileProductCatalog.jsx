@@ -23,7 +23,6 @@ const TYPE_FILTERS = [
 
 export default function MobileProductCatalog({ onCreateProduct }) {
   const [products, setProducts] = useState([]);
-  const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -35,16 +34,14 @@ export default function MobileProductCatalog({ onCreateProduct }) {
   const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const [productsRes, inventoryRes] = await Promise.all([
-        fetchApi('/products?limit=200&sort=-createdAt'),
-        fetchApi('/inventory?limit=500'),
-      ]);
-
+      // Una sola llamada con stock inline (includeInventory) — antes se traían
+      // además TODOS los docs completos de inventario (/inventory?limit=500 =
+      // ~3s + 334KB en móvil). El stock por producto sale del producto mismo.
+      const productsRes = await fetchApi(
+        '/products?limit=200&includeInventory=true&sort=-createdAt',
+      );
       const productsList = productsRes?.data || productsRes || [];
-      const inventoryList = inventoryRes?.data || inventoryRes || [];
-
       setProducts(Array.isArray(productsList) ? productsList : []);
-      setInventory(Array.isArray(inventoryList) ? inventoryList : []);
     } catch (err) {
       toast.error('Error al cargar productos');
     } finally {
@@ -59,26 +56,14 @@ export default function MobileProductCatalog({ onCreateProduct }) {
     }
   }, [loadProducts]);
 
-  // Build inventory lookup by productId
-  const inventoryMap = useMemo(() => {
-    const map = {};
-    inventory.forEach((inv) => {
-      const pid = inv.productId && typeof inv.productId === 'object' ? inv.productId._id : inv.productId;
-      if (pid) {
-        const qty = Number(inv.availableQuantity ?? inv.totalQuantity ?? inv.currentStock ?? 0);
-        map[pid] = (map[pid] || 0) + qty;
-      }
-    });
-    return map;
-  }, [inventory]);
-
-  // Enrich products with stock data
+  // Stock inline (availableQuantity viene del producto vía includeInventory).
   const enrichedProducts = useMemo(() => {
     return products.map((p) => ({
       ...p,
-      _inventoryStock: inventoryMap[p._id] ?? null,
+      _inventoryStock:
+        p.availableQuantity ?? p.inventory?.availableQuantity ?? null,
     }));
-  }, [products, inventoryMap]);
+  }, [products]);
 
   // Filter & search
   const filtered = useMemo(() => {
@@ -117,13 +102,23 @@ export default function MobileProductCatalog({ onCreateProduct }) {
     loadProducts();
   }, [loadProducts]);
 
-  // Find inventory item for stock adjustment
-  const findInventoryForProduct = useCallback((product) => {
-    return inventory.find((inv) => {
-      const pid = inv.productId && typeof inv.productId === 'object' ? inv.productId._id : inv.productId;
-      return pid === product._id;
-    });
-  }, [inventory]);
+  // Trae el inventario del producto on-demand al tocar "ajustar" (en vez de
+  // precargar los 500 docs completos). Usa el SKU -> /inventory/product/:sku.
+  const handleAdjustStock = useCallback(async (product) => {
+    const sku = product.sku || product.variants?.[0]?.sku;
+    if (!sku) {
+      toast.info('Este producto no tiene inventario registrado');
+      return;
+    }
+    try {
+      const res = await fetchApi(`/inventory/product/${encodeURIComponent(sku)}`);
+      const inv = res?.data || res;
+      if (inv && inv._id) setAdjustingProduct(inv);
+      else toast.info('Este producto no tiene inventario registrado');
+    } catch {
+      toast.info('Este producto no tiene inventario registrado');
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -211,11 +206,7 @@ export default function MobileProductCatalog({ onCreateProduct }) {
               expanded={expandedId === product._id}
               onToggle={handleToggle}
               onEdit={setEditingProduct}
-              onAdjustStock={(p) => {
-                const inv = findInventoryForProduct(p);
-                if (inv) setAdjustingProduct(inv);
-                else toast.info('Este producto no tiene inventario registrado');
-              }}
+              onAdjustStock={handleAdjustStock}
             />
           ))}
         </motion.div>
