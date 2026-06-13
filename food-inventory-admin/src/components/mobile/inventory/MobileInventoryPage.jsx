@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Package, RefreshCw, Filter, ShoppingCart, AlertTriangle, ArrowLeftRight, ArrowRightLeft, Plus, X } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth.jsx';
+import { useInventoryCache } from '@/hooks/useInventoryCache';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { STAGGER } from '@/lib/motion';
@@ -254,13 +257,27 @@ export default function MobileInventoryPage() {
   const [transfersKey, setTransfersKey] = useState(0);
   const [purchasesKey, setPurchasesKey] = useState(0);
 
-  // ─── Data loaders ───────────────────────────────────────────────────────
+  // ─── Data loaders (cacheados con React Query: reentrar al módulo = instantáneo
+  // dentro del staleTime; las mutaciones invalidan ['inventory']) ──────────────
+  const { tenant } = useAuth();
+  const queryClient = useQueryClient();
+  const { invalidateInventoryData } = useInventoryCache();
+  const cachedGet = useCallback(
+    (url) =>
+      queryClient.fetchQuery({
+        queryKey: ['inventory', tenant?.id, url],
+        queryFn: () => fetchApi(url),
+        staleTime: 120_000,
+      }),
+    [queryClient, tenant?.id],
+  );
+
   const loadStock = useCallback(async () => {
     try {
       setLoadingStock(true);
       const [invRes, countRes] = await Promise.allSettled([
-        fetchApi('/inventory?limit=100'),
-        fetchApi('/inventory/alerts/count'),
+        cachedGet('/inventory?limit=100'),
+        cachedGet('/inventory/alerts/count'),
       ]);
       if (invRes.status === 'fulfilled') {
         const list = Array.isArray(invRes.value?.data) ? invRes.value.data : Array.isArray(invRes.value) ? invRes.value : [];
@@ -275,12 +292,12 @@ export default function MobileInventoryPage() {
     } finally {
       setLoadingStock(false);
     }
-  }, []);
+  }, [cachedGet]);
 
   const loadMovements = useCallback(async () => {
     try {
       setLoadingMovements(true);
-      const res = await fetchApi('/inventory-movements?limit=50&sort=-createdAt');
+      const res = await cachedGet('/inventory-movements?limit=50&sort=-createdAt');
       const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       setMovements(list);
       loadedTabs.current.movements = true;
@@ -289,12 +306,12 @@ export default function MobileInventoryPage() {
     } finally {
       setLoadingMovements(false);
     }
-  }, []);
+  }, [cachedGet]);
 
   const loadAlerts = useCallback(async () => {
     try {
       setLoadingAlerts(true);
-      const res = await fetchApi('/inventory/alerts/low-stock');
+      const res = await cachedGet('/inventory/alerts/low-stock');
       const raw = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       // Only take first 50 to avoid performance issues with 360+ items
       const list = raw.slice(0, 50).map((item, i) => ({
@@ -313,7 +330,7 @@ export default function MobileInventoryPage() {
     } finally {
       setLoadingAlerts(false);
     }
-  }, []);
+  }, [cachedGet]);
 
   // Initial load
   useEffect(() => { loadStock(); }, [loadStock]);
@@ -441,6 +458,7 @@ export default function MobileInventoryPage() {
   const handleAdjustClose = (saved) => {
     setAdjusting(null);
     if (saved) {
+      invalidateInventoryData();
       loadStock();
       loadedTabs.current.movements = false;
       loadedTabs.current.alerts = false;
@@ -450,6 +468,7 @@ export default function MobileInventoryPage() {
   const handleCreateClose = (saved) => {
     setCreating(false);
     if (saved) {
+      invalidateInventoryData();
       loadStock();
     }
   };
@@ -459,6 +478,7 @@ export default function MobileInventoryPage() {
     setPoPreselect(null);
     if (saved) {
       setPurchasesKey((k) => k + 1);
+      invalidateInventoryData();
       loadStock();
       loadedTabs.current.alerts = false;
     }
@@ -765,6 +785,7 @@ export default function MobileInventoryPage() {
           onClose={(saved) => {
             setAddingInventory(false);
             if (saved) {
+              invalidateInventoryData();
               loadStock();
               loadedTabs.current.movements = false;
               loadedTabs.current.alerts = false;
@@ -780,6 +801,7 @@ export default function MobileInventoryPage() {
             setCreatingTransfer(false);
             if (saved) {
               setTransfersKey((k) => k + 1);
+              invalidateInventoryData();
               loadStock();
               loadedTabs.current.movements = false;
             }

@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth.jsx';
+import { useInventoryCache } from '@/hooks/useInventoryCache';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { STAGGER, listItem } from '@/lib/motion';
@@ -30,6 +33,9 @@ export default function MobileProductCatalog({ onCreateProduct }) {
   const [editingProduct, setEditingProduct] = useState(null);
   const [adjustingProduct, setAdjustingProduct] = useState(null);
   const loadedRef = useRef(false);
+  const { tenant } = useAuth();
+  const queryClient = useQueryClient();
+  const { invalidateInventoryData } = useInventoryCache();
 
   const loadProducts = useCallback(async () => {
     try {
@@ -37,9 +43,14 @@ export default function MobileProductCatalog({ onCreateProduct }) {
       // Una sola llamada con stock inline (includeInventory) — antes se traían
       // además TODOS los docs completos de inventario (/inventory?limit=500 =
       // ~3s + 334KB en móvil). El stock por producto sale del producto mismo.
-      const productsRes = await fetchApi(
-        '/products?limit=200&includeInventory=true&sort=-createdAt',
-      );
+      // Cacheado (React Query): reentrar al catálogo = instantáneo dentro del
+      // staleTime; las mutaciones invalidan ['products'].
+      const url = '/products?limit=200&includeInventory=true&sort=-createdAt';
+      const productsRes = await queryClient.fetchQuery({
+        queryKey: ['products', tenant?.id, url],
+        queryFn: () => fetchApi(url),
+        staleTime: 120_000,
+      });
       const productsList = productsRes?.data || productsRes || [];
       setProducts(Array.isArray(productsList) ? productsList : []);
     } catch (err) {
@@ -47,7 +58,7 @@ export default function MobileProductCatalog({ onCreateProduct }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [queryClient, tenant?.id]);
 
   useEffect(() => {
     if (!loadedRef.current) {
@@ -94,13 +105,17 @@ export default function MobileProductCatalog({ onCreateProduct }) {
 
   const handleEditClose = useCallback((saved) => {
     setEditingProduct(null);
-    if (saved) loadProducts();
-  }, [loadProducts]);
+    if (saved) {
+      invalidateInventoryData();
+      loadProducts();
+    }
+  }, [loadProducts, invalidateInventoryData]);
 
   const handleAdjustClose = useCallback(() => {
     setAdjustingProduct(null);
+    invalidateInventoryData();
     loadProducts();
-  }, [loadProducts]);
+  }, [loadProducts, invalidateInventoryData]);
 
   // Trae el inventario del producto on-demand al tocar "ajustar" (en vez de
   // precargar los 500 docs completos). Usa el SKU -> /inventory/product/:sku.
