@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Package } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { fetchApi } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth.jsx';
 import { useInventoryCache } from '@/hooks/useInventoryCache';
@@ -25,47 +25,31 @@ const TYPE_FILTERS = [
 ];
 
 export default function MobileProductCatalog({ onCreateProduct }) {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
   const [editingProduct, setEditingProduct] = useState(null);
   const [adjustingProduct, setAdjustingProduct] = useState(null);
-  const loadedRef = useRef(false);
   const { tenant } = useAuth();
-  const queryClient = useQueryClient();
   const { invalidateInventoryData } = useInventoryCache();
 
-  const loadProducts = useCallback(async () => {
-    try {
-      setLoading(true);
-      // Una sola llamada con stock inline (includeInventory) — antes se traían
-      // además TODOS los docs completos de inventario (/inventory?limit=500 =
-      // ~3s + 334KB en móvil). El stock por producto sale del producto mismo.
-      // Cacheado (React Query): reentrar al catálogo = instantáneo dentro del
-      // staleTime; las mutaciones invalidan ['products'].
-      const url = '/products?limit=200&includeInventory=true&sort=-createdAt';
-      const productsRes = await queryClient.fetchQuery({
-        queryKey: ['products', tenant?.id, url],
-        queryFn: () => fetchApi(url),
-        staleTime: 120_000,
-      });
-      const productsList = productsRes?.data || productsRes || [];
-      setProducts(Array.isArray(productsList) ? productsList : []);
-    } catch (err) {
-      toast.error('Error al cargar productos');
-    } finally {
-      setLoading(false);
-    }
-  }, [queryClient, tenant?.id]);
-
-  useEffect(() => {
-    if (!loadedRef.current) {
-      loadedRef.current = true;
-      loadProducts();
-    }
-  }, [loadProducts]);
+  // useQuery (no fetchQuery): este componente permanece MONTADO al cambiar entre
+  // "Productos" y "Operaciones" (ver MobileInventoryPage), así que no recarga ni
+  // re-renderiza al volver — y sigue reactivo: cuando se escribe stock en
+  // cualquier lado, invalidateInventoryData invalida ['products'] y refetcha solo.
+  const PRODUCTS_URL = '/products?limit=200&includeInventory=true&sort=-createdAt';
+  const productsQuery = useQuery({
+    queryKey: ['products', tenant?.id, PRODUCTS_URL],
+    queryFn: async () => {
+      const res = await fetchApi(PRODUCTS_URL);
+      const list = res?.data || res || [];
+      return Array.isArray(list) ? list : [];
+    },
+    enabled: !!tenant?.id,
+    staleTime: 120_000,
+  });
+  const products = productsQuery.data || [];
+  const loading = productsQuery.isLoading;
 
   // Stock inline (availableQuantity viene del producto vía includeInventory).
   const enrichedProducts = useMemo(() => {
@@ -105,17 +89,13 @@ export default function MobileProductCatalog({ onCreateProduct }) {
 
   const handleEditClose = useCallback((saved) => {
     setEditingProduct(null);
-    if (saved) {
-      invalidateInventoryData();
-      loadProducts();
-    }
-  }, [loadProducts, invalidateInventoryData]);
+    if (saved) invalidateInventoryData(); // useQuery refetcha solo
+  }, [invalidateInventoryData]);
 
   const handleAdjustClose = useCallback(() => {
     setAdjustingProduct(null);
     invalidateInventoryData();
-    loadProducts();
-  }, [loadProducts, invalidateInventoryData]);
+  }, [invalidateInventoryData]);
 
   // Trae el inventario del producto on-demand al tocar "ajustar" (en vez de
   // precargar los 500 docs completos). Usa el SKU -> /inventory/product/:sku.

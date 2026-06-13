@@ -553,9 +553,12 @@ export default function MobileInventoryPage() {
           que con overscroll-behavior:contain bloqueaba la propagación en Android */}
       <div className="flex-1">
         {/* ── Products mode ─────────────────────────────────────────────── */}
-        {mode === 'products' && (
+        {/* Se mantiene MONTADO (oculto en otros modos) para que volver a
+            "Productos" sea instantáneo — sin remontar ni recargar las 200
+            tarjetas. El catálogo usa useQuery, así que sigue fresco. */}
+        <div style={{ display: mode === 'products' ? 'block' : 'none' }}>
           <MobileProductCatalog onCreateProduct={() => setCreating(true)} />
-        )}
+        </div>
 
         {/* ── Operations mode ───────────────────────────────────────────── */}
         {mode === 'operations' && (<>
