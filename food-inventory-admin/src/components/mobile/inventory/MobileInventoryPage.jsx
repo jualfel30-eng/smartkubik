@@ -84,13 +84,7 @@ function usePullToRefresh(onRefresh) {
   return { pulling, distance, THRESHOLD, onTouchStart, onTouchMove, onTouchEnd };
 }
 
-// ─── Tab config ─────────────────────────────────────────────────────────────
-const BASE_TABS = [
-  { id: 'stock', label: 'Stock', icon: Package },
-  { id: 'movements', label: 'Movimientos', icon: ArrowLeftRight },
-  { id: 'alerts', label: 'Alertas', icon: AlertTriangle },
-  { id: 'orders', label: 'Compras', icon: ShoppingCart },
-];
+// ─── Tab config (order is built in the component since it depends on flags) ──
 
 function TabPills({ tabs, activeTab, onTabChange, alertCount }) {
   return (
@@ -219,10 +213,14 @@ export default function MobileInventoryPage() {
   const { setContextAction, clearContextAction } = useFabContext();
   const { flags } = useFeatureFlags();
   const transfersEnabled = !!flags?.MULTI_LOCATION;
-  const tabs = useMemo(
-    () => (transfersEnabled ? [...BASE_TABS, { id: 'transfers', label: 'Traslados', icon: ArrowRightLeft }] : BASE_TABS),
-    [transfersEnabled],
-  );
+  // Orden de Operaciones: Stock → Compras → Alertas → (Traslados) → Movimientos.
+  const tabs = useMemo(() => [
+    { id: 'stock', label: 'Stock', icon: Package },
+    { id: 'orders', label: 'Compras', icon: ShoppingCart },
+    { id: 'alerts', label: 'Alertas', icon: AlertTriangle },
+    ...(transfersEnabled ? [{ id: 'transfers', label: 'Traslados', icon: ArrowRightLeft }] : []),
+    { id: 'movements', label: 'Movimientos', icon: ArrowLeftRight },
+  ], [transfersEnabled]);
   const [mode, setMode] = useState('products'); // 'products' | 'operations'
   const [activeTab, setActiveTab] = useState('stock');
 

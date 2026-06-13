@@ -16,9 +16,9 @@ import MobileAdjustStock from './MobileAdjustStock.jsx';
 const TYPE_FILTERS = [
   { id: 'all', label: 'Todos' },
   { id: 'simple', label: 'Mercancia' },
-  { id: 'raw_material', label: 'Insumos' },
+  { id: 'raw_material', label: 'Materias Primas' },
   { id: 'consumable', label: 'Consumibles' },
-  { id: 'supply', label: 'Herramientas' },
+  { id: 'supply', label: 'Suministros' },
 ];
 
 export default function MobileProductCatalog({ onCreateProduct }) {
