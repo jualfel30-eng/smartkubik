@@ -6,8 +6,9 @@ import { fetchApi } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import haptics from '@/lib/haptics';
 import { DUR, EASE } from '@/lib/motion';
-import { calculatePurchaseTaxes, formatDateForApi, PAYMENT_METHOD_OPTIONS } from '@/components/compras/compras-utils';
+import { calculatePurchaseTaxes, formatDateForApi } from '@/components/compras/compras-utils';
 import MobileActionSheet from '../MobileActionSheet.jsx';
+import MobileReceiveRate from './MobileReceiveRate.jsx';
 
 const TAX_TYPES = ['J', 'V', 'E', 'G', 'P', 'C'];
 const CURRENCY_OPTIONS = [
@@ -270,22 +271,14 @@ function DocPaymentStep({ form, setForm }) {
           className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2.5 text-sm" />
       </section>
 
-      {/* Currency + method */}
-      <section className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Moneda</p>
-          <select value={pt.expectedCurrency} onChange={(e) => updPay({ expectedCurrency: e.target.value })}
-            className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2.5 text-sm">
-            {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
-        </div>
-        <div className="space-y-1.5">
-          <p className="text-xs font-medium text-muted-foreground">Método de pago</p>
-          <select value={form.actualPaymentMethod} onChange={(e) => upd({ actualPaymentMethod: e.target.value })}
-            className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2.5 text-sm">
-            {PAYMENT_METHOD_OPTIONS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
-        </div>
+      {/* Currency (payment method is chosen later, in Cuentas por Pagar) */}
+      <section className="space-y-1.5">
+        <p className="text-xs font-medium text-muted-foreground">Moneda de pago esperada</p>
+        <select value={pt.expectedCurrency} onChange={(e) => updPay({ expectedCurrency: e.target.value })}
+          className="w-full rounded-[var(--mobile-radius-md)] border border-border bg-background px-3 py-2.5 text-sm">
+          {CURRENCY_OPTIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+        </select>
+        <p className="text-[11px] text-muted-foreground">El método de pago se define al pagar, en Cuentas por Pagar.</p>
       </section>
 
       {/* Credit */}
@@ -368,6 +361,7 @@ export default function MobileCreatePO({ open, onClose, preselectedProduct }) {
   const [supplierDraft, setSupplierDraft] = useState({ name: '', taxType: 'J', rif: '', phone: '' });
   const [items, setItems] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [createdPO, setCreatedPO] = useState(null);
   const [form, setForm] = useState({
     documentType: 'factura_fiscal',
     invoiceNumber: '',
@@ -478,10 +472,28 @@ export default function MobileCreatePO({ open, onClose, preselectedProduct }) {
         };
       }
 
-      await fetchApi('/purchases', { method: 'POST', body: JSON.stringify(dto) });
+      const response = await fetchApi('/purchases', { method: 'POST', body: JSON.stringify(dto) });
+      const created = response?.data || response;
       haptics.success();
       toast.success('Compra registrada');
-      onClose?.(true);
+
+      // Simple mode (default): immediately offer to receive + rate the supplier,
+      // mirroring desktop. Advanced mode users skip and use the Compras list.
+      let advancedMode = false;
+      try { advancedMode = localStorage.getItem('smartkubik_advanced_receive_mode') === 'true'; } catch { /* */ }
+
+      if (!advancedMode && created?._id) {
+        setCreatedPO({
+          _id: created._id,
+          poNumber: created.poNumber,
+          supplierId: created.supplierId,
+          supplierName: created.supplierName || supplierLabel,
+          documentType: created.documentType || form.documentType,
+          totalAmount: created.totalAmount ?? totals.total,
+        });
+      } else {
+        onClose?.(true);
+      }
     } catch (err) {
       haptics.error();
       toast.error(err?.message || 'Error al registrar la compra');
@@ -510,6 +522,11 @@ export default function MobileCreatePO({ open, onClose, preselectedProduct }) {
       )}
     </div>
   );
+
+  // After a successful creation, swap the wizard for the receive + rate flow.
+  if (createdPO) {
+    return <MobileReceiveRate po={createdPO} onClose={() => onClose?.(true)} />;
+  }
 
   return (
     <MobileActionSheet open={open} onClose={() => onClose?.(false)} title={stepTitles[step]} footer={footer}>
