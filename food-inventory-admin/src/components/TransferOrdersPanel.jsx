@@ -1,4 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/use-auth.jsx';
+import { useInventoryCache } from '@/hooks/useInventoryCache';
 import { Button } from '@/components/ui/button.jsx';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
@@ -37,13 +40,21 @@ export default function TransferOrdersPanel() {
   const [totalPages, setTotalPages] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const { tenant } = useAuth();
+  const queryClient = useQueryClient();
+  const { invalidateInventoryData } = useInventoryCache();
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
     try {
       const params = { page, limit: 20 };
       if (statusFilter !== 'all') params.status = statusFilter;
-      const response = await getTransferOrders(params);
+      // Cacheado: reentrar a Traslados / volver a una página vista = instantáneo.
+      const response = await queryClient.fetchQuery({
+        queryKey: ['transfers', tenant?.id, params],
+        queryFn: () => getTransferOrders(params),
+        staleTime: 120_000,
+      });
       const data = response?.data || response || [];
       setOrders(Array.isArray(data) ? data : []);
       setTotalPages(response?.totalPages || 1);
@@ -53,7 +64,7 @@ export default function TransferOrdersPanel() {
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter]);
+  }, [page, statusFilter, queryClient, tenant?.id]);
 
   useEffect(() => {
     loadOrders();
@@ -61,10 +72,13 @@ export default function TransferOrdersPanel() {
 
   const handleCreated = () => {
     setCreateOpen(false);
+    // Un traslado mueve stock entre bodegas → invalida inventario + traslados.
+    invalidateInventoryData();
     loadOrders();
   };
 
   const handleOrderUpdated = () => {
+    invalidateInventoryData();
     loadOrders();
   };
 

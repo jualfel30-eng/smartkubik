@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '@/lib/api';
 import { getBusinessLocations, getSubsidiaries, createTransferOrder, requestTransferOrder, approveTransferOrder, prepareTransferOrder, shipTransferOrder } from '@/lib/api';
 import { useAuth } from '@/hooks/use-auth';
@@ -26,6 +27,7 @@ function saveDefaults(data) {
 }
 
 export default function CreateTransferOrderDialog({ open, onOpenChange, onCreated }) {
+  const queryClient = useQueryClient();
   const { tenant } = useAuth();
 
   const [transferMode, setTransferMode] = useState(null);
@@ -159,9 +161,14 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     const fetchInventory = async () => {
       setLoadingInventory(true);
       try {
-        const res = await fetchApi(
-          `/inventory?warehouseId=${form.sourceWarehouseId}&minAvailable=1&limit=5000`,
-        );
+        // Cacheado bajo ['inventory'] (lo invalida cualquier escritura de stock):
+        // reabrir el diálogo / reelegir la misma bodega = instantáneo.
+        const invUrl = `/inventory?warehouseId=${form.sourceWarehouseId}&minAvailable=1&limit=5000`;
+        const res = await queryClient.fetchQuery({
+          queryKey: ['inventory', tenant?.id, invUrl],
+          queryFn: () => fetchApi(invUrl),
+          staleTime: 120_000,
+        });
         const items = res?.data || [];
         setInventoryItems(items);
         setFilteredProducts(items.slice(0, 20));

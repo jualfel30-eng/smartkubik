@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRightLeft, ChevronRight, Package, Warehouse } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useQueryClient } from '@tanstack/react-query';
 import { getTransferOrders } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth.jsx';
 import { toast } from '@/lib/toast';
 import { STAGGER, listItem } from '@/lib/motion';
 import haptics from '@/lib/haptics';
@@ -65,11 +67,19 @@ export default function MobileTransfersTab({ refreshKey }) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(null);
+  const { tenant } = useAuth();
+  const queryClient = useQueryClient();
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await getTransferOrders({ page: 1, limit: 30 });
+      // Cacheado bajo ['transfers']: reentrar = instantáneo; crear un traslado
+      // (en MobileInventoryPage) invalida ['transfers'] → refetch fresco.
+      const res = await queryClient.fetchQuery({
+        queryKey: ['transfers', tenant?.id, 'mobile-list-30'],
+        queryFn: () => getTransferOrders({ page: 1, limit: 30 }),
+        staleTime: 120_000,
+      });
       const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       setOrders(list);
     } catch {
@@ -77,7 +87,7 @@ export default function MobileTransfersTab({ refreshKey }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [queryClient, tenant?.id]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
 
