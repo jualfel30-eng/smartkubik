@@ -567,13 +567,19 @@ function ModulesStep({ tenant, vConfig, onNext, onBack }) {
 }
 
 // ── Step 5: CTA Final ────────────────────────────────────────
-function CtaStep({ navigate }) {
-  const actions = [
+function CtaStep({ onFinish, enabledModules }) {
+  const allActions = [
     { label: 'Ir al Dashboard', icon: LayoutDashboard, path: '/dashboard', primary: true },
-    { label: 'Configurar Web de Ventas', icon: Globe, path: '/storefront' },
+    { label: 'Configurar Web de Ventas', icon: Globe, path: '/storefront', requiresModule: 'ecommerce' },
     { label: 'Agregar más productos', icon: Package, path: '/inventory-management' },
     { label: 'Invitar equipo', icon: Users, path: '/settings' },
   ];
+  // Hide actions whose destination route is gated behind a module the tenant
+  // does not have enabled — otherwise the button silently bounces to /dashboard
+  // (e.g. /storefront requires enabledModules.ecommerce — see App.jsx routes).
+  const actions = allActions.filter(
+    (action) => !action.requiresModule || enabledModules?.[action.requiresModule],
+  );
 
   return (
     <div className="max-w-lg mx-auto px-6 py-8 text-center">
@@ -596,7 +602,7 @@ function CtaStep({ navigate }) {
             variant={action.primary ? 'default' : 'outline'}
             size="lg"
             className="w-full justify-start"
-            onClick={() => navigate(action.path)}
+            onClick={() => onFinish(action.path)}
           >
             <action.icon className="w-5 h-5 mr-3" />
             {action.label}
@@ -617,30 +623,27 @@ export default function OnboardingWizard() {
   const [direction, setDirection] = useState(1);
   const [addedProducts, setAddedProducts] = useState([]);
 
-  // Persist progress to backend
+  // Persist progress to backend.
+  // The local context is updated optimistically BEFORE the network call so that
+  // route guards (ProtectedRoute) see the completed/skipped flag immediately when
+  // we navigate away — otherwise navigation races the async PATCH and bounces back.
   const persistProgress = useCallback(
-    async (newStep, opts = {}) => {
+    (newStep, opts = {}) => {
       const stepsCompleted = ONBOARDING_STEPS.slice(0, newStep);
-      const payload = {
-        step: newStep,
-        stepsCompleted,
-        ...opts,
-      };
-
-      try {
-        await fetchApi('/tenant/onboarding-progress', {
-          method: 'PATCH',
-          body: JSON.stringify(payload),
-        });
-      } catch {
-        // Non-blocking
-      }
 
       updateTenantContext({
         onboardingStep: newStep,
         onboardingStepsCompleted: stepsCompleted,
         ...(opts.completed ? { onboardingCompleted: true } : {}),
         ...(opts.skipped ? { onboardingCompleted: true } : {}),
+      });
+
+      // Fire-and-forget — UI already advanced optimistically.
+      fetchApi('/tenant/onboarding-progress', {
+        method: 'PATCH',
+        body: JSON.stringify({ step: newStep, stepsCompleted, ...opts }),
+      }).catch(() => {
+        // Non-blocking
       });
     },
     [updateTenantContext],
@@ -671,12 +674,27 @@ export default function OnboardingWizard() {
     navigate('/dashboard', { replace: true });
   }, [persistProgress, navigate]);
 
-  // If wizard is already completed (e.g. user navigated here manually), redirect
+  // Final CTA: mark onboarding completed, then navigate to the chosen destination.
+  // Completion is persisted optimistically (see persistProgress) so ProtectedRoute
+  // lets the target route through instead of bouncing back here.
+  const finishOnboarding = useCallback(
+    (path) => {
+      persistProgress(ONBOARDING_STEPS.length, { completed: true });
+      navigate(path, { replace: true });
+    },
+    [persistProgress, navigate],
+  );
+
+  // If wizard was ALREADY completed when the user landed here (e.g. navigated
+  // manually), redirect once on mount. Guarded with a ref so it does not fire
+  // when we complete the wizard during this session — that would hijack the
+  // destination chosen on the final CTA.
+  const completedOnMountRef = useRef(tenant?.onboardingCompleted);
   useEffect(() => {
-    if (tenant?.onboardingCompleted) {
+    if (completedOnMountRef.current) {
       navigate('/dashboard', { replace: true });
     }
-  }, [tenant?.onboardingCompleted, navigate]);
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -734,7 +752,9 @@ export default function OnboardingWizard() {
                 onBack={goBack}
               />
             )}
-            {step === 5 && <CtaStep navigate={navigate} />}
+            {step === 5 && (
+              <CtaStep onFinish={finishOnboarding} enabledModules={tenant?.enabledModules} />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
