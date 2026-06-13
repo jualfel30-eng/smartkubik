@@ -8,7 +8,10 @@
  * that the orchestrator and its child components need.
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth.jsx';
+import { useInventoryCache } from '@/hooks/useInventoryCache';
 import { toast } from 'sonner';
 
 const DEFAULT_ITEMS_PER_PAGE = 20;
@@ -16,6 +19,9 @@ const SEARCH_ITEMS_PER_PAGE = 100;
 const SEARCH_DEBOUNCE_MS = 600;
 
 export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
+  const { tenant } = useAuth();
+  const queryClient = useQueryClient();
+  const { invalidateInventoryData } = useInventoryCache();
   // --- core data ---
   const [inventoryData, setInventoryData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -254,8 +260,15 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
         params.set('search', safeSearch);
       }
 
+      // Caché por params (React Query): reentrar al módulo / paginar a una página
+      // ya vista = instantáneo. Las mutaciones invalidan ['inventory'] → refetch.
+      const inventoryQueryString = params.toString();
       const [inventoryResponse, binLocationsResponse, warehousesResponse] = await Promise.all([
-        fetchApi(`/inventory?${params.toString()}`),
+        queryClient.fetchQuery({
+          queryKey: ['inventory', tenant?.id, inventoryQueryString],
+          queryFn: () => fetchApi(`/inventory?${inventoryQueryString}`),
+          staleTime: 120_000,
+        }),
         multiWarehouseEnabled ? fetchApi('/bin-locations') : Promise.resolve([]),
         multiWarehouseEnabled ? fetchApi('/warehouses') : Promise.resolve([]),
       ]);
@@ -682,6 +695,7 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
       }
 
       if (successCount > 0) {
+        invalidateInventoryData();
         const addedItems = itemsToAdd.map(item => ({
           productId: item.productId,
           name: item.productName,
@@ -747,6 +761,7 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
       });
       setIsEditDialogOpen(false);
       toast.success('Inventario ajustado correctamente.');
+      invalidateInventoryData();
       await refreshData(currentPage, itemsPerPage, committedSearch);
     } catch (err) {
       toast.error('Error al ajustar inventario', { description: err.message });
@@ -763,6 +778,7 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
 
     try {
       await fetchApi(`/inventory/${id}`, { method: 'DELETE' });
+      invalidateInventoryData();
       toast.success('Inventario eliminado correctamente.');
 
       const itemsInCurrentPage = filteredData.length;
@@ -851,6 +867,7 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
         }),
       });
 
+      invalidateInventoryData();
       toast.success('Transferencia realizada correctamente.');
       setIsTransferDialogOpen(false);
       setTransferForm({
@@ -920,6 +937,7 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
         body: JSON.stringify({ lots: updatedLots }),
       });
 
+      invalidateInventoryData();
       toast.success('Lote actualizado correctamente');
 
       if (response?.data) {

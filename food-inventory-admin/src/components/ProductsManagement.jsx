@@ -28,6 +28,8 @@ import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useAuth } from '@/hooks/use-auth.jsx';
+import { useQueryClient } from '@tanstack/react-query';
+import { useInventoryCache } from '@/hooks/useInventoryCache';
 import { useConsumables } from '@/hooks/useConsumables';
 import { useSupplies } from '@/hooks/useSupplies';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
@@ -610,6 +612,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
   const hasDynamicTemplateColumns = dynamicAttributeLabels.length > 0;
 
   const { tenant } = useAuth();
+  const queryClient = useQueryClient();
+  const { invalidateInventoryData } = useInventoryCache();
   const navigate = useNavigate();
 
   // Get vertical directly from tenant (more reliable than verticalConfig)
@@ -791,7 +795,14 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       }
 
       const queryString = `?${params.toString()}`;
-      const response = await fetchApi(`/products${queryString}`, { signal: controller.signal });
+      // Caché por params (React Query): al reentrar al módulo con los mismos
+      // filtros, devuelve del cache al instante. Las mutaciones invalidan
+      // ['products'] vía invalidateInventoryData → fetchQuery refetcha.
+      const response = await queryClient.fetchQuery({
+        queryKey: ['products', tenant?.id, requestKey],
+        queryFn: () => fetchApi(`/products${queryString}`, { signal: controller.signal }),
+        staleTime: 120_000,
+      });
 
       if (lastFetchRef.current !== requestKey) {
         return;
@@ -1418,6 +1429,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       const response = await fetchApi('/products', { method: 'POST', body: JSON.stringify(payload) });
       const createdProduct = response.data || response;
 
+      // Producto nuevo (puede auto-crear inventario) → refresca el contenedor.
+      invalidateInventoryData();
+
       console.log('🔍 DEBUG - Created Product:', createdProduct);
       console.log('🔍 DEBUG - Product ID:', createdProduct._id);
       console.log('🔍 DEBUG - Product Type:', newProduct.productType);
@@ -1659,6 +1673,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         method: 'PATCH',
         body: JSON.stringify(payload),
       });
+      invalidateInventoryData();
 
       // Success - no need to reload, already updated!
     } catch (err) {
@@ -1746,6 +1761,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         method: 'PATCH',
         body: JSON.stringify(payload)
       });
+      invalidateInventoryData();
       // Only confirm success after the server acknowledges the change.
       toast.success('Actualizado', {
         action: {
@@ -1820,6 +1836,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         method: 'PATCH',
         body: JSON.stringify(payload)
       });
+      invalidateInventoryData();
     } catch (error) {
       console.error("Selling unit inline update failed", error);
       toast.error("Error al guardar cambio");
@@ -1836,6 +1853,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         method: 'PATCH',
         body: JSON.stringify({ isActive: newStatus }),
       });
+      invalidateInventoryData();
       toast.success(newStatus ? `"${product.name}" activado` : `"${product.name}" desactivado`);
     } catch (err) {
       setProducts(previousProducts);
@@ -1860,6 +1878,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
 
       // 2. Delete from backend
       await fetchApi(`/products/${productId}`, { method: 'DELETE' });
+      invalidateInventoryData();
 
       // Success - already removed from UI!
     } catch (err) {
@@ -2275,6 +2294,8 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
       setIsPreviewDialogOpen(false);
       const successMessage = response?.message || `${payload.products.length} productos importados exitosamente.`;
       alert(successMessage);
+      // Invalida ANTES de recargar para que fetchQuery traiga datos frescos.
+      invalidateInventoryData();
       loadProducts(currentPage, pageLimit, statusFilter, searchTerm, filterCategory, defaultProductType); // Recargar la lista de productos
 
     } catch (error) {

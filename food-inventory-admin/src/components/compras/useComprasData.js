@@ -5,7 +5,10 @@
  * slices of state / callbacks to the presentational sub-components.
  */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { fetchApi } from '@/lib/api';
+import { useAuth } from '@/hooks/use-auth.jsx';
+import { useInventoryCache } from '@/hooks/useInventoryCache';
 import { toast } from 'sonner';
 import { compressImage } from '@/lib/imageCompression';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
@@ -22,12 +25,8 @@ export function useComprasData() {
   const { rate: exchangeRate } = useExchangeRate();
   const [usdRate, setUsdRate] = useState(null);
   const [eurRate, setEurRate] = useState(null);
-  const [lowStockProducts, setLowStockProducts] = useState([]);
-  const [lowStockTotal, setLowStockTotal] = useState(0);
-  const [outOfStockTotal, setOutOfStockTotal] = useState(0);
-  const [expiringProducts, setExpiringProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { tenant } = useAuth();
+  const { invalidateInventoryData } = useInventoryCache();
 
   // State for New Product Dialog
   const [isNewProductDialogOpen, setIsNewProductDialogOpen] = useState(false);
@@ -39,7 +38,6 @@ export function useComprasData() {
   const [isNewPurchaseDialogOpen, setIsNewPurchaseDialogOpen] = useState(false);
   const [po, setPo] = useState(initialPoState);
 
-  const [suppliers, setSuppliers] = useState([]);
   const [poLoading, setPoLoading] = useState(false);
   // Snapshot of selected supplier's original data — used to detect edits
   // and persist them via PATCH /customers/:id when the PO is saved
@@ -148,39 +146,46 @@ export function useComprasData() {
     };
   }, [newProduct.inventory.quantity, newProduct.inventory.costPrice, newProduct.inventory.discount, newProduct.documentType, newProduct.actualPaymentMethod, newProduct.ivaApplicable, newProduct.igtfExempt]);
 
-  // --- Data fetching ---
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const [lowStockResp, expiringData, suppliersData] = await Promise.all([
-        // Resumen liviano: items limitados + totales (bajo stock vs agotado),
-        // en vez de traer cientos/miles de docs que la UI no muestra.
+  // --- Data fetching (React Query: cacheado + compartido entre módulos del
+  // contenedor Inventario; reentrar = instantáneo dentro del staleTime) ---
+  const alertsQuery = useQuery({
+    queryKey: ['compras-alerts', tenant?.id],
+    queryFn: async () => {
+      const [lowStockResp, expiringResp] = await Promise.all([
+        // Resumen liviano: items limitados + totales (bajo stock vs agotado).
         fetchApi('/inventory/alerts/low-stock/summary'),
         fetchApi('/inventory/alerts/near-expiration?days=30'),
-        fetchApi('/customers?customerType=supplier')
       ]);
-      const summary = lowStockResp.data || {};
-      setLowStockProducts(summary.items || []);
-      setLowStockTotal(summary.lowStockTotal || 0);
-      setOutOfStockTotal(summary.outOfStockTotal || 0);
-      setExpiringProducts(expiringData.data || []);
-      setSuppliers(suppliersData.data || []);
-    } catch (err) {
-      setError(err.message);
-      setLowStockProducts([]);
-      setLowStockTotal(0);
-      setOutOfStockTotal(0);
-      setExpiringProducts([]);
-      setSuppliers([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return {
+        summary: lowStockResp.data || {},
+        expiring: expiringResp.data || [],
+      };
+    },
+    enabled: !!tenant?.id,
+    staleTime: 120_000,
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const suppliersQuery = useQuery({
+    queryKey: ['suppliers', tenant?.id],
+    queryFn: async () =>
+      (await fetchApi('/customers?customerType=supplier')).data || [],
+    enabled: !!tenant?.id,
+    staleTime: 120_000,
+  });
+
+  const lowStockProducts = alertsQuery.data?.summary?.items || [];
+  const lowStockTotal = alertsQuery.data?.summary?.lowStockTotal || 0;
+  const outOfStockTotal = alertsQuery.data?.summary?.outOfStockTotal || 0;
+  const expiringProducts = alertsQuery.data?.expiring || [];
+  const suppliers = suppliersQuery.data || [];
+  const loading = alertsQuery.isLoading || suppliersQuery.isLoading;
+  const error =
+    alertsQuery.error?.message || suppliersQuery.error?.message || null;
+
+  // Tras escribir (crear producto/PO, recibir) se invalida TODO el contenedor
+  // Inventario para que los demás módulos muestren datos frescos. Reemplaza el
+  // antiguo fetchData() local.
+  const fetchData = invalidateInventoryData;
 
   // Fetch both USD and EUR exchange rates from BCV
   useEffect(() => {
