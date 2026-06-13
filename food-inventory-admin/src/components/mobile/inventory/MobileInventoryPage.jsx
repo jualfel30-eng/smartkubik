@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Package, RefreshCw, Filter, ShoppingCart, AlertTriangle, ArrowLeftRight, ArrowRightLeft, Plus, X } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { fetchApi } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
-import { SPRING, STAGGER, DUR, EASE, listItem } from '@/lib/motion';
+import { STAGGER } from '@/lib/motion';
 import haptics from '@/lib/haptics';
 import { useFabContext } from '@/contexts/FabContext';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
@@ -22,6 +22,7 @@ import MobileProductCatalog from './MobileProductCatalog.jsx';
 import MobileAddInventory from './MobileAddInventory.jsx';
 import MobileTransfersTab from './MobileTransfersTab.jsx';
 import MobileCreateTransfer from './MobileCreateTransfer.jsx';
+import MobilePurchasesTab from './MobilePurchasesTab.jsx';
 
 // Encuentra el ancestro que realmente scrollea (overflow auto/scroll con
 // contenido desbordado). En este layout el scroller real es el contenedor de
@@ -88,7 +89,7 @@ const BASE_TABS = [
   { id: 'stock', label: 'Stock', icon: Package },
   { id: 'movements', label: 'Movimientos', icon: ArrowLeftRight },
   { id: 'alerts', label: 'Alertas', icon: AlertTriangle },
-  { id: 'orders', label: 'Pedidos', icon: ShoppingCart },
+  { id: 'orders', label: 'Compras', icon: ShoppingCart },
 ];
 
 function TabPills({ tabs, activeTab, onTabChange, alertCount }) {
@@ -229,17 +230,15 @@ export default function MobileInventoryPage() {
   const [inventory, setInventory] = useState([]);
   const [movements, setMovements] = useState([]);
   const [alerts, setAlerts] = useState([]);
-  const [orders, setOrders] = useState([]);
   const [alertCount, setAlertCount] = useState(0);
 
   // Loading per tab
   const [loadingStock, setLoadingStock] = useState(true);
   const [loadingMovements, setLoadingMovements] = useState(false);
   const [loadingAlerts, setLoadingAlerts] = useState(false);
-  const [loadingOrders, setLoadingOrders] = useState(false);
 
   // Track which tabs have been loaded
-  const loadedTabs = useRef({ stock: false, movements: false, alerts: false, orders: false });
+  const loadedTabs = useRef({ stock: false, movements: false, alerts: false });
 
   // UI state
   const [search, setSearch] = useState('');
@@ -255,6 +254,7 @@ export default function MobileInventoryPage() {
   const [addingInventory, setAddingInventory] = useState(false);
   const [creatingTransfer, setCreatingTransfer] = useState(false);
   const [transfersKey, setTransfersKey] = useState(0);
+  const [purchasesKey, setPurchasesKey] = useState(0);
 
   // ─── Data loaders ───────────────────────────────────────────────────────
   const loadStock = useCallback(async () => {
@@ -317,20 +317,6 @@ export default function MobileInventoryPage() {
     }
   }, []);
 
-  const loadOrders = useCallback(async () => {
-    try {
-      setLoadingOrders(true);
-      const res = await fetchApi('/purchases?limit=20&sort=-createdAt');
-      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-      setOrders(list);
-      loadedTabs.current.orders = true;
-    } catch {
-      toast.error('Error al cargar pedidos');
-    } finally {
-      setLoadingOrders(false);
-    }
-  }, []);
-
   // Initial load
   useEffect(() => { loadStock(); }, [loadStock]);
 
@@ -338,17 +324,16 @@ export default function MobileInventoryPage() {
   useEffect(() => {
     if (activeTab === 'movements' && !loadedTabs.current.movements) loadMovements();
     if (activeTab === 'alerts' && !loadedTabs.current.alerts) loadAlerts();
-    if (activeTab === 'orders' && !loadedTabs.current.orders) loadOrders();
-  }, [activeTab, loadMovements, loadAlerts, loadOrders]);
+  }, [activeTab, loadMovements, loadAlerts]);
 
   // Refresh current tab
   const refreshTab = useCallback(async () => {
     if (activeTab === 'stock') await loadStock();
     else if (activeTab === 'movements') await loadMovements();
     else if (activeTab === 'alerts') await loadAlerts();
-    else if (activeTab === 'orders') await loadOrders();
+    else if (activeTab === 'orders') setPurchasesKey((k) => k + 1);
     else if (activeTab === 'transfers') setTransfersKey((k) => k + 1);
-  }, [activeTab, loadStock, loadMovements, loadAlerts, loadOrders]);
+  }, [activeTab, loadStock, loadMovements, loadAlerts]);
 
   // Pull to refresh
   const pull = usePullToRefresh(refreshTab);
@@ -475,8 +460,9 @@ export default function MobileInventoryPage() {
     setCreatingPO(false);
     setPoPreselect(null);
     if (saved) {
-      loadedTabs.current.orders = false;
-      if (activeTab === 'orders') loadOrders();
+      setPurchasesKey((k) => k + 1);
+      loadStock();
+      loadedTabs.current.alerts = false;
     }
   };
 
@@ -732,39 +718,9 @@ export default function MobileInventoryPage() {
           </div>
         )}
 
-        {/* ── Orders tab ────────────────────────────────────────────────── */}
+        {/* ── Compras tab ───────────────────────────────────────────────── */}
         {activeTab === 'orders' && (
-          <div className="px-4 pb-24">
-            {loadingOrders ? (
-              <MobileListSkeleton count={4} height="h-20" className="pt-4" />
-            ) : orders.length === 0 ? (
-              <MobileEmptyState
-                icon={ShoppingCart}
-                title="Sin órdenes de compra"
-                description="Crea tu primera orden de compra desde aquí"
-                action={
-                  <button
-                    type="button"
-                    onClick={() => setCreatingPO(true)}
-                    className="px-4 py-2.5 rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground text-sm font-semibold no-tap-highlight"
-                  >
-                    + Nueva compra
-                  </button>
-                }
-              />
-            ) : (
-              <motion.div
-                className="space-y-2 pt-4"
-                variants={STAGGER(0.03)}
-                initial="initial"
-                animate="animate"
-              >
-                {orders.map((order) => (
-                  <OrderCard key={order._id} order={order} />
-                ))}
-              </motion.div>
-            )}
-          </div>
+          <MobilePurchasesTab refreshKey={purchasesKey} />
         )}
 
         {/* ── Transfers tab ─────────────────────────────────────────────── */}
@@ -848,79 +804,3 @@ function FilterChip({ label, onRemove }) {
   );
 }
 
-const STATUS_COLORS = {
-  draft: 'bg-muted text-muted-foreground',
-  sent: 'bg-blue-500/10 text-blue-500',
-  partially_received: 'bg-amber-500/10 text-amber-500',
-  received: 'bg-emerald-500/10 text-emerald-600',
-  completed: 'bg-emerald-500/10 text-emerald-600',
-  cancelled: 'bg-destructive/10 text-destructive',
-};
-
-const STATUS_LABELS = {
-  draft: 'Borrador',
-  sent: 'Enviada',
-  partially_received: 'Parcial',
-  received: 'Recibida',
-  completed: 'Completada',
-  cancelled: 'Cancelada',
-};
-
-function OrderCard({ order }) {
-  const [expanded, setExpanded] = useState(false);
-  const status = order.status || 'draft';
-  const supplierName = order.supplierName || order.supplier?.companyName || order.supplier?.name || 'Proveedor';
-  const itemCount = order.items?.length || 0;
-  const total = Number(order.totalAmount || 0);
-  const date = order.purchaseDate || order.createdAt;
-
-  return (
-    <motion.div
-      variants={listItem}
-      className="bg-card border border-border rounded-[var(--mobile-radius-lg)] overflow-hidden"
-    >
-      <button
-        type="button"
-        onClick={() => { haptics.tap(); setExpanded((e) => !e); }}
-        className="w-full text-left p-4 no-tap-highlight active:bg-muted/30 transition-colors"
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold truncate">{supplierName}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {itemCount} producto{itemCount !== 1 ? 's' : ''}
-              {date && ` · ${new Date(date).toLocaleDateString('es', { day: 'numeric', month: 'short' })}`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-sm font-bold tabular-nums">${total.toFixed(2)}</span>
-            <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', STATUS_COLORS[status] || STATUS_COLORS.draft)}>
-              {STATUS_LABELS[status] || status}
-            </span>
-          </div>
-        </div>
-      </button>
-
-      <AnimatePresence>
-        {expanded && order.items?.length > 0 && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: DUR.base, ease: EASE.out }}
-            className="overflow-hidden"
-          >
-            <div className="px-4 pb-4 pt-1 border-t border-border space-y-1.5">
-              {order.items.map((item, idx) => (
-                <div key={idx} className="flex justify-between text-xs">
-                  <span className="truncate flex-1">{item.productName || item.productSku} × {item.quantity}</span>
-                  <span className="tabular-nums ml-2">${(item.quantity * item.costPrice).toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-}
