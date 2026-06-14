@@ -108,6 +108,15 @@ export default function MobileMoreMenu() {
   const navLinkMap = useMemo(() => {
     const map = {};
     for (const item of navLinks) map[item.href] = item;
+    // Hijos de submenús: resolverlos también para poder enlazarlos directo en
+    // el menú "Más" (ej. orders/history). Heredan el permiso del padre si no
+    // definen uno propio; los padres siempre tienen prioridad.
+    for (const item of navLinks) {
+      if (!Array.isArray(item.children)) continue;
+      for (const child of item.children) {
+        if (!map[child.href]) map[child.href] = { permission: item.permission, ...child };
+      }
+    }
     return map;
   }, [navLinks]);
 

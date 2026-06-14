@@ -97,7 +97,7 @@ export function getNavLinks(tenant) {
       permission: 'orders_read',
       children: [
         { name: 'Nueva Orden', href: 'orders/new', icon: PlusCircle },
-        { name: 'Historial', href: 'orders/history', icon: List },
+        { name: 'Pedidos', href: 'orders/history', icon: List },
       ]
     },
     {

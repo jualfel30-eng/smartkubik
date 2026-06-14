@@ -17,7 +17,9 @@ export const MOBILE_NAV_GROUPS = [
       'inventory-management',
       'purchases',
       'cash-register',
-      'orders',
+      // "Pedidos" → historial (lista). Crear venta ya está en el FAB y, en
+      // comercio, orders/history se auto-excluye por estar en el bottom-nav.
+      'orders/history',
       'production',
       'fulfillment',
       'driver',
