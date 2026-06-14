@@ -136,7 +136,9 @@ export default function MobileMoreMenu() {
     for (const group of MOBILE_NAV_GROUPS) {
       const items = [];
       for (const href of group.hrefs) {
-        if (bottomNavExclusions.has(href)) continue;
+        // "Pedidos" (orders/history) se muestra en Más aunque esté en la barra
+        // inferior: ahí es solo un ícono sin label y los usuarios lo buscan aquí.
+        if (href !== 'orders/history' && bottomNavExclusions.has(href)) continue;
         const item = navLinkMap[href];
         if (!item) continue;
         if (!isNavItemVisible(item, filterCtx)) continue;
