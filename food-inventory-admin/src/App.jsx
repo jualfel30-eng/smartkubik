@@ -50,6 +50,7 @@ import { NotificationCenter } from './components/NotificationCenter.jsx';
 import { PaymentRequestsBadge } from './components/payment-requests/PaymentRequestsBadge.jsx';
 import TrialBanner from './components/TrialBanner.jsx';
 import { CountryPluginProvider } from './country-plugins/CountryPluginContext.jsx';
+import { PwaInstallProvider } from './hooks/use-pwa-install.jsx';
 import { TenantPickerDialog } from '@/components/auth/TenantPickerDialog.jsx';
 import {
   Sidebar,
@@ -942,7 +943,9 @@ function App() {
           <AuthProvider>
             <CountryPluginProvider>
               <NotificationProvider>
-                <AppContent />
+                <PwaInstallProvider>
+                  <AppContent />
+                </PwaInstallProvider>
               </NotificationProvider>
             </CountryPluginProvider>
           </AuthProvider>

@@ -1,18 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Download, X, Share } from 'lucide-react';
+import { usePwaInstall } from '@/hooks/use-pwa-install';
 
 const DISMISS_KEY = 'smk_a2hs_dismissed_at';
 const DISMISS_DAYS = 14;
 
-function isIos() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent || '');
-}
-function isStandalone() {
-  return (
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true
-  );
-}
 function wasRecentlyDismissed() {
   const raw = localStorage.getItem(DISMISS_KEY);
   if (!raw) return false;
@@ -22,33 +14,27 @@ function wasRecentlyDismissed() {
 }
 
 export default function MobileInstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const { ios, isStandalone, canPromptInstall, promptInstall } = usePwaInstall();
   const [visible, setVisible] = useState(false);
   const [iosHint, setIosHint] = useState(false);
 
   useEffect(() => {
-    if (isStandalone() || wasRecentlyDismissed()) return;
+    if (isStandalone || wasRecentlyDismissed()) return;
 
-    const onBeforeInstall = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
+    // Android/Chrome: el prompt nativo ya está disponible → mostrar banner.
+    if (canPromptInstall) {
       setVisible(true);
-    };
-    window.addEventListener('beforeinstallprompt', onBeforeInstall);
-
-    // iOS no dispara beforeinstallprompt → mostrar hint manual tras 30s
-    if (isIos()) {
-      const t = setTimeout(() => {
-        if (!isStandalone()) setIosHint(true);
-      }, 30_000);
-      return () => {
-        clearTimeout(t);
-        window.removeEventListener('beforeinstallprompt', onBeforeInstall);
-      };
+      return;
     }
 
-    return () => window.removeEventListener('beforeinstallprompt', onBeforeInstall);
-  }, []);
+    // iOS no dispara beforeinstallprompt → mostrar hint manual tras 30s.
+    if (ios) {
+      const t = setTimeout(() => {
+        if (!isStandalone) setIosHint(true);
+      }, 30_000);
+      return () => clearTimeout(t);
+    }
+  }, [isStandalone, canPromptInstall, ios]);
 
   const dismiss = () => {
     localStorage.setItem(DISMISS_KEY, String(Date.now()));
@@ -57,11 +43,8 @@ export default function MobileInstallPrompt() {
   };
 
   const install = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const choice = await deferredPrompt.userChoice;
+    const choice = await promptInstall();
     if (choice.outcome === 'dismissed') dismiss();
-    setDeferredPrompt(null);
     setVisible(false);
   };
 

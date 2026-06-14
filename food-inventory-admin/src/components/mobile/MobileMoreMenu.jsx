@@ -14,6 +14,7 @@ import { MOBILE_NAV_GROUPS, getBottomNavHrefs } from '@/config/mobileNavGroups';
 import { useMobileVertical } from '@/hooks/use-mobile-vertical';
 import { STAGGER, listItem, EASE } from '@/lib/motion';
 import haptics from '@/lib/haptics';
+import MobileInstallCard from './MobileInstallCard';
 
 // ── Color gradients per group (matches onboarding icon orb pattern) ──
 const GROUP_GRADIENT = {
@@ -193,6 +194,9 @@ export default function MobileMoreMenu() {
           />
         </div>
       </div>
+
+      {/* Install app (PWA) — solo cuando no hay búsqueda activa */}
+      {!searchQuery.trim() && <MobileInstallCard />}
 
       {/* Grouped Sections */}
       <AnimatePresence mode="popLayout">
