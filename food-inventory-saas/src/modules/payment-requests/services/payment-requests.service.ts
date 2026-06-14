@@ -12,11 +12,20 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 import { Order, OrderDocument } from "../../../schemas/order.schema";
 import {
+  BeautyBooking,
+  BeautyBookingDocument,
+} from "../../../schemas/beauty-booking.schema";
+import {
+  BeautyService,
+  BeautyServiceDocument,
+} from "../../../schemas/beauty-service.schema";
+import {
   TenantPaymentConfig,
   TenantPaymentConfigDocument,
 } from "../../../schemas/tenant-payment-config.schema";
 import { Tenant, TenantDocument } from "../../../schemas/tenant.schema";
 import { PaymentsService } from "../../payments/payments.service";
+import { AccountingService } from "../../accounting/accounting.service";
 import {
   PAYMENT_REQUEST_STATUSES,
   PaymentProofMethod,
@@ -100,6 +109,10 @@ export class PaymentRequestsService {
     private readonly paymentRequestModel: Model<PaymentRequestDocument>,
     @InjectModel(Order.name)
     private readonly orderModel: Model<OrderDocument>,
+    @InjectModel(BeautyBooking.name)
+    private readonly beautyBookingModel: Model<BeautyBookingDocument>,
+    @InjectModel(BeautyService.name)
+    private readonly beautyServiceModel: Model<BeautyServiceDocument>,
     @InjectModel(TenantPaymentConfig.name)
     private readonly tenantPaymentConfigModel: Model<TenantPaymentConfigDocument>,
     @InjectModel(Tenant.name)
@@ -110,6 +123,7 @@ export class PaymentRequestsService {
     private readonly storage: PaymentProofStorageAdapter,
     private readonly notifications: PaymentRequestNotificationsService,
     private readonly paymentsService: PaymentsService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   // ════════════════════════════════════════════════════════════════════════
@@ -436,45 +450,55 @@ export class PaymentRequestsService {
     }
 
     const paymentIds: Types.ObjectId[] = [];
+    let confirmPayload: Record<string, any> = {};
 
-    if (pr.entityType !== "order") {
-      // PR1 ships order linkage. Appointment/invoice Payment generation
-      // requires per-vertical service wiring — they'll land alongside
-      // their respective storefront UIs.
+    if (pr.entityType === "order") {
+      const userCtx = { tenantId, id: actor.userId };
+
+      for (const proof of acceptedProofs) {
+        const created = await this.paymentsService.create(
+          {
+            paymentType: "sale",
+            orderId: pr.entityId.toString(),
+            date: new Date().toISOString(),
+            amount: proof.amount,
+            currency: proof.currency,
+            method:
+              pr.selectedMethod.methodId ||
+              this.proofMethodToLegacyMethod(proof.method, proof.currency),
+            reference: proof.referenceNumber,
+            status: "confirmed",
+            idempotencyKey: `pr_${pr._id}_${proof._id}`,
+          },
+          userCtx,
+        );
+        paymentIds.push(created._id as Types.ObjectId);
+      }
+
+      pr.paymentIds.push(...paymentIds);
+      confirmPayload = { paymentIds: paymentIds.map((id) => id.toString()) };
+    } else if (pr.entityType === "appointment") {
+      // Beauty: el depósito se registra como asiento contable (Anticipos de
+      // Clientes) y marca la reserva como deposit_paid + confirmed.
+      const journalEntryId = await this.confirmAppointmentDeposit(
+        tenantId,
+        pr,
+        acceptedProofs,
+      );
+      confirmPayload = { journalEntryId };
+    } else {
+      // invoice — aún diferido
       throw new NotImplementedException(
         `Confirmación de PaymentRequest para entityType=${pr.entityType} llegará en un release próximo`,
       );
     }
 
-    const userCtx = { tenantId, id: actor.userId };
-
-    for (const proof of acceptedProofs) {
-      const created = await this.paymentsService.create(
-        {
-          paymentType: "sale",
-          orderId: pr.entityId.toString(),
-          date: new Date().toISOString(),
-          amount: proof.amount,
-          currency: proof.currency,
-          method:
-            pr.selectedMethod.methodId ||
-            this.proofMethodToLegacyMethod(proof.method, proof.currency),
-          reference: proof.referenceNumber,
-          status: "confirmed",
-          idempotencyKey: `pr_${pr._id}_${proof._id}`,
-        },
-        userCtx,
-      );
-      paymentIds.push(created._id as Types.ObjectId);
-    }
-
-    pr.paymentIds.push(...paymentIds);
     pr.events.push({
       at: new Date(),
       actor: "tenant",
       actorId: new Types.ObjectId(actor.userId),
       type: "confirmed",
-      payload: { paymentIds: paymentIds.map((id) => id.toString()) },
+      payload: confirmPayload,
     });
 
     this.applyStatusTransition(pr, "confirmed", "tenant");
@@ -1062,6 +1086,10 @@ export class PaymentRequestsService {
     customerPhone?: string;
     allowMethodOverride?: boolean;
   }> {
+    if (entityType === "appointment") {
+      return this.resolveAppointmentSnapshot(tenantId, entityId);
+    }
+
     if (entityType !== "order") {
       throw new NotImplementedException(
         `PaymentRequest para entityType=${entityType} llegará en un release próximo`,
@@ -1120,6 +1148,178 @@ export class PaymentRequestsService {
       customerPhone: order.customerPhone,
       allowMethodOverride: (order as any).source !== "storefront",
     };
+  }
+
+  /**
+   * Snapshot + monto del depósito para una reserva de beauty (BeautyBooking).
+   * El depósito se calcula por servicio (requiresDeposit/depositType/depositAmount).
+   * Currency USD (los servicios cotizan en USD, igual que el path de order).
+   */
+  private async resolveAppointmentSnapshot(
+    tenantId: string,
+    entityId: string,
+  ): Promise<{
+    snapshot: any;
+    amountDue: number;
+    currency: "USD" | "VES";
+    customerPhone?: string;
+    allowMethodOverride?: boolean;
+  }> {
+    if (!Types.ObjectId.isValid(entityId)) {
+      throw new BadRequestException("entityId inválido");
+    }
+
+    const booking = await this.beautyBookingModel.findOne({
+      _id: new Types.ObjectId(entityId),
+      $or: [{ tenantId }, { tenantId: new Types.ObjectId(tenantId) }],
+    });
+    if (!booking) {
+      throw new NotFoundException("Reserva no encontrada");
+    }
+
+    const bookingServices: any[] = (booking as any).services || [];
+    const serviceIds = bookingServices
+      .map((s) => s.service)
+      .filter(Boolean)
+      .map((id) => new Types.ObjectId(id.toString()));
+
+    const serviceConfigs = await this.beautyServiceModel
+      .find({
+        _id: { $in: serviceIds },
+        $or: [{ tenantId }, { tenantId: new Types.ObjectId(tenantId) }],
+      })
+      .lean();
+
+    const configById = new Map(
+      serviceConfigs.map((s: any) => [s._id.toString(), s]),
+    );
+
+    const amountDue = this.computeBeautyBookingDeposit(
+      bookingServices,
+      configById,
+    );
+    if (amountDue <= 0) {
+      throw new BadRequestException(
+        "La reserva no requiere depósito o el monto calculado es 0",
+      );
+    }
+
+    const client = (booking as any).client || {};
+    const snapshot = {
+      items: bookingServices.map((s) => ({
+        name: s.name,
+        qty: 1,
+        unitPrice: s.price ?? 0,
+        total: s.price ?? 0,
+      })),
+      subtotal: (booking as any).totalPrice ?? 0,
+      tax: 0,
+      total: (booking as any).totalPrice ?? 0,
+      customerName: client.name,
+      customerPhone: client.phone,
+      createdAt: (booking as any).createdAt,
+    };
+
+    return {
+      snapshot,
+      amountDue,
+      currency: "USD",
+      customerPhone: client.phone,
+      allowMethodOverride: true,
+    };
+  }
+
+  /**
+   * Suma el depósito de los servicios de la reserva que lo requieren.
+   * percentage → price * depositAmount / 100 · fixed → depositAmount.
+   */
+  private computeBeautyBookingDeposit(
+    bookingServices: any[],
+    configById: Map<string, any>,
+  ): number {
+    let total = 0;
+    for (const bs of bookingServices) {
+      const cfg = configById.get(bs.service?.toString());
+      if (!cfg || !cfg.requiresDeposit) continue;
+      const price = bs.price ?? 0;
+      total +=
+        cfg.depositType === "percentage"
+          ? (price * (cfg.depositAmount || 0)) / 100
+          : cfg.depositAmount || 0;
+    }
+    return Math.round(total * 100) / 100;
+  }
+
+  /**
+   * Confirma el depósito de una reserva de beauty: genera el asiento contable
+   * (Anticipos de Clientes) y marca la reserva como pagada/confirmada.
+   * Devuelve el id del asiento (o null si el posteo contable falló — la
+   * confirmación de la reserva no se bloquea por contabilidad).
+   */
+  private async confirmAppointmentDeposit(
+    tenantId: string,
+    pr: PaymentRequestDocument,
+    acceptedProofs: PaymentRequest["proofs"],
+  ): Promise<string | null> {
+    const booking = await this.beautyBookingModel.findOne({
+      _id: pr.entityId,
+      $or: [{ tenantId }, { tenantId: new Types.ObjectId(tenantId) }],
+    });
+    if (!booking) {
+      throw new NotFoundException("Reserva no encontrada");
+    }
+
+    const paidAmount = acceptedProofs.reduce(
+      (sum, p) => sum + (p.amount || 0),
+      0,
+    );
+    const primaryProof = acceptedProofs[0];
+    const method =
+      pr.selectedMethod?.label || primaryProof?.method || "manual";
+    const serviceName = ((booking as any).services || [])
+      .map((s: any) => s.name)
+      .filter(Boolean)
+      .join(", ");
+    const client = (booking as any).client || {};
+
+    let journalEntryId: string | null = null;
+    try {
+      const entry = await this.accountingService.createJournalEntryForManualDeposit(
+        {
+          tenantId,
+          amount: paidAmount,
+          currency: pr.currency,
+          appointmentId: booking._id.toString(),
+          appointmentNumber: (booking as any).bookingNumber,
+          customerName: client.name,
+          serviceName,
+          reference: primaryProof?.referenceNumber,
+          method,
+          transactionDate: new Date(),
+        },
+      );
+      journalEntryId = entry?._id ? entry._id.toString() : null;
+    } catch (err) {
+      // No bloquear la confirmación de la reserva si el asiento falla.
+      this.logger.error(
+        `No se pudo generar el asiento del depósito para booking ${booking._id}: ${err.message}`,
+      );
+    }
+
+    (booking as any).depositInfo = {
+      amount: paidAmount,
+      paid: true,
+      paidAt: new Date(),
+      method,
+    };
+    (booking as any).depositRequired = true;
+    (booking as any).paymentStatus = "deposit_paid";
+    if ((booking as any).status === "pending") {
+      (booking as any).status = "confirmed";
+    }
+    await booking.save();
+
+    return journalEntryId;
   }
 
   private async attemptWhatsappDelivery(

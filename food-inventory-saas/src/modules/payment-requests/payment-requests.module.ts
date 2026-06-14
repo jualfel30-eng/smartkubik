@@ -5,6 +5,15 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { ScheduleModule } from "@nestjs/schedule";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import {
+  BeautyBooking,
+  BeautyBookingSchema,
+} from "../../schemas/beauty-booking.schema";
+import {
+  BeautyService,
+  BeautyServiceSchema,
+} from "../../schemas/beauty-service.schema";
+import { AccountingModule } from "../accounting/accounting.module";
+import {
   Notification,
   NotificationSchema,
 } from "../../schemas/notification.schema";
@@ -45,6 +54,8 @@ import { PaymentTokenGuard } from "./guards/payment-token.guard";
       { name: Tenant.name, schema: TenantSchema },
       { name: User.name, schema: UserSchema },
       { name: Notification.name, schema: NotificationSchema },
+      { name: BeautyBooking.name, schema: BeautyBookingSchema },
+      { name: BeautyService.name, schema: BeautyServiceSchema },
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -54,6 +65,7 @@ import { PaymentTokenGuard } from "./guards/payment-token.guard";
       inject: [ConfigService],
     }),
     PaymentsModule,
+    AccountingModule,
     MarketingModule,
     NotificationCenterModule,
   ],
