@@ -123,7 +123,7 @@ const DocsLanding = lazy(() => import('./pages/DocsLanding.jsx'));
 const DocsCategoryPage = lazy(() => import('./pages/DocsCategoryPage.jsx'));
 const TimeClock = lazy(() => import('./pages/TimeClock.jsx'));
 const DocsArticle = lazy(() => import('./pages/DocsArticle.jsx'));
-const ComprasManagement = lazy(() => import('@/components/ComprasManagement.jsx'));
+const PurchasesRouteGate = lazy(() => import('./components/mobile/inventory/PurchasesRouteGate.jsx'));
 const BankAccountsManagement = lazy(() => import('@/components/BankAccountsManagement.jsx'));
 const BankAccountsRouteGate = lazy(() => import('@/components/mobile/bank-accounts/BankAccountsRouteGate.jsx'));
 const FixedAssetsView = lazy(() => import('@/components/FixedAssetsView.jsx'));
@@ -677,7 +677,7 @@ function TenantLayout() {
                     <WhatsAppInbox />
                   </CrmProvider>
                 } />
-                <Route path="purchases" element={<ComprasManagement />} />
+                <Route path="purchases" element={<PurchasesRouteGate />} />
                 <Route path="accounts-payable" element={<PayablesManagement />} />
                 <Route path="accounting" element={<AccountingManagement />} />
                 <Route path="accounting/reports/accounts-receivable" element={<AccountsReceivableReport />} />

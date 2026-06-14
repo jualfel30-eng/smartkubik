@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Package, RefreshCw, Filter, ShoppingCart, AlertTriangle, ArrowLeftRight, ArrowRightLeft, Plus, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
@@ -26,6 +27,24 @@ import MobileAddInventory from './MobileAddInventory.jsx';
 import MobileTransfersTab from './MobileTransfersTab.jsx';
 import MobileCreateTransfer from './MobileCreateTransfer.jsx';
 import MobilePurchasesTab from './MobilePurchasesTab.jsx';
+
+// Mapea el ?tab= del deep-link (nombres del nav/desktop) al estado interno
+// { mode, tab }. Permite que enlaces como /inventory-management?tab=purchases
+// abran directamente el tab correcto en móvil (Compras, Traslados, etc.).
+const URL_TAB_MAP = {
+  products: { mode: 'products' },
+  catalog: { mode: 'products' },
+  'raw-materials': { mode: 'products' },
+  stock: { mode: 'operations', tab: 'stock' },
+  inventory: { mode: 'operations', tab: 'stock' },
+  purchases: { mode: 'operations', tab: 'orders' },
+  orders: { mode: 'operations', tab: 'orders' },
+  alerts: { mode: 'operations', tab: 'alerts' },
+  'inventory-alerts': { mode: 'operations', tab: 'alerts' },
+  transfers: { mode: 'operations', tab: 'transfers' },
+  movements: { mode: 'operations', tab: 'movements' },
+  'inventory-movements': { mode: 'operations', tab: 'movements' },
+};
 
 // Encuentra el ancestro que realmente scrollea (overflow auto/scroll con
 // contenido desbordado). En este layout el scroller real es el contenedor de
@@ -224,8 +243,11 @@ export default function MobileInventoryPage() {
     ...(transfersEnabled ? [{ id: 'transfers', label: 'Traslados', icon: ArrowRightLeft }] : []),
     { id: 'movements', label: 'Movimientos', icon: ArrowLeftRight },
   ], [transfersEnabled]);
-  const [mode, setMode] = useState('products'); // 'products' | 'operations'
-  const [activeTab, setActiveTab] = useState('stock');
+  // Deep-link: lee ?tab= una vez al montar para abrir el tab pedido.
+  const [searchParams] = useSearchParams();
+  const initialFromUrl = URL_TAB_MAP[searchParams.get('tab')] || null;
+  const [mode, setMode] = useState(initialFromUrl?.mode ?? 'products'); // 'products' | 'operations'
+  const [activeTab, setActiveTab] = useState(initialFromUrl?.tab ?? 'stock');
 
   // Data state
   const [inventory, setInventory] = useState([]);
