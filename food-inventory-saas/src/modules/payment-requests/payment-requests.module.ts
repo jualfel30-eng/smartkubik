@@ -17,6 +17,7 @@ import {
   StorefrontConfigSchema,
 } from "../../schemas/storefront-config.schema";
 import { AccountingModule } from "../accounting/accounting.module";
+import { ExchangeRateModule } from "../exchange-rate/exchange-rate.module";
 import {
   Notification,
   NotificationSchema,
@@ -71,6 +72,7 @@ import { PaymentTokenGuard } from "./guards/payment-token.guard";
     }),
     PaymentsModule,
     AccountingModule,
+    ExchangeRateModule,
     MarketingModule,
     NotificationCenterModule,
   ],

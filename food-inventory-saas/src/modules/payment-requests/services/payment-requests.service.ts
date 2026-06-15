@@ -30,6 +30,7 @@ import {
 import { Tenant, TenantDocument } from "../../../schemas/tenant.schema";
 import { PaymentsService } from "../../payments/payments.service";
 import { AccountingService } from "../../accounting/accounting.service";
+import { ExchangeRateService } from "../../exchange-rate/exchange-rate.service";
 import { computeBeautyBookingDeposit } from "../../beauty/utils/deposit.util";
 import {
   PAYMENT_REQUEST_STATUSES,
@@ -131,6 +132,7 @@ export class PaymentRequestsService {
     private readonly notifications: PaymentRequestNotificationsService,
     private readonly paymentsService: PaymentsService,
     private readonly accountingService: AccountingService,
+    private readonly exchangeRateService: ExchangeRateService,
   ) {}
 
   // ════════════════════════════════════════════════════════════════════════
@@ -1188,6 +1190,7 @@ export class PaymentRequestsService {
     snapshot: any;
     amountDue: number;
     currency: "USD" | "VES";
+    exchangeRate?: number;
     customerPhone?: string;
     allowMethodOverride?: boolean;
   }> {
@@ -1243,10 +1246,25 @@ export class PaymentRequestsService {
       createdAt: (booking as any).createdAt,
     };
 
+    // Tasa BCV del día (USD→VES). Se congela en el PR (exchangeRateSnapshot)
+    // para que el portal muestre el monto en Bs y pre-llene el comprobante de
+    // métodos en bolívares (pago móvil / transferencia VES). Mismo mecanismo
+    // que el path de órdenes. Si la API falla, degrada a solo USD.
+    let exchangeRate: number | undefined;
+    try {
+      const bcv = await this.exchangeRateService.getBCVRate();
+      if (bcv?.rate && bcv.rate > 0) exchangeRate = bcv.rate;
+    } catch (err) {
+      this.logger.warn(
+        `No se pudo obtener la tasa BCV para el depósito de la reserva ${entityId}: ${err.message}`,
+      );
+    }
+
     return {
       snapshot,
       amountDue,
       currency: "USD",
+      exchangeRate,
       customerPhone: client.phone,
       allowMethodOverride: true,
     };
