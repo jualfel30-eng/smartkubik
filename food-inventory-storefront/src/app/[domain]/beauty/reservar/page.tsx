@@ -249,6 +249,15 @@ export default function BookingPage() {
       });
 
       try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+
+      // Si la reserva requiere depósito, llevar al cliente al portal de pago
+      // (/pago/[token]) en vez de a la confirmación. La cita queda en hold
+      // hasta que el negocio valide el comprobante.
+      if (booking.depositPayment?.url) {
+        window.location.href = booking.depositPayment.url;
+        return;
+      }
+
       router.push(`/${domain}/beauty/reserva/${booking.bookingNumber}`);
     } catch (err: any) {
       const msg = err.message || 'Error al crear la reserva';

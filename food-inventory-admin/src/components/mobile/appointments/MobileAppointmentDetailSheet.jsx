@@ -8,6 +8,7 @@ import MobileActionSheet from '../MobileActionSheet.jsx';
 import MobilePOS from '../pos/MobilePOS.jsx';
 import CommissionSetupPrompt, { shouldShowCommissionPrompt } from '@/components/beauty/CommissionSetupPrompt.jsx';
 import { fetchApi, cancelBeautyBookingSeries } from '@/lib/api';
+import { resendPaymentLink } from '@/lib/paymentRequestsApi';
 import { toast } from '@/lib/toast';
 import haptics from '@/lib/haptics';
 import { useFabContext } from '@/contexts/FabContext';
@@ -359,12 +360,29 @@ export default function MobileAppointmentDetailSheet({ appointment, endpoint, on
                 {appointment?.depositInfo?.paid ? (
                   <span className="text-xs text-green-700 font-medium">✓ Depósito pagado</span>
                 ) : (
-                  <button
-                    onClick={() => setDepositDialogOpen(true)}
-                    className="w-full border border-orange-300 text-orange-700 py-2 rounded-lg text-sm"
-                  >
-                    Registrar depósito
-                  </button>
+                  <div className="space-y-2">
+                    {appointment?.paymentRequestId && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await resendPaymentLink(appointment.paymentRequestId, { phone });
+                            toast.success('Link de pago reenviado por WhatsApp');
+                          } catch (e) {
+                            toast.error(e?.message || 'No se pudo reenviar el link');
+                          }
+                        }}
+                        className="w-full border border-blue-300 text-blue-700 py-2 rounded-lg text-sm"
+                      >
+                        Reenviar link de pago
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setDepositDialogOpen(true)}
+                      className="w-full border border-orange-300 text-orange-700 py-2 rounded-lg text-sm"
+                    >
+                      Registrar depósito
+                    </button>
+                  </div>
                 )}
               </div>
             )}

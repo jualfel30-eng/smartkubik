@@ -162,6 +162,16 @@ export interface Booking {
     sentAt: string;
     status: string;
   }>;
+  /**
+   * Presente cuando la reserva requiere depósito: el backend creó la Solicitud
+   * de Pago y `url` apunta al portal (/pago/[token]) para completar el pago.
+   */
+  depositPayment?: {
+    required: boolean;
+    amount: number;
+    url: string;
+    paymentRequestId?: string;
+  };
 }
 
 /**

@@ -89,7 +89,9 @@ Cliente paga en /pago/[token] → sube comprobante → PR.status='proof_submitte
 
 > **⚠️ Hallazgo arquitectónico:** Beauty usa el modelo **`BeautyBooking`** (controllers `/beauty-bookings`), NO el `Appointment` del módulo `appointments` (ese es para hospitality/clinic — el admin móvil hace `isBeauty ? '/beauty-bookings' : '/appointments'`). La rama `appointment` del PR apunta a `BeautyBooking`. `createJournalEntryForManualDeposit` recibe `appointmentId` solo como metadata → reutilizable con el id del booking.
 >
-> **✅ Fase A IMPLEMENTADA** (commit pendiente): branches `appointment` en `resolveEntitySnapshot` y `confirm` + helper de depósito + wiring. Build verde.
+> **Nota (2 flujos storefront):** `/beauty/reservar` → `createBeautyBooking` → `/public/beauty-bookings` → **BeautyBooking** (beauty, este feature). El `BookingWizard` de `/book` → `/public/appointments` → `Appointment` (verticales genéricos/hospitality) es OTRO flujo, no tocado.
+>
+> **✅ Fase A IMPLEMENTADA**: branches `appointment` en `resolveEntitySnapshot` y `confirm` + helper de depósito + wiring. Build verde.
 
 ### Backend — `beauty-bookings`
 3. **`create()`** ([service.ts:87](../../../food-inventory-saas/src/modules/beauty/services/beauty-bookings.service.ts#L87)):
@@ -123,8 +125,8 @@ Cliente paga en /pago/[token] → sube comprobante → PR.status='proof_submitte
 |---|---|---|
 | **A** ✅ | Backend: `resolveEntitySnapshot` + confirmación para `appointment` (target `BeautyBooking`) + asiento vía `createJournalEntryForManualDeposit`. Sin tocar `payment.schema`. | Crear PR de una cita por API y aceptarla marca `deposit_paid`/`confirmed` **y** genera el asiento (Anticipos de Clientes) |
 | **B** ✅ | Backend: `create()` calcula depósito (util compartido) + crea PR (`expiresInMinutes:60`) + skip notif "confirmado"; job 5-min cancela holds vencidos; guard confirm si cancelada; schema `paymentRequestId`/`depositExpiresAt`. El link se entrega por **WhatsApp** (el redirect storefront es Fase C). Degrada si el tenant no tiene métodos de pago. | Reservar por API con servicio-con-depósito crea booking `pending` + PR + manda link WhatsApp; sin pago en 1h → cancela |
-| **C** | Storefront: redirección a `/pago/[token]` + tipos | Flujo end-to-end desde el storefront |
-| **D** | Admin: etiqueta entityType + reenviar link + verificación del sheet | Conciliación visible y operable |
+| **C** ✅ | Storefront beauty (`beauty/reservar/page.tsx`): si la respuesta trae `depositPayment.url` → redirige a `/pago/[token]`. `beautyApi.Booking` tipa `depositPayment`. Backend: `create()` devuelve `depositPayment {required,amount,url,paymentRequestId}`. | Reservar con depósito en el storefront → cae en el portal de pago |
+| **D** ✅ | Admin: la etiqueta `entityType`→"Cita" ya existía (`entityNoun`). Botón **Reenviar link de pago** en el detalle de cita (usa `resendPaymentLink` cuando hay `paymentRequestId` y el depósito no está pagado). | Conciliación visible; admin reenvía el link por WhatsApp |
 
 **Tests obligatorios** (CLAUDE.md backend): unit de las dos ramas nuevas del service; ownership (tenant A no puede pagar PR de tenant B — ya cubierto por el token firmado, validar); cálculo de `amountDue` con mezcla fixed/percentage + addons; expiración libera slot.
 

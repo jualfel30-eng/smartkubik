@@ -259,6 +259,7 @@ export class BeautyBookingsService {
     // Solicitud de Pago (PaymentRequest) y la reserva queda en hold (pending)
     // hasta que el comprobante sea aceptado. El PR envía el link por WhatsApp.
     let depositRequired = false;
+    let depositPaymentUrl: string | undefined;
     const depositConfigById = new Map(
       services.map((s) => [
         s._id.toString(),
@@ -275,24 +276,26 @@ export class BeautyBookingsService {
     );
     if (depositAmount > 0) {
       try {
-        const { paymentRequest } = await this.paymentRequestsService.create(
-          dto.tenantId,
-          {
-            entityType: 'appointment',
-            entityId: booking._id.toString(),
-            deliveryChannel: dto.client?.phone ? 'whatsapp' : 'manual',
-            deliveryPhone: dto.client?.phone,
-            allowMethodOverride: true,
-            expiresInMinutes: 60,
-          },
-          { kind: 'system' },
-        );
+        const { paymentRequest, portalUrl } =
+          await this.paymentRequestsService.create(
+            dto.tenantId,
+            {
+              entityType: 'appointment',
+              entityId: booking._id.toString(),
+              deliveryChannel: dto.client?.phone ? 'whatsapp' : 'manual',
+              deliveryPhone: dto.client?.phone,
+              allowMethodOverride: true,
+              expiresInMinutes: 60,
+            },
+            { kind: 'system' },
+          );
         booking.depositRequired = true;
         booking.depositInfo = { amount: depositAmount, paid: false } as any;
         booking.paymentRequestId = paymentRequest._id as Types.ObjectId;
         booking.depositExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
         await booking.save();
         depositRequired = true;
+        depositPaymentUrl = portalUrl;
         this.logger.log(
           `Deposit PaymentRequest ${paymentRequest._id} created for booking ${booking.bookingNumber} (amount=${depositAmount})`,
         );
@@ -425,7 +428,20 @@ export class BeautyBookingsService {
     }
 
     // Return with occurrences count
-    return { ...booking.toObject(), occurrencesCreated } as any;
+    return {
+      ...booking.toObject(),
+      occurrencesCreated,
+      ...(depositRequired && depositPaymentUrl
+        ? {
+            depositPayment: {
+              required: true,
+              amount: depositAmount,
+              url: depositPaymentUrl,
+              paymentRequestId: booking.paymentRequestId?.toString(),
+            },
+          }
+        : {}),
+    } as any;
   }
 
   /**
