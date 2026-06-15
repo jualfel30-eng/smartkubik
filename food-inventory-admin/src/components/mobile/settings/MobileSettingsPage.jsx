@@ -2,7 +2,7 @@ import { useState, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Store, Clock, DollarSign, Scissors, Package, Bell, MessageCircle,
-  Link as LinkIcon, Users, ChevronRight, ShieldAlert,
+  Link as LinkIcon, Users, ChevronRight, ShieldAlert, CalendarX,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { listItem, STAGGER, DUR, EASE } from '@/lib/motion';
@@ -16,6 +16,7 @@ const MobileSettingsNotifications = lazy(() => import('./MobileSettingsNotificat
 const MobileSettingsWhatsApp = lazy(() => import('./MobileSettingsWhatsApp.jsx'));
 const MobileSettingsUsers = lazy(() => import('./MobileSettingsUsers.jsx'));
 const MobileNoShowPanel = lazy(() => import('../clients/MobileNoShowPanel.jsx'));
+const MobileCancellationPolicyPanel = lazy(() => import('./MobileCancellationPolicyPanel.jsx'));
 
 const SECTION_COMPONENTS = {
   business: MobileSettingsBusiness,
@@ -25,6 +26,7 @@ const SECTION_COMPONENTS = {
   whatsapp: MobileSettingsWhatsApp,
   users: MobileSettingsUsers,
   noshow: MobileNoShowPanel,
+  cancellation: MobileCancellationPolicyPanel,
 };
 
 const SECTIONS = [
@@ -54,6 +56,7 @@ const SECTIONS = [
     title: 'Avanzado',
     items: [
       { id: 'noshow', label: 'Penalizaciones No-Show', icon: ShieldAlert },
+      { id: 'cancellation', label: 'Política de cancelación', icon: CalendarX },
       { id: 'integrations', label: 'Integraciones', icon: LinkIcon, to: '/settings?section=integrations' },
       { id: 'users', label: 'Usuarios y permisos', icon: Users },
     ],
