@@ -64,14 +64,14 @@ si previousStatus !== 'cancelled' y booking.depositInfo?.paid:
    - (b) Integrar con bancos/caja para registrar la salida real.
 2. **Mecanismo de "saldo a favor" (`mode='credit'`)**: dejar el pasivo es trivial; **aplicarlo a una futura reserva** es otra pieza (crédito por cliente + descontarlo en el próximo pago). ¿v1 solo deja el pasivo + lo muestra, y la aplicación viene después?
 3. **Cuenta de Ingresos** para el forfeit: ¿una dedicada ("Ingresos por penalización de cancelación", nueva 4xxx) o una de ingresos existente?
-4. **¿La política aplica también a no-show** (no presentarse), o solo a cancelación explícita? (Hoy no-show y cancelación son estados distintos.)
+4. **No-show → v2 (decidido).** v1 aplica solo a cancelación explícita (`cancelled`). El tratamiento del depósito en no-show se hará en v2 (encaja con el mecanismo de penalización de no-show ya existente).
 5. **Reembolso parcial**: ¿el % lo fija la config global del tenant, o el admin puede ajustarlo caso por caso al cancelar?
 
 ## 7. Fases
 
 | Fase | Alcance | Entregable |
 |---|---|---|
-| **1** | Backend: schema `cancellationPolicy` + hook en `updateStatus` + métodos de asiento (refund/forfeit). Decisiones §6.1(a), §6.2(solo pasivo) para v1. | Cancelar una reserva pagada por API genera el asiento correcto según la política |
+| **1** ✅ | Backend: schema `cancellationPolicy` + hook en `updateStatus` + `createJournalEntryForDepositCancellation` (refund→Caja 1101 / forfeit→Ingresos 4104). v1: §6.1(a) refundPending, §6.2 solo pasivo, no-show→v2. | **Verificado en prod**: refund 50% de $7.50 → asiento D:2103 7.50 / C:1101 3.75 / C:4104 3.75; `depositInfo.cancellationOutcome` con refundPending. |
 | **2** | Admin UI: selector de política en Configuración del negocio (beauty) | El tenant configura su política |
 | **3** (futuro) | Aplicación del saldo a favor a futuras reservas; integración de reembolso real con caja | — |
 
