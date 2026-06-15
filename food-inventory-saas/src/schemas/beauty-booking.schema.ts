@@ -235,6 +235,15 @@ export class BeautyBooking {
     paidAt?: Date;
     method?: string;
   };
+
+  // Solicitud de pago (PaymentRequest) asociada al depósito de esta reserva.
+  @Prop({ type: Types.ObjectId, ref: 'PaymentRequest' })
+  paymentRequestId?: Types.ObjectId;
+
+  // Hold del slot: si el depósito no se paga/valida antes de esta fecha, el
+  // job de expiración cancela la reserva y libera el slot (ventana de 1h).
+  @Prop({ type: Date, index: true })
+  depositExpiresAt?: Date;
 }
 
 export type BeautyBookingDocument = BeautyBooking & Document;

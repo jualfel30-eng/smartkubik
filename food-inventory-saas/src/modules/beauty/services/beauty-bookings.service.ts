@@ -37,6 +37,8 @@ import {
   Customer,
   CustomerDocument,
 } from '../../../schemas/customer.schema';
+import { PaymentRequestsService } from '../../payment-requests/services/payment-requests.service';
+import { computeBeautyBookingDeposit } from '../utils/deposit.util';
 import {
   CreateBeautyBookingDto,
   UpdateBookingStatusDto,
@@ -79,6 +81,7 @@ export class BeautyBookingsService {
     private readonly webPushService: WebPushService,
     private readonly cashRegisterService: CashRegisterService,
     private readonly commissionService: CommissionService,
+    private readonly paymentRequestsService: PaymentRequestsService,
   ) {}
 
   /**
@@ -252,6 +255,56 @@ export class BeautyBookingsService {
         : undefined,
     });
 
+    // 7.5 Depósito de reserva: si algún servicio lo requiere, se crea una
+    // Solicitud de Pago (PaymentRequest) y la reserva queda en hold (pending)
+    // hasta que el comprobante sea aceptado. El PR envía el link por WhatsApp.
+    let depositRequired = false;
+    const depositConfigById = new Map(
+      services.map((s) => [
+        s._id.toString(),
+        {
+          requiresDeposit: (s as any).requiresDeposit,
+          depositType: (s as any).depositType,
+          depositAmount: (s as any).depositAmount,
+        },
+      ]),
+    );
+    const depositAmount = computeBeautyBookingDeposit(
+      bookingServices as any,
+      depositConfigById,
+    );
+    if (depositAmount > 0) {
+      try {
+        const { paymentRequest } = await this.paymentRequestsService.create(
+          dto.tenantId,
+          {
+            entityType: 'appointment',
+            entityId: booking._id.toString(),
+            deliveryChannel: dto.client?.phone ? 'whatsapp' : 'manual',
+            deliveryPhone: dto.client?.phone,
+            allowMethodOverride: true,
+            expiresInMinutes: 60,
+          },
+          { kind: 'system' },
+        );
+        booking.depositRequired = true;
+        booking.depositInfo = { amount: depositAmount, paid: false } as any;
+        booking.paymentRequestId = paymentRequest._id as Types.ObjectId;
+        booking.depositExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
+        await booking.save();
+        depositRequired = true;
+        this.logger.log(
+          `Deposit PaymentRequest ${paymentRequest._id} created for booking ${booking.bookingNumber} (amount=${depositAmount})`,
+        );
+      } catch (err) {
+        // Degradar con gracia: sin métodos de pago configurados u otro fallo,
+        // la reserva procede sin depósito (no se bloquea el agendamiento).
+        this.logger.warn(
+          `No se pudo crear la solicitud de depósito para booking ${booking.bookingNumber}: ${err.message}`,
+        );
+      }
+    }
+
     // 8. Enviar notificación WhatsApp de confirmación (si autoConfirmation no está deshabilitado)
     try {
       const storefront = await this.storefrontConfigModel
@@ -260,7 +313,9 @@ export class BeautyBookingsService {
       const autoConfirmation =
         (storefront as any)?.beautyConfig?.notifications?.autoConfirmation !== false;
 
-      if (autoConfirmation && booking.client.phone) {
+      // Si hay depósito pendiente, NO confirmamos aún: el PR ya envió el link
+      // de pago y la reserva se confirma al aceptar el comprobante.
+      if (!depositRequired && autoConfirmation && booking.client.phone) {
         const notificationResult =
           await this.whatsappService.sendConfirmationNotification(booking);
 

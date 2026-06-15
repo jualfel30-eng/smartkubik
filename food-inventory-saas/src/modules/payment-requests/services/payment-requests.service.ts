@@ -26,6 +26,7 @@ import {
 import { Tenant, TenantDocument } from "../../../schemas/tenant.schema";
 import { PaymentsService } from "../../payments/payments.service";
 import { AccountingService } from "../../accounting/accounting.service";
+import { computeBeautyBookingDeposit } from "../../beauty/utils/deposit.util";
 import {
   PAYMENT_REQUEST_STATUSES,
   PaymentProofMethod,
@@ -153,7 +154,9 @@ export class PaymentRequestsService {
       tenantId,
       dto.methodId,
     );
-    const expiresAt = this.computeExpiresAt(config.paymentRequestExpiryDays);
+    const expiresAt = dto.expiresInMinutes
+      ? new Date(Date.now() + dto.expiresInMinutes * 60_000)
+      : this.computeExpiresAt(config.paymentRequestExpiryDays);
 
     // Build the doc first so we have an _id to embed in the token.
     const pr = new this.paymentRequestModel({
@@ -1194,10 +1197,7 @@ export class PaymentRequestsService {
       serviceConfigs.map((s: any) => [s._id.toString(), s]),
     );
 
-    const amountDue = this.computeBeautyBookingDeposit(
-      bookingServices,
-      configById,
-    );
+    const amountDue = computeBeautyBookingDeposit(bookingServices, configById);
     if (amountDue <= 0) {
       throw new BadRequestException(
         "La reserva no requiere depósito o el monto calculado es 0",
@@ -1230,27 +1230,6 @@ export class PaymentRequestsService {
   }
 
   /**
-   * Suma el depósito de los servicios de la reserva que lo requieren.
-   * percentage → price * depositAmount / 100 · fixed → depositAmount.
-   */
-  private computeBeautyBookingDeposit(
-    bookingServices: any[],
-    configById: Map<string, any>,
-  ): number {
-    let total = 0;
-    for (const bs of bookingServices) {
-      const cfg = configById.get(bs.service?.toString());
-      if (!cfg || !cfg.requiresDeposit) continue;
-      const price = bs.price ?? 0;
-      total +=
-        cfg.depositType === "percentage"
-          ? (price * (cfg.depositAmount || 0)) / 100
-          : cfg.depositAmount || 0;
-    }
-    return Math.round(total * 100) / 100;
-  }
-
-  /**
    * Confirma el depósito de una reserva de beauty: genera el asiento contable
    * (Anticipos de Clientes) y marca la reserva como pagada/confirmada.
    * Devuelve el id del asiento (o null si el posteo contable falló — la
@@ -1267,6 +1246,11 @@ export class PaymentRequestsService {
     });
     if (!booking) {
       throw new NotFoundException("Reserva no encontrada");
+    }
+    if ((booking as any).status === "cancelled") {
+      throw new BadRequestException(
+        "La reserva fue cancelada (depósito expirado) — no se puede confirmar el pago.",
+      );
     }
 
     const paidAmount = acceptedProofs.reduce(

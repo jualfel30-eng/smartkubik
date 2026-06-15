@@ -29,6 +29,39 @@ export class BeautyBookingsJobsService {
   ) {}
 
   /**
+   * Cancela reservas con depósito pendiente cuya ventana de hold (1h) expiró,
+   * liberando el slot. Corre cada 5 minutos (la ventana es corta).
+   * El guard `status: 'pending'` excluye las ya confirmadas (depósito pagado).
+   */
+  @Cron(CronExpression.EVERY_5_MINUTES)
+  async expireUnpaidDepositHolds() {
+    const now = new Date();
+    try {
+      const res = await this.beautyBookingModel.updateMany(
+        {
+          status: 'pending',
+          depositRequired: true,
+          paymentStatus: 'unpaid',
+          depositExpiresAt: { $lt: now },
+        },
+        { $set: { status: 'cancelled' } },
+      );
+      const cancelled =
+        (res as any).modifiedCount ?? (res as any).nModified ?? 0;
+      if (cancelled > 0) {
+        this.logger.log(
+          `expireUnpaidDepositHolds: ${cancelled} reserva(s) cancelada(s) por depósito no pagado`,
+        );
+      }
+    } catch (err) {
+      this.logger.error(
+        `expireUnpaidDepositHolds failed: ${err?.message}`,
+        err?.stack,
+      );
+    }
+  }
+
+  /**
    * Cron job que corre cada 30 minutos para enviar recordatorios 24h antes.
    * Idempotente: usa reminderSentAt como guard para no duplicar envíos.
    * Solo procesa tenants con reminderEnabled !== false.

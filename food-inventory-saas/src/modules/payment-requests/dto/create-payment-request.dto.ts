@@ -1,8 +1,10 @@
 import {
   IsBoolean,
   IsEnum,
+  IsInt,
   IsMongoId,
   IsOptional,
+  IsPositive,
   IsString,
 } from "class-validator";
 import { SanitizeString } from "../../../decorators/sanitize.decorator";
@@ -60,4 +62,13 @@ export class CreatePaymentRequestDto {
   @IsBoolean()
   @IsOptional()
   allowMethodOverride?: boolean;
+
+  /**
+   * Override de la expiración del PR en minutos. Usado por depósitos de
+   * reserva beauty (60). Si se omite, usa config.paymentRequestExpiryDays.
+   */
+  @IsInt()
+  @IsPositive()
+  @IsOptional()
+  expiresInMinutes?: number;
 }

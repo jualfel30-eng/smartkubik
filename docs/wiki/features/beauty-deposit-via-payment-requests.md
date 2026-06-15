@@ -122,7 +122,7 @@ Cliente paga en /pago/[token] → sube comprobante → PR.status='proof_submitte
 | Fase | Alcance | Entregable verificable |
 |---|---|---|
 | **A** ✅ | Backend: `resolveEntitySnapshot` + confirmación para `appointment` (target `BeautyBooking`) + asiento vía `createJournalEntryForManualDeposit`. Sin tocar `payment.schema`. | Crear PR de una cita por API y aceptarla marca `deposit_paid`/`confirmed` **y** genera el asiento (Anticipos de Clientes) |
-| **B** | Backend: `create()` calcula depósito + crea PR + devuelve token; job de expiración | Reservar por API con servicio-con-depósito crea booking `pending` + PR |
+| **B** ✅ | Backend: `create()` calcula depósito (util compartido) + crea PR (`expiresInMinutes:60`) + skip notif "confirmado"; job 5-min cancela holds vencidos; guard confirm si cancelada; schema `paymentRequestId`/`depositExpiresAt`. El link se entrega por **WhatsApp** (el redirect storefront es Fase C). Degrada si el tenant no tiene métodos de pago. | Reservar por API con servicio-con-depósito crea booking `pending` + PR + manda link WhatsApp; sin pago en 1h → cancela |
 | **C** | Storefront: redirección a `/pago/[token]` + tipos | Flujo end-to-end desde el storefront |
 | **D** | Admin: etiqueta entityType + reenviar link + verificación del sheet | Conciliación visible y operable |
 
