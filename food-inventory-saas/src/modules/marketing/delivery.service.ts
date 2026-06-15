@@ -104,7 +104,7 @@ export class DeliveryService {
       const results = await this.notificationsService.sendTemplateNotification(
         {
           tenantId,
-          customerId: delivery.customerId.toString(),
+          customerId: delivery.customerId?.toString() ?? "",
           templateId: delivery.templateId?.toString() || "generic",
           channels: [delivery.channel as "email" | "sms" | "whatsapp"],
           context: delivery.metadata || {},
