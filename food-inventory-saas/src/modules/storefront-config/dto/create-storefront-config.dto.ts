@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsEnum,
   IsNumber,
+  IsObject,
   Min,
   Max,
   ValidateNested,
@@ -187,6 +188,16 @@ export class UpdateBeautyConfigDto {
   @ValidateNested()
   @Type(() => NoShowPolicyDto)
   noShowPolicy?: NoShowPolicyDto;
+
+  // Validado como objeto plano + sanitizado en el service. (Con @ValidateNested
+  // anidado el campo se descartaba por el whitelist del ValidationPipe.)
+  @IsOptional()
+  @IsObject()
+  cancellationPolicy?: {
+    enabled?: boolean;
+    mode?: "credit" | "refund";
+    refundPercentage?: number;
+  };
 }
 
 export class UpdateThemeDto {

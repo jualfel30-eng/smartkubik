@@ -256,6 +256,22 @@ export class StorefrontService {
       };
     }
 
+    if (dto.cancellationPolicy) {
+      const cp: any = dto.cancellationPolicy;
+      beauty.cancellationPolicy = {
+        ...beauty.cancellationPolicy,
+        ...(typeof cp.enabled === "boolean" ? { enabled: cp.enabled } : {}),
+        ...(cp.mode === "credit" || cp.mode === "refund"
+          ? { mode: cp.mode }
+          : {}),
+        ...(typeof cp.refundPercentage === "number"
+          ? {
+              refundPercentage: Math.min(100, Math.max(0, cp.refundPercentage)),
+            }
+          : {}),
+      };
+    }
+
     config.beautyConfig = beauty;
     config.markModified("beautyConfig");
     return config.save();
