@@ -221,7 +221,7 @@ export function PaymentReviewDetail({
         <button
           type="button"
           onClick={() => setZoomOpen(true)}
-          className="mt-4 overflow-hidden rounded-xl border bg-muted/30 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-4 block w-full max-w-full overflow-hidden rounded-xl border bg-muted/30 transition-transform active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Ampliar comprobante"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}

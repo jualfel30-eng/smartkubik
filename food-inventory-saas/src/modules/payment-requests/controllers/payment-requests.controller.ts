@@ -79,10 +79,15 @@ export class PaymentRequestsController {
       req.user.tenantId,
       query,
     );
+    const base = await this.paymentRequestsService.getStorefrontBaseUrl(
+      req.user.tenantId,
+    );
     return {
       success: true,
       ...result,
-      data: result.data.map((pr) => this.paymentRequestsService.attachPortalUrl(pr)),
+      data: result.data.map((pr) =>
+        this.paymentRequestsService.attachPortalUrl(pr, base),
+      ),
     };
   }
 
@@ -94,9 +99,12 @@ export class PaymentRequestsController {
       req.user.tenantId,
       id,
     );
+    const base = await this.paymentRequestsService.getStorefrontBaseUrl(
+      req.user.tenantId,
+    );
     return {
       success: true,
-      data: this.paymentRequestsService.attachPortalUrl(pr),
+      data: this.paymentRequestsService.attachPortalUrl(pr, base),
     };
   }
 

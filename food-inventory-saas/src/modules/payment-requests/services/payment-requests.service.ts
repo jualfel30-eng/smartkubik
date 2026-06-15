@@ -1429,6 +1429,12 @@ export class PaymentRequestsService {
     return `${trimmed}/pago/${token}`;
   }
 
+  /** Público: base URL del storefront del tenant (para que los controllers
+   * adjunten links branded en vez de localhost). */
+  async getStorefrontBaseUrl(tenantId: string): Promise<string> {
+    return this.resolveStorefrontBaseUrl(tenantId);
+  }
+
   private async resolveStorefrontBaseUrl(tenantId: string): Promise<string> {
     try {
       const sc = await this.storefrontConfigModel
@@ -1458,11 +1464,17 @@ export class PaymentRequestsService {
    */
   attachPortalUrl<T extends { token?: string; toObject?: () => any }>(
     pr: T,
+    baseUrl?: string,
   ): any {
     if (!pr) return pr;
     const plain = typeof pr.toObject === "function" ? pr.toObject() : { ...pr };
     if (plain?.token) {
-      plain.portalUrl = this.buildPortalUrl(plain.token);
+      if (baseUrl) {
+        const trimmed = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+        plain.portalUrl = `${trimmed}/pago/${plain.token}`;
+      } else {
+        plain.portalUrl = this.buildPortalUrl(plain.token);
+      }
     }
     return plain;
   }

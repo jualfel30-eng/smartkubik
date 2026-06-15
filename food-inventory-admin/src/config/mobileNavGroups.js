@@ -50,6 +50,7 @@ export const MOBILE_NAV_GROUPS = [
     hrefs: [
       'commissions',
       'bank-accounts',
+      'payment-requests',
       'accounting',
       'accounts-payable',
       'receivables?tab=pending',
