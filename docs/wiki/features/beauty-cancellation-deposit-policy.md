@@ -72,7 +72,7 @@ si previousStatus !== 'cancelled' y booking.depositInfo?.paid:
 | Fase | Alcance | Entregable |
 |---|---|---|
 | **1** ✅ | Backend: schema `cancellationPolicy` + hook en `updateStatus` + `createJournalEntryForDepositCancellation` (refund→Caja 1101 / forfeit→Ingresos 4104). v1: §6.1(a) refundPending, §6.2 solo pasivo, no-show→v2. | **Verificado en prod**: refund 50% de $7.50 → asiento D:2103 7.50 / C:1101 3.75 / C:4104 3.75; `depositInfo.cancellationOutcome` con refundPending. |
-| **2** | Admin UI: selector de política en Configuración del negocio (beauty) | El tenant configura su política |
+| **2** ✅ | Admin UI: `MobileCancellationPolicyPanel` en Configuración → Avanzado (toggle + credit/refund + % a devolver). Backend: merge en `storefront.service.updateBeautyConfig` (ruta duplicada — el handler real es ese, no storefront-config). | Verificado: PUT persiste `{enabled,mode,refundPercentage}`. |
 | **3** (futuro) | Aplicación del saldo a favor a futuras reservas; integración de reembolso real con caja | — |
 
 ## 8. Riesgos
