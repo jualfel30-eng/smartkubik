@@ -6,6 +6,7 @@
  */
 import { Button } from '@/components/ui/button.jsx';
 import { Badge } from '@/components/ui/badge.jsx';
+import { Checkbox } from '@/components/ui/checkbox.jsx';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover.jsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body.jsx';
@@ -113,6 +114,12 @@ export function InventoryTable({
   onTransfer,
   onViewLots,
   onAdjustComplete,
+  selectable = false,
+  isSelected,
+  onToggleRow,
+  onToggleAllPage,
+  isAllPageSelected = false,
+  isSomePageSelected = false,
 }) {
   const handleColumnSort = (field, defaultOrder = 'asc') => {
     if (sortBy === field) {
@@ -128,6 +135,15 @@ export function InventoryTable({
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
+              {selectable && (
+                <TableHead className="w-[44px]">
+                  <Checkbox
+                    aria-label="Seleccionar todos los de esta página"
+                    checked={isAllPageSelected ? true : isSomePageSelected ? 'indeterminate' : false}
+                    onCheckedChange={() => onToggleAllPage?.(data)}
+                  />
+                </TableHead>
+              )}
               {visibleColumns.sku && (
                 <TableHead
                   className="cursor-pointer select-none hover:bg-muted/50 transition-colors w-[8%]"
@@ -192,7 +208,16 @@ export function InventoryTable({
           </TableHeader>
           <AnimatedTableBody>
             {data.map((item) => (
-              <AnimatedTableRow key={item._id}>
+              <AnimatedTableRow key={item._id} data-state={selectable && isSelected?.(item._id) ? 'selected' : undefined}>
+                {selectable && (
+                  <TableCell>
+                    <Checkbox
+                      aria-label={`Seleccionar ${item.productName}`}
+                      checked={isSelected?.(item._id) || false}
+                      onCheckedChange={() => onToggleRow?.(item)}
+                    />
+                  </TableCell>
+                )}
                 {visibleColumns.sku && <TableCell className="font-medium">{item.productSku}</TableCell>}
                 {visibleColumns.product && (
                   <TableCell>

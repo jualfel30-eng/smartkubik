@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card.jsx';
+import { Button } from '@/components/ui/button.jsx';
+import { ClipboardList, X } from 'lucide-react';
 import { ExportOptionsDialog } from './ExportOptionsDialog';
+import { BulkAdjustDialog } from './inventory/BulkAdjustDialog';
 import { ShelfLabelWizard } from './inventory/ShelfLabelWizard';
 import { InventoryToolbar } from './inventory/InventoryToolbar';
 import { InventoryTable } from './inventory/InventoryTable';
@@ -28,6 +31,71 @@ function InventoryManagement({ highlightProductId } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const inv = useInventoryData({ multiWarehouseEnabled, verticalConfig });
+
+  // --- Selección multi-fila para ajuste masivo ---
+  // Map id -> snapshot, para que la selección persista a través de paginación
+  // y búsqueda (las filas de otras páginas no están en memoria al abrir el diálogo).
+  const [selected, setSelected] = useState(() => new Map());
+  const [isBulkAdjustOpen, setIsBulkAdjustOpen] = useState(false);
+
+  const toSnapshot = useCallback((item) => ({
+    _id: item._id,
+    productSku: item.productSku,
+    variantSku: item.variantSku,
+    productName: item.productName,
+    currentQty: item.totalQuantity ?? item.availableQuantity ?? 0,
+  }), []);
+
+  const isSelected = useCallback((id) => selected.has(id), [selected]);
+
+  const toggleRow = useCallback((item) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (next.has(item._id)) next.delete(item._id);
+      else next.set(item._id, toSnapshot(item));
+      return next;
+    });
+  }, [toSnapshot]);
+
+  const toggleAllPage = useCallback((rows) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      const allOnPage = rows.length > 0 && rows.every((r) => next.has(r._id));
+      if (allOnPage) {
+        rows.forEach((r) => next.delete(r._id));
+      } else {
+        rows.forEach((r) => next.set(r._id, toSnapshot(r)));
+      }
+      return next;
+    });
+  }, [toSnapshot]);
+
+  const removeSelected = useCallback((id) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelected(new Map()), []);
+
+  const selectedItems = useMemo(() => Array.from(selected.values()), [selected]);
+  const selectedCount = selected.size;
+
+  const pageRows = inv.filteredData;
+  const isAllPageSelected = pageRows.length > 0 && pageRows.every((r) => selected.has(r._id));
+  const isSomePageSelected = !isAllPageSelected && pageRows.some((r) => selected.has(r._id));
+
+  const handleBulkAdjustComplete = useCallback((opts) => {
+    if (opts?.keepOpen) {
+      inv.refresh();
+      return;
+    }
+    setIsBulkAdjustOpen(false);
+    clearSelection();
+    inv.refresh();
+  }, [inv, clearSelection]);
 
   // Deep-link from notification: hydrate the product's SKU into the search box
   // so the user lands on the inventory list filtered by that exact product.
@@ -377,11 +445,35 @@ function InventoryManagement({ highlightProductId } = {}) {
         />
       </div>
 
+      {selectedCount > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-md border border-primary/30 bg-primary/5 px-4 py-2.5">
+          <span className="text-sm font-medium">
+            {selectedCount} producto{selectedCount === 1 ? '' : 's'} seleccionado{selectedCount === 1 ? '' : 's'}
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button size="sm" onClick={() => setIsBulkAdjustOpen(true)} className="gap-2">
+              <ClipboardList className="h-4 w-4" />
+              Ajustar inventario
+            </Button>
+            <Button size="sm" variant="ghost" onClick={clearSelection} className="gap-1.5">
+              <X className="h-4 w-4" />
+              Limpiar
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader />
         <CardContent>
           <InventoryTable
             data={inv.filteredData}
+            selectable
+            isSelected={isSelected}
+            onToggleRow={toggleRow}
+            onToggleAllPage={toggleAllPage}
+            isAllPageSelected={isAllPageSelected}
+            isSomePageSelected={isSomePageSelected}
             loading={inv.loading}
             visibleColumns={inv.visibleColumns}
             sortBy={inv.sortBy}
@@ -470,6 +562,14 @@ function InventoryManagement({ highlightProductId } = {}) {
         isOpen={inv.isLabelWizardOpen}
         onClose={() => inv.setIsLabelWizardOpen(false)}
         initialSelectedItems={inv.recentlyAddedItems}
+      />
+
+      <BulkAdjustDialog
+        open={isBulkAdjustOpen}
+        onOpenChange={setIsBulkAdjustOpen}
+        items={selectedItems}
+        onComplete={handleBulkAdjustComplete}
+        onRemoveItem={removeSelected}
       />
 
       <ConfirmDialog />
