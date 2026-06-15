@@ -537,6 +537,17 @@ export class PaymentRequestsService {
   ): Promise<PaymentRequestDocument> {
     const pr = await this.findOneOrThrow(tenantId, paymentRequestId);
 
+    const NON_RESENDABLE: PaymentRequestStatus[] = [
+      "confirmed",
+      "rejected_final",
+      "expired",
+    ];
+    if (NON_RESENDABLE.includes(pr.status)) {
+      throw new BadRequestException(
+        "Esta solicitud ya está cerrada; no se puede reenviar el link de pago.",
+      );
+    }
+
     const phone =
       deliveryPhone ||
       pr.delivery.deliveredTo ||
@@ -1270,8 +1281,11 @@ export class PaymentRequestsService {
       0,
     );
     const primaryProof = acceptedProofs[0];
-    const method =
-      pr.selectedMethod?.label || primaryProof?.method || "manual";
+    // Refleja el método REAL del comprobante (el cliente pudo elegir otro vía
+    // allowMethodOverride), no el método sugerido en selectedMethod.
+    const method = primaryProof?.method
+      ? this.proofMethodToLegacyMethod(primaryProof.method, primaryProof.currency)
+      : pr.selectedMethod?.label || "manual";
     const serviceName = ((booking as any).services || [])
       .map((s: any) => s.name)
       .filter(Boolean)
