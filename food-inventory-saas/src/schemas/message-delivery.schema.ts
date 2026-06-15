@@ -23,9 +23,11 @@ export class MessageDelivery {
   @Prop({ type: Types.ObjectId, ref: "MarketingCampaign", index: true })
   marketingCampaignId?: Types.ObjectId;
 
-  // Reference to customer
-  @Prop({ type: Types.ObjectId, ref: "Customer", required: true, index: true })
-  customerId: Types.ObjectId;
+  // Reference to customer (opcional: las entregas transaccionales —p.ej. el
+  // link de pago a un cliente del storefront sin registro— no siempre tienen
+  // un Customer asociado). Las campañas de marketing sí lo proveen.
+  @Prop({ type: Types.ObjectId, ref: "Customer", required: false, index: true })
+  customerId?: Types.ObjectId;
 
   @Prop()
   customerName?: string;

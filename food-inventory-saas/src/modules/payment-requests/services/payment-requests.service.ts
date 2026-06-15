@@ -534,7 +534,10 @@ export class PaymentRequestsService {
   ): Promise<PaymentRequestDocument> {
     const pr = await this.findOneOrThrow(tenantId, paymentRequestId);
 
-    const phone = deliveryPhone || pr.delivery.deliveredTo;
+    const phone =
+      deliveryPhone ||
+      pr.delivery.deliveredTo ||
+      (pr.entitySnapshot as any)?.customerPhone;
     if (!phone) {
       throw new BadRequestException(
         "Indica un teléfono para reenviar el comprobante",
@@ -1340,7 +1343,7 @@ export class PaymentRequestsService {
       await this.notifications.sendPortalLinkViaWhatsApp(
         pr,
         normalized,
-        this.buildPortalUrl(pr.token),
+        await this.buildPortalUrlForTenant(pr.tenantId.toString(), pr.token),
       );
       pr.delivery.channel = "whatsapp";
       pr.delivery.deliveredTo = normalized;
