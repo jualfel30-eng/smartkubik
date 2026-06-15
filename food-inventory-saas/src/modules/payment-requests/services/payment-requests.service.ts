@@ -20,6 +20,10 @@ import {
   BeautyServiceDocument,
 } from "../../../schemas/beauty-service.schema";
 import {
+  StorefrontConfig,
+  StorefrontConfigDocument,
+} from "../../../schemas/storefront-config.schema";
+import {
   TenantPaymentConfig,
   TenantPaymentConfigDocument,
 } from "../../../schemas/tenant-payment-config.schema";
@@ -114,6 +118,8 @@ export class PaymentRequestsService {
     private readonly beautyBookingModel: Model<BeautyBookingDocument>,
     @InjectModel(BeautyService.name)
     private readonly beautyServiceModel: Model<BeautyServiceDocument>,
+    @InjectModel(StorefrontConfig.name)
+    private readonly storefrontConfigModel: Model<StorefrontConfigDocument>,
     @InjectModel(TenantPaymentConfig.name)
     private readonly tenantPaymentConfigModel: Model<TenantPaymentConfigDocument>,
     @InjectModel(Tenant.name)
@@ -227,7 +233,7 @@ export class PaymentRequestsService {
       await pr.save();
     }
 
-    const portalUrl = this.buildPortalUrl(pr.token);
+    const portalUrl = await this.buildPortalUrlForTenant(tenantId, pr.token);
 
     this.logger.log(
       `Created PaymentRequest ${pr._id} for tenant=${tenantId} entity=${dto.entityType}:${dto.entityId} status=${pr.status} delivery=${pr.delivery.channel}`,
@@ -1368,6 +1374,44 @@ export class PaymentRequestsService {
     const base = process.env.STOREFRONT_PUBLIC_URL || "http://localhost:3001";
     const trimmed = base.endsWith("/") ? base.slice(0, -1) : base;
     return `${trimmed}/pago/${token}`;
+  }
+
+  /**
+   * Portal URL usando el dominio del storefront del tenant (link branded),
+   * en vez de la env global. El portal `/pago/[token]` se sirve en el
+   * subdominio del tenant (`<domain>.smartkubik.com`). Cae a
+   * STOREFRONT_PUBLIC_URL / localhost si el tenant no tiene dominio.
+   */
+  async buildPortalUrlForTenant(
+    tenantId: string,
+    token: string,
+  ): Promise<string> {
+    const base = await this.resolveStorefrontBaseUrl(tenantId);
+    const trimmed = base.endsWith("/") ? base.slice(0, -1) : base;
+    return `${trimmed}/pago/${token}`;
+  }
+
+  private async resolveStorefrontBaseUrl(tenantId: string): Promise<string> {
+    try {
+      const sc = await this.storefrontConfigModel
+        .findOne({
+          $or: [{ tenantId }, { tenantId: new Types.ObjectId(tenantId) }],
+        })
+        .select("domain")
+        .lean();
+      const domain = (sc as any)?.domain?.trim();
+      if (domain) {
+        // `domain` puede ser un host completo (algo.smartkubik.com) o solo el
+        // subdominio (savabarberia) → en ese caso le agregamos el dominio raíz.
+        const host = domain.includes(".") ? domain : `${domain}.smartkubik.com`;
+        return `https://${host}`;
+      }
+    } catch (err) {
+      this.logger.warn(
+        `resolveStorefrontBaseUrl failed for tenant ${tenantId}: ${err.message}`,
+      );
+    }
+    return process.env.STOREFRONT_PUBLIC_URL || "http://localhost:3001";
   }
 
   /**

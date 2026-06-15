@@ -12,6 +12,10 @@ import {
   BeautyService,
   BeautyServiceSchema,
 } from "../../schemas/beauty-service.schema";
+import {
+  StorefrontConfig,
+  StorefrontConfigSchema,
+} from "../../schemas/storefront-config.schema";
 import { AccountingModule } from "../accounting/accounting.module";
 import {
   Notification,
@@ -56,6 +60,7 @@ import { PaymentTokenGuard } from "./guards/payment-token.guard";
       { name: Notification.name, schema: NotificationSchema },
       { name: BeautyBooking.name, schema: BeautyBookingSchema },
       { name: BeautyService.name, schema: BeautyServiceSchema },
+      { name: StorefrontConfig.name, schema: StorefrontConfigSchema },
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
