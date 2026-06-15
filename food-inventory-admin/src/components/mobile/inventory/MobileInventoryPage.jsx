@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Package, RefreshCw, Filter, ShoppingCart, AlertTriangle, ArrowLeftRight, ArrowRightLeft, Plus, X } from 'lucide-react';
+import { Package, RefreshCw, Filter, ShoppingCart, AlertTriangle, ArrowLeftRight, ArrowRightLeft, Plus, X, ListChecks, ClipboardList } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
 import { fetchApi } from '@/lib/api';
@@ -27,6 +27,7 @@ import MobileAddInventory from './MobileAddInventory.jsx';
 import MobileTransfersTab from './MobileTransfersTab.jsx';
 import MobileCreateTransfer from './MobileCreateTransfer.jsx';
 import MobilePurchasesTab from './MobilePurchasesTab.jsx';
+import MobileBulkAdjust from './MobileBulkAdjust.jsx';
 
 // Mapea el ?tab= del deep-link (nombres del nav/desktop) al estado interno
 // { mode, tab }. Permite que enlaces como /inventory-management?tab=purchases
@@ -269,6 +270,12 @@ export default function MobileInventoryPage() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [expandedCard, setExpandedCard] = useState(null);
 
+  // Selección múltiple para conteo masivo (scope: por búsqueda — persiste a
+  // través de búsquedas porque selectedIds es independiente de la lista filtrada).
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkAdjustOpen, setBulkAdjustOpen] = useState(false);
+
   // Sheet state
   const [adjusting, setAdjusting] = useState(null); // { product, mode }
   const [creating, setCreating] = useState(false);
@@ -377,6 +384,10 @@ export default function MobileInventoryPage() {
 
   // ─── FAB context ────────────────────────────────────────────────────────
   useEffect(() => {
+    if (selectionMode) {
+      clearContextAction();
+      return () => clearContextAction();
+    }
     if (mode === 'products') {
       setContextAction({
         icon: Plus,
@@ -405,7 +416,7 @@ export default function MobileInventoryPage() {
       clearContextAction();
     }
     return () => clearContextAction();
-  }, [mode, activeTab, setContextAction, clearContextAction]);
+  }, [mode, activeTab, selectionMode, setContextAction, clearContextAction]);
 
   // ─── Filtered & sorted inventory ────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -476,6 +487,40 @@ export default function MobileInventoryPage() {
     setPoPreselect(item);
     setCreatingPO(true);
   };
+
+  // ─── Selección múltiple ────────────────────────────────────────────────
+  const toggleSelect = useCallback((item) => {
+    haptics.select();
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(item._id)) next.delete(item._id);
+      else next.add(item._id);
+      return next;
+    });
+  }, []);
+
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  // Los seleccionados salen de `inventory` (set completo cargado), no de
+  // `filtered`, para que la selección sobreviva a cambios de búsqueda.
+  const selectedItems = useMemo(
+    () => inventory.filter((i) => selectedIds.has(i._id)),
+    [inventory, selectedIds],
+  );
+
+  const handleBulkAdjustClose = useCallback((saved) => {
+    setBulkAdjustOpen(false);
+    if (saved) {
+      exitSelection();
+      invalidateInventoryData();
+      loadStock();
+      loadedTabs.current.movements = false;
+      loadedTabs.current.alerts = false;
+    }
+  }, [exitSelection, invalidateInventoryData, loadStock]);
 
   const handleAdjustClose = (saved) => {
     setAdjusting(null);
@@ -611,6 +656,17 @@ export default function MobileInventoryPage() {
                   </span>
                 )}
               </button>
+              <button
+                type="button"
+                onClick={() => { haptics.tap(); setExpandedCard(null); setSelectionMode((v) => !v); if (selectionMode) setSelectedIds(new Set()); }}
+                className={cn(
+                  'p-2.5 rounded-xl border transition-colors no-tap-highlight shrink-0',
+                  selectionMode ? 'bg-primary/10 border-primary' : 'border-border',
+                )}
+                title="Seleccionar varios"
+              >
+                <ListChecks size={16} className={selectionMode ? 'text-primary' : 'text-muted-foreground'} />
+              </button>
             </div>
 
             {/* Active filter chips */}
@@ -664,6 +720,9 @@ export default function MobileInventoryPage() {
                       expanded={expandedCard === (item._id || item.productId)}
                       onToggle={(id) => setExpandedCard((prev) => prev === id ? null : id)}
                       onAction={handleCardAction}
+                      selectable={selectionMode}
+                      selected={selectedIds.has(item._id)}
+                      onToggleSelect={toggleSelect}
                     />
                   ))}
                 </motion.div>
@@ -773,7 +832,44 @@ export default function MobileInventoryPage() {
         </>)}
       </div>
 
+      {/* ── Barra flotante de selección ─────────────────────────────────── */}
+      {selectionMode && (
+        <motion.div
+          initial={{ y: 80, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 80, opacity: 0 }}
+          className="fixed left-4 right-4 z-40 flex items-center gap-3 rounded-[var(--mobile-radius-lg)] border border-border bg-card px-4 py-3 shadow-lg"
+          style={{ bottom: 'calc(5rem + var(--safe-bottom))', boxShadow: 'var(--elevation-overlay)' }}
+        >
+          <span className="text-sm font-medium">
+            {selectedIds.size} seleccionado{selectedIds.size === 1 ? '' : 's'}
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              type="button"
+              onClick={exitSelection}
+              className="px-3 py-2 rounded-[var(--mobile-radius-md)] text-sm font-medium text-muted-foreground no-tap-highlight"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={selectedIds.size === 0}
+              onClick={() => { haptics.tap(); setBulkAdjustOpen(true); }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-[var(--mobile-radius-md)] bg-primary text-primary-foreground text-sm font-semibold no-tap-highlight disabled:opacity-40"
+            >
+              <ClipboardList size={16} />
+              Ajustar
+            </button>
+          </div>
+        </motion.div>
+      )}
+
       {/* ── Sheets ──────────────────────────────────────────────────────── */}
+      {bulkAdjustOpen && selectedItems.length > 0 && (
+        <MobileBulkAdjust items={selectedItems} onClose={handleBulkAdjustClose} />
+      )}
+
       <FilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}

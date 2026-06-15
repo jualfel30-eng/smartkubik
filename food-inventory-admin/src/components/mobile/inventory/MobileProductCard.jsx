@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Plus, Minus, History, Edit3, Package } from 'lucide-react';
+import { ChevronDown, Plus, Minus, History, Edit3, Package, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import haptics from '@/lib/haptics';
 import { DUR, EASE, listItem } from '@/lib/motion';
@@ -30,7 +30,7 @@ export function normalizeItem(raw) {
   };
 }
 
-export default function MobileProductCard({ item, onAction, expanded, onToggle }) {
+export default function MobileProductCard({ item, onAction, expanded, onToggle, selectable = false, selected = false, onToggleSelect }) {
   const p = normalizeItem(item);
   const maxForBar = Math.max(p.minStock * 3, p.stock * 1.5, 30);
   const pct = Math.min(100, (p.stock / maxForBar) * 100);
@@ -49,15 +49,32 @@ export default function MobileProductCard({ item, onAction, expanded, onToggle }
     <motion.div
       layout
       variants={listItem}
-      className="bg-card border border-border rounded-[var(--mobile-radius-lg)] overflow-hidden"
+      className={cn(
+        'bg-card border rounded-[var(--mobile-radius-lg)] overflow-hidden transition-colors',
+        selectable && selected ? 'border-primary ring-1 ring-primary' : 'border-border',
+      )}
     >
       {/* Compact row */}
       <button
         type="button"
-        onClick={() => { haptics.tap(); onToggle?.(p.id); }}
+        onClick={() => {
+          haptics.tap();
+          if (selectable) onToggleSelect?.(item);
+          else onToggle?.(p.id);
+        }}
         className="w-full text-left p-4 no-tap-highlight active:bg-muted/30 transition-colors"
       >
         <div className="flex items-start justify-between gap-3">
+          {selectable && (
+            <span
+              className={cn(
+                'mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors',
+                selected ? 'bg-primary border-primary text-primary-foreground' : 'border-muted-foreground/40',
+              )}
+            >
+              {selected && <Check size={13} strokeWidth={3} />}
+            </span>
+          )}
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm truncate">{p.name}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{p.sku}</p>
@@ -71,10 +88,12 @@ export default function MobileProductCard({ item, onAction, expanded, onToggle }
                 {badgeLabel}
               </span>
             )}
-            <ChevronDown
-              size={14}
-              className={cn('text-muted-foreground transition-transform duration-200', expanded && 'rotate-180')}
-            />
+            {!selectable && (
+              <ChevronDown
+                size={14}
+                className={cn('text-muted-foreground transition-transform duration-200', expanded && 'rotate-180')}
+              />
+            )}
           </div>
         </div>
         {/* Stock bar */}
