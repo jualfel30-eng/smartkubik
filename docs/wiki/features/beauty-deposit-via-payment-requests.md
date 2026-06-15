@@ -145,3 +145,20 @@ Cliente paga en /pago/[token] → sube comprobante → PR.status='proof_submitte
 - Booking schema: `food-inventory-saas/src/schemas/beauty-booking.schema.ts`
 - Portal cliente: `food-inventory-storefront/src/app/pago/[token]/`
 - Wizard: `food-inventory-storefront/src/components/booking/BookingWizard.tsx`
+
+---
+
+## 9. Beta-test (2026-06-14, prod, tenant Barbería Sava) + deploy
+
+**Resultado:** contrato funcional **7/7 PASS**. Flujo del dinero verificado en prod: depósito $7.50 (50% de $15), reserva en hold, portal acepta comprobante, admin acepta/confirma → **asiento contable correcto** (débito Caja 1101 / crédito Anticipos de Clientes 2103) + reserva `confirmed`/`deposit_paid`. Caso sin depósito, guard de cancelada y ventana de 1h: OK.
+
+**Deployado a prod:** backend (A, B, H1), admin (D), storefront (C — redirect live, `.next` contiene `depositPayment`).
+
+### Hallazgos del beta-test
+- **H1 [resuelto]** — `buildPortalUrl` caía a `localhost:3001` (env `STOREFRONT_PUBLIC_URL` no seteada). Fix: `buildPortalUrlForTenant`/`resolveStorefrontBaseUrl` usan el dominio del storefront del tenant (`storefrontconfigs.domain` → `<domain>.smartkubik.com`). Verificado: `https://savabarberia.smartkubik.com/pago/<token>`, portal 200.
+- **H2 [follow-up]** — Entrega por WhatsApp del link falla: `MessageDelivery validation failed: customerId required`. La reserva pública no pasa `customerId` al PR. El feature degrada a `pending_manual` sin romper la reserva. Fix pendiente: que `WhatsAppService.sendTextMessage` acepte entrega por teléfono sin `customerId`, o pasar el `customer` que `create()` auto-crea. **Mitigación actual:** redirect del storefront (canal primario) + botón "Reenviar link" en admin.
+- **H3 [follow-up, menor]**:
+  - `depositInfo.method`/asiento usan `selectedMethod.label`, no el método real del comprobante.
+  - `resend-link` sin `phone` da 400 aunque la reserva ya tiene teléfono (debería caer al almacenado).
+  - `resend-link` responde 200 sobre un PR ya confirmado (debería bloquear).
+  - Cancelar una reserva tras `deposit_paid` no genera asiento de reversa del depósito.
