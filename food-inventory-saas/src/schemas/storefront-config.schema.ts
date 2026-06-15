@@ -222,6 +222,14 @@ export class StorefrontConfig {
       resetAfterDays?: number;     // default 180
       depositPercentage?: number;  // default 50
     };
+    // Política del depósito al CANCELAR una reserva ya pagada (v1: solo
+    // cancelación explícita; no-show → v2). Ver blueprint
+    // docs/wiki/features/beauty-cancellation-deposit-policy.md
+    cancellationPolicy?: {
+      enabled?: boolean;            // default false → sin tratamiento
+      mode?: 'credit' | 'refund';   // default 'credit'
+      refundPercentage?: number;    // 0–100, solo para mode='refund'. default 0
+    };
   };
 
   // ==================== RESTAURANT-SPECIFIC CONFIG ====================

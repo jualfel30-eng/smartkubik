@@ -66,6 +66,7 @@ import { NotificationCenterModule } from '../notification-center/notification-ce
 import { CashRegisterModule } from '../cash-register/cash-register.module';
 import { CommissionsModule } from '../commissions/commissions.module';
 import { PaymentRequestsModule } from '../payment-requests/payment-requests.module';
+import { AccountingModule } from '../accounting/accounting.module';
 
 // Controllers - Private
 import { BeautyPackagesController } from './controllers/service-packages.controller';
@@ -120,6 +121,7 @@ import { BeautyLoyaltyPublicController } from './controllers/beauty-loyalty-publ
     CashRegisterModule,
     CommissionsModule,
     PaymentRequestsModule,
+    AccountingModule,
     MongooseModule.forFeature([
       { name: BeautyPackage.name, schema: BeautyPackageSchema },
       { name: BeautyService.name, schema: BeautyServiceSchema },

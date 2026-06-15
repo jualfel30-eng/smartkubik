@@ -38,6 +38,7 @@ import {
   CustomerDocument,
 } from '../../../schemas/customer.schema';
 import { PaymentRequestsService } from '../../payment-requests/services/payment-requests.service';
+import { AccountingService } from '../../accounting/accounting.service';
 import { computeBeautyBookingDeposit } from '../utils/deposit.util';
 import {
   CreateBeautyBookingDto,
@@ -82,6 +83,7 @@ export class BeautyBookingsService {
     private readonly cashRegisterService: CashRegisterService,
     private readonly commissionService: CommissionService,
     private readonly paymentRequestsService: PaymentRequestsService,
+    private readonly accountingService: AccountingService,
   ) {}
 
   /**
@@ -629,6 +631,15 @@ export class BeautyBookingsService {
         booking.cancelledAt = new Date();
         if (dto.cancellationReason) {
           booking.cancellationReason = dto.cancellationReason;
+        }
+
+        // Política de cancelación del depósito (si estaba pagado). v1: solo
+        // cancelación explícita; no-show → v2.
+        if (
+          previousStatus !== 'cancelled' &&
+          (booking as any).depositInfo?.paid
+        ) {
+          await this.applyCancellationDepositPolicy(booking, tenantId);
         }
 
         // Enviar notificación de cancelación
@@ -1338,6 +1349,89 @@ export class BeautyBookingsService {
     } catch (err) {
       this.logger.error(`getClientNoShowStatus error: ${err.message}`);
       return { canBook: true, requiresDeposit: false, depositAmount: 0 };
+    }
+  }
+
+  /**
+   * Aplica la política de cancelación del depósito (cancellationPolicy) cuando
+   * se cancela una reserva con el depósito YA pagado. Muta booking.depositInfo
+   * con el outcome; el caller persiste. No-bloqueante (no impide cancelar).
+   * v1: reembolso registra asiento + marca refundPending (dinero real lo paga
+   * el negocio); credit deja el pasivo (saldo a favor) sin asiento.
+   */
+  private async applyCancellationDepositPolicy(
+    booking: any,
+    tenantId: string,
+  ): Promise<void> {
+    try {
+      const config = await this.storefrontConfigModel
+        .findOne({
+          $or: [{ tenantId }, { tenantId: new Types.ObjectId(tenantId) }],
+        })
+        .lean();
+      const policy = (config as any)?.beautyConfig?.cancellationPolicy;
+      if (!policy?.enabled) return; // sin tratamiento
+
+      const amount = booking.depositInfo?.amount || 0;
+      if (amount <= 0) return;
+
+      const mode = policy.mode === 'refund' ? 'refund' : 'credit';
+      const serviceName = (booking.services || [])
+        .map((s: any) => s.name)
+        .filter(Boolean)
+        .join(', ');
+
+      if (mode === 'credit') {
+        booking.depositInfo = {
+          ...booking.depositInfo,
+          cancellationOutcome: { mode: 'credit', at: new Date() },
+        };
+        booking.markModified('depositInfo');
+        return;
+      }
+
+      // mode === 'refund'
+      const pct = Math.min(100, Math.max(0, Number(policy.refundPercentage) || 0));
+      const refundAmount = Math.round(amount * pct) / 100;
+      const forfeitAmount = Math.round((amount - refundAmount) * 100) / 100;
+
+      let journalEntryId: string | null = null;
+      try {
+        const entry =
+          await this.accountingService.createJournalEntryForDepositCancellation({
+            tenantId,
+            refundAmount,
+            forfeitAmount,
+            currency: 'USD',
+            appointmentId: booking._id.toString(),
+            appointmentNumber: booking.bookingNumber,
+            customerName: booking.client?.name,
+            serviceName,
+            transactionDate: new Date(),
+          });
+        journalEntryId = entry?._id ? entry._id.toString() : null;
+      } catch (err) {
+        this.logger.error(
+          `Asiento de cancelación de depósito falló para ${booking._id}: ${err.message}`,
+        );
+      }
+
+      booking.depositInfo = {
+        ...booking.depositInfo,
+        cancellationOutcome: {
+          mode: 'refund',
+          refundAmount,
+          forfeitAmount,
+          refundPending: refundAmount > 0, // el negocio paga el dinero (v1)
+          journalEntryId,
+          at: new Date(),
+        },
+      };
+      booking.markModified('depositInfo');
+    } catch (err) {
+      this.logger.error(
+        `applyCancellationDepositPolicy error (${booking?._id}): ${err.message}`,
+      );
     }
   }
 

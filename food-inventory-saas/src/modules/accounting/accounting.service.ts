@@ -910,6 +910,117 @@ export class AccountingService {
     return newEntry.save();
   }
 
+  /**
+   * Asiento al cancelar una reserva con depósito YA pagado (mode='refund').
+   * Limpia el pasivo (Anticipos de Clientes 2103) y reparte el monto:
+   *   - reembolso → crédito a Caja 1101 (salida hacia el cliente)
+   *   - retenido (penalización) → crédito a Ingresos 4104
+   * Para mode='credit' (saldo a favor) NO se llama (el pasivo permanece).
+   */
+  async createJournalEntryForDepositCancellation(params: {
+    tenantId: string;
+    refundAmount: number;
+    forfeitAmount: number;
+    currency?: string;
+    appointmentId: string;
+    appointmentNumber?: string;
+    customerName?: string;
+    serviceName?: string;
+    transactionDate: Date;
+  }): Promise<JournalEntryDocument | null> {
+    const {
+      tenantId,
+      refundAmount,
+      forfeitAmount,
+      appointmentId,
+      appointmentNumber,
+      customerName,
+      serviceName,
+      transactionDate,
+    } = params;
+
+    const refund = Number(refundAmount) || 0;
+    const forfeit = Number(forfeitAmount) || 0;
+    const total = Math.round((refund + forfeit) * 100) / 100;
+    if (total <= 0) return null;
+
+    const customerAdvanceAccount = await this.findOrCreateAccount(
+      { code: "2103", name: "Anticipos de Clientes", type: "Pasivo" },
+      tenantId,
+    );
+
+    const descBase = [
+      "Cancelación de reserva con depósito",
+      serviceName ? `(${serviceName})` : undefined,
+      customerName ? `- ${customerName}` : undefined,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    const description =
+      descBase || `Cancelación reserva ${appointmentNumber || appointmentId}`;
+
+    // Débito al pasivo por el total (se cancela el anticipo).
+    const lines: CreateJournalEntryDto["lines"] = [
+      {
+        accountId: customerAdvanceAccount._id.toString(),
+        debit: total,
+        credit: 0,
+        description,
+      },
+    ];
+
+    if (refund > 0) {
+      const cashOrBankAcc = await this.findAccountByCode("1101", tenantId);
+      lines.push({
+        accountId: cashOrBankAcc._id.toString(),
+        debit: 0,
+        credit: refund,
+        description: `Reembolso de depósito (${appointmentNumber || appointmentId})`,
+      });
+    }
+
+    if (forfeit > 0) {
+      const penaltyIncomeAcc = await this.findOrCreateAccount(
+        {
+          code: "4104",
+          name: "Ingresos por penalización de cancelación",
+          type: "Ingreso",
+        },
+        tenantId,
+      );
+      lines.push({
+        accountId: penaltyIncomeAcc._id.toString(),
+        debit: 0,
+        credit: forfeit,
+        description: `Penalización por cancelación (${appointmentNumber || appointmentId})`,
+      });
+    }
+
+    const newEntry = new this.journalEntryModel({
+      date: transactionDate,
+      description,
+      lines: lines.map((line) => ({
+        account: line.accountId,
+        debit: line.debit,
+        credit: line.credit,
+        description: line.description,
+      })),
+      tenantId,
+      isAutomatic: true,
+      metadata: {
+        createdFrom: "appointments_deposit_cancellation",
+        appointmentId,
+        appointmentNumber: appointmentNumber ?? null,
+        customerName: customerName ?? null,
+        serviceName: serviceName ?? null,
+        refundAmount: refund,
+        forfeitAmount: forfeit,
+      },
+    });
+
+    return newEntry.save();
+  }
+
   async getProfitAndLoss(tenantId: string, from: Date, to: Date): Promise<any> {
     await this.fixJournalEntryDates(tenantId);
     const tenantObjectId = tenantId;
