@@ -56,9 +56,11 @@ export default function MobileSettingsLayout({
         {!isDirty && headerRight}
       </div>
 
-      {/* Scrollable content */}
+      {/* Content — fluye en el scroller real (App.jsx). Un scroller interno aquí
+          con overscroll-behavior:contain bloqueaba la propagación del scroll en
+          Android (la cadena h-full se rompe en PageTransition y nunca desborda). */}
       <div
-        className="flex-1 overflow-y-auto mobile-scroll px-4 py-4 space-y-5"
+        className="flex-1 px-4 py-4 space-y-5"
         style={{ paddingBottom: '6rem' }}
       >
         {children}

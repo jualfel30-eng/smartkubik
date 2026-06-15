@@ -122,7 +122,7 @@ export default function MobileSettingsPage() {
       </div>
 
       <motion.div
-        className="flex-1 overflow-y-auto mobile-scroll px-4 py-4 space-y-6 pb-24"
+        className="flex-1 px-4 py-4 space-y-6 pb-24"
         initial="initial"
         animate="animate"
         variants={STAGGER(0.06, 0.05)}

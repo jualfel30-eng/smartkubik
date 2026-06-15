@@ -71,7 +71,7 @@ export default function MobileCancellationPolicyPanel({ onBack }) {
         <h1 className="text-lg font-bold">Política de cancelación</h1>
       </header>
 
-      <div className="flex-1 overflow-y-auto mobile-scroll px-4 py-4 space-y-4 pb-24">
+      <div className="flex-1 px-4 py-4 space-y-4 pb-24">
         <p className="text-xs text-muted-foreground leading-relaxed">
           Define qué pasa con el depósito ya pagado cuando una reserva se cancela.
         </p>
