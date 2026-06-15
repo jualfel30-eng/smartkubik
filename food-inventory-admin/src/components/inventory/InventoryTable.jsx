@@ -136,7 +136,7 @@ export function InventoryTable({
           <TableHeader>
             <TableRow>
               {selectable && (
-                <TableHead className="w-[44px]">
+                <TableHead className="w-[4%]">
                   <Checkbox
                     aria-label="Seleccionar todos los de esta página"
                     checked={isAllPageSelected ? true : isSomePageSelected ? 'indeterminate' : false}
