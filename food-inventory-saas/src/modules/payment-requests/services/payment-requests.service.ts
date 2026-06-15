@@ -222,6 +222,9 @@ export class PaymentRequestsService {
 
     if (wantsWhatsApp && phoneToTry) {
       await this.attemptWhatsappDelivery(pr, phoneToTry);
+      // Persistir el resultado de la entrega (channel, deliveredTo, attempts,
+      // lastError). attemptWhatsappDelivery muta `pr` pero no guarda.
+      await pr.save();
     } else if (phoneToTry === undefined || !wantsWhatsApp) {
       pr.delivery.channel = "manual";
       pr.events.push({
