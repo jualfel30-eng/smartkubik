@@ -1,11 +1,17 @@
-import { Connection } from "mongoose";
+import { Connection, Types } from "mongoose";
 import { Logger } from "@nestjs/common";
 
+const isHexObjectId = (s: string) => /^[a-fA-F0-9]{24}$/.test(s);
+
 /**
- * Normaliza `roles.permissions`: convierte permisos guardados como NOMBRE-TEXTO
- * a su ObjectId (referencia a la colección `permissions`), preservando los
- * ObjectIds existentes y deduplicando. Los strings sin Permission doc (huérfanos
- * legacy, ej. "orders.create" con punto) se descartan.
+ * Normaliza `roles.permissions`: convierte permisos guardados como string a su
+ * ObjectId (referencia a la colección `permissions`), preservando los ObjectIds
+ * existentes y deduplicando. Un string puede ser:
+ *   - un ObjectId-hex (24 chars) → se castea a ObjectId si existe el Permission;
+ *   - un NOMBRE de permiso (ej. "orders_create") → se resuelve por nombre.
+ * Sólo se descarta un string si NO matchea ni por _id ni por nombre (huérfano
+ * real). CRÍTICO: la mayoría de la corrupción son ObjectIds-hex stringificados,
+ * NO nombres; tratarlos como nombre los borraría y vaciaría el rol.
  *
  * POR QUÉ corre en cada arranque (último paso de runMigrations): varias
  * migraciones de seed (add-apply-discounts, add-production-module, etc.) hacen
@@ -24,6 +30,8 @@ export async function normalizeRolePermissions(connection: Connection) {
 
     const perms = await permsCol.find({}).project({ name: 1 }).toArray();
     const byName = new Map<string, any>(perms.map((p: any) => [p.name, p._id]));
+    // Set de _ids válidos (como string) para resolver ObjectIds-hex stringificados.
+    const validIds = new Set<string>(perms.map((p: any) => String(p._id)));
 
     const affected = await roles
       .find({ permissions: { $elemMatch: { $type: "string" } } } as any)
@@ -47,7 +55,14 @@ export async function normalizeRolePermissions(connection: Connection) {
           }
           continue;
         }
-        const id = byName.get(p);
+        // 1) ObjectId-hex stringificado que existe en `permissions`.
+        // 2) NOMBRE de permiso. 3) huérfano real → descartar.
+        let id: any = null;
+        if (isHexObjectId(p) && validIds.has(p)) {
+          id = new Types.ObjectId(p);
+        } else if (byName.has(p)) {
+          id = byName.get(p);
+        }
         if (id) {
           const k = String(id);
           if (!seen.has(k)) {
