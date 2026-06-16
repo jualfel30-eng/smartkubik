@@ -26,6 +26,13 @@ export class PermissionsService {
       "accounting",
       "cash", // Cash Register module (cierre de caja)
       "billing", // Billing/Invoicing module (facturación)
+      // Payment Requests (confirmación de pagos de storefront/WhatsApp).
+      // El módulo real es `payment_requests`, pero abajo el nombre de módulo
+      // se deriva con split("_")[0] → "payment", así que ese es el token a
+      // incluir. Matchea SOLO `payment_requests_review` (los permisos
+      // `payments_*` derivan a "payments", módulo distinto). Es transversal a
+      // todas las verticales: el cobro final pasa siempre por aquí.
+      "payment",
     ];
 
     const allRequiredModules = [
