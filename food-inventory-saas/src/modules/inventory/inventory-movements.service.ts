@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
+import { ClientSession, Model, Types } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import { Inventory, InventoryDocument, InventoryMovement, InventoryMovementDocument } from "../../schemas/inventory.schema";
 import { Warehouse, WarehouseDocument } from "../../schemas/warehouse.schema";
@@ -21,6 +21,41 @@ export class InventoryMovementsService {
     private readonly productModel: Model<ProductDocument>,
     private readonly inventoryAlertsService: InventoryAlertsService,
   ) { }
+
+  private snapshotBalance(inv: InventoryDocument) {
+    return {
+      totalQuantity: inv.totalQuantity ?? 0,
+      availableQuantity: inv.availableQuantity ?? 0,
+      reservedQuantity: inv.reservedQuantity ?? 0,
+      averageCostPrice: inv.averageCostPrice ?? 0,
+    };
+  }
+
+  /**
+   * Punto de paso único para registrar un movimiento de inventario.
+   * Toma el snapshot del saldo ANTES, ejecuta la mutación del caller, guarda el
+   * inventario y persiste el movimiento con balanceBefore + balanceAfter. Así
+   * ningún movimiento puede quedar sin su saldo: queda auto-explicativo por
+   * construcción. La mutación es del caller para no cambiar su matemática.
+   */
+  async recordMovement(
+    inventory: InventoryDocument,
+    mutate: (inv: InventoryDocument) => void,
+    movementData: Record<string, any>,
+    session?: ClientSession,
+  ): Promise<InventoryMovementDocument> {
+    const balanceBefore = this.snapshotBalance(inventory);
+    mutate(inventory);
+    await inventory.save({ session });
+    const balanceAfter = this.snapshotBalance(inventory);
+    const movement = new this.movementModel({
+      ...movementData,
+      inventoryId: inventory._id,
+      balanceBefore,
+      balanceAfter,
+    });
+    return movement.save({ session });
+  }
 
   async create(
     dto: CreateInventoryMovementDto,
@@ -82,47 +117,42 @@ export class InventoryMovementsService {
       throw new BadRequestException("Stock insuficiente para registrar salida.");
     }
 
-    inventory.availableQuantity = newAvailable;
-    inventory.totalQuantity = newTotal;
-    inventory.warehouseId =
+    const finalWarehouseId =
       dto.warehouseId && Types.ObjectId.isValid(dto.warehouseId)
         ? new Types.ObjectId(dto.warehouseId)
         : inventory.warehouseId;
-    await inventory.save();
+    const binOid =
+      dto.binLocationId && Types.ObjectId.isValid(dto.binLocationId)
+        ? new Types.ObjectId(dto.binLocationId)
+        : undefined;
 
-    // Update inventory bin location if provided
-    if (dto.binLocationId && Types.ObjectId.isValid(dto.binLocationId)) {
-      inventory.binLocationId = new Types.ObjectId(dto.binLocationId);
-      await inventory.save();
-    }
-
-    const movement = new this.movementModel({
-      inventoryId: inventory._id,
-      productId: inventory.productId,
-      productSku: inventory.productSku,
-      warehouseId: inventory.warehouseId,
-      binLocationId: dto.binLocationId ? new Types.ObjectId(dto.binLocationId) : undefined,
-      movementType: dto.movementType,
-      quantity: dto.quantity,
-      unitCost: dto.unitCost,
-      totalCost: dto.quantity * dto.unitCost,
-      reference: dto.reference,
-      orderId:
-        options?.orderId && Types.ObjectId.isValid(options.orderId)
-          ? new Types.ObjectId(options.orderId)
-          : undefined,
-      reason: dto.reason || options?.origin,
-      balanceAfter: {
-        totalQuantity: inventory.totalQuantity,
-        availableQuantity: inventory.availableQuantity,
-        reservedQuantity: inventory.reservedQuantity,
-        averageCostPrice: inventory.averageCostPrice,
+    const savedMovement = await this.recordMovement(
+      inventory,
+      (inv) => {
+        inv.availableQuantity = newAvailable;
+        inv.totalQuantity = newTotal;
+        inv.warehouseId = finalWarehouseId;
+        if (binOid) inv.binLocationId = binOid;
       },
-      createdBy: new Types.ObjectId(userId),
-      tenantId: new Types.ObjectId(tenantId),
-    });
-
-    const savedMovement = await movement.save();
+      {
+        productId: inventory.productId,
+        productSku: inventory.productSku,
+        warehouseId: finalWarehouseId,
+        binLocationId: binOid,
+        movementType: dto.movementType,
+        quantity: dto.quantity,
+        unitCost: dto.unitCost,
+        totalCost: dto.quantity * dto.unitCost,
+        reference: dto.reference,
+        orderId:
+          options?.orderId && Types.ObjectId.isValid(options.orderId)
+            ? new Types.ObjectId(options.orderId)
+            : undefined,
+        reason: dto.reason || options?.origin,
+        createdBy: new Types.ObjectId(userId),
+        tenantId: new Types.ObjectId(tenantId),
+      },
+    );
 
     // Evaluar alertas de stock bajo post-movimiento
     try {
@@ -658,85 +688,66 @@ export class InventoryMovementsService {
     const unitCost = sourceInventory.averageCostPrice ?? 0;
     const reason = dto.reason || `Transferencia de ${sourceWarehouse.name} a ${destWarehouse.name}`;
 
-    // Update source inventory (decrease stock)
-    sourceInventory.availableQuantity = (sourceInventory.availableQuantity ?? 0) - dto.quantity;
-    sourceInventory.totalQuantity = (sourceInventory.totalQuantity ?? 0) - dto.quantity;
-    await sourceInventory.save();
-
-    // Update destination inventory (increase stock)
-    destInventory.availableQuantity = (destInventory.availableQuantity ?? 0) + dto.quantity;
-    destInventory.totalQuantity = (destInventory.totalQuantity ?? 0) + dto.quantity;
-    await destInventory.save();
-
     // Prepare bin location ObjectIds if provided
     const sourceBinOid = dto.sourceBinLocationId ? new Types.ObjectId(dto.sourceBinLocationId) : undefined;
     const destBinOid = dto.destinationBinLocationId ? new Types.ObjectId(dto.destinationBinLocationId) : undefined;
 
-    // Update destination inventory bin location if provided
-    if (destBinOid) {
-      destInventory.binLocationId = destBinOid;
-      await destInventory.save();
-    }
-
-    // Create OUT movement from source
-    const outMovement = new this.movementModel({
-      inventoryId: sourceInventory._id,
-      productId: productOid,
-      productSku: sourceInventory.productSku,
-      warehouseId: sourceWarehouseOid,
-      binLocationId: sourceBinOid,
-      movementType: MovementType.TRANSFER,
-      quantity: dto.quantity,
-      unitCost,
-      totalCost: dto.quantity * unitCost,
-      reason,
-      reference: dto.reference,
-      transferId,
-      sourceWarehouseId: sourceWarehouseOid,
-      destinationWarehouseId: destWarehouseOid,
-      sourceBinLocationId: sourceBinOid,
-      destinationBinLocationId: destBinOid,
-      balanceAfter: {
-        totalQuantity: sourceInventory.totalQuantity,
-        availableQuantity: sourceInventory.availableQuantity,
-        reservedQuantity: sourceInventory.reservedQuantity,
-        averageCostPrice: sourceInventory.averageCostPrice,
+    // OUT movement from source (decrease stock) — saldo antes/después por construcción
+    const savedOutMovement = await this.recordMovement(
+      sourceInventory,
+      (inv) => {
+        inv.availableQuantity = (inv.availableQuantity ?? 0) - dto.quantity;
+        inv.totalQuantity = (inv.totalQuantity ?? 0) - dto.quantity;
       },
-      createdBy: userOid,
-      tenantId: tenantOid,
-    });
-
-    // Create IN movement to destination
-    const inMovement = new this.movementModel({
-      inventoryId: destInventory._id,
-      productId: productOid,
-      productSku: destInventory.productSku,
-      warehouseId: destWarehouseOid,
-      binLocationId: destBinOid,
-      movementType: MovementType.TRANSFER,
-      quantity: dto.quantity,
-      unitCost,
-      totalCost: dto.quantity * unitCost,
-      reason,
-      reference: dto.reference,
-      transferId,
-      sourceWarehouseId: sourceWarehouseOid,
-      destinationWarehouseId: destWarehouseOid,
-      sourceBinLocationId: sourceBinOid,
-      destinationBinLocationId: destBinOid,
-      balanceAfter: {
-        totalQuantity: destInventory.totalQuantity,
-        availableQuantity: destInventory.availableQuantity,
-        reservedQuantity: destInventory.reservedQuantity,
-        averageCostPrice: destInventory.averageCostPrice,
+      {
+        productId: productOid,
+        productSku: sourceInventory.productSku,
+        warehouseId: sourceWarehouseOid,
+        binLocationId: sourceBinOid,
+        movementType: MovementType.TRANSFER,
+        quantity: dto.quantity,
+        unitCost,
+        totalCost: dto.quantity * unitCost,
+        reason,
+        reference: dto.reference,
+        transferId,
+        sourceWarehouseId: sourceWarehouseOid,
+        destinationWarehouseId: destWarehouseOid,
+        sourceBinLocationId: sourceBinOid,
+        destinationBinLocationId: destBinOid,
+        createdBy: userOid,
+        tenantId: tenantOid,
       },
-      createdBy: userOid,
-      tenantId: tenantOid,
-    });
+    );
 
-    // Save both movements and link them
-    const savedOutMovement = await outMovement.save();
-    const savedInMovement = await inMovement.save();
+    // IN movement to destination (increase stock)
+    const savedInMovement = await this.recordMovement(
+      destInventory,
+      (inv) => {
+        inv.availableQuantity = (inv.availableQuantity ?? 0) + dto.quantity;
+        inv.totalQuantity = (inv.totalQuantity ?? 0) + dto.quantity;
+        if (destBinOid) inv.binLocationId = destBinOid;
+      },
+      {
+        productId: productOid,
+        productSku: destInventory.productSku,
+        warehouseId: destWarehouseOid,
+        binLocationId: destBinOid,
+        movementType: MovementType.TRANSFER,
+        quantity: dto.quantity,
+        unitCost,
+        totalCost: dto.quantity * unitCost,
+        reason,
+        reference: dto.reference,
+        transferId,
+        sourceWarehouseId: sourceWarehouseOid,
+        destinationWarehouseId: destWarehouseOid,
+        sourceBinLocationId: sourceBinOid,
+        destinationBinLocationId: destBinOid,
+        createdBy: userOid,
+        tenantId: tenantOid,
+      },
+    );
 
     // Link the movements to each other
     savedOutMovement.linkedMovementId = savedInMovement._id;
