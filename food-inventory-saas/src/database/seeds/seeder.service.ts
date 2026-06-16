@@ -7,6 +7,7 @@ import { UnitTypesSeed } from "./unit-types.seed";
 import { addApplyDiscountsPermission } from "../migrations/add-apply-discounts-permission";
 import { addProductionModulePermissions } from "../migrations/add-production-module-permissions";
 import { addCashRegisterModulePermissions } from "../migrations/add-cash-register-module";
+import { normalizeRolePermissions } from "../migrations/normalize-role-permissions";
 
 @Injectable()
 export class SeederService {
@@ -64,6 +65,12 @@ export class SeederService {
       await addApplyDiscountsPermission(this.connection);
       await addProductionModulePermissions(this.connection);
       await addCashRegisterModulePermissions(this.connection);
+
+      // SIEMPRE al final: las migraciones de arriba agregan permisos como
+      // NOMBRE-STRING a roles admin/super_admin en cada boot, corrompiendo el
+      // array (rompe el populate → login super_admin falla, tenant pierde
+      // permisos). Esta pasada los normaliza a ObjectId. Ver el archivo.
+      await normalizeRolePermissions(this.connection);
 
       this.logger.log("✅ Migrations completed successfully");
     } catch (error) {
