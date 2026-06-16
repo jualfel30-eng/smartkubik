@@ -5,6 +5,7 @@ Cada bug crítico resuelto se documenta aquí con: síntoma, root cause, archivo
 ## 2026
 
 ### Junio
+- [2026-06-16 — Despacho de traslado no-atómico drenó inventario de un tenant real](./2026-06-16-transfer-dispatch-non-atomic-inventory-limbo.md)
 - [2026-06-16 — `normalizeRolePermissions` vació un rol admin (166 → 1)](./2026-06-16-normalize-role-permissions-wipeout.md)
 
 ### Mayo
