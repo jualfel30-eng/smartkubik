@@ -187,7 +187,7 @@ export function PaymentReviewDetail({
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-w-0 flex-col">
       <button
         type="button"
         onClick={onBack}
@@ -343,7 +343,7 @@ function PendingManualCallout({ portalUrl, lastError }) {
                 : 'Cópialo y compártelo manualmente.'}
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 truncate rounded bg-rose-950/40 px-2 py-1 text-[11px] text-rose-100">
+            <code className="min-w-0 flex-1 truncate rounded bg-rose-950/40 px-2 py-1 text-[11px] text-rose-100">
               {portalUrl}
             </code>
             <Button
