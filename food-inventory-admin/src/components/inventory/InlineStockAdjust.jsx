@@ -55,7 +55,10 @@ export default function InlineStockAdjust({ item, onAdjustComplete }) {
       return;
     }
 
-    const currentQty = item.availableQuantity || 0;
+    // El backend ajusta sobre totalQuantity (newQuantity = nuevo total) y aplica
+    // el delta contra el total. La base debe ser totalQuantity; usar
+    // availableQuantity desfasa el ajuste por reservedQuantity.
+    const currentQty = item.totalQuantity ?? item.availableQuantity ?? 0;
     const newQuantity = mode === 'add' ? currentQty + qty : Math.max(0, currentQty - qty);
 
     setSaving(true);

@@ -734,7 +734,9 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
   const handleEditItem = (item) => {
     setSelectedItem(item);
     setEditFormData({
-      newQuantity: item.availableQuantity,
+      // El campo es "Nueva Cantidad Total" y el backend ajusta sobre totalQuantity,
+      // así que se prellena con el total, no con el disponible (= total - reservado).
+      newQuantity: item.totalQuantity ?? item.availableQuantity,
       reason: '',
       binLocationId: item.binLocationId || '',
     });

@@ -20,7 +20,18 @@ const REASONS = ['Conteo físico', 'Compra', 'Devolución', 'Daño', 'Merma', 'O
  * fija cantidad absoluta y deja un movimiento de auditoría por producto.
  */
 export default function MobileBulkAdjust({ items, reasonDefault = 'Conteo físico', onClose }) {
-  const records = useMemo(() => items.map(normalizeItem), [items]);
+  // El backend ajusta sobre totalQuantity (newQuantity = nuevo total fisico).
+  // normalizeItem.stock devuelve availableQuantity para el badge de las cards,
+  // pero para el conteo la base debe ser totalQuantity, o el delta aplicado
+  // queda desfasado por reservedQuantity. Sobreescribimos stock con el total.
+  const records = useMemo(
+    () => items.map((it) => {
+      const n = normalizeItem(it);
+      const total = Number(it.totalQuantity ?? n.stock);
+      return { ...n, stock: total };
+    }),
+    [items],
+  );
   const [index, setIndex] = useState(0);
   // Map id -> nueva cantidad contada (number). Parte del stock actual.
   const [counts, setCounts] = useState(() => {

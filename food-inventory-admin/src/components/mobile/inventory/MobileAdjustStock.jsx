@@ -15,8 +15,12 @@ export default function MobileAdjustStock({ product, item, mode = 'add', onClose
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // El backend (adjustInventory) trata newQuantity como el TOTAL nuevo y calcula
+  // el delta contra totalQuantity. Por eso la base DEBE ser totalQuantity: si se
+  // usa availableQuantity (= total - reservado), el ajuste real queda desfasado
+  // por reservedQuantity y produce sumas/restas incoherentes.
   const currentStock = Number(
-    record?.availableQuantity ?? record?.totalQuantity ??
+    record?.totalQuantity ?? record?.availableQuantity ??
     record?.currentStock ?? record?.quantity ?? 0
   );
   const newStock = mode === 'add'

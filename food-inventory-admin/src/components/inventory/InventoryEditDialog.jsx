@@ -36,8 +36,8 @@ export function InventoryEditDialog({
             <Input value={`${selectedItem?.productName} (${selectedItem?.productSku})`} disabled />
           </div>
           <div className="space-y-2">
-            <Label>Cantidad Actual (Disponible)</Label>
-            <Input value={selectedItem?.availableQuantity} disabled />
+            <Label>Cantidad Actual (Total)</Label>
+            <Input value={selectedItem?.totalQuantity ?? selectedItem?.availableQuantity} disabled />
           </div>
           <div className="space-y-2">
             <Label htmlFor="newQuantity">Nueva Cantidad Total</Label>
