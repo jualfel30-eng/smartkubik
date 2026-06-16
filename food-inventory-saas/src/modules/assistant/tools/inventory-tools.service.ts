@@ -83,6 +83,12 @@ export class InventoryToolsService {
           totalCost: unitCost * args.quantity,
           reason: "Adición de inventario vía asistente AI",
           lotNumber: args.lotNumber,
+          balanceBefore: {
+            totalQuantity: inventory.totalQuantity,
+            availableQuantity: inventory.availableQuantity,
+            reservedQuantity: inventory.reservedQuantity,
+            averageCostPrice: inventory.averageCostPrice,
+          },
           balanceAfter: {
             totalQuantity: inventory.totalQuantity + args.quantity,
             availableQuantity: inventory.availableQuantity + args.quantity,
@@ -173,6 +179,7 @@ export class InventoryToolsService {
           totalCost: unitCost * args.quantity,
           reason: "Inventario inicial creado vía asistente AI",
           lotNumber: args.lotNumber,
+          balanceBefore: { totalQuantity: 0, availableQuantity: 0, reservedQuantity: 0, averageCostPrice: 0 },
           balanceAfter: {
             totalQuantity: args.quantity,
             availableQuantity: args.quantity,
@@ -260,6 +267,12 @@ export class InventoryToolsService {
         unitCost: inventory.averageCostPrice || 0,
         totalCost: Math.abs(delta) * (inventory.averageCostPrice || 0),
         reason: args.reason || "Ajuste de inventario vía asistente AI",
+        balanceBefore: {
+          totalQuantity: inventory.totalQuantity,
+          availableQuantity: inventory.availableQuantity,
+          reservedQuantity: inventory.reservedQuantity,
+          averageCostPrice: inventory.averageCostPrice,
+        },
         balanceAfter: {
           totalQuantity: args.newQuantity,
           availableQuantity: inventory.availableQuantity + delta,

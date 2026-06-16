@@ -792,6 +792,12 @@ export class BeautyBookingsService {
                 referenceType: 'beauty_booking',
                 referenceId: booking._id,
                 notes: `Venta en cita ${booking.bookingNumber}`,
+                balanceBefore: {
+                  totalQuantity: inventory.totalQuantity ?? 0,
+                  availableQuantity: currentAvail,
+                  reservedQuantity: inventory.reservedQuantity ?? 0,
+                  averageCostPrice: inventory.averageCostPrice ?? 0,
+                },
                 balanceAfter: {
                   totalQuantity: (inventory.totalQuantity ?? 0) - deductQty,
                   availableQuantity: currentAvail - deductQty,

@@ -95,6 +95,7 @@ export class FoodRetailInventoryService implements IInventoryService {
             createInventoryDto.totalQuantity *
             createInventoryDto.averageCostPrice,
           reason: "Inventario inicial",
+          balanceBefore: { totalQuantity: 0, availableQuantity: 0, reservedQuantity: 0, averageCostPrice: 0 },
           balanceAfter: {
             totalQuantity: savedInventory.totalQuantity,
             availableQuantity: savedInventory.availableQuantity,
@@ -118,6 +119,7 @@ export class FoodRetailInventoryService implements IInventoryService {
       .findById(movementDto.inventoryId)
       .session(session ?? null);
     if (!inventory) throw new Error("Inventario no encontrado");
+    const balanceBefore = this.snapshotBalance(inventory);
     const updatedInventory = await this.updateInventoryQuantities(
       inventory,
       movementDto,
@@ -128,6 +130,7 @@ export class FoodRetailInventoryService implements IInventoryService {
         ...movementDto,
         productId: inventory.productId.toString(),
         totalCost: movementDto.quantity * movementDto.unitCost,
+        balanceBefore,
         balanceAfter: {
           totalQuantity: updatedInventory.totalQuantity,
           availableQuantity: updatedInventory.availableQuantity,
@@ -156,6 +159,7 @@ export class FoodRetailInventoryService implements IInventoryService {
         );
       if (inventory.availableQuantity < item.quantity)
         throw new Error(`Stock insuficiente para SKU: ${item.productSku}`);
+      const balanceBefore = this.snapshotBalance(inventory);
       inventory.availableQuantity -= item.quantity;
       inventory.reservedQuantity += item.quantity;
       await inventory.save({ session });
@@ -171,6 +175,7 @@ export class FoodRetailInventoryService implements IInventoryService {
           reason: "Reserva para orden",
           reference: reserveDto.orderId,
           orderId: reserveDto.orderId,
+          balanceBefore,
           balanceAfter: {
             totalQuantity: inventory.totalQuantity,
             availableQuantity: inventory.availableQuantity,
@@ -208,6 +213,7 @@ export class FoodRetailInventoryService implements IInventoryService {
         .findById(movement.inventoryId)
         .session(session ?? null);
       if (inventory) {
+        const balanceBefore = this.snapshotBalance(inventory);
         inventory.availableQuantity += movement.quantity;
         inventory.reservedQuantity -= movement.quantity;
         await inventory.save({ session });
@@ -223,6 +229,7 @@ export class FoodRetailInventoryService implements IInventoryService {
             reason: "Liberación de reserva",
             reference: releaseDto.orderId,
             orderId: releaseDto.orderId,
+            balanceBefore,
             balanceAfter: {
               totalQuantity: inventory.totalQuantity,
               availableQuantity: inventory.availableQuantity,
@@ -249,6 +256,7 @@ export class FoodRetailInventoryService implements IInventoryService {
         continue;
       }
 
+      const balanceBefore = this.snapshotBalance(inventory);
       inventory.reservedQuantity -= item.quantity;
       inventory.totalQuantity -= item.quantity;
 
@@ -266,6 +274,7 @@ export class FoodRetailInventoryService implements IInventoryService {
           reason: "Venta de producto",
           reference: order.orderNumber,
           orderId: order._id.toString(),
+          balanceBefore,
           balanceAfter: {
             totalQuantity: inventory.totalQuantity,
             availableQuantity: inventory.availableQuantity,
@@ -290,6 +299,7 @@ export class FoodRetailInventoryService implements IInventoryService {
       .findById(adjustDto.inventoryId)
       .session(session ?? null);
     if (!inventory) throw new Error("Inventario no encontrado");
+    const balanceBefore = this.snapshotBalance(inventory);
     const difference = adjustDto.newQuantity - inventory.totalQuantity;
     inventory.totalQuantity = adjustDto.newQuantity;
     inventory.availableQuantity += difference;
@@ -306,6 +316,7 @@ export class FoodRetailInventoryService implements IInventoryService {
         unitCost: inventory.averageCostPrice,
         totalCost: Math.abs(difference) * inventory.averageCostPrice,
         reason: adjustDto.reason,
+        balanceBefore,
         balanceAfter: {
           totalQuantity: inventory.totalQuantity,
           availableQuantity: inventory.availableQuantity,
@@ -617,6 +628,16 @@ export class FoodRetailInventoryService implements IInventoryService {
       .exec();
   }
 
+  /** Snapshot del saldo de un inventario para balanceBefore/balanceAfter. */
+  private snapshotBalance(inv: any) {
+    return {
+      totalQuantity: inv?.totalQuantity ?? 0,
+      availableQuantity: inv?.availableQuantity ?? 0,
+      reservedQuantity: inv?.reservedQuantity ?? 0,
+      averageCostPrice: inv?.averageCostPrice ?? 0,
+    };
+  }
+
   private async createMovementRecord(
     movementData: any,
     user: any,
@@ -700,6 +721,7 @@ export class FoodRetailInventoryService implements IInventoryService {
       inventory.lots.push(newLot);
     }
 
+    const balanceBefore = this.snapshotBalance(inventory);
     const oldTotalQuantity = inventory.totalQuantity;
     inventory.totalQuantity += item.quantity;
     inventory.availableQuantity += item.quantity;
@@ -729,6 +751,7 @@ export class FoodRetailInventoryService implements IInventoryService {
         reason: "Compra a proveedor",
         reference: item.purchaseOrderId.toString(),
         supplierId: item.supplierId,
+        balanceBefore,
         balanceAfter: {
           totalQuantity: inventory.totalQuantity,
           availableQuantity: inventory.availableQuantity,
