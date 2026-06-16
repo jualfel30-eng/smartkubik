@@ -1063,6 +1063,14 @@ export class TransferOrdersService {
           sourceInventory.warehouseId = sourceWarehouseOid;
         }
 
+        // Snapshot del saldo ANTES de mutar (auto-explica el movimiento).
+        const balanceBefore = {
+          totalQuantity: sourceInventory.totalQuantity ?? 0,
+          availableQuantity: sourceInventory.availableQuantity ?? 0,
+          reservedQuantity: sourceInventory.reservedQuantity ?? 0,
+          averageCostPrice: sourceInventory.averageCostPrice ?? 0,
+        };
+
         // Decrement source inventory (always in base units)
         sourceInventory.availableQuantity =
           (sourceInventory.availableQuantity ?? 0) - baseQty;
@@ -1089,6 +1097,7 @@ export class TransferOrdersService {
               transferId,
               sourceWarehouseId: order.sourceWarehouseId,
               destinationWarehouseId: order.destinationWarehouseId,
+              balanceBefore,
               balanceAfter: {
                 totalQuantity: sourceInventory.totalQuantity,
                 availableQuantity: sourceInventory.availableQuantity,
@@ -1285,6 +1294,14 @@ export class TransferOrdersService {
       // Convert to base units if a selling unit was selected
       const baseQty = orderItem.conversionFactor ? qty * orderItem.conversionFactor : qty;
 
+      // Snapshot del saldo destino ANTES de incrementar.
+      const balanceBefore = {
+        totalQuantity: destInventory.totalQuantity ?? 0,
+        availableQuantity: destInventory.availableQuantity ?? 0,
+        reservedQuantity: destInventory.reservedQuantity ?? 0,
+        averageCostPrice: destInventory.averageCostPrice ?? 0,
+      };
+
       // Increment destination inventory (always in base units)
       destInventory.availableQuantity =
         (destInventory.availableQuantity ?? 0) + baseQty;
@@ -1309,6 +1326,7 @@ export class TransferOrdersService {
         transferId,
         sourceWarehouseId: order.sourceWarehouseId,
         destinationWarehouseId: order.destinationWarehouseId,
+        balanceBefore,
         balanceAfter: {
           totalQuantity: destInventory.totalQuantity,
           availableQuantity: destInventory.availableQuantity,
@@ -1474,6 +1492,13 @@ export class TransferOrdersService {
           .session(session);
         if (!inv) continue;
 
+        const balanceBefore = {
+          totalQuantity: inv.totalQuantity ?? 0,
+          availableQuantity: inv.availableQuantity ?? 0,
+          reservedQuantity: inv.reservedQuantity ?? 0,
+          averageCostPrice: inv.averageCostPrice ?? 0,
+        };
+
         inv.availableQuantity = (inv.availableQuantity ?? 0) + mov.quantity;
         inv.totalQuantity = (inv.totalQuantity ?? 0) + mov.quantity;
         await inv.save({ session });
@@ -1494,6 +1519,7 @@ export class TransferOrdersService {
               transferId: mov.transferId,
               sourceWarehouseId: order.sourceWarehouseId,
               destinationWarehouseId: order.destinationWarehouseId,
+              balanceBefore,
               balanceAfter: {
                 totalQuantity: inv.totalQuantity,
                 availableQuantity: inv.availableQuantity,

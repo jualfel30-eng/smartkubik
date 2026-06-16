@@ -261,6 +261,14 @@ export class InventoryMovement {
   destinationBinLocationId?: Types.ObjectId; // Destination bin for transfers
 
   @Prop({ type: Object })
+  balanceBefore: {
+    totalQuantity: number;
+    availableQuantity: number;
+    reservedQuantity: number;
+    averageCostPrice: number;
+  };
+
+  @Prop({ type: Object })
   balanceAfter: {
     totalQuantity: number;
     availableQuantity: number;

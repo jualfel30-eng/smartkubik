@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, Fragment } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Table, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table.jsx';
 import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body.jsx';
@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { toast } from 'sonner';
 import { fetchApi, getAuthToken, getApiBaseUrl } from '@/lib/api';
 import { format } from 'date-fns';
-import { Loader2, RefreshCw, Plus, ArrowRightLeft, Download, FileText, Printer, Activity } from 'lucide-react';
+import { Loader2, RefreshCw, Plus, ArrowRightLeft, Download, FileText, Printer, Activity, Eye } from 'lucide-react';
 import { useFeatureFlags } from '@/hooks/use-feature-flags.jsx';
 import { SearchableSelect } from './orders/v2/custom/SearchableSelect';
 
@@ -66,6 +66,7 @@ export default function InventoryMovementsPanel() {
   const [exportingCsv, setExportingCsv] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
+  const [selectedMovement, setSelectedMovement] = useState(null);
   const [saving, setSaving] = useState(false);
   const [adjustForm, setAdjustForm] = useState({
     inventoryId: '',
@@ -609,12 +610,13 @@ export default function InventoryMovementsPanel() {
                 {multiWarehouseEnabled && <TableHead>Almacén</TableHead>}
                 <TableHead>Cantidad</TableHead>
                 <TableHead>Razón</TableHead>
+                <TableHead className="w-12 text-right"></TableHead>
               </TableRow>
             </TableHeader>
             <AnimatedTableBody>
               {movements.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={multiWarehouseEnabled ? 6 : 5} className="h-32">
+                  <TableCell colSpan={multiWarehouseEnabled ? 7 : 6} className="h-32">
                     <EmptyState
                       icon={Activity}
                       title="Sin movimientos en este periodo"
@@ -646,6 +648,16 @@ export default function InventoryMovementsPanel() {
                     )}
                     <TableCell>{mov.quantity}</TableCell>
                     <TableCell className="max-w-xs truncate">{mov.reason || '—'}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setSelectedMovement(mov)}
+                        title="Ver detalles del movimiento"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </AnimatedTableRow>
                 ))
               )}
@@ -952,6 +964,75 @@ export default function InventoryMovementsPanel() {
               Transferir
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Movement detail — auto-explica el movimiento (antes → después, orden, origen/destino) */}
+      <Dialog open={!!selectedMovement} onOpenChange={(open) => !open && setSelectedMovement(null)}>
+        <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalle del movimiento</DialogTitle>
+          </DialogHeader>
+          {selectedMovement && (() => {
+            const m = selectedMovement;
+            const whName = (id) => warehouses.find((w) => (w._id || w.id) === id)?.name || (id ? '—' : null);
+            const before = m.balanceBefore;
+            const after = m.balanceAfter;
+            const Row = ({ label, value }) => (
+              <div className="flex justify-between gap-4 py-1 text-sm">
+                <span className="text-muted-foreground">{label}</span>
+                <span className="font-medium text-right">{value ?? '—'}</span>
+              </div>
+            );
+            return (
+              <div className="space-y-4">
+                <div>
+                  <Row label="Fecha" value={m.createdAt ? format(new Date(m.createdAt), 'dd/MM/yyyy HH:mm:ss') : '—'} />
+                  <Row label="Tipo" value={m.movementType} />
+                  <Row label="Producto" value={`${m.productSku || ''}${m.productName ? ` — ${m.productName}` : ''}`} />
+                  <Row label="Cantidad" value={m.quantity} />
+                  <Row label="Costo unitario" value={m.unitCost != null ? m.unitCost : undefined} />
+                  <Row label="Costo total" value={m.totalCost != null ? m.totalCost : undefined} />
+                </div>
+
+                <div className="border-t pt-3">
+                  {whName(m.warehouseId || m.warehouse) && <Row label="Almacén" value={whName(m.warehouseId || m.warehouse)} />}
+                  {m.sourceWarehouseId && <Row label="Almacén origen" value={whName(m.sourceWarehouseId)} />}
+                  {m.destinationWarehouseId && <Row label="Almacén destino" value={whName(m.destinationWarehouseId)} />}
+                  {m.reference && <Row label="Referencia / orden" value={m.reference} />}
+                  {m.transferId && <Row label="ID de transferencia" value={<span className="text-xs">{m.transferId}</span>} />}
+                  <Row label="Razón" value={m.reason} />
+                </div>
+
+                {/* Antes → Después */}
+                <div className="border-t pt-3">
+                  <div className="text-sm font-medium mb-2">Saldo del inventario</div>
+                  {(before || after) ? (
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      <div className="text-muted-foreground"></div>
+                      <div className="text-muted-foreground text-right">Antes</div>
+                      <div className="text-muted-foreground text-right">Después</div>
+                      {[
+                        ['Total', 'totalQuantity'],
+                        ['Disponible', 'availableQuantity'],
+                        ['Reservado', 'reservedQuantity'],
+                      ].map(([label, key]) => (
+                        <Fragment key={key}>
+                          <div className="text-muted-foreground">{label}</div>
+                          <div className="text-right">{before ? before[key] ?? '—' : '—'}</div>
+                          <div className="text-right font-medium">{after ? after[key] ?? '—' : '—'}</div>
+                        </Fragment>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Este movimiento es anterior al registro de saldos antes/después.
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </Card>

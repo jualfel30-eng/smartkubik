@@ -536,6 +536,12 @@ export class InventoryService {
       .findById(movementDto.inventoryId)
       .session(session ?? null);
     if (!inventory) throw new Error("Inventario no encontrado");
+    const balanceBefore = {
+      totalQuantity: inventory.totalQuantity ?? 0,
+      availableQuantity: inventory.availableQuantity ?? 0,
+      reservedQuantity: inventory.reservedQuantity ?? 0,
+      averageCostPrice: inventory.averageCostPrice ?? 0,
+    };
     const updatedInventory = await this.updateInventoryQuantities(
       inventory,
       movementDto,
@@ -547,6 +553,7 @@ export class InventoryService {
         productId: inventory.productId.toString(),
         productSku: inventory.productSku,
         totalCost: movementDto.quantity * movementDto.unitCost,
+        balanceBefore,
         balanceAfter: {
           totalQuantity: updatedInventory.totalQuantity,
           availableQuantity: updatedInventory.availableQuantity,
@@ -842,6 +849,12 @@ export class InventoryService {
       .findById(adjustDto.inventoryId)
       .session(session ?? null);
     if (!inventory) throw new Error("Inventario no encontrado");
+    const balanceBefore = {
+      totalQuantity: inventory.totalQuantity ?? 0,
+      availableQuantity: inventory.availableQuantity ?? 0,
+      reservedQuantity: inventory.reservedQuantity ?? 0,
+      averageCostPrice: inventory.averageCostPrice ?? 0,
+    };
     const difference = adjustDto.newQuantity - inventory.totalQuantity;
     inventory.totalQuantity = adjustDto.newQuantity;
     inventory.availableQuantity += difference;
@@ -863,6 +876,7 @@ export class InventoryService {
         totalCost: Math.abs(difference) * inventory.averageCostPrice,
         reason: adjustDto.reason,
         binLocationId: adjustDto.binLocationId,
+        balanceBefore,
         balanceAfter: {
           totalQuantity: inventory.totalQuantity,
           availableQuantity: inventory.availableQuantity,
