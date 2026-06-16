@@ -55,6 +55,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'purchases',              // Compras (tintes, shampoo, cuchillas)
     'marketing',              // Campañas, cupones, programa de lealtad, promociones
     'commissions',            // Comisiones y Metas de barberos
+    'payment-requests',       // Solicitudes de pago (cobro storefront/WhatsApp)
     'bank-accounts',          // Cuentas Bancarias
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (reservas online)
@@ -76,6 +77,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'purchases',              // Compras (repuestos a proveedores)
     'receivables?tab=pending', // Cuentas por Cobrar
     'commissions',            // Comisiones y Metas de mecánicos
+    'payment-requests',       // Solicitudes de pago (cobro storefront/WhatsApp)
     'bank-accounts',          // Cuentas Bancarias
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (citas online)
@@ -93,6 +95,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'inventory-management',   // Inventario (insumos médicos)
     'purchases',              // Compras (insumos)
     'commissions',            // Comisiones y Metas de especialistas
+    'payment-requests',       // Solicitudes de pago (cobro storefront/WhatsApp)
     'bank-accounts',          // Cuentas Bancarias
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (reservas online)
@@ -111,6 +114,7 @@ export const SIDEBAR_PROFILE_WHITELIST = {
     'fulfillment',            // Entregas (autopartes often deliver)
     'crm',                    // CRM — Clientes, talleres
     'receivables?tab=pending', // Cuentas por Cobrar
+    'payment-requests',       // Solicitudes de pago (cobro storefront/WhatsApp)
     'bank-accounts',          // Cuentas Bancarias
     'cash-register',          // Cierre de Caja
     'storefront',             // Mi Sitio Web (catálogo online)
