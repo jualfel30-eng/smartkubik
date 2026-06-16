@@ -268,6 +268,12 @@ export class InventoryService {
               unitCost: costPrice,
               totalCost: qty * costPrice,
               reason: "Stock inicial al crear producto",
+              balanceBefore: {
+                totalQuantity: 0,
+                availableQuantity: 0,
+                reservedQuantity: 0,
+                averageCostPrice: 0,
+              },
               balanceAfter: {
                 totalQuantity: qty,
                 availableQuantity: qty,
@@ -341,6 +347,10 @@ export class InventoryService {
 
     let inventory = existingInventory;
     let isNewInventory = false;
+    // Saldo previo (antes de incrementar/reactivar/crear) para el movimiento.
+    const balanceBefore = inventory
+      ? this.snapshotBalance(inventory)
+      : { totalQuantity: 0, availableQuantity: 0, reservedQuantity: 0, averageCostPrice: 0 };
 
     if (inventory && inventory.isActive !== false) {
       // Inventory exists and is active - INCREMENT the quantities
@@ -449,6 +459,7 @@ export class InventoryService {
           receivedBy: createInventoryDto.receivedBy,
           notes: createInventoryDto.notes,
           reference: createInventoryDto.reference,
+          balanceBefore,
           balanceAfter: {
             totalQuantity: savedInventory.totalQuantity,
             availableQuantity: savedInventory.availableQuantity,
@@ -710,6 +721,7 @@ export class InventoryService {
       throw new Error(`Stock insuficiente para SKU: ${item.productSku}`);
     }
 
+    const balanceBefore = this.snapshotBalance(inventory);
     inventory.availableQuantity -= item.quantity;
     inventory.reservedQuantity += item.quantity;
     await inventory.save({ session });
@@ -726,6 +738,7 @@ export class InventoryService {
         reason: "Reserva para orden",
         reference: orderId,
         orderId: orderId,
+        balanceBefore,
         balanceAfter: {
           totalQuantity: inventory.totalQuantity,
           availableQuantity: inventory.availableQuantity,
@@ -762,6 +775,7 @@ export class InventoryService {
         .findById(movement.inventoryId)
         .session(session ?? null);
       if (inventory) {
+        const balanceBefore = this.snapshotBalance(inventory);
         inventory.availableQuantity += movement.quantity;
         inventory.reservedQuantity -= movement.quantity;
         await inventory.save({ session });
@@ -777,6 +791,7 @@ export class InventoryService {
             reason: "Liberación de reserva",
             reference: releaseDto.orderId,
             orderId: releaseDto.orderId,
+            balanceBefore,
             balanceAfter: {
               totalQuantity: inventory.totalQuantity,
               availableQuantity: inventory.availableQuantity,
@@ -808,6 +823,7 @@ export class InventoryService {
         continue;
       }
 
+      const balanceBefore = this.snapshotBalance(inventory);
       inventory.reservedQuantity -= quantityToApply;
       inventory.totalQuantity -= quantityToApply;
 
@@ -825,6 +841,7 @@ export class InventoryService {
           reason: "Venta de producto",
           reference: order.orderNumber,
           orderId: order._id.toString(),
+          balanceBefore,
           balanceAfter: {
             totalQuantity: inventory.totalQuantity,
             availableQuantity: inventory.availableQuantity,
@@ -1794,6 +1811,16 @@ export class InventoryService {
       .exec();
   }
 
+  /** Snapshot del saldo de un inventario para balanceBefore/balanceAfter. */
+  private snapshotBalance(inv: any) {
+    return {
+      totalQuantity: inv?.totalQuantity ?? 0,
+      availableQuantity: inv?.availableQuantity ?? 0,
+      reservedQuantity: inv?.reservedQuantity ?? 0,
+      averageCostPrice: inv?.averageCostPrice ?? 0,
+    };
+  }
+
   private async createMovementRecord(
     movementData: any,
     user: any,
@@ -1927,6 +1954,7 @@ export class InventoryService {
       inventory.lots.push(newLot);
     }
 
+    const balanceBefore = this.snapshotBalance(inventory);
     const oldTotalQuantity = inventory.totalQuantity;
     inventory.totalQuantity += item.quantity;
     inventory.availableQuantity += item.quantity;
@@ -2011,6 +2039,7 @@ export class InventoryService {
           // supplier + invoice/PO number directly (not just via `reference`).
           orderId: item.purchaseOrderId,
           supplierId: item.supplierId,
+          balanceBefore,
           balanceAfter: {
             totalQuantity: inventory.totalQuantity,
             availableQuantity: inventory.availableQuantity,
@@ -2278,6 +2307,7 @@ export class InventoryService {
 
     // Deduct stock (allow negative for backflushing if necessary, or enforce check?)
     // For restaurant speed, we often allow negative, but let's just reduce.
+    const balanceBefore = this.snapshotBalance(inventory);
     inventory.availableQuantity -= quantity;
     inventory.totalQuantity -= quantity;
 
@@ -2294,6 +2324,7 @@ export class InventoryService {
         totalCost: quantity * inventory.averageCostPrice,
         reason: reason,
         reference: reference,
+        balanceBefore,
         balanceAfter: {
           totalQuantity: inventory.totalQuantity,
           availableQuantity: inventory.availableQuantity,
