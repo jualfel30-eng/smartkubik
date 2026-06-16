@@ -3,8 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
-import { Model, Types } from "mongoose";
+import { InjectModel, InjectConnection } from "@nestjs/mongoose";
+import { Connection, Model, Types } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import {
   TransferOrder,
@@ -61,6 +61,7 @@ export class TransferOrdersService {
     private readonly productModel: Model<ProductDocument>,
     @InjectModel(Tenant.name)
     private readonly tenantModel: Model<TenantDocument>,
+    @InjectConnection() private readonly connection: Connection,
     private readonly organizationsService: OrganizationsService,
   ) {}
 
@@ -982,17 +983,29 @@ export class TransferOrdersService {
         item.requestedQuantity;
     }
 
-    // Validate stock and create OUT movements for each item
+    const sourceWarehouseOid = new Types.ObjectId(
+      order.sourceWarehouseId.toString(),
+    );
+
+    // ── PHASE 1: resolve + validate ALL items BEFORE mutating anything ──
+    // Despachar no es atómico por ítem: si descontáramos en el loop y un ítem
+    // posterior fallara, el stock ya descontado quedaba "en limbo" (fuera del
+    // origen, sin llegar al destino) y los reintentos lo descontaban de nuevo.
+    // Resolvemos y validamos todo primero; sólo si TODO pasa, mutamos.
+    const plans: Array<{
+      item: (typeof order.items)[number];
+      sourceInventory: InventoryDocument;
+      baseQty: number;
+      qty: number;
+      assignWarehouse: boolean;
+    }> = [];
+
     for (const item of order.items) {
       const qty = item.shippedQuantity;
       if (!qty || qty <= 0) continue;
 
       // Convert to base units if a selling unit was selected
       const baseQty = item.conversionFactor ? qty * item.conversionFactor : qty;
-
-      const sourceWarehouseOid = new Types.ObjectId(
-        order.sourceWarehouseId.toString(),
-      );
 
       // Try warehouse-specific first, then fallback to unassigned inventory
       // Handle productId type inconsistencies (ObjectId vs String)
@@ -1005,6 +1018,7 @@ export class TransferOrdersService {
         isDeleted: { $ne: true },
       });
 
+      let assignWarehouse = false;
       if (!sourceInventory) {
         // Fallback: find inventory without warehouseId (pre-warehouse records)
         sourceInventory = await this.inventoryModel.findOne({
@@ -1017,10 +1031,8 @@ export class TransferOrdersService {
           isActive: { $ne: false },
           isDeleted: { $ne: true },
         });
-
-        // Assign warehouse to the record for future consistency
         if (sourceInventory) {
-          sourceInventory.warehouseId = sourceWarehouseOid;
+          assignWarehouse = true;
         }
       }
 
@@ -1037,63 +1049,92 @@ export class TransferOrdersService {
         );
       }
 
-      // Decrement source inventory (always in base units)
-      sourceInventory.availableQuantity = available - baseQty;
-      sourceInventory.totalQuantity =
-        (sourceInventory.totalQuantity ?? 0) - baseQty;
-      await sourceInventory.save();
-
-      // Create OUT movement
-      const unitCost = item.unitCost || sourceInventory.averageCostPrice || 0;
-
-      await this.movementModel.create({
-        inventoryId: sourceInventory._id,
-        productId: item.productId,
-        productSku: item.productSku || sourceInventory.productSku,
-        warehouseId: order.sourceWarehouseId,
-        movementType: "TRANSFER",
-        quantity: baseQty,
-        unitCost,
-        totalCost: baseQty * unitCost,
-        reason: `Despacho transferencia ${order.orderNumber}${item.selectedUnit ? ` (${qty} ${item.selectedUnit})` : ''}`,
-        reference: order.orderNumber,
-        transferId,
-        sourceWarehouseId: order.sourceWarehouseId,
-        destinationWarehouseId: order.destinationWarehouseId,
-        balanceAfter: {
-          totalQuantity: sourceInventory.totalQuantity,
-          availableQuantity: sourceInventory.availableQuantity,
-          reservedQuantity: sourceInventory.reservedQuantity,
-          averageCostPrice: sourceInventory.averageCostPrice,
-        },
-        createdBy: userOid,
-        tenantId: sourceTenantOid,
-      });
+      plans.push({ item, sourceInventory, baseQty, qty, assignWarehouse });
     }
 
-    if (dto.notes) {
-      order.notes = order.notes
-        ? `${order.notes}\n[Despacho] ${dto.notes}`
-        : `[Despacho] ${dto.notes}`;
+    // ── PHASE 2: apply decrements + movements + status atomically ──
+    const session = await this.connection.startSession();
+    session.startTransaction();
+    try {
+      for (const plan of plans) {
+        const { item, sourceInventory, baseQty, qty, assignWarehouse } = plan;
+
+        if (assignWarehouse) {
+          sourceInventory.warehouseId = sourceWarehouseOid;
+        }
+
+        // Decrement source inventory (always in base units)
+        sourceInventory.availableQuantity =
+          (sourceInventory.availableQuantity ?? 0) - baseQty;
+        sourceInventory.totalQuantity =
+          (sourceInventory.totalQuantity ?? 0) - baseQty;
+        await sourceInventory.save({ session });
+
+        // Create OUT movement
+        const unitCost = item.unitCost || sourceInventory.averageCostPrice || 0;
+
+        await this.movementModel.create(
+          [
+            {
+              inventoryId: sourceInventory._id,
+              productId: item.productId,
+              productSku: item.productSku || sourceInventory.productSku,
+              warehouseId: order.sourceWarehouseId,
+              movementType: "TRANSFER",
+              quantity: baseQty,
+              unitCost,
+              totalCost: baseQty * unitCost,
+              reason: `Despacho transferencia ${order.orderNumber}${item.selectedUnit ? ` (${qty} ${item.selectedUnit})` : ''}`,
+              reference: order.orderNumber,
+              transferId,
+              sourceWarehouseId: order.sourceWarehouseId,
+              destinationWarehouseId: order.destinationWarehouseId,
+              balanceAfter: {
+                totalQuantity: sourceInventory.totalQuantity,
+                availableQuantity: sourceInventory.availableQuantity,
+                reservedQuantity: sourceInventory.reservedQuantity,
+                averageCostPrice: sourceInventory.averageCostPrice,
+              },
+              createdBy: userOid,
+              tenantId: sourceTenantOid,
+            },
+          ],
+          { session },
+        );
+      }
+
+      if (dto.notes) {
+        order.notes = order.notes
+          ? `${order.notes}\n[Despacho] ${dto.notes}`
+          : `[Despacho] ${dto.notes}`;
+      }
+
+      // Save tracking info
+      if (dto.trackingNumber) {
+        order.trackingNumber = dto.trackingNumber;
+      }
+      if (dto.carrier) {
+        order.carrier = dto.carrier;
+      }
+      if (dto.estimatedArrival) {
+        order.estimatedArrival = new Date(dto.estimatedArrival);
+      }
+
+      order.status = targetStatus;
+      order.shippedBy = userOid;
+      order.shippedAt = new Date();
+      order.updatedBy = userOid;
+      await order.save({ session });
+
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
     }
 
-    // Save tracking info
-    if (dto.trackingNumber) {
-      order.trackingNumber = dto.trackingNumber;
-    }
-    if (dto.carrier) {
-      order.carrier = dto.carrier;
-    }
-    if (dto.estimatedArrival) {
-      order.estimatedArrival = new Date(dto.estimatedArrival);
-    }
-
-    order.status = targetStatus;
-    order.shippedBy = userOid;
-    order.shippedAt = new Date();
-    order.updatedBy = userOid;
-
-    return order.save();
+    return order;
   }
 
   async receive(
@@ -1397,13 +1438,92 @@ export class TransferOrdersService {
     const targetStatus = TransferOrderStatus.CANCELLED;
     this.validateWorkflowTransition(order, targetStatus, tenantId, "cancelar");
 
-    order.status = targetStatus;
-    order.cancelledBy = new Types.ObjectId(userId);
-    order.cancelledAt = new Date();
-    order.cancellationReason = dto.reason;
-    order.updatedBy = new Types.ObjectId(userId);
+    const sourceTenantId = order.tenantId.toString();
+    const sourceTenantOid = new Types.ObjectId(sourceTenantId);
+    const userOid = new Types.ObjectId(userId);
 
-    return order.save();
+    const session = await this.connection.startSession();
+    session.startTransaction();
+    try {
+      // Restore any OUT movements that were emitted on a (partial/failed) dispatch
+      // but never received at destination. Without this, cancelling an order that
+      // already debited the source leaves that stock in limbo permanently.
+      const outMovements = await this.movementModel
+        .find({
+          reference: order.orderNumber,
+          movementType: "TRANSFER",
+          reason: { $regex: "^Despacho transferencia" },
+          sourceWarehouseId: order.sourceWarehouseId,
+          tenantId: { $in: [sourceTenantId, sourceTenantOid] },
+        })
+        .session(session);
+
+      for (const mov of outMovements) {
+        // Guard against double-restore: skip if a reversal already exists.
+        const alreadyReversed = await this.movementModel
+          .findOne({
+            transferId: mov.transferId,
+            productId: mov.productId,
+            reason: { $regex: "^Reverso cancelación transferencia" },
+          })
+          .session(session);
+        if (alreadyReversed) continue;
+
+        const inv = await this.inventoryModel
+          .findById(mov.inventoryId)
+          .session(session);
+        if (!inv) continue;
+
+        inv.availableQuantity = (inv.availableQuantity ?? 0) + mov.quantity;
+        inv.totalQuantity = (inv.totalQuantity ?? 0) + mov.quantity;
+        await inv.save({ session });
+
+        await this.movementModel.create(
+          [
+            {
+              inventoryId: inv._id,
+              productId: mov.productId,
+              productSku: mov.productSku,
+              warehouseId: order.sourceWarehouseId,
+              movementType: "TRANSFER",
+              quantity: mov.quantity,
+              unitCost: mov.unitCost,
+              totalCost: mov.totalCost,
+              reason: `Reverso cancelación transferencia ${order.orderNumber}`,
+              reference: order.orderNumber,
+              transferId: mov.transferId,
+              sourceWarehouseId: order.sourceWarehouseId,
+              destinationWarehouseId: order.destinationWarehouseId,
+              balanceAfter: {
+                totalQuantity: inv.totalQuantity,
+                availableQuantity: inv.availableQuantity,
+                reservedQuantity: inv.reservedQuantity,
+                averageCostPrice: inv.averageCostPrice,
+              },
+              createdBy: userOid,
+              tenantId: sourceTenantOid,
+            },
+          ],
+          { session },
+        );
+      }
+
+      order.status = targetStatus;
+      order.cancelledBy = userOid;
+      order.cancelledAt = new Date();
+      order.cancellationReason = dto.reason;
+      order.updatedBy = userOid;
+      await order.save({ session });
+
+      await session.commitTransaction();
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+
+    return order;
   }
 
   /**
