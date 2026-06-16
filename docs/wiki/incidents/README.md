@@ -4,6 +4,12 @@ Cada bug crítico resuelto se documenta aquí con: síntoma, root cause, archivo
 
 ## 2026
 
+### Junio
+- [2026-06-16 — `normalizeRolePermissions` vació un rol admin (166 → 1)](./2026-06-16-normalize-role-permissions-wipeout.md)
+
+### Mayo
+- [2026-05-14 — `payment_requests_review` invisible en super-admin](./2026-05-14-payment-requests-permission-invisible.md)
+
 ### Abril
 - [2026-04-06 — Multi-unit transfer orders](./2026-04-06-multi-unit-transfer-orders.md)
 - [2026-04-02 — Transfer orders dispatch](./2026-04-02-transfer-orders-dispatch.md)
