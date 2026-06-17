@@ -415,9 +415,12 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           await shipTransferOrder(orderId);
           toast.success('Transferencia enviada — esperando recepcion en destino', { id: 'express' });
         } catch (expressErr) {
-          // If any step fails, the order is still created at whatever step it reached
+          // If any step fails, the order is still created at whatever step it reached.
+          // Surface the backend's real message (e.g. "Stock insuficiente para X...")
+          // instead of a generic toast — fetchApi ya pone el mensaje en err.message.
           console.warn('Express flow partially completed:', expressErr);
-          toast.warning('Transferencia creada pero el envio express no se completo. Revisa el estado en el detalle.', { id: 'express' });
+          const reason = expressErr?.message || 'Revisa el estado en el detalle.';
+          toast.warning(`Transferencia creada, pero el envío no se completó: ${reason}`, { id: 'express' });
         }
       }
 

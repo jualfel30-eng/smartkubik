@@ -276,7 +276,8 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
       onUpdated?.();
     } catch (err) {
       console.warn('Express dispatch partially completed:', err);
-      toast.warning('Proceso parcialmente completado. Revisa el estado actual.');
+      // Mostrar el motivo real del backend (p.ej. "Stock insuficiente para X...")
+      toast.warning(err?.message || 'Proceso parcialmente completado. Revisa el estado actual.');
       await loadOrder();
       onUpdated?.();
     } finally {

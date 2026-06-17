@@ -123,9 +123,10 @@ export default function MobileTransferDetail({ orderId, onClose }) {
       toast.success('Traslado despachado — esperando recepción');
       setDirty(true);
       await load();
-    } catch {
+    } catch (err) {
       haptics.warning();
-      toast.warning('Proceso parcialmente completado. Revisa el estado actual.');
+      // Mostrar el motivo real del backend (p.ej. "Stock insuficiente para X...")
+      toast.warning(err?.message || 'Proceso parcialmente completado. Revisa el estado actual.');
       setDirty(true);
       await load();
     } finally {
