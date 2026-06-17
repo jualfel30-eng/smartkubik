@@ -255,16 +255,28 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
       ? populatedProduct.sellingUnits.filter((u) => u.isActive !== false)
       : [];
     const baseUnit = populatedProduct?.unitOfMeasure || 'unidad';
+    const useUnits = activeSellingUnits.length > 0;
 
-    const unitOptions = [
-      { name: baseUnit, abbreviation: baseUnit, conversionFactor: 1, isBase: true },
-      ...activeSellingUnits.map((u) => ({
-        name: u.name,
-        abbreviation: u.abbreviation,
-        conversionFactor: u.conversionFactor,
-        isBase: false,
-      })),
-    ];
+    // Igual que el POS: si el producto tiene unidades de venta múltiples, el
+    // selector muestra SOLO esas unidades (ya incluyen la presentación base);
+    // NO se agrega la unidad base por separado, para no producir duplicados
+    // confusos tipo "Caja, Unidad, Caja".
+    const unitOptions = useUnits
+      ? activeSellingUnits.map((u) => ({
+          name: u.name,
+          abbreviation: u.abbreviation,
+          conversionFactor: u.conversionFactor,
+          isBase: false,
+        }))
+      : [{ name: baseUnit, abbreviation: baseUnit, conversionFactor: 1, isBase: true }];
+
+    // Unidad inicial: la marcada como default (o la primera).
+    const defaultUnit = useUnits
+      ? (activeSellingUnits.find((u) => u.isDefault) || activeSellingUnits[0])
+      : null;
+    const initialUnit = defaultUnit
+      ? { abbreviation: defaultUnit.abbreviation, conversionFactor: defaultUnit.conversionFactor }
+      : { abbreviation: baseUnit, conversionFactor: 1 };
 
     setForm((f) => ({
       ...f,
@@ -279,8 +291,8 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           quantity: 1,
           unitOptions,
           hasMultiUnit: unitOptions.length > 1,
-          selectedUnit: unitOptions[0].abbreviation,
-          conversionFactor: 1,
+          selectedUnit: initialUnit.abbreviation,
+          conversionFactor: initialUnit.conversionFactor,
           unitOfMeasure: baseUnit,
         },
       ],

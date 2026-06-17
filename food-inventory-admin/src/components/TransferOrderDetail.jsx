@@ -185,15 +185,20 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
 
   // Construye las opciones de unidad de un producto (base + unidades de venta),
   // igual que el diálogo de creación.
+  // Igual que el POS: si el producto tiene unidades de venta múltiples, el
+  // selector muestra SOLO esas unidades (no la base por separado), para no
+  // duplicar presentaciones tipo "Caja, Unidad, Caja".
   const buildUnitOptions = (product) => {
     const baseUnit = product?.unitOfMeasure || 'unidad';
-    const options = [{ name: baseUnit, abbreviation: baseUnit, conversionFactor: 1 }];
-    if (product?.hasMultipleSellingUnits && Array.isArray(product?.sellingUnits)) {
-      for (const u of product.sellingUnits.filter((x) => x.isActive !== false)) {
-        options.push({ name: u.name, abbreviation: u.abbreviation, conversionFactor: u.conversionFactor });
-      }
+    const activeSellingUnits = (product?.hasMultipleSellingUnits && Array.isArray(product?.sellingUnits))
+      ? product.sellingUnits.filter((x) => x.isActive !== false)
+      : [];
+    if (activeSellingUnits.length > 0) {
+      return activeSellingUnits.map((u) => ({
+        name: u.name, abbreviation: u.abbreviation, conversionFactor: u.conversionFactor,
+      }));
     }
-    return options;
+    return [{ name: baseUnit, abbreviation: baseUnit, conversionFactor: 1 }];
   };
 
   const openEditDialog = async () => {
@@ -224,13 +229,20 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
         const product = inv?.productId && typeof inv.productId === 'object' ? inv.productId : null;
         const unitOptions = buildUnitOptions(product);
         const baseUnit = product?.unitOfMeasure || item.unitOfMeasure || 'unidad';
+        // Unidad inicial: la guardada en la orden (si sigue siendo válida) o la
+        // primera opción. El conversionFactor se deriva de esa opción para
+        // mantener consistencia.
+        const matched = item.selectedUnit
+          ? unitOptions.find((u) => u.abbreviation === item.selectedUnit)
+          : null;
+        const initial = matched || unitOptions[0];
         return {
           productId: item.productId?._id || item.productId,
           productName: item.productName,
           productSku: item.productSku,
           requestedQuantity: item.requestedQuantity,
-          selectedUnit: item.selectedUnit || unitOptions[0].abbreviation,
-          conversionFactor: item.conversionFactor ?? 1,
+          selectedUnit: initial.abbreviation,
+          conversionFactor: item.conversionFactor ?? initial.conversionFactor ?? 1,
           unitOfMeasure: baseUnit,
           unitOptions,
         };

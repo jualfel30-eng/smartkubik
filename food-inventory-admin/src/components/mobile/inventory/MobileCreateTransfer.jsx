@@ -263,10 +263,16 @@ function ProductsStep({ sourceWarehouseId, items, onUpdate }) {
     const hasMultiUnit = pop?.hasMultipleSellingUnits && pop?.sellingUnits?.length > 0;
     const activeUnits = hasMultiUnit ? pop.sellingUnits.filter((u) => u.isActive !== false) : [];
     const baseUnit = pop?.unitOfMeasure || 'unidad';
-    const unitOptions = [
-      { name: baseUnit, abbreviation: baseUnit, conversionFactor: 1, isBase: true },
-      ...activeUnits.map((u) => ({ name: u.name, abbreviation: u.abbreviation, conversionFactor: u.conversionFactor, isBase: false })),
-    ];
+    const useUnits = activeUnits.length > 0;
+    // Igual que el POS: con unidades de venta múltiples, mostrar solo esas (no
+    // la base por separado) para no duplicar presentaciones tipo "Caja, Unidad, Caja".
+    const unitOptions = useUnits
+      ? activeUnits.map((u) => ({ name: u.name, abbreviation: u.abbreviation, conversionFactor: u.conversionFactor, isBase: false }))
+      : [{ name: baseUnit, abbreviation: baseUnit, conversionFactor: 1, isBase: true }];
+    const defaultUnit = useUnits ? (activeUnits.find((u) => u.isDefault) || activeUnits[0]) : null;
+    const initialUnit = defaultUnit
+      ? { abbreviation: defaultUnit.abbreviation, conversionFactor: defaultUnit.conversionFactor }
+      : { abbreviation: baseUnit, conversionFactor: 1 };
 
     haptics.select();
     onUpdate([...items, {
@@ -278,8 +284,8 @@ function ProductsStep({ sourceWarehouseId, items, onUpdate }) {
       quantity: 1,
       unitOptions,
       hasMultiUnit: unitOptions.length > 1,
-      selectedUnit: unitOptions[0].abbreviation,
-      conversionFactor: 1,
+      selectedUnit: initialUnit.abbreviation,
+      conversionFactor: initialUnit.conversionFactor,
       unitOfMeasure: baseUnit,
     }]);
     setQuery('');
