@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { Label } from '@/components/ui/label.jsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select.jsx';
 import { toast } from 'sonner';
 import {
   fetchApi,
@@ -182,15 +183,58 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
     }
   };
 
-  const openEditDialog = () => {
+  // Construye las opciones de unidad de un producto (base + unidades de venta),
+  // igual que el diálogo de creación.
+  const buildUnitOptions = (product) => {
+    const baseUnit = product?.unitOfMeasure || 'unidad';
+    const options = [{ name: baseUnit, abbreviation: baseUnit, conversionFactor: 1 }];
+    if (product?.hasMultipleSellingUnits && Array.isArray(product?.sellingUnits)) {
+      for (const u of product.sellingUnits.filter((x) => x.isActive !== false)) {
+        options.push({ name: u.name, abbreviation: u.abbreviation, conversionFactor: u.conversionFactor });
+      }
+    }
+    return options;
+  };
+
+  const openEditDialog = async () => {
     if (!order?.items) return;
+
+    // Trae el inventario del almacén origen para obtener los sellingUnits de cada
+    // producto (productId viene poblado), y poder ofrecer el selector de unidad.
+    const invByProduct = {};
+    try {
+      const srcWh = order.sourceWarehouseId?._id || order.sourceWarehouseId;
+      if (srcWh) {
+        const res = await fetchApi(`/inventory?warehouseId=${srcWh}&limit=5000`);
+        for (const inv of (res?.data || [])) {
+          const pid = inv.productId && typeof inv.productId === 'object'
+            ? (inv.productId._id || inv.productId.id)
+            : inv.productId;
+          if (pid) invByProduct[pid.toString()] = inv;
+        }
+      }
+    } catch (err) {
+      console.warn('No se pudo cargar inventario para opciones de unidad:', err);
+    }
+
     setEditForm({
-      items: order.items.map((item) => ({
-        productId: item.productId?._id || item.productId,
-        productName: item.productName,
-        productSku: item.productSku,
-        requestedQuantity: item.requestedQuantity,
-      })),
+      items: order.items.map((item) => {
+        const pid = (item.productId?._id || item.productId)?.toString();
+        const inv = invByProduct[pid];
+        const product = inv?.productId && typeof inv.productId === 'object' ? inv.productId : null;
+        const unitOptions = buildUnitOptions(product);
+        const baseUnit = product?.unitOfMeasure || item.unitOfMeasure || 'unidad';
+        return {
+          productId: item.productId?._id || item.productId,
+          productName: item.productName,
+          productSku: item.productSku,
+          requestedQuantity: item.requestedQuantity,
+          selectedUnit: item.selectedUnit || unitOptions[0].abbreviation,
+          conversionFactor: item.conversionFactor ?? 1,
+          unitOfMeasure: baseUnit,
+          unitOptions,
+        };
+      }),
       notes: order.notes || '',
     });
     setEditDialogOpen(true);
@@ -211,6 +255,9 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
             productName: i.productName,
             productSku: i.productSku,
             requestedQuantity: i.requestedQuantity,
+            selectedUnit: i.selectedUnit,
+            unitOfMeasure: i.unitOfMeasure,
+            ...(i.conversionFactor !== 1 && { conversionFactor: i.conversionFactor }),
           })),
           notes: editForm.notes,
         }),
@@ -633,6 +680,7 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
               <TableHeader>
                 <TableRow>
                   <TableHead>Producto</TableHead>
+                  <TableHead className="w-[150px]">Unidad</TableHead>
                   <TableHead className="w-[120px]">Cantidad</TableHead>
                   <TableHead className="w-[60px]"></TableHead>
                 </TableRow>
@@ -644,6 +692,37 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
                       <span className="text-sm">{item.productName}</span>
                       {item.productSku && (
                         <span className="text-xs text-muted-foreground ml-2">({item.productSku})</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {item.unitOptions && item.unitOptions.length > 1 ? (
+                        <Select
+                          value={item.selectedUnit}
+                          onValueChange={(val) => {
+                            const opt = item.unitOptions.find((u) => u.abbreviation === val);
+                            setEditForm((f) => ({
+                              ...f,
+                              items: f.items.map((i, index) =>
+                                index === idx
+                                  ? { ...i, selectedUnit: val, conversionFactor: opt?.conversionFactor ?? 1 }
+                                  : i,
+                              ),
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {item.unitOptions.map((u) => (
+                              <SelectItem key={u.abbreviation} value={u.abbreviation}>
+                                {u.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">{item.selectedUnit || item.unitOfMeasure || '—'}</span>
                       )}
                     </TableCell>
                     <TableCell>
