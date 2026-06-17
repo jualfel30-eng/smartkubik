@@ -30,18 +30,23 @@ describe("ProductsService", () => {
     tenantModel = buildModel();
     categoryModel = buildModel();
     inventoryService = {
-      deductInventory: jest.fn(),
-      reverseDeduction: jest.fn(),
+      createInitialInventoriesForProductInGroup: jest.fn().mockResolvedValue({ created: 0, skipped: 0, warnings: [] }),
     };
 
+    // Orden real del constructor (12 deps).
     service = new ProductsService(
-      productModel as any,
-      tenantModel as any,
-      categoryModel as any,
-      inventoryService as any,
-      {} as any,
-      {} as any,
-      {} as any,
+      productModel as any,        // Product
+      buildModel() as any,        // Inventory
+      buildModel() as any,        // InventoryMovement
+      tenantModel as any,         // Tenant
+      {} as any,                  // customersService
+      {} as any,                  // purchasesService
+      {} as any,                  // suppliersService
+      {} as any,                  // openaiService
+      { recordPriceChange: jest.fn() } as any,  // priceHistoryService
+      { assignProduct: jest.fn() } as any,      // priceListsService
+      inventoryService as any,    // inventoryService
+      { startSession: jest.fn() } as any,       // connection
     );
   });
 

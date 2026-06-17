@@ -1096,7 +1096,22 @@ export class ProductsService {
       const processedVariants = this.processVariantPricing(
         updateProductDto.variants,
       );
-      updateData.variants = processedVariants;
+      // Preservar los _id de variante existentes. findByIdAndUpdate REEMPLAZA el
+      // arreglo de variants; Mongoose genera un _id nuevo para cualquier subdoc
+      // que no lo traiga. Un _id de variante nuevo huérfana el registro de
+      // inventario vinculado por variantId y dispara la creación de un inventario
+      // DUPLICADO (causa raíz de los registros partidos por producto). Re-vinculamos
+      // por SKU para que la identidad de la variante (y su inventario) se mantenga.
+      const existingVariantIdBySku = new Map(
+        (productBeforeUpdate.variants || [])
+          .filter((v: any) => v?.sku && v?._id)
+          .map((v: any) => [v.sku, v._id]),
+      );
+      updateData.variants = processedVariants.map((v: any) => {
+        if (v?._id) return v; // el cliente ya envió el _id existente
+        const preservedId = existingVariantIdBySku.get(v?.sku);
+        return preservedId ? { ...v, _id: preservedId } : v;
+      });
     }
 
     const updatedProduct = await this.productModel
