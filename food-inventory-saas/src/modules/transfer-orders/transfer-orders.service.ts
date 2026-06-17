@@ -1563,7 +1563,11 @@ export class TransferOrdersService {
   ): Promise<TransferOrderDocument> {
     const order = await this.findOrderOrFail(id, tenantId);
 
-    // Only allow reverting from early stages (before dispatch)
+    // Only allow reverting from pre-dispatch stages. IN_PREPARATION is safe:
+    // con el despacho atómico ese estado nunca tiene movimientos de stock, así
+    // que regresar a borrador no deja inventario descuadrado. Guard extra: si la
+    // orden ya fue despachada (shippedAt), no se permite (no debería pasar desde
+    // estos estados, pero protege contra datos legacy).
     this.assertStatus(
       order,
       [
@@ -1571,9 +1575,15 @@ export class TransferOrdersService {
         TransferOrderStatus.PUSH_APPROVED,
         TransferOrderStatus.PULL_REQUESTED,
         TransferOrderStatus.PULL_APPROVED,
+        TransferOrderStatus.IN_PREPARATION,
       ],
       "regresar a borrador",
     );
+    if (order.shippedAt) {
+      throw new BadRequestException(
+        "No se puede regresar a borrador una orden que ya fue despachada.",
+      );
+    }
 
     // Clear approval-related fields
     order.status = TransferOrderStatus.DRAFT;
@@ -1585,6 +1595,9 @@ export class TransferOrdersService {
     order.approvalReviewedAt = undefined;
     order.approvalDecision = undefined;
     order.approvalNotes = undefined;
+    // Clear preparation fields
+    order.inPreparationBy = undefined;
+    order.inPreparationAt = undefined;
 
     // Clear approved quantities (revert to requested)
     for (const item of order.items) {

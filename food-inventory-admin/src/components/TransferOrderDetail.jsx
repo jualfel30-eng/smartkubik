@@ -311,7 +311,9 @@ export default function TransferOrderDetail({ orderId, onBack, onUpdated }) {
   const normalizedStatus = normalizeStatus(order.status);
   const currentStepIdx = getSimplifiedStep(normalizedStatus);
   const canEdit = order.status === 'draft';
-  const canRevert = ['push_requested', 'pull_requested', 'push_approved', 'pull_approved', 'requested', 'approved'].includes(order.status);
+  // in_preparation incluido: aún no se despachó (sin movimientos de stock), así
+  // que regresar a borrador para editar el traslado es seguro.
+  const canRevert = ['push_requested', 'pull_requested', 'push_approved', 'pull_approved', 'requested', 'approved', 'in_preparation'].includes(order.status);
   // Express dispatch: available for any pre-transit status (chains remaining transitions)
   const canExpressDispatch = ['draft', 'push_requested', 'pull_requested', 'push_approved', 'pull_approved', 'requested', 'approved', 'in_preparation'].includes(order.status);
   const canRequest = order.status === 'draft';

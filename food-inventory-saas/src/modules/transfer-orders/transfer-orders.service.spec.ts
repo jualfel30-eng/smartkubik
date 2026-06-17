@@ -206,4 +206,35 @@ describe("TransferOrdersService — despacho atómico", () => {
     expect(order.status).toBe(TransferOrderStatus.CANCELLED);
     expect(session.commitTransaction).toHaveBeenCalled();
   });
+
+  it("revertToDraft() regresa una orden in_preparation a borrador y limpia campos", async () => {
+    const order = buildOrder({
+      status: TransferOrderStatus.IN_PREPARATION,
+      inPreparationBy: new Types.ObjectId(),
+      inPreparationAt: new Date(),
+      items: [{ productId: new Types.ObjectId(), approvedQuantity: 10, requestedQuantity: 10 }],
+    });
+    transferOrderModel.findOne.mockResolvedValue(order);
+
+    await service.revertToDraft(order._id.toString(), tenantId, userId);
+
+    expect(order.status).toBe(TransferOrderStatus.DRAFT);
+    expect(order.inPreparationBy).toBeUndefined();
+    expect(order.inPreparationAt).toBeUndefined();
+    expect(order.items[0].approvedQuantity).toBeUndefined();
+    expect(order.save).toHaveBeenCalled();
+  });
+
+  it("revertToDraft() rechaza si la orden ya fue despachada (shippedAt)", async () => {
+    const order = buildOrder({
+      status: TransferOrderStatus.IN_PREPARATION,
+      shippedAt: new Date(),
+    });
+    transferOrderModel.findOne.mockResolvedValue(order);
+
+    await expect(
+      service.revertToDraft(order._id.toString(), tenantId, userId),
+    ).rejects.toThrow(BadRequestException);
+    expect(order.save).not.toHaveBeenCalled();
+  });
 });
