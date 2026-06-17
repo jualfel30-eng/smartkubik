@@ -4,6 +4,7 @@ import { InventoryAlertsService } from "./inventory-alerts.service";
 import { InventoryAlertRule } from "../../schemas/inventory-alert-rule.schema";
 import { Inventory } from "../../schemas/inventory.schema";
 import { EventsService } from "../events/events.service";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Types } from "mongoose";
 
 describe("InventoryAlertsService", () => {
@@ -43,6 +44,7 @@ describe("InventoryAlertsService", () => {
         { provide: getModelToken(InventoryAlertRule.name), useValue: alertRuleModel },
         { provide: getModelToken(Inventory.name), useValue: inventoryModel },
         { provide: EventsService, useValue: eventsService },
+        { provide: EventEmitter2, useValue: { emit: jest.fn() } },
       ],
     }).compile();
 
