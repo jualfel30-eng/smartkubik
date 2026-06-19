@@ -592,7 +592,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-ben-outcome { display: inline-flex; align-items: baseline; gap: 10px; padding: 14px 20px; background: var(--s-accent); color: #fff; border-radius: 99px; }
 .s-ben-outcome-v { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 500; font-style: italic; }
 .s-ben-outcome-l { font-size: 12px; opacity: 0.9; }
-.s-ben-visual { height: 500px; background: transparent; border: none; border-radius: 24px; padding: 0; position: relative; overflow: visible; display: flex; align-items: center; justify-content: center; }
+.s-ben-visual { height: 560px; background: transparent; border: none; border-radius: 24px; padding: 0; position: relative; overflow: visible; display: flex; align-items: center; justify-content: center; }
 /* Floating badge over the visual */
 .s-ben-outcome-float { position: absolute; bottom: 33%; left: 50%; z-index: 20; pointer-events: none; display: none; }
 @media (max-width: 900px) { .s-ben-outcome-desktop { display: none !important; } }
@@ -636,7 +636,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 @media (max-width: 900px) { .s-ben-visual { height: auto; min-height: 380px; } }
 
 /* iPhone 16 Pro mockup frame */
-.s-iphone { position: relative; width: 280px; height: 580px; border-radius: 52px; background: #1c1c1e; border: 3px solid #38383a; box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06); overflow: hidden; }
+.s-iphone { position: relative; width: 280px; height: 640px; border-radius: 52px; background: #1c1c1e; border: 3px solid #38383a; box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06); overflow: hidden; }
 /* Dynamic Island */
 .s-iphone-island { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 96px; height: 28px; background: #000; border-radius: 20px; z-index: 10; }
 @media (max-width: 600px) { .s-iphone-island { width: 84px; height: 24px; top: 8px; } }
