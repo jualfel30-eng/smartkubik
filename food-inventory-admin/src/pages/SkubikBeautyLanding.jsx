@@ -576,7 +576,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
   /* Visual fills all remaining space */
   .s-ben-visual { flex: 1; min-height: 0; height: 0; padding: 0; display: flex; align-items: stretch; justify-content: center; overflow: visible; position: relative; }
   /* iPhone — fill available space */
-  .s-iphone { width: 72vw !important; height: auto !important; aspect-ratio: 9/19.5 !important; max-height: calc(100% - 16px) !important; border-radius: 42px !important; margin: 0 0 16px !important; }
+  .s-iphone { width: 86vw !important; height: auto !important; aspect-ratio: 9/19.5 !important; max-height: calc(100% - 16px) !important; border-radius: 42px !important; margin: 0 0 16px !important; }
   .s-iphone-island { width: 76px; height: 22px; top: 8px; }
   .s-iphone-screen { border-radius: 39px; }
   .s-app-statusbar { height: 36px; padding: 10px 20px 0; }
@@ -636,7 +636,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 @media (max-width: 900px) { .s-ben-visual { height: auto; min-height: 380px; } }
 
 /* iPhone 16 Pro mockup frame */
-.s-iphone { position: relative; width: 280px; height: 660px; border-radius: 52px; background: #1c1c1e; border: 3px solid #38383a; box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06); overflow: hidden; }
+.s-iphone { position: relative; width: 336px; height: 660px; border-radius: 52px; background: #1c1c1e; border: 3px solid #38383a; box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06); overflow: hidden; }
 /* Dynamic Island */
 .s-iphone-island { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 96px; height: 28px; background: #000; border-radius: 20px; z-index: 10; }
 @media (max-width: 600px) { .s-iphone-island { width: 84px; height: 24px; top: 8px; } }
@@ -2583,8 +2583,9 @@ function SBenefits({ D }) {
     : progress > 0.82 ? 1 - (progress - 0.82) / 0.10
     : 1;
 
-  // Hint pulsante "Sigue scrolleando": visible siempre que estás dentro de la sección de actos.
-  const showHint = progress > 0.05 && progress < 0.9;
+  // Hint pulsante "Sigue scrolleando": SIEMPRE visible mientras la sección está activa
+  // (hay un video corriendo; sin el hint el usuario podría creer que la página está colgada).
+  const showHint = progress > 0.01 && progress < 0.97;
 
   return (
     <section className="s-benefits" id="beneficios" data-screen-label="03 Benefits">
