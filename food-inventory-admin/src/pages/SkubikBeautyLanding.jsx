@@ -2583,33 +2583,8 @@ function SBenefits({ D }) {
     : progress > 0.82 ? 1 - (progress - 0.82) / 0.10
     : 1;
 
-  // Hint pulsante: aparece si el usuario lleva 2.5s sin scrollear dentro de la sección
-  const [showHint, setShowHint] = useState(false);
-  const lastProgressRef = useRef(progress);
-  const lastChangeTimeRef = useRef(Date.now());
-
-  useEffect(() => {
-    if (progress !== lastProgressRef.current) {
-      lastProgressRef.current = progress;
-      lastChangeTimeRef.current = Date.now();
-      setShowHint(false);
-    }
-  }, [progress]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      try {
-        if (localStorage.getItem('skubik-scroll-hint-shown')) return;
-      } catch {}
-      const idle = Date.now() - lastChangeTimeRef.current;
-      const inSection = progress > 0.18 && progress < 0.80;
-      if (idle > 2500 && inSection) {
-        setShowHint(true);
-        try { localStorage.setItem('skubik-scroll-hint-shown', '1'); } catch {}
-      }
-    }, 500);
-    return () => clearInterval(interval);
-  }, [progress]);
+  // Hint pulsante "Sigue scrolleando": visible siempre que estás dentro de la sección de actos.
+  const showHint = progress > 0.05 && progress < 0.9;
 
   return (
     <section className="s-benefits" id="beneficios" data-screen-label="03 Benefits">
