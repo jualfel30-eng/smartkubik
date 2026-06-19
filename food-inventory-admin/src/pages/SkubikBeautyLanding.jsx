@@ -2530,7 +2530,7 @@ function BookingWebMockup() {
       <div className="s-iphone-island" />
       <div className="s-iphone-screen" style={{ background: '#000' }}>
         <video
-          src="/videos/skubik-act1.mp4"
+          src="/videos/skubik-act1-clean.mp4"
           autoPlay
           muted
           loop
