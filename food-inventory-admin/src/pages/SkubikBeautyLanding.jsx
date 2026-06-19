@@ -622,7 +622,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 }
 
 /* Scroll hint pulsante */
-.s-ben-scroll-hint { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); padding: 10px 18px; background: rgba(255,90,44,0.12); border: 1px solid var(--s-accent); border-radius: 99px; color: var(--s-accent); font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; z-index: 9999; pointer-events: none; backdrop-filter: blur(8px); animation: s-ben-hint-pulse 1.6s ease-in-out infinite; }
+.s-ben-scroll-hint { position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%); padding: 11px 20px; background: var(--s-accent); border: 1px solid var(--s-accent); border-radius: 99px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; display: flex; align-items: center; gap: 8px; z-index: 2147483647; pointer-events: none; box-shadow: 0 8px 30px rgba(0,0,0,0.5); animation: s-ben-hint-pulse 1.6s ease-in-out infinite; }
 @keyframes s-ben-hint-pulse { 0%, 100% { opacity: 0.85; transform: translateX(-50%) scale(1); } 50% { opacity: 1; transform: translateX(-50%) scale(1.04); } }
 @media (max-width: 600px) { .s-ben-scroll-hint { font-size: 10px; padding: 8px 14px; bottom: 20px; } }
 @media (max-width: 900px) {
