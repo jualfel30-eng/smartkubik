@@ -725,6 +725,8 @@ export class ProductsService {
             { name: regex },
             { brand: regex },
             { sku: regex },
+            { category: regex },
+            { subcategory: regex },
             { "variants.name": regex },
             { "variants.sku": regex },
             { "variants.barcode": regex },

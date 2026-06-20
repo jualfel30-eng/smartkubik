@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { matchesProductSearch } from '@/lib/productSearch';
 import { Search, X, Plus, Minus, ChevronLeft, ChevronRight, Check, Zap, Building2, MapPin, Warehouse, PackageOpen, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -225,7 +226,9 @@ function ProductsStep({ sourceWarehouseId, items, onUpdate }) {
     (async () => {
       try {
         setLoading(true);
-        const res = await fetchApi(`/inventory?warehouseId=${sourceWarehouseId}&minAvailable=1&limit=5000`);
+        // minAvailable=0.001 (no 1): el stock se guarda en unidad base, que para
+        // granel puede ser fraccional (0.87 sacos). Con 1 desaparecían los saldos parciales.
+        const res = await fetchApi(`/inventory?warehouseId=${sourceWarehouseId}&minAvailable=0.001&limit=5000`);
         const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
         if (active) setInventory(list);
       } catch {
@@ -239,15 +242,13 @@ function ProductsStep({ sourceWarehouseId, items, onUpdate }) {
 
   const results = useMemo(() => {
     if (!query.trim()) return inventory.slice(0, 20);
-    const q = query.toLowerCase();
     return inventory
       .filter((inv) => {
         const pop = inv.productId && typeof inv.productId === 'object' ? inv.productId : null;
-        return (
-          inv.productName?.toLowerCase().includes(q) ||
-          inv.productSku?.toLowerCase().includes(q) ||
-          pop?.brand?.toLowerCase().includes(q)
-        );
+        return matchesProductSearch(query, [
+          inv.productName, inv.productSku,
+          pop?.name, pop?.sku, pop?.brand, pop?.category, pop?.subcategory,
+        ]);
       })
       .slice(0, 20);
   }, [query, inventory]);

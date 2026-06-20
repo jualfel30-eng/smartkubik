@@ -6,6 +6,7 @@ import { Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { STAGGER, listItem, tapScale } from '@/lib/motion';
+import { matchesProductSearch } from '@/lib/productSearch';
 
 const ProductListView = ({
   products = [],
@@ -28,14 +29,11 @@ const ProductListView = ({
   // Filtrar productos (solo en preload; en server los resultados ya vienen filtrados).
   const filteredProducts = useMemo(() => {
     if (serverMode) return products;
-    return products.filter(product => {
-      const matchesSearch = searchTerm === '' ||
-        product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.brand?.toLowerCase().includes(searchTerm.toLowerCase());
-
-      return matchesSearch;
-    });
+    return products.filter(product =>
+      matchesProductSearch(searchTerm, [
+        product.name, product.sku, product.brand, product.category, product.subcategory,
+      ]),
+    );
   }, [products, searchTerm, serverMode]);
 
   const showSearchPrompt = serverMode && searchTerm.trim() === '';

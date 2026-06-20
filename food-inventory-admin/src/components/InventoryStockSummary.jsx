@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { matchesProductSearch } from '@/lib/productSearch';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card.jsx';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table.jsx';
 import { Input } from '@/components/ui/input.jsx';
@@ -19,12 +20,13 @@ export default function InventoryStockSummary() {
 
   const filtered = useMemo(() => {
     if (!search.trim()) return data;
-    const term = search.trim().toLowerCase();
-    return data.filter(
-      (item) =>
-        item.productSku?.toLowerCase().includes(term) ||
-        item.productName?.toLowerCase().includes(term),
-    );
+    return data.filter((item) => {
+      const pop = item.productId && typeof item.productId === 'object' ? item.productId : null;
+      return matchesProductSearch(search, [
+        item.productName, item.productSku,
+        pop?.name, pop?.sku, pop?.brand, pop?.category, pop?.subcategory,
+      ]);
+    });
   }, [data, search]);
 
   const totalPages = useMemo(

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { matchesProductSearch } from '@/lib/productSearch';
 import { Button } from '@/components/ui/button.jsx';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog.jsx';
 import { Input } from '@/components/ui/input.jsx';
@@ -199,27 +200,21 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     // REAL del producto (productId.name), no solo la copia desnormalizada
     // (productName), que en este tenant suele estar vieja. Antes solo se buscaba
     // en productName/SKU/brand, así que productos renombrados no aparecían.
-    // strip = quita acentos (insensible a tildes): "cafe" encuentra "Café".
-    const strip = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
-    const words = strip(productSearch.toLowerCase()).split(/\s+/).filter(Boolean);
     setFilteredProducts(
       inventoryItems
         .filter((inv) => {
           const populatedProduct = inv.productId && typeof inv.productId === 'object' ? inv.productId : null;
-          const haystack = strip([
+          // Busca por nombre REAL (productId.name), no solo la copia desnormalizada;
+          // tokenizado + insensible a acentos vía util compartido.
+          return matchesProductSearch(productSearch, [
             inv.productName,
             inv.productSku,
             populatedProduct?.name,
             populatedProduct?.sku,
             populatedProduct?.brand,
-            ...(Array.isArray(populatedProduct?.category)
-              ? populatedProduct.category
-              : [populatedProduct?.category]),
-          ]
-            .filter(Boolean)
-            .map((v) => String(v).toLowerCase())
-            .join(' '));
-          return words.every((w) => haystack.includes(w));
+            populatedProduct?.category,
+            populatedProduct?.subcategory,
+          ]);
         })
         .slice(0, 20),
     );

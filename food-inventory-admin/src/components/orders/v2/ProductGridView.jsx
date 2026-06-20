@@ -6,6 +6,7 @@ import { Search, X, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { STAGGER, listItem, tapScale, SPRING } from '@/lib/motion';
+import { matchesProductSearch } from '@/lib/productSearch';
 
 // ─── Category filter bar — horizontal scroll, searchable ─────────────────────
 function CategoryFilterBar({ categories, selected, onSelect }) {
@@ -144,11 +145,9 @@ const ProductGridView = ({
   const filteredProducts = useMemo(() => {
     if (serverMode) return products;
     return products.filter((product) => {
-      const matchesSearch =
-        searchTerm === '' ||
-        product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.brand?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = matchesProductSearch(searchTerm, [
+        product.name, product.sku, product.brand, product.category, product.subcategory,
+      ]);
 
       const matchesCategory =
         selectedCategory === 'all' ||
