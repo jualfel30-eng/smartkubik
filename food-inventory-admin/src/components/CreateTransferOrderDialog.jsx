@@ -163,7 +163,11 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
       try {
         // Cacheado bajo ['inventory'] (lo invalida cualquier escritura de stock):
         // reabrir el diálogo / reelegir la misma bodega = instantáneo.
-        const invUrl = `/inventory?warehouseId=${form.sourceWarehouseId}&minAvailable=1&limit=5000`;
+        // minAvailable=0.001 (no 1): el stock se guarda en la unidad BASE, que para
+        // productos a granel puede ser fraccional (p.ej. 0.87 sacos = 8.7 kg). Con
+        // umbral 1 esos saldos parciales desaparecían del buscador. 0.001 = "tiene
+        // stock real" sin excluir granel parcial.
+        const invUrl = `/inventory?warehouseId=${form.sourceWarehouseId}&minAvailable=0.001&limit=5000`;
         const res = await queryClient.fetchQuery({
           queryKey: ['inventory', tenant?.id, invUrl],
           queryFn: () => fetchApi(invUrl),
@@ -270,13 +274,32 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
         }))
       : [{ name: baseUnit, abbreviation: baseUnit, conversionFactor: 1, isBase: true }];
 
-    // Unidad inicial: la marcada como default (o la primera).
-    const defaultUnit = useUnits
+    // availableQuantity está en la unidad BASE del producto (p.ej. "saco").
+    // Lo disponible expresado en una unidad = base / conversionFactor de esa unidad.
+    const available = invRecord.availableQuantity || 0;
+    const availInUnit = (cf) => (cf && cf !== 1 ? available / cf : available);
+
+    // Unidad inicial: la marcada como default (o la primera). PERO si no alcanza
+    // ni para 1 de esa unidad (p.ej. 0.87 sacos), bajamos automáticamente a la
+    // unidad más fina disponible (kg) para no bloquear el traslado de saldos
+    // parciales. El usuario igual puede cambiarla con el selector del ítem.
+    let initialUnit = useUnits
       ? (activeSellingUnits.find((u) => u.isDefault) || activeSellingUnits[0])
-      : null;
-    const initialUnit = defaultUnit
-      ? { abbreviation: defaultUnit.abbreviation, conversionFactor: defaultUnit.conversionFactor }
       : { abbreviation: baseUnit, conversionFactor: 1 };
+
+    if (availInUnit(initialUnit.conversionFactor) < 1) {
+      // conversionFactor menor = unidad más fina = más cantidad disponible en ella.
+      initialUnit = unitOptions.reduce(
+        (finest, u) => (u.conversionFactor < finest.conversionFactor ? u : finest),
+        initialUnit,
+      );
+    }
+
+    // Cantidad inicial: 1 en la unidad elegida, o todo lo disponible si es menos
+    // de 1 (caso degenerado sin unidad más fina). Nunca preseleccionar más de lo
+    // que hay, para que "Enviar ahora" no reviente con stock insuficiente.
+    const initialAvail = availInUnit(initialUnit.conversionFactor);
+    const initialQty = initialAvail > 0 ? Math.min(1, initialAvail) : 1;
 
     setForm((f) => ({
       ...f,
@@ -288,7 +311,7 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           productSku: invRecord.productSku,
           brand: populatedProduct?.brand || '',
           availableQuantity: invRecord.availableQuantity,
-          quantity: 1,
+          quantity: initialQty,
           unitOptions,
           hasMultiUnit: unitOptions.length > 1,
           selectedUnit: initialUnit.abbreviation,
