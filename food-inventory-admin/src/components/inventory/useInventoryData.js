@@ -749,10 +749,16 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
       return;
     }
 
+    // newQuantity ya viene en unidad base (el dialog convierte desde la unidad
+    // que eligió el usuario). unitNote deja legible el ajuste en el historial,
+    // ej: "Conteo físico (30 kg)".
+    const reason = editFormData.unitNote
+      ? `${editFormData.reason} (${editFormData.unitNote})`
+      : editFormData.reason;
     const payload = {
       inventoryId: selectedItem._id,
       newQuantity: Number(editFormData.newQuantity),
-      reason: editFormData.reason,
+      reason,
       binLocationId: editFormData.binLocationId || undefined,
     };
 

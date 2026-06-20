@@ -13,6 +13,16 @@ import { fetchApi } from '@/lib/api';
 import { SPRING } from '@/lib/motion';
 import { toast } from 'sonner';
 import { recordActivity } from '@/components/inventory/DailyStreak.jsx';
+import {
+  allowsFractionalStock,
+  getUnitOptions,
+  defaultUnitKey,
+  findUnitOption,
+  hasUnitChoices,
+  toBaseUnit,
+} from '@/lib/inventoryUnits.js';
+
+const round4 = (n) => Math.round(Number(n) * 10000) / 10000;
 
 const REASONS = [
   { value: 'Compra', label: 'Compra' },
@@ -29,7 +39,13 @@ export default function InlineStockAdjust({ item, onAdjustComplete }) {
   const [reason, setReason] = useState('Conteo físico');
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState(null); // 'green' | 'amber' | null
+  const [unitKey, setUnitKey] = useState(() => defaultUnitKey(item));
   const inputRef = useRef(null);
+  const unitOptions = getUnitOptions(item);
+  const showUnitSelector = hasUnitChoices(item);
+  const unit = findUnitOption(item, unitKey);
+  // Con unidades de venta o stock fraccionario siempre permitimos decimales.
+  const allowDecimals = showUnitSelector || allowsFractionalStock(item);
 
   useEffect(() => {
     if (mode && inputRef.current) {
@@ -41,6 +57,7 @@ export default function InlineStockAdjust({ item, onAdjustComplete }) {
     setMode(type);
     setQuantity('');
     setReason('Conteo físico');
+    setUnitKey(defaultUnitKey(item));
   };
 
   const handleCancel = () => {
@@ -58,8 +75,11 @@ export default function InlineStockAdjust({ item, onAdjustComplete }) {
     // El backend ajusta sobre totalQuantity (newQuantity = nuevo total) y aplica
     // el delta contra el total. La base debe ser totalQuantity; usar
     // availableQuantity desfasa el ajuste por reservedQuantity.
+    // El delta se teclea en la unidad elegida; se convierte a base antes de enviar.
     const currentQty = item.totalQuantity ?? item.availableQuantity ?? 0;
-    const newQuantity = mode === 'add' ? currentQty + qty : Math.max(0, currentQty - qty);
+    const deltaBase = toBaseUnit(qty, unit.conversionFactor);
+    const newQuantity = round4(mode === 'add' ? currentQty + deltaBase : Math.max(0, currentQty - deltaBase));
+    const unitSuffix = unit.isBase ? '' : ` ${unit.label}`;
 
     setSaving(true);
     try {
@@ -68,7 +88,7 @@ export default function InlineStockAdjust({ item, onAdjustComplete }) {
         body: JSON.stringify({
           inventoryId: item._id,
           newQuantity,
-          reason: `${mode === 'add' ? '+' : '-'}${qty} — ${reason}`,
+          reason: `${mode === 'add' ? '+' : '-'}${qty}${unitSuffix} — ${reason}`,
         }),
       });
 
@@ -77,7 +97,7 @@ export default function InlineStockAdjust({ item, onAdjustComplete }) {
       setTimeout(() => setFlash(null), 600);
 
       toast.success(
-        `Stock ajustado: ${mode === 'add' ? '+' : '-'}${qty} ${item.productName || ''}`,
+        `Stock ajustado: ${mode === 'add' ? '+' : '-'}${qty}${unitSuffix} ${item.productName || ''}`,
       );
 
       recordActivity();
@@ -142,13 +162,28 @@ export default function InlineStockAdjust({ item, onAdjustComplete }) {
               ref={inputRef}
               type="number"
               min="0"
-              step="1"
+              step={allowDecimals ? '0.001' : '1'}
+              inputMode={allowDecimals ? 'decimal' : 'numeric'}
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               onKeyDown={handleKeyDown}
               className="h-7 w-16 text-xs"
               placeholder="Cant."
             />
+            {showUnitSelector && (
+              <Select value={unitKey} onValueChange={setUnitKey}>
+                <SelectTrigger className="h-7 w-20 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {unitOptions.map((o) => (
+                    <SelectItem key={o.key} value={o.key} className="text-xs">
+                      {o.label}{o.isBase ? ' (base)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Select value={reason} onValueChange={setReason}>
               <SelectTrigger className="h-7 w-28 text-xs">
                 <SelectValue />
