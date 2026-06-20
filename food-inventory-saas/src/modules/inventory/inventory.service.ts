@@ -22,6 +22,7 @@ import {
 } from "../../dto/inventory.dto";
 import { EventsService } from "../events/events.service";
 import { BulkAdjustInventoryDto } from "./dto/bulk-adjust-inventory.dto";
+import { accentInsensitiveRegex } from "../../utils/accent-regex.util";
 
 @Injectable()
 export class InventoryService {
@@ -1715,7 +1716,7 @@ export class InventoryService {
       // hermanas. La aislación por tenant la garantiza el filtro inventories.tenantId.
       const perWordProductIds = await Promise.all(
         words.map(async (word) => {
-          const wregex = new RegExp(this.escapeRegExp(word), "i");
+          const wregex = accentInsensitiveRegex(word);
           const matches = await this.productModel
             .find(
               {
@@ -1738,7 +1739,7 @@ export class InventoryService {
       );
 
       filter.$and = words.map((word, i) => {
-        const wregex = new RegExp(this.escapeRegExp(word), "i");
+        const wregex = accentInsensitiveRegex(word);
         // CRÍTICO: inventory.productId está a veces String, a veces ObjectId
         // (gotcha objectid-vs-string). matchingProductIds vienen como ObjectId,
         // así que el $in DEBE incluir ambas formas o se pierden todos los

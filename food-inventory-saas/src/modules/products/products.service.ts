@@ -29,6 +29,7 @@ import { PriceHistoryService } from "../price-history/price-history.service";
 import { PriceListsService } from "../price-lists/price-lists.service";
 import sharp from "sharp";
 import { calculatePriceWithRounding, validatePricingStrategy } from "../../utils/pricing-strategy.util";
+import { accentInsensitiveRegex } from "../../utils/accent-regex.util";
 
 @Injectable()
 export class ProductsService {
@@ -718,7 +719,7 @@ export class ProductsService {
       const words = searchTerm.split(/\s+/).filter(w => w.length > 0);
 
       const searchConditions = words.map(word => {
-        const regex = new RegExp(this.escapeRegExp(word), "i");
+        const regex = accentInsensitiveRegex(word);
         return {
           $or: [
             { name: regex },

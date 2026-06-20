@@ -199,12 +199,14 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
     // REAL del producto (productId.name), no solo la copia desnormalizada
     // (productName), que en este tenant suele estar vieja. Antes solo se buscaba
     // en productName/SKU/brand, así que productos renombrados no aparecían.
-    const words = productSearch.toLowerCase().split(/\s+/).filter(Boolean);
+    // strip = quita acentos (insensible a tildes): "cafe" encuentra "Café".
+    const strip = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const words = strip(productSearch.toLowerCase()).split(/\s+/).filter(Boolean);
     setFilteredProducts(
       inventoryItems
         .filter((inv) => {
           const populatedProduct = inv.productId && typeof inv.productId === 'object' ? inv.productId : null;
-          const haystack = [
+          const haystack = strip([
             inv.productName,
             inv.productSku,
             populatedProduct?.name,
@@ -216,7 +218,7 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
           ]
             .filter(Boolean)
             .map((v) => String(v).toLowerCase())
-            .join(' ');
+            .join(' '));
           return words.every((w) => haystack.includes(w));
         })
         .slice(0, 20),
