@@ -746,20 +746,26 @@ export class ProductsService {
     //  - inStockOnly: solo productos con stock > 0 (POS retail). Crítico: si se
     //    filtrara después del límite, los productos con stock más allá de la
     //    página 1 desaparecerían (bug "no salen todos los productos con stock").
-    //  - minAvailableQuantity: umbral explícito.
+    //  - minAvailableQuantity: umbral numérico explícito.
+    // OJO: availableQuantity está en la unidad BASE del producto, que para granel
+    // es fraccional (0.87 sacos = 8.7 kg). Por eso "tiene stock" DEBE ser `$gt: 0`,
+    // NO `$gte: 1`: con >=1 los saldos parciales (<1 unidad base) desaparecían del
+    // POS y del storefront. Ver incidents/2026-06-20-fractional-base-unit-hidden-*.
     // El inventario es por tenant OPERATIVO (puede diferir del catálogo en
     // subsidiarias); tenantId/productId pueden estar como String u ObjectId.
-    const stockThreshold = options?.inStockOnly
-      ? 1
-      : options?.minAvailableQuantity;
-    if (stockThreshold !== undefined) {
+    const stockFilter = options?.inStockOnly
+      ? { $gt: 0 }
+      : options?.minAvailableQuantity !== undefined
+        ? { $gte: options.minAvailableQuantity }
+        : undefined;
+    if (stockFilter !== undefined) {
       const invTenantOid = new Types.ObjectId(
         options?.inventoryTenantId ?? tenantId,
       );
       const rawStockIds = await this.inventoryModel
         .find({
           tenantId: { $in: [invTenantOid, invTenantOid.toString()] },
-          availableQuantity: { $gte: stockThreshold },
+          availableQuantity: stockFilter,
         })
         .distinct("productId")
         .exec();

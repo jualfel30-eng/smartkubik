@@ -153,7 +153,10 @@ export class ProductsPublicController {
     // Obtener productos
     const result = await this.productsService.findAll(query, tenantId, {
       includeInventory: true,
-      minAvailableQuantity: 1, // Solo mostrar productos con stock disponible
+      // "Tiene stock" = availableQuantity > 0 (NO >= 1). availableQuantity está
+      // en unidad base, fraccional para granel (0.87 sacos): con >= 1 los saldos
+      // parciales no aparecían en la tienda online. Ver incidents/2026-06-20-*.
+      inStockOnly: true,
     });
 
     return {
