@@ -1739,13 +1739,18 @@ export class InventoryService {
 
       filter.$and = words.map((word, i) => {
         const wregex = new RegExp(this.escapeRegExp(word), "i");
+        // CRÍTICO: inventory.productId está a veces String, a veces ObjectId
+        // (gotcha objectid-vs-string). matchingProductIds vienen como ObjectId,
+        // así que el $in DEBE incluir ambas formas o se pierden todos los
+        // inventarios con productId String (ej: marca "Bonomi" devolvía 1 de 4).
         const ids = perWordProductIds[i];
+        const idsBoth = ids.flatMap((id) => [id, id.toString()]);
         return {
           $or: [
             { productName: wregex },
             { productSku: wregex },
             { variantSku: wregex },
-            ...(ids.length > 0 ? [{ productId: { $in: ids } }] : []),
+            ...(idsBoth.length > 0 ? [{ productId: { $in: idsBoth } }] : []),
           ],
         };
       });
