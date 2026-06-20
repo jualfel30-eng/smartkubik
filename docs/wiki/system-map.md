@@ -363,6 +363,23 @@ RECIBIR MERCANCÍA:
 
 ### 1.7 Transfer Orders — Contrato de Datos
 
+> **⚠️ MODELO DE TRASLADOS — LEER ANTES DE TOCAR NADA DE TRANSFERS/WAREHOUSES ⚠️**
+>
+> El sistema soporta **DOS dimensiones de traslado que coexisten y NO son excluyentes**:
+>
+> 1. **Traslados entre ALMACENES de un MISMO tenant/sede.** Un solo tenant puede tener
+>    varios `warehouses` en la misma sede y debe poder mover producto entre ellos.
+>    (`sourceWarehouseId` → `destinationWarehouseId`, mismo `tenantId`.)
+> 2. **Traslados entre SEDES (tenant padre → sedes hijas / entre sedes hermanas).**
+>    El sistema permite un **tenant padre con sedes hijas**; cada sede es su propio
+>    tenant con sus propios almacenes. Debe poder moverse producto **entre sedes**.
+>    (cross-tenant: se incluye `destinationTenantId`.)
+>
+> **Ambos casos deben funcionar a la vez.** Uno NO reemplaza ni excluye al otro. Un tenant
+> puede tener N almacenes en su sede Y además ser parte de una jerarquía de sedes, y los
+> traslados deben poder hacerse en cualquiera de las dos dimensiones. No asumir nunca que
+> "traslado = entre sedes" ni que "traslado = entre almacenes de la misma sede": son ambos.
+
 ```
 CREAR TRANSFERENCIA:
   Frontend envía: POST /transfer-orders
