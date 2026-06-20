@@ -20,3 +20,7 @@ restaurant-storefront/temp_next_logs.txt
 scripts/_backups/
 scripts/migrations/_logs/
 .claude/skills/tenant-inspect/scripts/_inspections/
+
+# DB backups y scripts ad-hoc de auditoría (no commitear)
+food-inventory-saas/scripts/_backups/
+food-inventory-saas/scripts/_*.cjs

@@ -1699,41 +1699,56 @@ export class InventoryService {
     // a search by brand like "mary" returns nothing because inventory docs
     // don't carry the brand field.
     if (isSearching) {
-      const regex = new RegExp(this.escapeRegExp(searchTerm), "i");
+      // Búsqueda TOKENIZADA: cada palabra debe coincidir en ALGÚN campo
+      // (AND entre palabras, OR entre campos). Resuelve dos cosas que la
+      // búsqueda por frase-completa rompía:
+      //   (1) multi-palabra donde nombre y marca viven en campos distintos
+      //       ("avellanas mary" → nombre="Avellanas", marca="Mary").
+      //   (2) buscar por el nombre REAL del producto aunque la copia
+      //       desnormalizada `productName` esté vieja (ver incidente de nombres
+      //       desincronizados): por eso cada palabra también puede matchear vía
+      //       productId ∈ productos cuyos campos reales contienen la palabra.
+      const words = searchTerm.split(/\s+/).filter((w) => w.length > 0);
 
-      // Tenant isolation is enforced by the inventories.tenantId filter
-      // below. The product lookup deliberately spans tenants because
-      // historical data has inventories whose productId points to products
-      // living in a sibling tenant (parent <-> sedes <-> old parent set).
-      // Restricting by tenant here was hiding 159 of the 167 Mary results
-      // the Transfer dialog correctly surfaces.
-      const matchingProducts = await this.productModel
-        .find(
-          {
-            isDeleted: { $ne: true },
-            $or: [
-              { name: regex },
-              { sku: regex },
-              { brand: regex },
-              { category: regex },
-              { subcategory: regex },
-              { "variants.sku": regex },
-              { "variants.name": regex },
-            ],
-          },
-          { _id: 1 },
-        )
-        .lean();
-      const matchingProductIds = matchingProducts.map((p) => p._id);
+      // El lookup de productos cruza tenants A PROPÓSITO: data histórica tiene
+      // inventarios cuyo productId apunta a productos del tenant padre / sedes
+      // hermanas. La aislación por tenant la garantiza el filtro inventories.tenantId.
+      const perWordProductIds = await Promise.all(
+        words.map(async (word) => {
+          const wregex = new RegExp(this.escapeRegExp(word), "i");
+          const matches = await this.productModel
+            .find(
+              {
+                isDeleted: { $ne: true },
+                $or: [
+                  { name: wregex },
+                  { sku: wregex },
+                  { brand: wregex },
+                  { category: wregex },
+                  { subcategory: wregex },
+                  { "variants.sku": wregex },
+                  { "variants.name": wregex },
+                ],
+              },
+              { _id: 1 },
+            )
+            .lean();
+          return matches.map((p) => p._id);
+        }),
+      );
 
-      filter.$or = [
-        { productName: regex },
-        { productSku: regex },
-        { variantSku: regex },
-        ...(matchingProductIds.length > 0
-          ? [{ productId: { $in: matchingProductIds } }]
-          : []),
-      ];
+      filter.$and = words.map((word, i) => {
+        const wregex = new RegExp(this.escapeRegExp(word), "i");
+        const ids = perWordProductIds[i];
+        return {
+          $or: [
+            { productName: wregex },
+            { productSku: wregex },
+            { variantSku: wregex },
+            ...(ids.length > 0 ? [{ productId: { $in: ids } }] : []),
+          ],
+        };
+      });
     }
     const sortField = sortBy || "updatedAt";
     const sortDirection: SortOrder = sortOrder === "asc" ? "asc" : "desc";

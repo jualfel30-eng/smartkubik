@@ -195,16 +195,29 @@ export default function CreateTransferOrderDialog({ open, onOpenChange, onCreate
       setFilteredProducts(inventoryItems.slice(0, 20));
       return;
     }
-    const search = productSearch.toLowerCase();
+    // Tokenizado (cada palabra debe aparecer en algún campo) e incluye el nombre
+    // REAL del producto (productId.name), no solo la copia desnormalizada
+    // (productName), que en este tenant suele estar vieja. Antes solo se buscaba
+    // en productName/SKU/brand, así que productos renombrados no aparecían.
+    const words = productSearch.toLowerCase().split(/\s+/).filter(Boolean);
     setFilteredProducts(
       inventoryItems
         .filter((inv) => {
           const populatedProduct = inv.productId && typeof inv.productId === 'object' ? inv.productId : null;
-          return (
-            inv.productName?.toLowerCase().includes(search) ||
-            inv.productSku?.toLowerCase().includes(search) ||
-            populatedProduct?.brand?.toLowerCase().includes(search)
-          );
+          const haystack = [
+            inv.productName,
+            inv.productSku,
+            populatedProduct?.name,
+            populatedProduct?.sku,
+            populatedProduct?.brand,
+            ...(Array.isArray(populatedProduct?.category)
+              ? populatedProduct.category
+              : [populatedProduct?.category]),
+          ]
+            .filter(Boolean)
+            .map((v) => String(v).toLowerCase())
+            .join(' ');
+          return words.every((w) => haystack.includes(w));
         })
         .slice(0, 20),
     );

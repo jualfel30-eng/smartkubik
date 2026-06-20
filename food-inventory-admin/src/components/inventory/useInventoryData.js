@@ -15,7 +15,6 @@ import { useInventoryCache } from '@/hooks/useInventoryCache';
 import { toast } from 'sonner';
 
 const DEFAULT_ITEMS_PER_PAGE = 20;
-const SEARCH_ITEMS_PER_PAGE = 100;
 const SEARCH_DEBOUNCE_MS = 600;
 
 export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
@@ -141,9 +140,6 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
   const [sortBy, setSortBy] = useState('updatedAt');
   const [sortOrder, setSortOrder] = useState('desc');
 
-  // --- variant quantities (unused but preserved) ---
-  const [variantQuantities, setVariantQuantities] = useState([]);
-
   // --- vertical config derived ---
   const inventoryAttributes = useMemo(
     () => (verticalConfig?.attributeSchema || []).filter((attr) => attr.scope === 'inventory'),
@@ -244,9 +240,12 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
       const safeSearch = (search ?? committedSearch ?? '').trim();
       const usingSearch = safeSearch.length > 0;
 
-      const queryPage = usingSearch ? 1 : safePage;
-      const requestedLimit = usingSearch ? Math.max(SEARCH_ITEMS_PER_PAGE, safeLimit, 100) : safeLimit;
-      const queryLimit = Math.min(100, requestedLimit);
+      // La búsqueda usa la MISMA paginación server-side que el listado normal.
+      // Antes se cargaban 100 de golpe y se re-filtraba en cliente: eso truncaba
+      // a 100 (productos inalcanzables en catálogos grandes) y causaba el
+      // "aparecen y desaparecen". El servidor ya filtra Y pagina correctamente.
+      const queryPage = safePage;
+      const queryLimit = safeLimit;
 
       console.log('🔄 [InventoryManagement] Cargando datos... Página:', queryPage, 'Límite:', queryLimit, 'Search:', safeSearch, 'Sort:', currentSortBy, currentSortOrder);
 
@@ -287,11 +286,7 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
       }));
       setInventoryData(inventoryWithAttributes);
 
-      if (usingSearch) {
-        setCurrentPage(1);
-        setTotalPages(1);
-        setTotalItems(inventoryWithAttributes.length);
-      } else if (inventoryResponse?.pagination) {
+      if (inventoryResponse?.pagination) {
         setCurrentPage(inventoryResponse.pagination.page);
         setTotalPages(inventoryResponse.pagination.totalPages);
         setTotalItems(inventoryResponse.pagination.total);
@@ -326,40 +321,18 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
   );
 
   // --- filtering effect ---
+  // El texto de búsqueda lo resuelve el SERVIDOR (tokenizado, por nombre real +
+  // copia desnormalizada). Aquí SOLO se aplica el filtro de categoría. NO se
+  // re-filtra por texto en cliente: hacerlo rechazaba filas que el servidor sí
+  // matcheó (nombre real vs `productName` viejo) y producía el parpadeo
+  // "aparecen y desaparecen".
   useEffect(() => {
-    console.log('🔍 [useEffect Filter] Filtrando datos...');
-    console.log('🔍 [useEffect Filter] inventoryData.length:', inventoryData.length);
-    const search = committedSearch.trim().toLowerCase();
     let filtered = inventoryData;
-
     if (filterCategory !== 'all') {
       filtered = filtered.filter(item => item.productId?.category === filterCategory);
     }
-
-    if (search) {
-      const searchWords = search.split(/\s+/).filter(w => w.length > 0);
-      filtered = filtered.filter((item) => {
-        const searchableText = [
-          item.productName,
-          item.productSku,
-          item.variantSku,
-          item.productId?.name,
-          item.productId?.sku,
-          item.productId?.brand,
-          ...(Array.isArray(item.productId?.category)
-            ? item.productId.category
-            : [item.productId?.category]),
-        ]
-          .filter(Boolean)
-          .map((value) => String(value).toLowerCase())
-          .join(' ');
-        return searchWords.every((word) => searchableText.includes(word));
-      });
-    }
-
-    console.log('🔍 [useEffect Filter] filteredData.length:', filtered.length);
     setFilteredData(filtered);
-  }, [inventoryData, filterCategory, committedSearch]);
+  }, [inventoryData, filterCategory]);
 
   // --- search debounce ---
   useEffect(() => {
@@ -376,9 +349,7 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
 
   // --- auto-refresh on search/sort change ---
   useEffect(() => {
-    const effectiveLimit = committedSearch
-      ? Math.max(manualItemsPerPageRef.current, SEARCH_ITEMS_PER_PAGE)
-      : manualItemsPerPageRef.current;
+    const effectiveLimit = manualItemsPerPageRef.current;
 
     if (itemsPerPage !== effectiveLimit) {
       setItemsPerPage(effectiveLimit);
@@ -439,12 +410,9 @@ export function useInventoryData({ multiWarehouseEnabled, verticalConfig }) {
 
   const handleItemsPerPageChange = (newLimit) => {
     manualItemsPerPageRef.current = newLimit;
-    const effectiveLimit = committedSearch
-      ? Math.max(newLimit, SEARCH_ITEMS_PER_PAGE)
-      : newLimit;
-    setItemsPerPage(effectiveLimit);
+    setItemsPerPage(newLimit);
     setCurrentPage(1);
-    refreshData(1, effectiveLimit, committedSearch);
+    refreshData(1, newLimit, committedSearch);
   };
 
   // --- product search for add dialog ---
