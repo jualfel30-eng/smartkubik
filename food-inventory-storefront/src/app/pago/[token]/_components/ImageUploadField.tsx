@@ -159,11 +159,16 @@ export default function ImageUploadField({
         <span className="text-xs text-slate-500">
           JPG, PNG, WebP o HEIC · máximo 25 MB
         </span>
+        {/*
+          No usamos `capture` a propósito: forzaba la cámara y bloqueaba la
+          galería en iOS/Android. El comprobante casi siempre es una captura
+          ya guardada (app del banco), así que dejamos el selector nativo
+          que ofrece galería + cámara.
+        */}
         <input
           ref={inputRef}
           type="file"
           accept="image/*"
-          capture="environment"
           className="sr-only"
           disabled={disabled || compressing}
           onChange={(e) => handleFile(e.target.files?.[0])}
