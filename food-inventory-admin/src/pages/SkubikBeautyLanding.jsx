@@ -35,7 +35,7 @@ const BEAUTY_DATA = {
       { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'La Esclavitud', video: '/videos/late-night-scroll.webm', backVideo: '/videos/late-night-back.mp4', backVideoBg: '#ef4444' },
       { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm', backAnim: 'booking', backImageBg: '#ef4444' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'El Embarque', video: '/videos/no-show.webm', backVideo: '/videos/no-show-back.mp4', backVideoBg: '#fa4e4a' },
-      { q: '"Ni idea de cuánto vendí el mes pasado, cuál de mis estilistas produjo menos, ni quién es mi mejor clienta activa"', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Viviendo al Límite', video: '/videos/reports.webm' },
+      { q: '"Ni idea de cuánto vendí el mes pasado, cuál de mis estilistas produjo menos, ni quién es mi mejor clienta activa"', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Viviendo al Límite', video: '/videos/reports.webm', backAnim: 'analytics' },
       { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'La Traición', video: '/videos/data-loss.webm' },
     ],
   },
@@ -520,6 +520,89 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-anim-occ { font-size: 8px; letter-spacing: 0.04em; color: #ef6a6a; text-decoration: none; text-transform: uppercase; }
 .s-anim-badge { align-self: center; display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #34d399; opacity: 0; transform: scale(0.9); transition: opacity 0.3s ease, transform 0.3s ease; }
 .s-anim-badge.show { opacity: 1; transform: none; }
+
+/* === Analytics module animation (back of pain card 4) === */
+.s-pain-back.has-back-screen { padding: 0; }
+.s-an-screen { position: absolute; inset: 0; z-index: 1; border-radius: 28px; overflow: hidden; background: #0a0e16; display: flex; flex-direction: column; font-family: 'Inter Tight', system-ui, sans-serif; color: #fff; pointer-events: none; }
+.s-an-status { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 9px 18px 2px; font-size: 11px; font-weight: 600; }
+.s-an-island { width: 62px; height: 16px; background: #000; border-radius: 10px; }
+.s-an-batt { display: inline-flex; align-items: flex-end; gap: 2px; height: 10px; }
+.s-an-batt i { width: 3px; background: rgba(255,255,255,0.85); border-radius: 1px; }
+.s-an-batt i:nth-child(1){height:6px} .s-an-batt i:nth-child(2){height:8px} .s-an-batt i:nth-child(3){height:10px}
+.s-an-appbar { flex-shrink: 0; padding: 2px 16px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.s-an-app-title { font-family: 'Fraunces', serif; font-size: 19px; font-weight: 600; line-height: 1.1; }
+.s-an-app-sub { font-family: 'JetBrains Mono', monospace; font-size: 8.5px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+.s-an-stage { flex: 1; min-height: 0; position: relative; }
+.s-an-panel { position: absolute; inset: 0; padding: 12px 16px 6px; display: flex; flex-direction: column; }
+.s-an-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; animation: s-an-fadeup 0.4s both; }
+.s-an-stats { display: flex; gap: 16px; margin-bottom: 12px; }
+.s-an-stat { display: flex; flex-direction: column; animation: s-an-fadeup 0.45s both; }
+.s-an-stat b { font-family: 'Fraunces', serif; font-size: 19px; font-weight: 600; line-height: 1; }
+.s-an-stat span { font-size: 9px; color: rgba(255,255,255,0.45); margin-top: 3px; }
+.s-an-vbars { display: flex; align-items: flex-end; gap: 8px; flex: 1; min-height: 0; padding: 0 4px; }
+.s-an-vbar { flex: 1; border-radius: 5px 5px 0 0; transform-origin: bottom; animation: s-an-grow 0.6s cubic-bezier(0.2,0.8,0.2,1) both; min-height: 4px; }
+.s-an-vlabels { display: flex; gap: 8px; padding: 5px 4px 0; }
+.s-an-vlabels span { flex: 1; text-align: center; font-size: 8.5px; color: rgba(255,255,255,0.5); }
+.s-an-donut-row { display: flex; align-items: center; gap: 14px; flex: 1; }
+.s-an-donut { flex-shrink: 0; animation: s-an-donutin 0.6s cubic-bezier(0.2,0.8,0.2,1) both; }
+.s-an-legend { display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 0; }
+.s-an-leg { display: flex; align-items: center; gap: 7px; font-size: 11px; animation: s-an-fadeup 0.4s both; }
+.s-an-leg i { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.s-an-leg-n { flex: 1; color: rgba(255,255,255,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-an-leg b { font-variant-numeric: tabular-nums; }
+.s-an-gbars { display: flex; align-items: flex-end; gap: 10px; flex: 1; min-height: 0; padding: 0 6px; }
+.s-an-gbar-col { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 100%; }
+.s-an-gbar { width: 8px; border-radius: 3px 3px 0 0; transform-origin: bottom; animation: s-an-grow 0.55s cubic-bezier(0.2,0.8,0.2,1) both; min-height: 3px; }
+.s-an-retgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.s-an-ret { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-left: 3px solid var(--c); border-radius: 11px; padding: 8px 10px; animation: s-an-pop 0.4s both; }
+.s-an-ret b { display: block; font-family: 'Fraunces', serif; font-size: 20px; font-weight: 600; color: var(--c); line-height: 1; }
+.s-an-ret span { font-size: 9px; color: rgba(255,255,255,0.5); margin-top: 2px; display: block; }
+.s-an-toplist { display: flex; flex-direction: column; }
+.s-an-toprow { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; animation: s-an-fadeup 0.4s both; }
+.s-an-top-n { flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-an-top-v { font-size: 9px; color: rgba(255,255,255,0.4); flex-shrink: 0; }
+.s-an-toprow b { color: #10b981; flex-shrink: 0; }
+.s-an-insight { font-size: 10px; color: rgba(255,255,255,0.55); margin-bottom: 8px; }
+.s-an-insight b { color: #818cf8; }
+.s-an-heat { display: flex; flex-direction: column; gap: 3px; flex: 1; min-height: 0; }
+.s-an-heat-row { display: flex; align-items: stretch; gap: 3px; flex: 1; }
+.s-an-heat-hd { flex: 0 0 12px; align-items: center; }
+.s-an-heat-hr { width: 22px; font-size: 8px; color: rgba(255,255,255,0.4); text-align: right; padding-right: 3px; flex-shrink: 0; align-self: center; }
+.s-an-heat-d { flex: 1; text-align: center; font-size: 8px; color: rgba(255,255,255,0.4); }
+.s-an-heat-cell { flex: 1; border-radius: 3px; animation: s-an-cell 0.4s both; }
+.s-an-util-big { text-align: center; margin-bottom: 14px; animation: s-an-fadeup 0.4s both; }
+.s-an-util-big b { font-family: 'Fraunces', serif; font-size: 30px; font-weight: 600; line-height: 1; }
+.s-an-util-big span { display: block; font-size: 9px; color: rgba(255,255,255,0.45); margin-top: 3px; }
+.s-an-hbars { display: flex; flex-direction: column; gap: 12px; }
+.s-an-hbar-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.s-an-hbar-n { width: 46px; flex-shrink: 0; color: rgba(255,255,255,0.8); }
+.s-an-hbar-track { flex: 1; height: 9px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; }
+.s-an-hbar { height: 100%; border-radius: 99px; transform-origin: left; animation: s-an-growx 0.6s cubic-bezier(0.2,0.8,0.2,1) both; }
+.s-an-hbar-row b { width: 32px; text-align: right; font-variant-numeric: tabular-nums; }
+.s-an-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+.s-an-tabs span { flex: 1; text-align: center; font-size: 9px; font-weight: 600; padding: 5px 2px; border-radius: 7px; background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5); white-space: nowrap; }
+.s-an-tabs span.on { background: #6366f1; color: #fff; }
+.s-an-bigtotal { margin-bottom: 10px; animation: s-an-fadeup 0.4s both; }
+.s-an-bigtotal b { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600; }
+.s-an-bigtotal span { display: block; font-size: 9px; color: rgba(255,255,255,0.45); margin-top: 2px; }
+.s-an-area { flex: 1; min-height: 0; }
+.s-an-area-svg { width: 100%; height: 100%; display: block; }
+.s-an-area-fill { transform-origin: bottom; animation: s-an-grow 0.7s ease both; }
+.s-an-area-line { stroke-dasharray: 340; stroke-dashoffset: 340; animation: s-an-draw 0.9s ease both 0.1s; }
+.s-an-dots { flex-shrink: 0; display: flex; justify-content: center; gap: 4px; padding: 5px 0 3px; }
+.s-an-dots i { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: all 0.3s; }
+.s-an-dots i.on { background: #6366f1; width: 14px; border-radius: 3px; }
+.s-an-caption { flex-shrink: 0; padding: 9px 18px 16px; background: rgba(255,255,255,0.02); border-top: 1px solid rgba(255,255,255,0.07); }
+.s-an-caption-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--s-accent2); display: flex; align-items: center; gap: 6px; }
+.s-an-caption-label::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--s-accent2); }
+.s-an-caption-a { font-size: 12px; line-height: 1.4; color: rgba(255,255,255,0.92); margin-top: 4px; }
+@keyframes s-an-fadeup { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes s-an-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes s-an-growx { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes s-an-pop { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: none; } }
+@keyframes s-an-cell { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: none; } }
+@keyframes s-an-donutin { from { opacity: 0; transform: rotate(-40deg) scale(0.7); } to { opacity: 1; transform: none; } }
+@keyframes s-an-draw { to { stroke-dashoffset: 0; } }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
@@ -1620,6 +1703,216 @@ function BookingFlowAnim({ active }) {
   );
 }
 
+// ---- Analytics module animation (back of pain card 4) — faithful to BeautyReportsWidget ----
+const A_PAL = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#f97316'];
+const A_DONUT = [
+  { n: 'Corte + Barba', v: 32 }, { n: 'Corte Clásico', v: 24 },
+  { n: 'Degradado', v: 18 }, { n: 'Barba', v: 14 }, { n: 'Tinte', v: 12 },
+];
+const A_HOURS = [9, 11, 13, 15, 17, 19];
+const A_HEAT = [
+  [1, 0, 1, 1, 2, 2, 0], [2, 1, 2, 1, 3, 3, 1], [1, 2, 1, 2, 2, 3, 0],
+  [0, 1, 1, 1, 2, 2, 1], [1, 1, 2, 2, 3, 3, 0], [0, 0, 1, 1, 2, 1, 0],
+];
+const A_HEAT_C = ['rgba(255,255,255,0.05)', '#312e81', '#4f46e5', '#818cf8'];
+const A_PANELS = 7;
+
+function AnalyticsDonut() {
+  const r = 26, C = 2 * Math.PI * r;
+  let acc = 0;
+  return (
+    <svg className="s-an-donut" viewBox="0 0 72 72" width="84" height="84">
+      <g transform="rotate(-90 36 36)">
+        {A_DONUT.map((s, i) => {
+          const len = (s.v / 100) * C;
+          const el = (
+            <circle key={i} cx="36" cy="36" r={r} fill="none" stroke={A_PAL[i]} strokeWidth="12"
+              strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-acc} />
+          );
+          acc += len;
+          return el;
+        })}
+      </g>
+    </svg>
+  );
+}
+
+function AnalyticsPhoneAnim({ active, solucion }) {
+  const [panel, setPanel] = useState(0);
+  useEffect(() => {
+    if (!active) { setPanel(0); return; }
+    if (typeof window !== 'undefined' && window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const id = setInterval(() => setPanel(p => (p + 1) % A_PANELS), 2800);
+    return () => clearInterval(id);
+  }, [active]);
+
+  const renderPanel = () => {
+    switch (panel) {
+      case 0: return (
+        <>
+          <div className="s-an-title">Ingresos por Profesional</div>
+          <div className="s-an-stats">
+            <div className="s-an-stat"><b style={{ color: A_PAL[0] }}>$4.820</b><span>Ingresos</span></div>
+            <div className="s-an-stat"><b>128</b><span>Reservas</span></div>
+            <div className="s-an-stat"><b>$37,6</b><span>Ticket</span></div>
+          </div>
+          <div className="s-an-vbars">
+            {[['Carlos', 1850], ['Miguel', 1420], ['Ana', 980], ['José', 570], ['Luis', 410]].map(([n, v], i) => (
+              <div className="s-an-vbar" key={n} style={{ height: `${(v / 1850) * 100}%`, background: A_PAL[i], animationDelay: `${i * 0.06}s` }} />
+            ))}
+          </div>
+          <div className="s-an-vlabels">
+            {['Carlos', 'Miguel', 'Ana', 'José', 'Luis'].map(n => <span key={n}>{n}</span>)}
+          </div>
+        </>
+      );
+      case 1: return (
+        <>
+          <div className="s-an-title">Servicios Populares</div>
+          <div className="s-an-donut-row">
+            <AnalyticsDonut />
+            <div className="s-an-legend">
+              {A_DONUT.map((s, i) => (
+                <div className="s-an-leg" key={s.n} style={{ animationDelay: `${0.12 + i * 0.07}s` }}>
+                  <i style={{ background: A_PAL[i] }} />
+                  <span className="s-an-leg-n">{s.n}</span>
+                  <b>{s.v}%</b>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      );
+      case 2: return (
+        <>
+          <div className="s-an-title">No-Show y Cancelaciones</div>
+          <div className="s-an-stats">
+            <div className="s-an-stat"><b style={{ color: '#ef4444' }}>4,2%</b><span>No-show</span></div>
+            <div className="s-an-stat"><b style={{ color: '#f59e0b' }}>6,8%</b><span>Cancelaciones</span></div>
+          </div>
+          <div className="s-an-gbars">
+            {[[5, 9], [3, 7], [6, 5], [4, 8], [2, 6], [5, 4]].map(([ns, ca], i) => (
+              <div className="s-an-gbar-col" key={i}>
+                <div className="s-an-gbar" style={{ height: `${ns * 9}%`, background: '#ef4444', animationDelay: `${i * 0.05}s` }} />
+                <div className="s-an-gbar" style={{ height: `${ca * 9}%`, background: '#f59e0b', animationDelay: `${i * 0.05 + 0.03}s` }} />
+              </div>
+            ))}
+          </div>
+          <div className="s-an-vlabels">{['S1', 'S2', 'S3', 'S4', 'S5', 'S6'].map(s => <span key={s}>{s}</span>)}</div>
+        </>
+      );
+      case 3: return (
+        <>
+          <div className="s-an-title">Retención de Clientes</div>
+          <div className="s-an-retgrid">
+            <div className="s-an-ret" style={{ '--c': '#10b981' }}><b>34</b><span>Nuevos</span></div>
+            <div className="s-an-ret" style={{ '--c': '#3b82f6' }}><b>92</b><span>Recurrentes</span></div>
+            <div className="s-an-ret" style={{ '--c': '#ef4444' }}><b>11</b><span>Perdidos</span></div>
+            <div className="s-an-ret" style={{ '--c': '#8b5cf6' }}><b>89,3%</b><span>Retención</span></div>
+          </div>
+          <div className="s-an-toplist">
+            {[['María Fernández', 12, '$640'], ['Luisa Martínez', 9, '$410'], ['Karina Rodríguez', 8, '$520']].map(([n, v, s], i) => (
+              <div className="s-an-toprow" key={n} style={{ animationDelay: `${0.18 + i * 0.08}s` }}>
+                <span className="s-an-top-n">{n}</span>
+                <span className="s-an-top-v">{v} visitas</span>
+                <b>{s}</b>
+              </div>
+            ))}
+          </div>
+        </>
+      );
+      case 4: return (
+        <>
+          <div className="s-an-title">Horas Pico</div>
+          <div className="s-an-insight">Día pico <b>Sábado</b> · Hora pico <b>11:00</b></div>
+          <div className="s-an-heat">
+            <div className="s-an-heat-row s-an-heat-hd">
+              <span className="s-an-heat-hr" />
+              {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map(d => <span key={d} className="s-an-heat-d">{d}</span>)}
+            </div>
+            {A_HEAT.map((row, r) => (
+              <div className="s-an-heat-row" key={r}>
+                <span className="s-an-heat-hr">{A_HOURS[r]}h</span>
+                {row.map((v, c) => (
+                  <span className="s-an-heat-cell" key={c} style={{ background: A_HEAT_C[v], animationDelay: `${(r * 7 + c) * 0.012}s` }} />
+                ))}
+              </div>
+            ))}
+          </div>
+        </>
+      );
+      case 5: return (
+        <>
+          <div className="s-an-title">Utilización de Profesionales</div>
+          <div className="s-an-util-big"><b style={{ color: A_PAL[0] }}>73,4%</b><span>Utilización promedio</span></div>
+          <div className="s-an-hbars">
+            {[['Carlos', 86], ['Miguel', 71], ['Ana', 58], ['José', 39]].map(([n, v], i) => {
+              const col = v >= 70 ? '#10b981' : v >= 40 ? '#f59e0b' : '#ef4444';
+              return (
+                <div className="s-an-hbar-row" key={n}>
+                  <span className="s-an-hbar-n">{n}</span>
+                  <div className="s-an-hbar-track">
+                    <div className="s-an-hbar" style={{ width: `${v}%`, background: col, animationDelay: `${i * 0.07}s` }} />
+                  </div>
+                  <b style={{ color: col }}>{v}%</b>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      );
+      default: return (
+        <>
+          <div className="s-an-title">Ingresos por Periodo</div>
+          <div className="s-an-tabs">
+            {['Semana', 'Mes', 'Trim', 'Semestre', 'Año'].map((t, i) => (
+              <span key={t} className={i === 1 ? 'on' : ''}>{t}</span>
+            ))}
+          </div>
+          <div className="s-an-bigtotal"><b style={{ color: '#10b981' }}>$18.640</b><span>este mes · +12% vs anterior</span></div>
+          <div className="s-an-area">
+            <svg viewBox="0 0 240 90" preserveAspectRatio="none" className="s-an-area-svg">
+              <defs>
+                <linearGradient id="anArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity="0.45" />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path className="s-an-area-fill" d="M0,70 L40,58 L80,62 L120,40 L160,46 L200,24 L240,18 L240,90 L0,90 Z" fill="url(#anArea)" />
+              <path className="s-an-area-line" d="M0,70 L40,58 L80,62 L120,40 L160,46 L200,24 L240,18" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </>
+      );
+    }
+  };
+
+  return (
+    <div className="s-an-screen" aria-hidden="true">
+      <div className="s-an-status">
+        <span className="s-an-time">9:41</span>
+        <span className="s-an-island" />
+        <span className="s-an-batt"><i /><i /><i /></span>
+      </div>
+      <div className="s-an-appbar">
+        <div className="s-an-app-title">Analítica</div>
+        <div className="s-an-app-sub">Junio 2026 · Barbería Sava</div>
+      </div>
+      <div className="s-an-stage">
+        <div className="s-an-panel" key={panel}>{renderPanel()}</div>
+      </div>
+      <div className="s-an-dots">
+        {Array.from({ length: A_PANELS }, (_, i) => <i key={i} className={i === panel ? 'on' : ''} />)}
+      </div>
+      <div className="s-an-caption">
+        <div className="s-an-caption-label">Skubik lo resuelve</div>
+        <div className="s-an-caption-a">{solucion}</div>
+      </div>
+    </div>
+  );
+}
+
 // ---- Pain / Scroll-Hijack Dock Carousel ----
 function PainCard({ item, i, activeIdx }) {
   const [flipped, setFlipped] = useState(false);
@@ -1735,7 +2028,7 @@ function PainCard({ item, i, activeIdx }) {
           </div>
         </div>
         <div
-          className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : (item.backImage || item.backAnim) ? 'has-back-image' : ''}`}
+          className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : item.backAnim === 'analytics' ? 'has-back-screen' : (item.backImage || item.backAnim) ? 'has-back-image' : ''}`}
           style={(item.backVideoBg || item.backImageBg) ? { background: item.backVideoBg || item.backImageBg } : undefined}
           onClick={item.backVideo ? handleBackTap : undefined}
         >
@@ -1760,13 +2053,19 @@ function PainCard({ item, i, activeIdx }) {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h12a4 4 0 010 8h-3"/></svg>
             </button>
           )}
-          <div className="s-pain-back-label">Skubik lo resuelve</div>
-          <div className="s-pain-back-a">{item.a}</div>
-          {item.backAnim === 'booking' && <BookingFlowAnim active={flipped} />}
-          {item.backImage && !item.backVideo && (
-            <img className="s-pain-back-image" src={item.backImage} alt="Pantalla de Skubik mostrando horarios ocupados bloqueados" loading="lazy" />
+          {item.backAnim === 'analytics' ? (
+            <AnalyticsPhoneAnim active={flipped} solucion={item.a} />
+          ) : (
+            <>
+              <div className="s-pain-back-label">Skubik lo resuelve</div>
+              <div className="s-pain-back-a">{item.a}</div>
+              {item.backAnim === 'booking' && <BookingFlowAnim active={flipped} />}
+              {item.backImage && !item.backVideo && (
+                <img className="s-pain-back-image" src={item.backImage} alt="Pantalla de Skubik mostrando horarios ocupados bloqueados" loading="lazy" />
+              )}
+              {!item.backVideo && !item.backImage && !item.backAnim && <div className="s-pain-back-hint">← Toca para volver</div>}
+            </>
           )}
-          {!item.backVideo && !item.backImage && !item.backAnim && <div className="s-pain-back-hint">← Toca para volver</div>}
         </div>
       </div>
     </div>
