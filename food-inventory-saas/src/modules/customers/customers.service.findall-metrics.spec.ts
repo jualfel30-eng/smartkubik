@@ -20,6 +20,8 @@ describe("CustomersService.findAll — métricas de citas (Fase 3)", () => {
 
   const customers = () => mongoose.connection.db.collection("customers");
   const appointments = () => mongoose.connection.db.collection("appointments");
+  const beautyBookings = () =>
+    mongoose.connection.db.collection("beautybookings");
 
   beforeAll(async () => {
     mongod = await MongoMemoryServer.create();
@@ -54,6 +56,7 @@ describe("CustomersService.findAll — métricas de citas (Fase 3)", () => {
   afterEach(async () => {
     await customers().deleteMany({});
     await appointments().deleteMany({});
+    await beautyBookings().deleteMany({});
   });
 
   it("suma servicios completados sin doble-contar su depósito, y cuenta depósitos de citas no completadas", async () => {
@@ -174,5 +177,70 @@ describe("CustomersService.findAll — métricas de citas (Fase 3)", () => {
     expect(m.completedAppointments).toBe(0);
     expect(m.totalDeposits).toBe(0);
     expect(m.lastOrderDate ?? null).toBeNull();
+  });
+
+  it("agrega beauty bookings completadas (totalPrice) y anticipos de bookings activas, unidas por customerId", async () => {
+    const customerId = new Types.ObjectId();
+    await customers().insertOne({
+      _id: customerId,
+      tenantId: tId,
+      name: "BETA-Cliente-Beauty",
+      customerType: "individual",
+      status: "active",
+      metrics: {},
+    });
+
+    const lastBooking = new Date("2026-06-21T18:00:00.000Z");
+    await beautyBookings().insertMany([
+      // Completada → aporta totalPrice (15)
+      {
+        tenantId: tId,
+        customerId,
+        client: { name: "BETA-Cliente-Beauty", phone: "+10000000001" },
+        status: "completed",
+        paymentStatus: "paid",
+        totalPrice: 15,
+        amountPaid: 15,
+        date: new Date("2026-06-21T00:00:00.000Z"),
+        updatedAt: lastBooking,
+      },
+      // Activa no completada con anticipo → aporta amountPaid (5)
+      {
+        tenantId: tId,
+        customerId,
+        client: { name: "BETA-Cliente-Beauty", phone: "+10000000001" },
+        status: "confirmed",
+        paymentStatus: "deposit_paid",
+        totalPrice: 30,
+        amountPaid: 5,
+        date: new Date("2026-06-25T00:00:00.000Z"),
+      },
+      // Cancelada → no aporta nada
+      {
+        tenantId: tId,
+        customerId,
+        client: { name: "BETA-Cliente-Beauty", phone: "+10000000001" },
+        status: "cancelled",
+        paymentStatus: "unpaid",
+        totalPrice: 99,
+        amountPaid: 0,
+        date: new Date("2026-06-10T00:00:00.000Z"),
+      },
+    ]);
+
+    const res = await service.findAll(
+      { customerType: "individual" } as any,
+      tenantId,
+    );
+
+    expect(res.customers).toHaveLength(1);
+    const m = res.customers[0].metrics;
+    // 15 (booking completada) + 5 (anticipo de booking activa) = 20
+    expect(m.totalSpent).toBe(20);
+    expect(m.completedAppointments).toBe(1);
+    // Actividad = updatedAt de la booking completada
+    expect(new Date(m.lastOrderDate).toISOString()).toBe(
+      lastBooking.toISOString(),
+    );
   });
 });

@@ -33,6 +33,12 @@ export class BeautyBooking {
     whatsapp?: string;
   };
 
+  // Enlace al registro Customer del CRM (auto-registrado por teléfono al crear
+  // la booking). Permite que las métricas del cliente (gasto, visitas, actividad)
+  // agreguen sus beauty bookings de forma robusta, sin depender del teléfono.
+  @Prop({ type: Types.ObjectId, ref: 'Customer', index: true })
+  customerId?: Types.ObjectId;
+
   // Profesional (puede ser null si "sin preferencia")
   @Prop({ type: Types.ObjectId, ref: 'Professional' })
   professional?: Types.ObjectId;

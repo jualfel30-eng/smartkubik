@@ -656,6 +656,134 @@ export class CustomersService {
           },
         },
 
+        // Lookup beauty bookings — la vertical beauty usa la colección
+        // "beautybookings" (separada de "appointments"). Se enlaza por customerId
+        // (lo setea el servicio al crear + migración de backfill por teléfono).
+        //   completada     -> aporta su totalPrice (valor del servicio, LTV)
+        //   activa sin completar -> aporta amountPaid (anticipo)
+        {
+          $lookup: {
+            from: "beautybookings",
+            let: {
+              custId: "$_id",
+              currentTenantId: "$tenantId",
+            },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      // Tenant match (string/ObjectId tolerante)
+                      {
+                        $or: [
+                          { $eq: ["$tenantId", "$$currentTenantId"] },
+                          {
+                            $and: [
+                              { $eq: [{ $type: "$tenantId" }, "objectId"] },
+                              {
+                                $eq: [{ $type: "$$currentTenantId" }, "string"],
+                              },
+                              {
+                                $eq: [
+                                  { $toString: "$tenantId" },
+                                  "$$currentTenantId",
+                                ],
+                              },
+                            ],
+                          },
+                          {
+                            $and: [
+                              { $eq: [{ $type: "$tenantId" }, "string"] },
+                              {
+                                $eq: [
+                                  { $type: "$$currentTenantId" },
+                                  "objectId",
+                                ],
+                              },
+                              {
+                                $eq: [
+                                  "$tenantId",
+                                  { $toString: "$$currentTenantId" },
+                                ],
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                      // Customer match por customerId (string/ObjectId tolerante)
+                      {
+                        $or: [
+                          { $eq: ["$customerId", "$$custId"] },
+                          {
+                            $and: [
+                              { $eq: [{ $type: "$customerId" }, "string"] },
+                              { $eq: [{ $strLenCP: "$customerId" }, 24] },
+                              {
+                                $eq: [
+                                  { $toObjectId: "$customerId" },
+                                  "$$custId",
+                                ],
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: null,
+                  completedValue: {
+                    $sum: {
+                      $cond: [
+                        { $eq: ["$status", "completed"] },
+                        { $ifNull: ["$totalPrice", 0] },
+                        0,
+                      ],
+                    },
+                  },
+                  completedCount: {
+                    $sum: {
+                      $cond: [{ $eq: ["$status", "completed"] }, 1, 0],
+                    },
+                  },
+                  lastCompletedAt: {
+                    $max: {
+                      $cond: [
+                        { $eq: ["$status", "completed"] },
+                        {
+                          $ifNull: [
+                            "$completedAt",
+                            { $ifNull: ["$updatedAt", "$date"] },
+                          ],
+                        },
+                        null,
+                      ],
+                    },
+                  },
+                  pendingPaid: {
+                    $sum: {
+                      $cond: [
+                        {
+                          $in: [
+                            "$status",
+                            ["pending", "confirmed", "in_progress", "waitlisted"],
+                          ],
+                        },
+                        { $ifNull: ["$amountPaid", 0] },
+                        0,
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
+            as: "beautyBookingAgg",
+          },
+        },
+
         // Calcular métricas
         {
           $addFields: {
@@ -714,6 +842,18 @@ export class CustomersService {
                         0,
                       ],
                     },
+                    {
+                      $ifNull: [
+                        { $arrayElemAt: ["$beautyBookingAgg.completedValue", 0] },
+                        0,
+                      ],
+                    },
+                    {
+                      $ifNull: [
+                        { $arrayElemAt: ["$beautyBookingAgg.pendingPaid", 0] },
+                        0,
+                      ],
+                    },
                   ],
                 },
                 else: { $ifNull: ["$metrics.totalSpent", 0] },
@@ -747,6 +887,18 @@ export class CustomersService {
                         0,
                       ],
                     },
+                    {
+                      $ifNull: [
+                        { $arrayElemAt: ["$beautyBookingAgg.completedValue", 0] },
+                        0,
+                      ],
+                    },
+                    {
+                      $ifNull: [
+                        { $arrayElemAt: ["$beautyBookingAgg.pendingPaid", 0] },
+                        0,
+                      ],
+                    },
                   ],
                 },
                 else: { $ifNull: ["$metrics.totalSpentUSD", 0] },
@@ -761,11 +913,21 @@ export class CustomersService {
               },
             },
 
-            // Nº de citas completadas (visitas) — base para frecuencia/inteligencia
+            // Nº de citas/bookings completadas (visitas) — base para frecuencia
             "metrics.completedAppointments": {
-              $ifNull: [
-                { $arrayElemAt: ["$appointmentDeposits.completedCount", 0] },
-                0,
+              $add: [
+                {
+                  $ifNull: [
+                    { $arrayElemAt: ["$appointmentDeposits.completedCount", 0] },
+                    0,
+                  ],
+                },
+                {
+                  $ifNull: [
+                    { $arrayElemAt: ["$beautyBookingAgg.completedCount", 0] },
+                    0,
+                  ],
+                },
               ],
             },
 
@@ -788,6 +950,12 @@ export class CustomersService {
                         {
                           $arrayElemAt: [
                             "$appointmentDeposits.lastDepositAt",
+                            0,
+                          ],
+                        },
+                        {
+                          $arrayElemAt: [
+                            "$beautyBookingAgg.lastCompletedAt",
                             0,
                           ],
                         },
@@ -856,6 +1024,7 @@ export class CustomersService {
             purchaseOrders: 0,
             assignedToUser: 0,
             appointmentDeposits: 0,
+            beautyBookingAgg: 0,
             depositSummary: 0,
             totalDepositsAmount: 0,
             totalDepositsAmountUsd: 0,

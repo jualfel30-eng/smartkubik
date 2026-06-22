@@ -184,7 +184,10 @@ export class BeautyBookingsService {
       professionalName = professional?.name || undefined;
     }
 
-    // 6.5 Ensure a Customer record exists for this client (walk-in auto-register)
+    // 6.5 Ensure a Customer record exists for this client (walk-in auto-register).
+    // Capturamos su _id para enlazarlo a la booking (customerId) y que las
+    // métricas del CRM puedan agregar las bookings por ID, no por teléfono.
+    let customerId: Types.ObjectId | undefined;
     if (dto.client?.phone) {
       try {
         const existingCustomer = await this.customerModel.findOne({
@@ -206,7 +209,7 @@ export class BeautyBookingsService {
           }
           const customerNumber = `CLI-${String(nextNum).padStart(6, '0')}`;
 
-          await this.customerModel.create({
+          const createdCustomer = await this.customerModel.create({
             tenantId,
             customerNumber,
             name: dto.client.name || 'Walk-in',
@@ -219,11 +222,15 @@ export class BeautyBookingsService {
               ? new Types.ObjectId(dto.professionalId)
               : tenantId,
           });
+          customerId = createdCustomer._id;
           this.logger.log(`Auto-created customer ${customerNumber} for walk-in: ${dto.client.phone}`);
-        } else if (dto.client.name && existingCustomer.name !== dto.client.name) {
+        } else {
+          customerId = existingCustomer._id;
           // Update name if changed
-          existingCustomer.name = dto.client.name;
-          await existingCustomer.save();
+          if (dto.client.name && existingCustomer.name !== dto.client.name) {
+            existingCustomer.name = dto.client.name;
+            await existingCustomer.save();
+          }
         }
       } catch (error) {
         // Don't block booking creation if customer upsert fails (e.g. duplicate key race)
@@ -236,6 +243,7 @@ export class BeautyBookingsService {
       tenantId,
       bookingNumber,
       client: dto.client,
+      customerId,
       professional: dto.professionalId
         ? new Types.ObjectId(dto.professionalId)
         : undefined,
