@@ -190,10 +190,24 @@ export class BeautyBookingsService {
     let customerId: Types.ObjectId | undefined;
     if (dto.client?.phone) {
       try {
-        const existingCustomer = await this.customerModel.findOne({
-          tenantId,
-          phone: dto.client.phone,
-        }).exec();
+        // El schema de Customer NO tiene `phone` top-level: el teléfono vive en
+        // contacts[] ({ type:'phone', value }). Por eso buscamos y guardamos ahí.
+        const phoneRaw = dto.client.phone;
+        const phoneDigits = phoneRaw.replace(/\D/g, '');
+        // Canónico = últimos 10 dígitos (neutraliza +58 / 0 inicial / formato).
+        const phoneCanonical =
+          phoneDigits.length >= 10 ? phoneDigits.slice(-10) : phoneDigits;
+
+        // 1) match exacto por contacts.value; 2) fallback normalizado (el canónico
+        //    como substring del valor guardado, p.ej. "04120402324" ~ "4120402324").
+        let existingCustomer = await this.customerModel
+          .findOne({ tenantId, 'contacts.value': phoneRaw })
+          .exec();
+        if (!existingCustomer && phoneCanonical.length >= 7) {
+          existingCustomer = await this.customerModel
+            .findOne({ tenantId, 'contacts.value': { $regex: phoneCanonical } })
+            .exec();
+        }
 
         if (!existingCustomer) {
           // Generate customerNumber (CLI-XXXXXX)
@@ -209,12 +223,23 @@ export class BeautyBookingsService {
           }
           const customerNumber = `CLI-${String(nextNum).padStart(6, '0')}`;
 
+          const contacts: Array<Record<string, any>> = [
+            { type: 'phone', value: phoneRaw, isPrimary: true, isActive: true },
+          ];
+          if (dto.client.email) {
+            contacts.push({
+              type: 'email',
+              value: dto.client.email,
+              isPrimary: false,
+              isActive: true,
+            });
+          }
+
           const createdCustomer = await this.customerModel.create({
             tenantId,
             customerNumber,
             name: dto.client.name || 'Walk-in',
-            phone: dto.client.phone,
-            email: dto.client.email || undefined,
+            contacts,
             customerType: 'individual',
             tags: ['walk-in'],
             source: 'walk-in',
@@ -223,12 +248,28 @@ export class BeautyBookingsService {
               : tenantId,
           });
           customerId = createdCustomer._id;
-          this.logger.log(`Auto-created customer ${customerNumber} for walk-in: ${dto.client.phone}`);
+          this.logger.log(`Auto-created customer ${customerNumber} for walk-in: ${phoneRaw}`);
         } else {
           customerId = existingCustomer._id;
           // Update name if changed
           if (dto.client.name && existingCustomer.name !== dto.client.name) {
             existingCustomer.name = dto.client.name;
+            await existingCustomer.save();
+          }
+          // Si el customer no tenía este teléfono en contacts, añadirlo.
+          const hasPhone = (existingCustomer.contacts || []).some(
+            (c: any) => c.type === 'phone' && c.value === phoneRaw,
+          );
+          if (!hasPhone) {
+            existingCustomer.contacts = [
+              ...(existingCustomer.contacts || []),
+              {
+                type: 'phone',
+                value: phoneRaw,
+                isPrimary: (existingCustomer.contacts || []).length === 0,
+                isActive: true,
+              } as any,
+            ];
             await existingCustomer.save();
           }
         }
