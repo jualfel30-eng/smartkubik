@@ -503,74 +503,152 @@ export class CustomersService {
                   },
                 },
               },
-              { $project: { depositRecords: 1 } },
-              { $unwind: "$depositRecords" },
-              { $match: { "depositRecords.status": "confirmed" } },
+              // Por cada cita, calcular (a) el valor del servicio si está
+              // completada y (b) sus depósitos confirmados (en USD). El valor de
+              // una cita completada YA incluye lo abonado vía depósito (el
+              // depósito es un % del servicio), por eso NUNCA se suman ambos
+              // sobre la misma cita:
+              //   completada    -> aporta valor del servicio (servicePrice + addons)
+              //   no completada -> aporta sus depósitos confirmados (anticipo)
               {
                 $addFields: {
-                  depositAmount: {
-                    $ifNull: [
-                      "$depositRecords.confirmedAmount",
-                      "$depositRecords.amount",
-                    ],
-                  },
-                  depositAmountUsd: {
+                  _isCompleted: { $eq: ["$status", "completed"] },
+                  _serviceValue: {
                     $let: {
                       vars: {
-                        amount: {
-                          $ifNull: [
-                            "$depositRecords.confirmedAmount",
-                            "$depositRecords.amount",
-                          ],
+                        billingUsd: {
+                          $ifNull: ["$metadata.billing.totalAmountUsd", 0],
                         },
-                        amountUsd: {
-                          $ifNull: ["$depositRecords.amountUsd", 0],
-                        },
-                        currency: {
-                          $toUpper: {
-                            $ifNull: ["$depositRecords.currency", "USD"],
+                        addonsTotal: {
+                          $reduce: {
+                            input: { $ifNull: ["$addons", []] },
+                            initialValue: 0,
+                            in: {
+                              $add: [
+                                "$$value",
+                                {
+                                  $multiply: [
+                                    { $ifNull: ["$$this.price", 0] },
+                                    { $ifNull: ["$$this.quantity", 1] },
+                                  ],
+                                },
+                              ],
+                            },
                           },
-                        },
-                        exchangeRate: {
-                          $ifNull: ["$depositRecords.exchangeRate", 0],
                         },
                       },
                       in: {
                         $cond: [
-                          { $gt: ["$$amountUsd", 0] },
-                          "$$amountUsd",
+                          { $gt: ["$$billingUsd", 0] },
+                          "$$billingUsd",
                           {
-                            $cond: [
-                              {
-                                $and: [
-                                  { $eq: ["$$currency", "VES"] },
-                                  { $gt: ["$$exchangeRate", 0] },
-                                ],
-                              },
-                              {
-                                $divide: [
-                                  { $ifNull: ["$$amount", 0] },
-                                  "$$exchangeRate",
-                                ],
-                              },
-                              { $ifNull: ["$$amount", 0] },
+                            $add: [
+                              { $ifNull: ["$servicePrice", 0] },
+                              "$$addonsTotal",
                             ],
                           },
                         ],
                       },
                     },
                   },
+                  _confirmedDeposits: {
+                    $filter: {
+                      input: { $ifNull: ["$depositRecords", []] },
+                      as: "d",
+                      cond: { $eq: ["$$d.status", "confirmed"] },
+                    },
+                  },
+                },
+              },
+              {
+                $addFields: {
+                  _confirmedDepositsUsd: {
+                    $reduce: {
+                      input: "$_confirmedDeposits",
+                      initialValue: 0,
+                      in: {
+                        $add: [
+                          "$$value",
+                          {
+                            $let: {
+                              vars: {
+                                amount: {
+                                  $ifNull: [
+                                    "$$this.confirmedAmount",
+                                    { $ifNull: ["$$this.amount", 0] },
+                                  ],
+                                },
+                                amountUsd: { $ifNull: ["$$this.amountUsd", 0] },
+                                currency: {
+                                  $toUpper: {
+                                    $ifNull: ["$$this.currency", "USD"],
+                                  },
+                                },
+                                exchangeRate: {
+                                  $ifNull: ["$$this.exchangeRate", 0],
+                                },
+                              },
+                              in: {
+                                $cond: [
+                                  { $gt: ["$$amountUsd", 0] },
+                                  "$$amountUsd",
+                                  {
+                                    $cond: [
+                                      {
+                                        $and: [
+                                          { $eq: ["$$currency", "VES"] },
+                                          { $gt: ["$$exchangeRate", 0] },
+                                        ],
+                                      },
+                                      {
+                                        $divide: ["$$amount", "$$exchangeRate"],
+                                      },
+                                      "$$amount",
+                                    ],
+                                  },
+                                ],
+                              },
+                            },
+                          },
+                        ],
+                      },
+                    },
+                  },
+                  _lastConfirmedDepositAt: {
+                    $max: {
+                      $map: {
+                        input: "$_confirmedDeposits",
+                        as: "d",
+                        in: "$$d.confirmedAt",
+                      },
+                    },
+                  },
+                  _confirmedDepositCount: { $size: "$_confirmedDeposits" },
                 },
               },
               {
                 $group: {
                   _id: null,
-                  totalAmount: { $sum: { $ifNull: ["$depositAmount", 0] } },
-                  totalAmountUsd: {
-                    $sum: { $ifNull: ["$depositAmountUsd", 0] },
+                  // Valor de servicios de citas completadas (LTV)
+                  completedServiceValue: {
+                    $sum: { $cond: ["$_isCompleted", "$_serviceValue", 0] },
                   },
-                  lastDepositAt: { $max: "$depositRecords.confirmedAt" },
-                  depositCount: { $sum: 1 },
+                  completedCount: {
+                    $sum: { $cond: ["$_isCompleted", 1, 0] },
+                  },
+                  lastCompletedAt: {
+                    $max: { $cond: ["$_isCompleted", "$completedAt", null] },
+                  },
+                  // Depósitos de citas NO completadas (anticipo de algo futuro)
+                  pendingDepositsUsd: {
+                    $sum: {
+                      $cond: ["$_isCompleted", 0, "$_confirmedDepositsUsd"],
+                    },
+                  },
+                  // Dinero-entrante: TODOS los depósitos confirmados (cobranza)
+                  totalAmountUsd: { $sum: "$_confirmedDepositsUsd" },
+                  lastDepositAt: { $max: "$_lastConfirmedDepositAt" },
+                  depositCount: { $sum: "$_confirmedDepositCount" },
                 },
               },
             ],
@@ -618,7 +696,18 @@ export class CustomersService {
                       $ifNull: [
                         {
                           $arrayElemAt: [
-                            "$appointmentDeposits.totalAmountUsd",
+                            "$appointmentDeposits.completedServiceValue",
+                            0,
+                          ],
+                        },
+                        0,
+                      ],
+                    },
+                    {
+                      $ifNull: [
+                        {
+                          $arrayElemAt: [
+                            "$appointmentDeposits.pendingDepositsUsd",
                             0,
                           ],
                         },
@@ -640,7 +729,18 @@ export class CustomersService {
                       $ifNull: [
                         {
                           $arrayElemAt: [
-                            "$appointmentDeposits.totalAmountUsd",
+                            "$appointmentDeposits.completedServiceValue",
+                            0,
+                          ],
+                        },
+                        0,
+                      ],
+                    },
+                    {
+                      $ifNull: [
+                        {
+                          $arrayElemAt: [
+                            "$appointmentDeposits.pendingDepositsUsd",
                             0,
                           ],
                         },
@@ -661,43 +761,44 @@ export class CustomersService {
               },
             },
 
+            // Nº de citas completadas (visitas) — base para frecuencia/inteligencia
+            "metrics.completedAppointments": {
+              $ifNull: [
+                { $arrayElemAt: ["$appointmentDeposits.completedCount", 0] },
+                0,
+              ],
+            },
+
             "metrics.lastOrderDate": {
               $cond: {
-                if: {
-                  $and: [
-                    { $ne: ["$customerType", "supplier"] },
-                    { $gt: [{ $size: "$customerOrders" }, 0] },
-                  ],
-                },
+                if: { $ne: ["$customerType", "supplier"] },
                 then: {
-                  $let: {
-                    vars: {
-                      lastOrderDate: { $max: "$customerOrders.createdAt" },
-                      lastDepositDate: {
-                        $arrayElemAt: ["$appointmentDeposits.lastDepositAt", 0],
-                      },
-                    },
-                    in: {
-                      $cond: [
+                  // Actividad más reciente: última orden, última cita completada
+                  // o último depósito (el que sea más nuevo). $max ignora nulls.
+                  $ifNull: [
+                    {
+                      $max: [
+                        { $max: "$customerOrders.createdAt" },
                         {
-                          $gt: [
-                            "$$lastOrderDate",
-                            {
-                              $ifNull: ["$$lastDepositDate", "$$lastOrderDate"],
-                            },
+                          $arrayElemAt: [
+                            "$appointmentDeposits.lastCompletedAt",
+                            0,
                           ],
                         },
-                        "$$lastOrderDate",
-                        { $ifNull: ["$$lastDepositDate", "$$lastOrderDate"] },
+                        {
+                          $arrayElemAt: [
+                            "$appointmentDeposits.lastDepositAt",
+                            0,
+                          ],
+                        },
                       ],
                     },
-                  },
+                    "$metrics.lastOrderDate",
+                  ],
                 },
                 else: {
                   $ifNull: [
-                    {
-                      $arrayElemAt: ["$appointmentDeposits.lastDepositAt", 0],
-                    },
+                    { $arrayElemAt: ["$appointmentDeposits.lastDepositAt", 0] },
                     "$metrics.lastOrderDate",
                   ],
                 },
