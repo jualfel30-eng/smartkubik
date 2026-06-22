@@ -75,6 +75,22 @@ export const CrmProvider = ({ children }) => {
       if (filters.assignedTo) {
         params.set('assignedTo', filters.assignedTo);
       }
+      if (filters.sortBy) {
+        params.set('sortBy', filters.sortBy);
+        params.set('sortOrder', filters.sortOrder || 'desc');
+      }
+      if (filters.minSpent !== undefined && filters.minSpent !== '') {
+        params.set('minSpent', String(filters.minSpent));
+      }
+      if (filters.maxSpent !== undefined && filters.maxSpent !== '') {
+        params.set('maxSpent', String(filters.maxSpent));
+      }
+      if (filters.lastActivityFrom) {
+        params.set('lastActivityFrom', filters.lastActivityFrom);
+      }
+      if (filters.lastActivityTo) {
+        params.set('lastActivityTo', filters.lastActivityTo);
+      }
 
       const response = await fetchApi(`/customers?${params.toString()}`);
 

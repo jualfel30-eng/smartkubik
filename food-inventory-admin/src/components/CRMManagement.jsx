@@ -207,6 +207,13 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
 
   const [activeTopTab, setActiveTopTab] = useState(getInitialTopTab());
   const [searchTerm, setSearchTerm] = useState('');
+  // Orden + filtros de la lista de contactos (Rebanada 1).
+  const [sortBy, setSortBy] = useState('totalSpent');
+  const [sortOrder, setSortOrder] = useState('desc');
+  const [spendDraft, setSpendDraft] = useState({ min: '', max: '' });
+  const [activityDraft, setActivityDraft] = useState({ from: '', to: '' });
+  const [appliedSpend, setAppliedSpend] = useState({ min: '', max: '' });
+  const [appliedActivity, setAppliedActivity] = useState({ from: '', to: '' });
   const [filterType, setFilterType] = useState(
     initialTab === 'pipeline' || initialTab === 'settings' ? 'all' : initialTab
   );
@@ -570,8 +577,16 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     }
     // 'all', 'pipeline', 'settings' show everything, no customerType filter needed
 
+    // Orden + filtros de rango (gasto / última visita)
+    filters.sortBy = sortBy;
+    filters.sortOrder = sortOrder;
+    if (appliedSpend.min !== '') filters.minSpent = appliedSpend.min;
+    if (appliedSpend.max !== '') filters.maxSpent = appliedSpend.max;
+    if (appliedActivity.from) filters.lastActivityFrom = appliedActivity.from;
+    if (appliedActivity.to) filters.lastActivityTo = appliedActivity.to;
+
     return filters;
-  }, [committedSearch, filterType]);
+  }, [committedSearch, filterType, sortBy, sortOrder, appliedSpend, appliedActivity]);
   const employeeFilters = useMemo(
     () => ({
       search: employeeCommittedSearch,
@@ -631,6 +646,11 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
         search: filtersToUse?.search ?? '',
         customerType: filtersToUse?.customerType ?? 'all',
         limit,
+        sig: JSON.stringify([
+          filtersToUse?.sortBy, filtersToUse?.sortOrder,
+          filtersToUse?.minSpent, filtersToUse?.maxSpent,
+          filtersToUse?.lastActivityFrom, filtersToUse?.lastActivityTo,
+        ]),
       };
       await loadCustomers(page, limit, filtersToUse);
     },
@@ -839,11 +859,17 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
     // (must match what reloadCustomers stores in lastQueryRef)
     const normalizedSearch = committedSearch || '';
     const normalizedCustomerType = currentFilters.customerType || 'all';
+    const currentSig = JSON.stringify([
+      currentFilters.sortBy, currentFilters.sortOrder,
+      currentFilters.minSpent, currentFilters.maxSpent,
+      currentFilters.lastActivityFrom, currentFilters.lastActivityTo,
+    ]);
 
     if (
       lastQueryRef.current.search === normalizedSearch &&
       lastQueryRef.current.customerType === normalizedCustomerType &&
-      lastQueryRef.current.limit === effectiveLimit
+      lastQueryRef.current.limit === effectiveLimit &&
+      lastQueryRef.current.sig === currentSig
     ) {
       return;
     }
@@ -2193,6 +2219,70 @@ function CRMManagement({ forceEmployeeTab = false, hideEmployeeTab = false }) {
                       />
                     </div>
                   </div>
+                  {!isEmployeeTab && filterType !== 'pipeline' && filterType !== 'settings' && (
+                    <div className="mt-4 flex flex-wrap items-end gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Ordenar por</Label>
+                        <Select value={sortBy} onValueChange={setSortBy}>
+                          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="totalSpent">Gasto</SelectItem>
+                            <SelectItem value="name">Nombre</SelectItem>
+                            <SelectItem value="lastOrderDate">Última visita</SelectItem>
+                            <SelectItem value="createdAt">Registro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Orden</Label>
+                        <Select value={sortOrder} onValueChange={setSortOrder}>
+                          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="desc">Descendente</SelectItem>
+                            <SelectItem value="asc">Ascendente</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Gasto mín</Label>
+                        <Input type="number" className="w-24" placeholder="0" value={spendDraft.min}
+                          onChange={(e) => setSpendDraft((s) => ({ ...s, min: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Gasto máx</Label>
+                        <Input type="number" className="w-24" placeholder="∞" value={spendDraft.max}
+                          onChange={(e) => setSpendDraft((s) => ({ ...s, max: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Última visita desde</Label>
+                        <Input type="date" className="w-40" value={activityDraft.from}
+                          onChange={(e) => setActivityDraft((s) => ({ ...s, from: e.target.value }))} />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">hasta</Label>
+                        <Input type="date" className="w-40" value={activityDraft.to}
+                          onChange={(e) => setActivityDraft((s) => ({ ...s, to: e.target.value }))} />
+                      </div>
+                      <Button variant="outline" size="sm"
+                        onClick={() => { setAppliedSpend(spendDraft); setAppliedActivity(activityDraft); }}>
+                        Aplicar
+                      </Button>
+                      {(appliedSpend.min || appliedSpend.max || appliedActivity.from || appliedActivity.to
+                        || sortBy !== 'totalSpent' || sortOrder !== 'desc') && (
+                        <Button variant="ghost" size="sm"
+                          onClick={() => {
+                            setSpendDraft({ min: '', max: '' });
+                            setActivityDraft({ from: '', to: '' });
+                            setAppliedSpend({ min: '', max: '' });
+                            setAppliedActivity({ from: '', to: '' });
+                            setSortBy('totalSpent');
+                            setSortOrder('desc');
+                          }}>
+                          Limpiar
+                        </Button>
+                      )}
+                    </div>
+                  )}
                   {isEmployeeTab && (
                     <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
                       <div className="space-y-1">
