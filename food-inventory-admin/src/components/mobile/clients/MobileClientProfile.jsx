@@ -8,6 +8,8 @@ import { fetchApi } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { useFabContext } from '@/contexts/FabContext';
+import MobileActionSheet from '../MobileActionSheet.jsx';
+import WhatsAppComposer from '@/components/shared/WhatsAppComposer.jsx';
 
 const STATUS_COLOR = {
   pending: 'bg-amber-500', confirmed: 'bg-info',
@@ -191,6 +193,7 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
   const [bookings, setBookings] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [localClient, setLocalClient] = useState(client);
+  const [waComposerOpen, setWaComposerOpen] = useState(false);
   const { setContextAction, clearContextAction } = useFabContext();
 
   // El teléfono del cliente vive en contacts[] (no en un campo top-level).
@@ -198,7 +201,6 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
     localClient.contacts?.find((c) => c.type === 'phone' && c.value)?.value
     || localClient.phone || localClient.mobile || '';
   const email = localClient.contacts?.find((c) => c.type === 'email' && c.value)?.value || '';
-  const wa = phone ? `https://wa.me/${phone.replace(/\D/g, '')}` : null;
 
   const initials = (localClient.name || localClient.companyName || '?')
     .split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
@@ -242,6 +244,7 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
   }, [clientId]);
 
   return (
+    <>
     <div className="md:hidden mobile-content-pad space-y-4 pb-6">
       {/* Back button */}
       <button type="button" onClick={onBack}
@@ -278,12 +281,12 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
             <span className="text-xs font-medium">Llamar</span>
           </a>
         )}
-        {wa && (
-          <a href={wa} target="_blank" rel="noopener noreferrer"
+        {phone && (
+          <button type="button" onClick={() => setWaComposerOpen(true)}
             className="rounded-[var(--mobile-radius-lg)] border border-border bg-card flex flex-col items-center gap-1.5 py-3 no-tap-highlight">
             <MessageCircle size={18} className="text-emerald-600" />
             <span className="text-xs font-medium">WhatsApp</span>
-          </a>
+          </button>
         )}
         <button type="button" onClick={() => onNewAppointment?.(localClient)}
           className="rounded-[var(--mobile-radius-lg)] border border-border bg-card flex flex-col items-center gap-1.5 py-3 no-tap-highlight">
@@ -318,5 +321,24 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
         </div>
       )}
     </div>
+
+    {/* WhatsApp composer (mismo esquema de templates que beauty) */}
+    <MobileActionSheet
+      open={waComposerOpen}
+      onClose={() => setWaComposerOpen(false)}
+      title="Enviar WhatsApp"
+    >
+      <div className="pb-4">
+        <WhatsAppComposer
+          contact={{
+            name: localClient.name || localClient.companyName || 'Cliente',
+            phone,
+            _id: clientId,
+          }}
+          onClose={() => setWaComposerOpen(false)}
+        />
+      </div>
+    </MobileActionSheet>
+    </>
   );
 }
