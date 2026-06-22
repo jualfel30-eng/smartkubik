@@ -36,7 +36,7 @@ const BEAUTY_DATA = {
       { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm', backAnim: 'booking', backImageBg: '#ef4444' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'El Embarque', video: '/videos/no-show.webm', backVideo: '/videos/no-show-back.mp4', backVideoBg: '#fa4e4a' },
       { q: '"Ni idea de cuánto vendí el mes pasado, cuál de mis estilistas produjo menos, ni quién es mi mejor clienta activa"', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Viviendo al Límite', video: '/videos/reports.webm', backAnim: 'analytics', backImageBg: '#ef4444' },
-      { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'La Traición', video: '/videos/data-loss.webm', backImageBg: '#ef4444' },
+      { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Los clientes agendan con tus profesionales directamente, pero tú conservas los datos y el contacto.', tag: 'La Traición', video: '/videos/data-loss.webm', backAnim: 'crm', backImageBg: '#ef4444' },
     ],
   },
 
@@ -598,6 +598,61 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 @keyframes s-an-cell { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: none; } }
 @keyframes s-an-donutin { from { opacity: 0; transform: rotate(-40deg) scale(0.7); } to { opacity: 1; transform: none; } }
 @keyframes s-an-draw { to { stroke-dashoffset: 0; } }
+
+/* === CRM module animation (back of pain card 5) === */
+.s-crm-topbar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 2px 16px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.s-crm-logo { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: rgba(255,255,255,0.5); }
+.s-crm-logo b { color: #fff; }
+.s-crm-topic { display: inline-flex; gap: 9px; color: rgba(255,255,255,0.35); }
+.s-crm-topic svg { width: 13px; height: 13px; }
+.s-crm-stage { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.s-crm-view { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 10px 14px; animation: s-crm-viewin 0.45s cubic-bezier(0.2,0.8,0.2,1) both; }
+.s-crm-search { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 10px; flex-shrink: 0; }
+.s-crm-search svg { width: 14px; height: 14px; flex-shrink: 0; }
+.s-crm-list { display: flex; flex-direction: column; gap: 8px; }
+.s-crm-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); animation: s-an-fadeup 0.4s both; }
+.s-crm-row.focus { border-color: rgba(99,102,241,0.55); background: rgba(99,102,241,0.09); }
+.s-crm-av { width: 34px; height: 34px; border-radius: 50%; background: rgba(99,102,241,0.16); color: #818cf8; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.s-crm-info { flex: 1; min-width: 0; }
+.s-crm-name { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; min-width: 0; }
+.s-crm-name > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-crm-badge { flex-shrink: 0; font-size: 8.5px; font-weight: 600; color: #f59e0b; background: rgba(245,158,11,0.13); border: 1px solid rgba(245,158,11,0.3); border-radius: 99px; padding: 1px 6px; white-space: nowrap; }
+.s-crm-sub { font-size: 9px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+.s-crm-ltv { text-align: right; flex-shrink: 0; }
+.s-crm-ltv b { font-size: 13px; font-variant-numeric: tabular-nums; }
+.s-crm-ltv span { display: block; font-size: 8px; color: rgba(255,255,255,0.4); }
+.s-crm-scroll { display: flex; flex-direction: column; gap: 10px; animation: s-crm-autoscroll 5.4s cubic-bezier(0.4,0,0.2,1) both; }
+.s-crm-back { font-size: 11px; color: #818cf8; font-weight: 600; }
+.s-crm-profile { display: flex; flex-direction: column; align-items: center; gap: 3px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 12px; }
+.s-crm-av-lg { width: 48px; height: 48px; border-radius: 50%; background: rgba(99,102,241,0.16); color: #818cf8; font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+.s-crm-pname { font-size: 15px; font-weight: 700; margin-top: 2px; }
+.s-crm-pphone { font-size: 10px; color: rgba(255,255,255,0.45); }
+.s-crm-stats { display: flex; width: 100%; margin-top: 8px; }
+.s-crm-stats > div { flex: 1; text-align: center; border-left: 1px solid rgba(255,255,255,0.08); }
+.s-crm-stats > div:first-child { border-left: none; }
+.s-crm-stats b { font-size: 15px; font-weight: 700; }
+.s-crm-stats span { display: block; font-size: 8.5px; color: rgba(255,255,255,0.45); margin-top: 1px; }
+.s-crm-actions { display: flex; gap: 8px; }
+.s-crm-act { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 4px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); font-size: 9.5px; font-weight: 500; }
+.s-crm-act-ic { display: inline-flex; }
+.s-crm-act-ic svg { width: 16px; height: 16px; }
+.s-crm-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 10px 12px; }
+.s-crm-card-h { font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.s-crm-card-h svg { width: 13px; height: 13px; color: #818cf8; flex-shrink: 0; }
+.s-crm-pref { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 10px; }
+.s-crm-pref span { color: rgba(255,255,255,0.4); }
+.s-crm-pref em { font-style: normal; color: rgba(255,255,255,0.85); text-align: right; }
+.s-crm-hist { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.05); }
+.s-crm-hist:first-of-type { border-top: none; }
+.s-crm-hist-d { font-size: 9px; color: rgba(255,255,255,0.4); width: 22px; flex-shrink: 0; padding-top: 1px; }
+.s-crm-hist-info { flex: 1; min-width: 0; }
+.s-crm-hist-s { font-size: 10.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-crm-hist-pro { font-size: 9px; color: rgba(255,255,255,0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-crm-hist-amt { text-align: right; flex-shrink: 0; }
+.s-crm-hist-amt b { font-size: 11px; }
+.s-crm-hist-amt span { display: block; font-size: 8px; color: #10b981; }
+@keyframes s-crm-viewin { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+@keyframes s-crm-autoscroll { 0%, 16% { transform: translateY(0); } 74%, 100% { transform: translateY(-118px); } }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
@@ -1904,6 +1959,114 @@ function AnalyticsPhoneAnim({ active }) {
   );
 }
 
+// ---- CRM module animation (back of pain card 5) — faithful to MobileClientsList + MobileClientProfile ----
+const CRM_CLIENTS = [
+  { i: 'PG', n: 'Pedro García', v: '28 abr 2026', ltv: 0 },
+  { i: 'JP', n: 'José Pérez', v: '29 abr 2026', ltv: 15 },
+  { i: 'AL', n: 'Andrés López', v: '18 abr 2026', ltv: 12 },
+  { i: 'MC', n: 'Marcos Clavel', v: '18 abr 2026', ltv: 10 },
+  { i: 'LL', n: 'Lolo López', v: '21 abr 2026', ltv: 74 },
+];
+const CRM_HISTORY = [
+  { d: '20/4', s: 'Corte Clásico + Afeitado', pro: 'Carlos "El Pulpo" Ramírez', amt: '20,00', pay: 'Pago móvil' },
+  { d: '2/4', s: 'Corte + Barba', pro: 'Miguel Ángel Torres', amt: '15,00', pay: 'Efectivo' },
+];
+const CrmIc = {
+  search: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>,
+  phone: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.4 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z" /></svg>,
+  chat: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z" /></svg>,
+  cal: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4" /></svg>,
+  scissors: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.1 15.9M14.5 12.5L20 20M8.1 8.1L12 12" /></svg>,
+  clock: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>,
+};
+
+function CrmPhoneAnim({ active }) {
+  const [view, setView] = useState('list');
+  useEffect(() => {
+    if (!active) { setView('list'); return; }
+    if (typeof window !== 'undefined' && window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setView('detail'); return; }
+    let timer; let mounted = true;
+    const run = (v) => {
+      if (!mounted) return;
+      setView(v);
+      timer = setTimeout(() => run(v === 'list' ? 'detail' : 'list'), v === 'list' ? 3200 : 5400);
+    };
+    run('list');
+    return () => { mounted = false; clearTimeout(timer); };
+  }, [active]);
+
+  return (
+    <div className="s-an-screen" aria-hidden="true">
+      <div className="s-an-status">
+        <span className="s-an-time">9:41</span>
+        <span className="s-an-island" />
+        <span className="s-an-batt"><i /><i /><i /></span>
+      </div>
+      <div className="s-crm-topbar">
+        <span className="s-crm-logo">SMART<b>KUBIK</b></span>
+        <span className="s-crm-topic">{CrmIc.clock}{CrmIc.cal}</span>
+      </div>
+      <div className="s-crm-stage">
+        {view === 'list' ? (
+          <div className="s-crm-view" key="list">
+            <div className="s-crm-search">{CrmIc.search}<span>Buscar cliente…</span></div>
+            <div className="s-crm-list">
+              {CRM_CLIENTS.map((c, i) => (
+                <div className={`s-crm-row ${c.i === 'LL' ? 'focus' : ''}`} key={c.i} style={{ animationDelay: `${i * 0.05}s` }}>
+                  <span className="s-crm-av">{c.i}</span>
+                  <div className="s-crm-info">
+                    <div className="s-crm-name"><span>{c.n}</span><span className="s-crm-badge">🥉 Bronce</span></div>
+                    <div className="s-crm-sub">Última visita: {c.v}</div>
+                  </div>
+                  <div className="s-crm-ltv"><b>${c.ltv}</b><span>LTV</span></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="s-crm-view" key="detail">
+            <div className="s-crm-scroll">
+              <div className="s-crm-back">‹ Clientes</div>
+              <div className="s-crm-profile">
+                <span className="s-crm-av-lg">LL</span>
+                <div className="s-crm-pname">Lolo López</div>
+                <div className="s-crm-pphone">0412 555 6677</div>
+                <span className="s-crm-badge">🥉 Bronce</span>
+                <div className="s-crm-stats">
+                  <div><b>3</b><span>Visitas</span></div>
+                  <div><b>$74</b><span>LTV</span></div>
+                  <div><b>$25</b><span>Ticket</span></div>
+                </div>
+              </div>
+              <div className="s-crm-actions">
+                <div className="s-crm-act"><span className="s-crm-act-ic" style={{ color: '#818cf8' }}>{CrmIc.phone}</span>Llamar</div>
+                <div className="s-crm-act"><span className="s-crm-act-ic" style={{ color: '#10b981' }}>{CrmIc.chat}</span>WhatsApp</div>
+                <div className="s-crm-act"><span className="s-crm-act-ic" style={{ color: '#818cf8' }}>{CrmIc.cal}</span>Nueva cita</div>
+              </div>
+              <div className="s-crm-card">
+                <div className="s-crm-card-h">{CrmIc.scissors} Preferencias beauty</div>
+                <div className="s-crm-pref"><span>Estilo preferido</span><em>Degradado clásico</em></div>
+                <div className="s-crm-pref"><span>Fórmula / tinte</span><em>7.1 rubio ceniza</em></div>
+              </div>
+              <div className="s-crm-card">
+                <div className="s-crm-card-h">{CrmIc.clock} Historial de citas</div>
+                {CRM_HISTORY.map((h, i) => (
+                  <div className="s-crm-hist" key={i}>
+                    <span className="s-crm-hist-d">{h.d}</span>
+                    <div className="s-crm-hist-info"><div className="s-crm-hist-s">{h.s}</div><div className="s-crm-hist-pro">{h.pro}</div></div>
+                    <div className="s-crm-hist-amt"><b>${h.amt}</b><span>{h.pay}</span></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ---- Pain / Scroll-Hijack Dock Carousel ----
 function PainCard({ item, i, activeIdx }) {
   const [flipped, setFlipped] = useState(false);
@@ -2048,6 +2211,7 @@ function PainCard({ item, i, activeIdx }) {
           <div className="s-pain-back-a">{item.a}</div>
           {item.backAnim === 'booking' && <BookingFlowAnim active={flipped} />}
           {item.backAnim === 'analytics' && <AnalyticsPhoneAnim active={flipped} />}
+          {item.backAnim === 'crm' && <CrmPhoneAnim active={flipped} />}
           {item.backImage && !item.backVideo && (
             <img className="s-pain-back-image" src={item.backImage} alt="Pantalla de Skubik mostrando horarios ocupados bloqueados" loading="lazy" />
           )}
