@@ -600,23 +600,19 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 @keyframes s-an-draw { to { stroke-dashoffset: 0; } }
 
 /* === CRM module animation (back of pain card 5) === */
-.s-crm-topbar { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 2px 16px 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-.s-crm-logo { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: rgba(255,255,255,0.5); }
-.s-crm-logo b { color: #fff; }
-.s-crm-topic { display: inline-flex; gap: 9px; color: rgba(255,255,255,0.35); }
-.s-crm-topic svg { width: 13px; height: 13px; }
 .s-crm-stage { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 .s-crm-view { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 10px 14px; animation: s-crm-viewin 0.45s cubic-bezier(0.2,0.8,0.2,1) both; }
 .s-crm-search { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 10px; flex-shrink: 0; }
 .s-crm-search svg { width: 14px; height: 14px; flex-shrink: 0; }
-.s-crm-list { display: flex; flex-direction: column; gap: 8px; }
+.s-crm-list { flex: 1; min-height: 0; overflow: hidden; }
+.s-crm-list-scroll { display: flex; flex-direction: column; gap: 8px; animation: s-crm-listscroll 4800ms cubic-bezier(0.4,0,0.2,1) both; }
 .s-crm-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); animation: s-an-fadeup 0.4s both; }
 .s-crm-row.focus { border-color: rgba(99,102,241,0.55); background: rgba(99,102,241,0.09); }
 .s-crm-av { width: 34px; height: 34px; border-radius: 50%; background: rgba(99,102,241,0.16); color: #818cf8; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .s-crm-info { flex: 1; min-width: 0; }
 .s-crm-name { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; min-width: 0; }
 .s-crm-name > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.s-crm-badge { flex-shrink: 0; font-size: 8.5px; font-weight: 600; color: #f59e0b; background: rgba(245,158,11,0.13); border: 1px solid rgba(245,158,11,0.3); border-radius: 99px; padding: 1px 6px; white-space: nowrap; }
+.s-crm-badge { flex-shrink: 0; font-size: 8.5px; font-weight: 600; border: 1px solid transparent; border-radius: 99px; padding: 1px 6px; white-space: nowrap; }
 .s-crm-sub { font-size: 9px; color: rgba(255,255,255,0.4); margin-top: 2px; }
 .s-crm-ltv { text-align: right; flex-shrink: 0; }
 .s-crm-ltv b { font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -653,6 +649,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-crm-hist-amt span { display: block; font-size: 8px; color: #10b981; }
 @keyframes s-crm-viewin { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
 @keyframes s-crm-autoscroll { 0%, 16% { transform: translateY(0); } 74%, 100% { transform: translateY(-118px); } }
+@keyframes s-crm-listscroll { 0%, 10% { transform: translateY(0); } 84%, 100% { transform: translateY(-290px); } }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
@@ -1960,12 +1957,25 @@ function AnalyticsPhoneAnim({ active }) {
 }
 
 // ---- CRM module animation (back of pain card 5) — faithful to MobileClientsList + MobileClientProfile ----
+const CRM_TIERS = {
+  diamante: { label: 'Diamante', icon: '💎', c: '#38bdf8', bg: 'rgba(56,189,248,0.13)', bd: 'rgba(56,189,248,0.35)' },
+  oro: { label: 'Oro', icon: '🥇', c: '#fbbf24', bg: 'rgba(245,158,11,0.15)', bd: 'rgba(245,158,11,0.4)' },
+  plata: { label: 'Plata', icon: '🥈', c: '#cbd5e1', bg: 'rgba(203,213,225,0.12)', bd: 'rgba(203,213,225,0.3)' },
+  bronce: { label: 'Bronce', icon: '🥉', c: '#e0a35e', bg: 'rgba(224,163,94,0.13)', bd: 'rgba(224,163,94,0.32)' },
+};
+// Alphabetical; tier follows spend (higher LTV → better tier)
 const CRM_CLIENTS = [
-  { i: 'PG', n: 'Pedro García', v: '28 abr 2026', ltv: '1.840' },
-  { i: 'JP', n: 'José Pérez', v: '29 abr 2026', ltv: '3.120' },
-  { i: 'AL', n: 'Andrés López', v: '18 abr 2026', ltv: '2.260' },
-  { i: 'MC', n: 'Marcos Clavel', v: '18 abr 2026', ltv: '1.490' },
-  { i: 'LL', n: 'Lolo López', v: '21 abr 2026', ltv: '4.380' },
+  { i: 'AB', n: 'Adriana Bermúdez', v: '27 abr 2026', ltv: '6.240', t: 'diamante' },
+  { i: 'AL', n: 'Andrés López', v: '18 abr 2026', ltv: '2.260', t: 'plata' },
+  { i: 'CM', n: 'Carlos Mendoza', v: '29 abr 2026', ltv: '4.880', t: 'oro' },
+  { i: 'DR', n: 'Daniela Rojas', v: '30 abr 2026', ltv: '7.150', t: 'diamante' },
+  { i: 'GO', n: 'Gabriel Ortega', v: '15 abr 2026', ltv: '1.490', t: 'plata' },
+  { i: 'JP', n: 'José Pérez', v: '29 abr 2026', ltv: '3.120', t: 'oro' },
+  { i: 'LL', n: 'Lolo López', v: '21 abr 2026', ltv: '4.380', t: 'oro' },
+  { i: 'MC', n: 'Marcos Clavel', v: '12 abr 2026', ltv: '890', t: 'bronce' },
+  { i: 'PG', n: 'Pedro García', v: '28 abr 2026', ltv: '1.840', t: 'plata' },
+  { i: 'RS', n: 'Ricardo Salas', v: '26 abr 2026', ltv: '5.620', t: 'diamante' },
+  { i: 'VC', n: 'Valeria Castro', v: '9 abr 2026', ltv: '640', t: 'bronce' },
 ];
 const CRM_HISTORY = [
   { d: '20/4', s: 'Corte Premium + Afeitado', pro: 'Carlos "El Pulpo" Ramírez', amt: '135,00', pay: 'Pago móvil' },
@@ -1990,7 +2000,7 @@ function CrmPhoneAnim({ active }) {
     const run = (v) => {
       if (!mounted) return;
       setView(v);
-      timer = setTimeout(() => run(v === 'list' ? 'detail' : 'list'), v === 'list' ? 3200 : 5400);
+      timer = setTimeout(() => run(v === 'list' ? 'detail' : 'list'), v === 'list' ? 4800 : 5400);
     };
     run('list');
     return () => { mounted = false; clearTimeout(timer); };
@@ -1998,30 +2008,26 @@ function CrmPhoneAnim({ active }) {
 
   return (
     <div className="s-an-screen" aria-hidden="true">
-      <div className="s-an-status">
-        <span className="s-an-time">9:41</span>
-        <span className="s-an-island" />
-        <span className="s-an-batt"><i /><i /><i /></span>
-      </div>
-      <div className="s-crm-topbar">
-        <span className="s-crm-logo">SMART<b>KUBIK</b></span>
-        <span className="s-crm-topic">{CrmIc.clock}{CrmIc.cal}</span>
-      </div>
       <div className="s-crm-stage">
         {view === 'list' ? (
           <div className="s-crm-view" key="list">
             <div className="s-crm-search">{CrmIc.search}<span>Buscar cliente…</span></div>
             <div className="s-crm-list">
-              {CRM_CLIENTS.map((c, i) => (
-                <div className={`s-crm-row ${c.i === 'LL' ? 'focus' : ''}`} key={c.i} style={{ animationDelay: `${i * 0.05}s` }}>
-                  <span className="s-crm-av">{c.i}</span>
-                  <div className="s-crm-info">
-                    <div className="s-crm-name"><span>{c.n}</span><span className="s-crm-badge">🥉 Bronce</span></div>
-                    <div className="s-crm-sub">Última visita: {c.v}</div>
-                  </div>
-                  <div className="s-crm-ltv"><b>${c.ltv}</b><span>LTV</span></div>
-                </div>
-              ))}
+              <div className="s-crm-list-scroll">
+                {CRM_CLIENTS.map((c, i) => {
+                  const tier = CRM_TIERS[c.t];
+                  return (
+                    <div className={`s-crm-row ${c.i === 'LL' ? 'focus' : ''}`} key={c.i} style={{ animationDelay: `${i * 0.04}s` }}>
+                      <span className="s-crm-av">{c.i}</span>
+                      <div className="s-crm-info">
+                        <div className="s-crm-name"><span>{c.n}</span><span className="s-crm-badge" style={{ color: tier.c, background: tier.bg, borderColor: tier.bd }}>{tier.icon} {tier.label}</span></div>
+                        <div className="s-crm-sub">Última visita: {c.v}</div>
+                      </div>
+                      <div className="s-crm-ltv"><b>${c.ltv}</b><span>LTV</span></div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         ) : (
@@ -2032,7 +2038,7 @@ function CrmPhoneAnim({ active }) {
                 <span className="s-crm-av-lg">LL</span>
                 <div className="s-crm-pname">Lolo López</div>
                 <div className="s-crm-pphone">0412 555 6677</div>
-                <span className="s-crm-badge">🥉 Bronce</span>
+                <span className="s-crm-badge" style={{ color: CRM_TIERS.oro.c, background: CRM_TIERS.oro.bg, borderColor: CRM_TIERS.oro.bd }}>🥇 Oro</span>
                 <div className="s-crm-stats">
                   <div><b>46</b><span>Visitas</span></div>
                   <div><b>$4.380</b><span>LTV</span></div>
