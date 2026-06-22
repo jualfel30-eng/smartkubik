@@ -522,8 +522,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-anim-badge.show { opacity: 1; transform: none; }
 
 /* === Analytics module animation (back of pain card 4) === */
-.s-pain-back.has-back-screen { padding: 0; }
-.s-an-screen { position: absolute; inset: 0; z-index: 1; border-radius: 28px; overflow: hidden; background: #0a0e16; display: flex; flex-direction: column; font-family: 'Inter Tight', system-ui, sans-serif; color: #fff; pointer-events: none; }
+.s-an-screen { position: relative; z-index: 1; flex: 1 1 auto; min-height: 0; width: 100%; margin-top: 14px; border-radius: 22px; overflow: hidden; background: #0a0e16; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 16px 36px rgba(0,0,0,0.4); display: flex; flex-direction: column; font-family: 'Inter Tight', system-ui, sans-serif; color: #fff; pointer-events: none; }
 .s-an-status { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 9px 18px 2px; font-size: 11px; font-weight: 600; }
 .s-an-island { width: 62px; height: 16px; background: #000; border-radius: 10px; }
 .s-an-batt { display: inline-flex; align-items: flex-end; gap: 2px; height: 10px; }
@@ -592,10 +591,6 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-an-dots { flex-shrink: 0; display: flex; justify-content: center; gap: 4px; padding: 5px 0 3px; }
 .s-an-dots i { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: all 0.3s; }
 .s-an-dots i.on { background: #6366f1; width: 14px; border-radius: 3px; }
-.s-an-caption { flex-shrink: 0; padding: 9px 18px 16px; background: rgba(255,255,255,0.02); border-top: 1px solid rgba(255,255,255,0.07); }
-.s-an-caption-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--s-accent2); display: flex; align-items: center; gap: 6px; }
-.s-an-caption-label::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--s-accent2); }
-.s-an-caption-a { font-size: 12px; line-height: 1.4; color: rgba(255,255,255,0.92); margin-top: 4px; }
 @keyframes s-an-fadeup { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes s-an-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @keyframes s-an-growx { from { transform: scaleX(0); } to { transform: scaleX(1); } }
@@ -1737,7 +1732,7 @@ function AnalyticsDonut() {
   );
 }
 
-function AnalyticsPhoneAnim({ active, solucion }) {
+function AnalyticsPhoneAnim({ active }) {
   const [panel, setPanel] = useState(0);
   useEffect(() => {
     if (!active) { setPanel(0); return; }
@@ -1905,10 +1900,6 @@ function AnalyticsPhoneAnim({ active, solucion }) {
       <div className="s-an-dots">
         {Array.from({ length: A_PANELS }, (_, i) => <i key={i} className={i === panel ? 'on' : ''} />)}
       </div>
-      <div className="s-an-caption">
-        <div className="s-an-caption-label">Skubik lo resuelve</div>
-        <div className="s-an-caption-a">{solucion}</div>
-      </div>
     </div>
   );
 }
@@ -2028,7 +2019,7 @@ function PainCard({ item, i, activeIdx }) {
           </div>
         </div>
         <div
-          className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : item.backAnim === 'analytics' ? 'has-back-screen' : (item.backImage || item.backAnim) ? 'has-back-image' : ''}`}
+          className={`s-pain-face s-pain-back ${item.backVideo ? 'has-back-video' : (item.backImage || item.backAnim) ? 'has-back-image' : ''}`}
           style={(item.backVideoBg || item.backImageBg) ? { background: item.backVideoBg || item.backImageBg } : undefined}
           onClick={item.backVideo ? handleBackTap : undefined}
         >
@@ -2053,19 +2044,14 @@ function PainCard({ item, i, activeIdx }) {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h12a4 4 0 010 8h-3"/></svg>
             </button>
           )}
-          {item.backAnim === 'analytics' ? (
-            <AnalyticsPhoneAnim active={flipped} solucion={item.a} />
-          ) : (
-            <>
-              <div className="s-pain-back-label">Skubik lo resuelve</div>
-              <div className="s-pain-back-a">{item.a}</div>
-              {item.backAnim === 'booking' && <BookingFlowAnim active={flipped} />}
-              {item.backImage && !item.backVideo && (
-                <img className="s-pain-back-image" src={item.backImage} alt="Pantalla de Skubik mostrando horarios ocupados bloqueados" loading="lazy" />
-              )}
-              {!item.backVideo && !item.backImage && !item.backAnim && <div className="s-pain-back-hint">← Toca para volver</div>}
-            </>
+          <div className="s-pain-back-label">Skubik lo resuelve</div>
+          <div className="s-pain-back-a">{item.a}</div>
+          {item.backAnim === 'booking' && <BookingFlowAnim active={flipped} />}
+          {item.backAnim === 'analytics' && <AnalyticsPhoneAnim active={flipped} />}
+          {item.backImage && !item.backVideo && (
+            <img className="s-pain-back-image" src={item.backImage} alt="Pantalla de Skubik mostrando horarios ocupados bloqueados" loading="lazy" />
           )}
+          {!item.backVideo && !item.backImage && !item.backAnim && <div className="s-pain-back-hint">← Toca para volver</div>}
         </div>
       </div>
     </div>
