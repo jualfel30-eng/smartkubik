@@ -119,6 +119,7 @@ export default function MobileClientsList({ onSelectClient, onNewAppointment }) 
   const limit = 20;
   const controllerRef = useRef(null);
   const parentRef = useRef(null);
+  const isFirstLoad = useRef(true);
 
   const loadClients = useCallback(async (q = '', p = 1, append = false) => {
     controllerRef.current?.abort();
@@ -142,11 +143,19 @@ export default function MobileClientsList({ onSelectClient, onNewAppointment }) 
     }
   }, []);
 
-  // Initial load
-  useEffect(() => { loadClients('', 1); }, [loadClients]);
-
-  // Search with debounce
+  // Carga inicial + búsqueda con debounce en UN SOLO effect.
+  // Antes había dos effects que al montar disparaban la MISMA petición
+  // (/customers?...&customerType=...&page=1 con query vacío): como fetchApi
+  // deduplica GETs idénticos devolviendo la misma promesa, el abort de la
+  // segunda carga cancelaba esa promesa compartida y AMBAS recibían AbortError
+  // → la lista quedaba vacía en redes lentas (móvil). Con una sola carga al
+  // montar se elimina la condición de carrera.
   useEffect(() => {
+    if (isFirstLoad.current) {
+      isFirstLoad.current = false;
+      loadClients('', 1);
+      return undefined;
+    }
     const t = setTimeout(() => { setPage(1); loadClients(query, 1); }, 300);
     return () => clearTimeout(t);
   }, [query, loadClients]);
