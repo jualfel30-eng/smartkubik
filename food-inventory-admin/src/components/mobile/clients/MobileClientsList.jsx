@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useNavigate } from 'react-router-dom';
 import { Search, Phone, MessageCircle, CalendarPlus, User, RefreshCw, X } from 'lucide-react';
 import { motion, useMotionValue, animate } from 'framer-motion';
 import { fetchApi } from '@/lib/api';
 import { toast } from '@/lib/toast';
-import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import MobileListSkeleton from '../primitives/MobileListSkeleton.jsx';
@@ -40,7 +38,10 @@ function ClientCard({ client, onTap, onNewAppointment }) {
     .map((w) => w[0]?.toUpperCase())
     .join('');
 
-  const lastVisit = client.lastPurchaseDate || client.updatedAt;
+  // El backend devuelve las métricas agregadas bajo `metrics` (no en la raíz del documento).
+  const totalSpent = client.metrics?.totalSpent;
+  const lastVisit =
+    client.metrics?.lastOrderDate || client.metrics?.lastDepositDate || client.updatedAt;
 
   return (
     <div className="relative rounded-[var(--mobile-radius-lg)] overflow-hidden bg-card border border-border">
@@ -95,9 +96,9 @@ function ClientCard({ client, onTap, onNewAppointment }) {
         </div>
 
         {/* LTV */}
-        {client.totalSpent != null && (
+        {totalSpent != null && (
           <div className="shrink-0 text-right">
-            <p className="text-sm font-semibold tabular-nums">${Number(client.totalSpent).toFixed(0)}</p>
+            <p className="text-sm font-semibold tabular-nums">${Number(totalSpent).toFixed(0)}</p>
             <p className="text-[10px] text-muted-foreground">LTV</p>
           </div>
         )}
@@ -126,7 +127,9 @@ export default function MobileClientsList({ onSelectClient, onNewAppointment }) 
       setLoading(true);
       const params = new URLSearchParams({ limit: String(limit), page: String(p) });
       if (q) params.set('search', q);
-      params.set('customerType', 'individual');
+      // Clientes = business + individual (excluye proveedores/empleados), igual que el tab "Clientes" del desktop.
+      // El default al crear un contacto es 'business', así que filtrar solo 'individual' dejaba la lista vacía.
+      params.set('customerType', 'business,individual');
       const res = await fetchApi(`/customers?${params}`, { signal: controllerRef.current.signal });
       const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       if (append) setClients((prev) => [...prev, ...list]);
