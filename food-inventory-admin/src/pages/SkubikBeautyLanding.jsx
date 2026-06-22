@@ -35,8 +35,8 @@ const BEAUTY_DATA = {
       { q: 'Son las 11pm y todavía estás contestando "¿tienes disponibilidad mañana?"', a: 'Tu clienta reserva sola desde tu link, a cualquier hora. Tú duermes.', tag: 'La Esclavitud', video: '/videos/late-night-scroll.webm', backVideo: '/videos/late-night-back.mp4', backVideoBg: '#ef4444' },
       { q: 'Confié en mi memoria y cité a dos clientas a la misma hora. Una me perdonó. La otra me dejó 1 estrella en Google y no volvió.', a: 'Skubik bloquea automáticamente los horarios ocupados. Cero cruces, cero sorpresas.', tag: 'El Traspapelado', video: '/videos/double-booking.webm', backAnim: 'booking', backImageBg: '#ef4444' },
       { q: 'Me embarcó. Otra vez. Y hoy rechacé dos clientas por ese espacio.', a: 'Anticipo obligatorio antes de confirmar. No paga = no reserva. Tú no pierdes.', tag: 'El Embarque', video: '/videos/no-show.webm', backVideo: '/videos/no-show-back.mp4', backVideoBg: '#fa4e4a' },
-      { q: '"Ni idea de cuánto vendí el mes pasado, cuál de mis estilistas produjo menos, ni quién es mi mejor clienta activa"', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Viviendo al Límite', video: '/videos/reports.webm', backAnim: 'analytics' },
-      { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'La Traición', video: '/videos/data-loss.webm' },
+      { q: '"Ni idea de cuánto vendí el mes pasado, cuál de mis estilistas produjo menos, ni quién es mi mejor clienta activa"', a: 'Dashboard con ingresos, frecuencia, ticket promedio y ranking de clientas.', tag: 'Viviendo al Límite', video: '/videos/reports.webm', backAnim: 'analytics', backImageBg: '#ef4444' },
+      { q: 'Mi recepcionista renunció y toda la información se fue con ella.', a: 'Todo vive en la nube. Tus datos son tuyos. Nadie se los lleva.', tag: 'La Traición', video: '/videos/data-loss.webm', backImageBg: '#ef4444' },
     ],
   },
 
@@ -616,7 +616,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-pain-card:hover .s-pain-front-cta-arrow { transform: translateX(6px); }
 
 /* Back */
-.s-pain-back { background: linear-gradient(160deg, #1d1f12, var(--s-bg2) 55%); border-color: rgba(208,255,58,0.3); transform: rotateY(180deg); justify-content: center; }
+.s-pain-back { background: linear-gradient(160deg, #1d1f12, var(--s-bg2) 55%); border-color: rgba(208,255,58,0.3); transform: rotateY(180deg); justify-content: flex-start; }
 .s-pain-back-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.15em; color: var(--s-accent2); margin-bottom: 20px; display: flex; align-items: center; gap: 6px; }
 .s-pain-back-label::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--s-accent2); }
 .s-pain-back-a { font-family: 'Inter Tight', system-ui, sans-serif; font-size: 20px; line-height: 1.55; color: var(--s-fg); font-weight: 500; }
