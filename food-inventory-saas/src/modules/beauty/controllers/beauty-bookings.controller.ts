@@ -66,6 +66,7 @@ export class BeautyBookingsController {
     @Query('status') status?: string,
     @Query('professionalId') professionalId?: string,
     @Query('clientPhone') clientPhone?: string,
+    @Query('customerId') customerId?: string,
     @Query('locationId') locationId?: string,
   ) {
     return this.beautyBookingsService.findAll(req.user.tenantId, {
@@ -75,6 +76,7 @@ export class BeautyBookingsController {
       status,
       professionalId,
       clientPhone,
+      customerId,
       locationId,
     });
   }

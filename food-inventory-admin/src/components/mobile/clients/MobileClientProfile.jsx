@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import {
   Phone, MessageCircle, CalendarPlus, ChevronLeft,
   Tag, StickyNote, Check, Scissors, Clock, Edit2, Save,
@@ -36,7 +35,7 @@ function BeautyPreferences({ client, onSave }) {
       toast.success('Preferencias guardadas');
       setEditing(false);
       onSave?.({ ...client, beautyPreferences: prefs });
-    } catch (err) {
+    } catch {
       toast.error('No se pudo guardar');
     }
   };
@@ -94,7 +93,7 @@ function BeautyPreferences({ client, onSave }) {
 }
 
 // ─── Tags editor ─────────────────────────────────────────────────────────────
-function TagsEditor({ client, onSave }) {
+function TagsEditor({ client }) {
   const [tags, setTags] = useState(client.tags || []);
   const [input, setInput] = useState('');
 
@@ -194,31 +193,40 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
   const [localClient, setLocalClient] = useState(client);
   const { setContextAction, clearContextAction } = useFabContext();
 
-  const phone = localClient.phone || localClient.mobile || '';
+  // El teléfono del cliente vive en contacts[] (no en un campo top-level).
+  const phone =
+    localClient.contacts?.find((c) => c.type === 'phone' && c.value)?.value
+    || localClient.phone || localClient.mobile || '';
+  const email = localClient.contacts?.find((c) => c.type === 'email' && c.value)?.value || '';
   const wa = phone ? `https://wa.me/${phone.replace(/\D/g, '')}` : null;
 
   const initials = (localClient.name || localClient.companyName || '?')
     .split(' ').slice(0, 2).map((w) => w[0]?.toUpperCase()).join('');
 
-  const totalSpent = localClient.totalSpent ?? 0;
-  const visitCount = bookings.filter((b) => b.status === 'completed').length;
+  // LTV y visitas vienen de las métricas agregadas del backend (no de campos
+  // top-level inexistentes ni del historial global).
+  const totalSpent = localClient.metrics?.totalSpent ?? localClient.totalSpent ?? 0;
+  const visitCount =
+    localClient.metrics?.completedAppointments
+    ?? bookings.filter((b) => b.status === 'completed').length;
+
+  const clientId = localClient._id || localClient.id;
 
   useEffect(() => {
-    if (!isBeauty) return;
+    if (!isBeauty || !clientId) return;
     setLoadingHistory(true);
-    const clientId = localClient._id || localClient.id;
-    // Fetch beauty bookings for this client by phone (only field available)
-    fetchApi(`/beauty-bookings?clientPhone=${encodeURIComponent(phone)}&limit=50`)
+    // Historial SOLO de este cliente, unido por customerId (no por teléfono,
+    // que antes iba vacío y devolvía todas las citas del salón).
+    fetchApi(`/beauty-bookings?customerId=${clientId}&limit=50`)
       .then((res) => {
         const list = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
         setBookings(list.sort((a, b) => new Date(b.date || b.startTime) - new Date(a.date || a.startTime)));
       })
       .catch(() => {})
       .finally(() => setLoadingHistory(false));
-  }, [isBeauty, phone]);
+  }, [isBeauty, clientId]);
 
   // Register FAB context action: "Nueva cita — {client.name}" while viewing client profile
-  const clientId = localClient._id || localClient.id;
   useEffect(() => {
     const clientName = localClient.name || localClient.companyName || '';
     if (clientName) {
@@ -248,6 +256,7 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
         </div>
         <h1 className="text-lg font-bold">{localClient.name || localClient.companyName}</h1>
         {phone && <p className="text-sm text-muted-foreground">{phone}</p>}
+        {email && <p className="text-xs text-muted-foreground">{email}</p>}
         <div className="mt-3 grid grid-cols-3 divide-x divide-border text-center">
           <div><p className="text-lg font-bold">{visitCount}</p><p className="text-[11px] text-muted-foreground">Visitas</p></div>
           <div><p className="text-lg font-bold">${Number(totalSpent).toFixed(0)}</p><p className="text-[11px] text-muted-foreground">LTV</p></div>

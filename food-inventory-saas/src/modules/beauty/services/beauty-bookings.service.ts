@@ -567,6 +567,7 @@ export class BeautyBookingsService {
       status?: string;
       professionalId?: string;
       clientPhone?: string;
+      customerId?: string;
       locationId?: string;
     },
   ): Promise<BeautyBookingDocument[]> {
@@ -595,6 +596,9 @@ export class BeautyBookingsService {
       }
       if (filters.clientPhone) {
         query['client.phone'] = filters.clientPhone;
+      }
+      if (filters.customerId && Types.ObjectId.isValid(filters.customerId)) {
+        query.customerId = new Types.ObjectId(filters.customerId);
       }
       if (filters.locationId) {
         query.locationId = new Types.ObjectId(filters.locationId);
