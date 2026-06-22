@@ -1961,15 +1961,15 @@ function AnalyticsPhoneAnim({ active }) {
 
 // ---- CRM module animation (back of pain card 5) — faithful to MobileClientsList + MobileClientProfile ----
 const CRM_CLIENTS = [
-  { i: 'PG', n: 'Pedro García', v: '28 abr 2026', ltv: 0 },
-  { i: 'JP', n: 'José Pérez', v: '29 abr 2026', ltv: 15 },
-  { i: 'AL', n: 'Andrés López', v: '18 abr 2026', ltv: 12 },
-  { i: 'MC', n: 'Marcos Clavel', v: '18 abr 2026', ltv: 10 },
-  { i: 'LL', n: 'Lolo López', v: '21 abr 2026', ltv: 74 },
+  { i: 'PG', n: 'Pedro García', v: '28 abr 2026', ltv: '1.840' },
+  { i: 'JP', n: 'José Pérez', v: '29 abr 2026', ltv: '3.120' },
+  { i: 'AL', n: 'Andrés López', v: '18 abr 2026', ltv: '2.260' },
+  { i: 'MC', n: 'Marcos Clavel', v: '18 abr 2026', ltv: '1.490' },
+  { i: 'LL', n: 'Lolo López', v: '21 abr 2026', ltv: '4.380' },
 ];
 const CRM_HISTORY = [
-  { d: '20/4', s: 'Corte Clásico + Afeitado', pro: 'Carlos "El Pulpo" Ramírez', amt: '20,00', pay: 'Pago móvil' },
-  { d: '2/4', s: 'Corte + Barba', pro: 'Miguel Ángel Torres', amt: '15,00', pay: 'Efectivo' },
+  { d: '20/4', s: 'Corte Premium + Afeitado', pro: 'Carlos "El Pulpo" Ramírez', amt: '135,00', pay: 'Pago móvil' },
+  { d: '2/4', s: 'Corte + Barba + Tinte', pro: 'Miguel Ángel Torres', amt: '95,00', pay: 'Efectivo' },
 ];
 const CrmIc = {
   search: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>,
@@ -2034,9 +2034,9 @@ function CrmPhoneAnim({ active }) {
                 <div className="s-crm-pphone">0412 555 6677</div>
                 <span className="s-crm-badge">🥉 Bronce</span>
                 <div className="s-crm-stats">
-                  <div><b>3</b><span>Visitas</span></div>
-                  <div><b>$74</b><span>LTV</span></div>
-                  <div><b>$25</b><span>Ticket</span></div>
+                  <div><b>46</b><span>Visitas</span></div>
+                  <div><b>$4.380</b><span>LTV</span></div>
+                  <div><b>$95</b><span>Ticket</span></div>
                 </div>
               </div>
               <div className="s-crm-actions">
