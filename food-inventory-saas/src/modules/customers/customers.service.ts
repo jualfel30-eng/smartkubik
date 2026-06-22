@@ -252,12 +252,23 @@ export class CustomersService {
       assignedTo,
       sortBy = "metrics.totalSpent",
       sortOrder = "desc",
+      minSpent,
+      maxSpent,
+      lastActivityFrom,
+      lastActivityTo,
     } = query;
 
     const pageNumber = Math.max(Number(page) || 1, 1);
     const limitNumber = Math.max(Number(limit) || 20, 1);
     const sortDirection: SortOrder = sortOrder === "asc" ? "asc" : "desc";
-    const sortKey = sortBy || "metrics.totalSpent";
+    // Mapear claves de orden del UI a las rutas reales de la agregación.
+    const SORT_KEY_MAP: Record<string, string> = {
+      totalSpent: "metrics.totalSpent",
+      lastOrderDate: "metrics.lastOrderDate",
+      name: "name",
+      createdAt: "createdAt",
+    };
+    const sortKey = SORT_KEY_MAP[sortBy] || sortBy || "metrics.totalSpent";
     const searchTerm = typeof search === "string" ? search.trim() : "";
     const isSearching = searchTerm.length > 0;
 
@@ -1033,6 +1044,29 @@ export class CustomersService {
           },
         },
       ];
+
+      // Filtros de rango sobre métricas YA calculadas (gasto / última actividad).
+      // Se aplican antes del conteo para que total y datos sean consistentes.
+      const metricsMatch: any = {};
+      const spentRange: any = {};
+      if (minSpent != null) spentRange.$gte = Number(minSpent);
+      if (maxSpent != null) spentRange.$lte = Number(maxSpent);
+      if (Object.keys(spentRange).length > 0) {
+        metricsMatch["metrics.totalSpent"] = spentRange;
+      }
+      const activityRange: any = {};
+      if (lastActivityFrom) activityRange.$gte = new Date(lastActivityFrom);
+      if (lastActivityTo) {
+        const end = new Date(lastActivityTo);
+        end.setHours(23, 59, 59, 999);
+        activityRange.$lte = end;
+      }
+      if (Object.keys(activityRange).length > 0) {
+        metricsMatch["metrics.lastOrderDate"] = activityRange;
+      }
+      if (Object.keys(metricsMatch).length > 0) {
+        aggregationPipeline.push({ $match: metricsMatch });
+      }
 
       const totalPipeline = [...aggregationPipeline, { $count: "total" }];
       const totalResult = await this.customerModel.aggregate(totalPipeline);

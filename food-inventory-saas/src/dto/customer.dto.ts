@@ -431,4 +431,29 @@ export class CustomerQueryDto {
   @IsOptional()
   @IsEnum(["asc", "desc"])
   sortOrder?: string = "desc";
+
+  // ── Filtros de rango (Rebanada 1) ────────────────────────────────────
+  @ApiPropertyOptional({ description: "Gasto mínimo (metrics.totalSpent)" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  minSpent?: number;
+
+  @ApiPropertyOptional({ description: "Gasto máximo (metrics.totalSpent)" })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  maxSpent?: number;
+
+  @ApiPropertyOptional({ description: "Última actividad desde (ISO date)" })
+  @IsOptional()
+  @IsString()
+  lastActivityFrom?: string;
+
+  @ApiPropertyOptional({ description: "Última actividad hasta (ISO date)" })
+  @IsOptional()
+  @IsString()
+  lastActivityTo?: string;
 }

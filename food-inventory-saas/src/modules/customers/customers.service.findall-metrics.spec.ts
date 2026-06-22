@@ -243,4 +243,37 @@ describe("CustomersService.findAll — métricas de citas (Fase 3)", () => {
       lastBooking.toISOString(),
     );
   });
+
+  it("filtra por minSpent y ordena por totalSpent (Rebanada 1)", async () => {
+    const rich = new Types.ObjectId();
+    const poor = new Types.ObjectId();
+    await customers().insertMany([
+      { _id: rich, tenantId: tId, customerNumber: "CLI-R", name: "BETA-Rich", customerType: "individual", status: "active", metrics: {} },
+      { _id: poor, tenantId: tId, customerNumber: "CLI-P", name: "BETA-Poor", customerType: "individual", status: "active", metrics: {} },
+    ]);
+    // rich: una booking completada de 100; poor: sin actividad → 0
+    await beautyBookings().insertOne({
+      tenantId: tId, customerId: rich,
+      client: { name: "BETA-Rich", phone: "+10000000009" },
+      status: "completed", paymentStatus: "paid", totalPrice: 100, amountPaid: 100,
+      date: new Date("2026-06-20T00:00:00.000Z"), updatedAt: new Date("2026-06-20T00:00:00.000Z"),
+    });
+
+    // Filtro: minSpent=50 → solo el rich
+    const filtered = await service.findAll(
+      { customerType: "individual", minSpent: 50 } as any,
+      tenantId,
+    );
+    expect(filtered.customers).toHaveLength(1);
+    expect(filtered.customers[0].name).toBe("BETA-Rich");
+    expect(filtered.total).toBe(1);
+
+    // Orden por totalSpent asc → poor (0) antes que rich (100)
+    const sorted = await service.findAll(
+      { customerType: "individual", sortBy: "totalSpent", sortOrder: "asc" } as any,
+      tenantId,
+    );
+    const names = sorted.customers.map((c: any) => c.name);
+    expect(names.indexOf("BETA-Poor")).toBeLessThan(names.indexOf("BETA-Rich"));
+  });
 });
