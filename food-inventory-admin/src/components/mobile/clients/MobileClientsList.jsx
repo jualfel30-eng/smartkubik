@@ -9,6 +9,7 @@ import { es } from 'date-fns/locale';
 import MobileListSkeleton from '../primitives/MobileListSkeleton.jsx';
 import MobileSearchBar from '../primitives/MobileSearchBar.jsx';
 import MobileEmptyState from '../primitives/MobileEmptyState.jsx';
+import { getTierBadge } from '@/components/crm/badges.jsx';
 
 const REVEAL = 168; // 3 acciones × 56px
 
@@ -86,7 +87,10 @@ function ClientCard({ client, onTap, onNewAppointment }) {
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <p className="font-semibold truncate">{client.name || client.companyName || 'Sin nombre'}</p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className="font-semibold truncate">{client.name || client.companyName || 'Sin nombre'}</p>
+            {client.tier && <span className="shrink-0">{getTierBadge(client.tier)}</span>}
+          </div>
           {phone && <p className="text-xs text-muted-foreground truncate">{phone}</p>}
           {lastVisit && (
             <p className="text-[11px] text-muted-foreground mt-0.5">

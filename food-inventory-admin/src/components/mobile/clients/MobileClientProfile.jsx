@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { useFabContext } from '@/contexts/FabContext';
 import MobileActionSheet from '../MobileActionSheet.jsx';
 import WhatsAppComposer from '@/components/shared/WhatsAppComposer.jsx';
+import { getTierBadge } from '@/components/crm/badges.jsx';
 
 const STATUS_COLOR = {
   pending: 'bg-amber-500', confirmed: 'bg-info',
@@ -260,6 +261,9 @@ export default function MobileClientProfile({ client, isBeauty, onBack, onNewApp
         <h1 className="text-lg font-bold">{localClient.name || localClient.companyName}</h1>
         {phone && <p className="text-sm text-muted-foreground">{phone}</p>}
         {email && <p className="text-xs text-muted-foreground">{email}</p>}
+        {localClient.tier && (
+          <div className="mt-2 flex justify-center">{getTierBadge(localClient.tier)}</div>
+        )}
         <div className="mt-3 grid grid-cols-3 divide-x divide-border text-center">
           <div><p className="text-lg font-bold">{visitCount}</p><p className="text-[11px] text-muted-foreground">Visitas</p></div>
           <div><p className="text-lg font-bold">${Number(totalSpent).toFixed(0)}</p><p className="text-[11px] text-muted-foreground">LTV</p></div>
