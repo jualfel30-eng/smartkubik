@@ -605,7 +605,13 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-crm-search { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); font-size: 12px; color: rgba(255,255,255,0.4); margin-bottom: 10px; flex-shrink: 0; }
 .s-crm-search svg { width: 14px; height: 14px; flex-shrink: 0; }
 .s-crm-list { flex: 1; min-height: 0; overflow: hidden; }
-.s-crm-list-scroll { display: flex; flex-direction: column; gap: 8px; animation: s-crm-listscroll 4800ms cubic-bezier(0.4,0,0.2,1) both; }
+.s-crm-list-scroll { display: flex; flex-direction: column; gap: 8px; }
+.s-crm-list-scroll.scroll { animation: s-crm-listscroll 2800ms cubic-bezier(0.4,0,0.2,1) both; }
+.s-crm-searchrow { display: flex; gap: 8px; align-items: stretch; margin-bottom: 10px; }
+.s-crm-searchrow .s-crm-search { flex: 1; margin-bottom: 0; }
+.s-crm-filter-btn { width: 40px; flex-shrink: 0; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.55); transition: all 0.25s; }
+.s-crm-filter-btn.active { border-color: #6366f1; color: #818cf8; background: rgba(99,102,241,0.12); }
+.s-crm-filter-btn svg { width: 16px; height: 16px; }
 .s-crm-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); animation: s-an-fadeup 0.4s both; }
 .s-crm-row.focus { border-color: rgba(99,102,241,0.55); background: rgba(99,102,241,0.09); }
 .s-crm-av { width: 34px; height: 34px; border-radius: 50%; background: rgba(99,102,241,0.16); color: #818cf8; font-weight: 700; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -617,7 +623,41 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-crm-ltv { text-align: right; flex-shrink: 0; }
 .s-crm-ltv b { font-size: 13px; font-variant-numeric: tabular-nums; }
 .s-crm-ltv span { display: block; font-size: 8px; color: rgba(255,255,255,0.4); }
-.s-crm-scroll { display: flex; flex-direction: column; gap: 10px; animation: s-crm-autoscroll 5.4s cubic-bezier(0.4,0,0.2,1) both; }
+.s-crm-scroll { display: flex; flex-direction: column; gap: 10px; animation: s-crm-detailscroll 5700ms cubic-bezier(0.4,0,0.2,1) both; }
+/* Bottom sheets (filter / whatsapp) */
+.s-crm-sheetwrap { position: absolute; inset: 0; z-index: 6; }
+.s-crm-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.55); animation: s-crm-fade 0.3s both; }
+.s-crm-sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 88%; overflow: hidden; background: #0d1320; border-top: 1px solid rgba(255,255,255,0.1); border-radius: 18px 18px 0 0; padding: 7px 14px 14px; animation: s-crm-sheetup 0.42s cubic-bezier(0.2,0.9,0.3,1) both; }
+.s-crm-grip { width: 32px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.2); margin: 2px auto 8px; }
+.s-crm-sheet-h { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+.s-crm-sheet-x { color: rgba(255,255,255,0.4); display: inline-flex; }
+.s-crm-sheet-x svg { width: 14px; height: 14px; }
+.s-crm-sheet-lbl { font-size: 9px; color: rgba(255,255,255,0.4); margin: 8px 0 6px; }
+.s-crm-sortgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.s-crm-sopt { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.85); transition: all 0.3s; }
+.s-crm-sopt.sel { border-color: #6366f1; color: #818cf8; background: rgba(99,102,241,0.08); }
+.s-crm-sopt svg { width: 13px; height: 13px; flex-shrink: 0; }
+.s-crm-dirrow { display: flex; gap: 6px; margin-top: 6px; }
+.s-crm-dir { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.85); }
+.s-crm-dir.sel { border-color: #6366f1; color: #818cf8; background: rgba(99,102,241,0.08); }
+.s-crm-dir svg { width: 12px; height: 12px; }
+.s-crm-rangerow { display: flex; align-items: center; gap: 8px; }
+.s-crm-input { flex: 1; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); font-size: 11px; color: rgba(255,255,255,0.4); }
+.s-crm-dash { color: rgba(255,255,255,0.3); }
+.s-crm-sheet-btns { display: flex; gap: 8px; margin-top: 12px; }
+.s-crm-bghost { flex: 1; text-align: center; padding: 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.14); font-size: 12px; font-weight: 600; }
+.s-crm-bprimary { flex: 1.7; text-align: center; padding: 10px; border-radius: 12px; background: #6366f1; color: #fff; font-size: 12px; font-weight: 600; transition: transform 0.15s ease, filter 0.15s ease; }
+.s-crm-bprimary.press { transform: scale(0.96); filter: brightness(1.25); }
+.s-crm-wa-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.s-crm-wa-custom { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: #818cf8; font-weight: 600; }
+.s-crm-wa-custom svg { width: 11px; height: 11px; }
+.s-crm-watpl { padding: 9px 11px; border-radius: 11px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 7px; animation: s-an-fadeup 0.4s both; }
+.s-crm-watl { font-size: 11.5px; font-weight: 600; margin-bottom: 2px; }
+.s-crm-watx { font-size: 9.5px; color: rgba(255,255,255,0.5); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-crm-act.press { border-color: rgba(16,185,129,0.55); background: rgba(16,185,129,0.12); }
+@keyframes s-crm-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes s-crm-sheetup { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes s-crm-detailscroll { 0%, 8% { transform: translateY(0); } 26% { transform: translateY(-118px); } 46%, 100% { transform: translateY(0); } }
 .s-crm-back { font-size: 11px; color: #818cf8; font-weight: 600; }
 .s-crm-profile { display: flex; flex-direction: column; align-items: center; gap: 3px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 12px; }
 .s-crm-av-lg { width: 48px; height: 48px; border-radius: 50%; background: rgba(99,102,241,0.16); color: #818cf8; font-weight: 700; font-size: 16px; display: flex; align-items: center; justify-content: center; }
@@ -649,7 +689,7 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
 .s-crm-hist-amt span { display: block; font-size: 8px; color: #10b981; }
 @keyframes s-crm-viewin { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
 @keyframes s-crm-autoscroll { 0%, 16% { transform: translateY(0); } 74%, 100% { transform: translateY(-118px); } }
-@keyframes s-crm-listscroll { 0%, 10% { transform: translateY(0); } 84%, 100% { transform: translateY(-290px); } }
+@keyframes s-crm-listscroll { 0%, 20% { transform: translateY(0); } 80%, 100% { transform: translateY(-104px); } }
 /* Bottom gradient overlay for text legibility */
 .s-pain-front.has-video::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 65%; border-radius: 0 0 28px 28px; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.2) 60%, transparent 100%); z-index: 1; pointer-events: none; }
 .s-pain-front.has-video .s-pain-front-num,
@@ -1988,36 +2028,72 @@ const CrmIc = {
   cal: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18M12 14v4M10 16h4" /></svg>,
   scissors: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M20 4L8.1 15.9M14.5 12.5L20 20M8.1 8.1L12 12" /></svg>,
   clock: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>,
+  sliders: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4" /></svg>,
+  check: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>,
+  x: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>,
+  up: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>,
+  down: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M19 12l-7 7-7-7" /></svg>,
+  file: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>,
 };
 
+const CRM_CLIENTS_SPEND = [...CRM_CLIENTS].sort((a, b) => Number(b.ltv.replace('.', '')) - Number(a.ltv.replace('.', '')));
+const WA_TEMPLATES = [
+  { l: 'Saludo', t: 'Hola Lolo López, ¿cómo estás? Te escribimos desde nuestro negocio. ¿En qué podemos ayudarte?' },
+  { l: 'Seguimiento', t: 'Hola Lolo López, hace tiempo que no nos visitas. ¡Te esperamos pronto! ¿Quieres agendar una cita?' },
+  { l: 'Promoción', t: 'Hola Lolo López, tenemos una promoción especial para ti. ¡Escríbenos para más detalles!' },
+];
+// Scripted flow: list(alpha) → open filter (Nombre) → pick Gasto → Aplicar → list(spend desc) → enter client → scroll → WhatsApp templates
+const CRM_STEPS = [
+  { id: 'list-alpha', dur: 2200 },
+  { id: 'sheet-open', dur: 1500 },
+  { id: 'sheet-gasto', dur: 1700 },
+  { id: 'sheet-apply', dur: 1000 },
+  { id: 'list-spend', dur: 2800 },
+  { id: 'detail', dur: 2700 },
+  { id: 'whatsapp', dur: 3000 },
+];
+const CRM_SORTS = [['totalSpent', 'Gasto'], ['name', 'Nombre'], ['lastOrderDate', 'Última visita'], ['createdAt', 'Registro']];
+
 function CrmPhoneAnim({ active }) {
-  const [view, setView] = useState('list');
+  const [step, setStep] = useState(0);
   useEffect(() => {
-    if (!active) { setView('list'); return; }
+    if (!active) { setStep(0); return; }
     if (typeof window !== 'undefined' && window.matchMedia &&
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setView('detail'); return; }
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setStep(5); return; }
     let timer; let mounted = true;
-    const run = (v) => {
+    const run = (s) => {
       if (!mounted) return;
-      setView(v);
-      timer = setTimeout(() => run(v === 'list' ? 'detail' : 'list'), v === 'list' ? 4800 : 5400);
+      setStep(s);
+      timer = setTimeout(() => run((s + 1) % CRM_STEPS.length), CRM_STEPS[s].dur);
     };
-    run('list');
+    run(0);
     return () => { mounted = false; clearTimeout(timer); };
   }, [active]);
+
+  const id = CRM_STEPS[step].id;
+  const isDetail = id === 'detail' || id === 'whatsapp';
+  const spendOrder = id === 'list-spend';
+  const sortSel = (id === 'sheet-gasto' || id === 'sheet-apply') ? 'totalSpent' : 'name';
+  const filterOpen = id === 'sheet-open' || id === 'sheet-gasto' || id === 'sheet-apply';
+  const applyActive = id === 'sheet-apply';
+  const waOpen = id === 'whatsapp';
+  const rows = spendOrder ? CRM_CLIENTS_SPEND : CRM_CLIENTS;
 
   return (
     <div className="s-an-screen" aria-hidden="true">
       <div className="s-crm-stage">
-        {view === 'list' ? (
+        {!isDetail ? (
           <div className="s-crm-view" key="list">
-            <div className="s-crm-search">{CrmIc.search}<span>Buscar cliente…</span></div>
+            <div className="s-crm-searchrow">
+              <div className="s-crm-search">{CrmIc.search}<span>Buscar cliente…</span></div>
+              <div className={`s-crm-filter-btn ${filterOpen ? 'active' : ''}`}>{CrmIc.sliders}</div>
+            </div>
             <div className="s-crm-list">
-              <div className="s-crm-list-scroll">
-                {CRM_CLIENTS.map((c, i) => {
+              <div className={`s-crm-list-scroll ${spendOrder ? 'scroll' : ''}`} key={spendOrder ? 'spend' : 'alpha'}>
+                {rows.map((c, i) => {
                   const tier = CRM_TIERS[c.t];
                   return (
-                    <div className={`s-crm-row ${c.i === 'LL' ? 'focus' : ''}`} key={c.i} style={{ animationDelay: `${i * 0.04}s` }}>
+                    <div className={`s-crm-row ${c.i === 'LL' && spendOrder ? 'focus' : ''}`} key={c.i} style={{ animationDelay: `${i * 0.04}s` }}>
                       <span className="s-crm-av">{c.i}</span>
                       <div className="s-crm-info">
                         <div className="s-crm-name"><span>{c.n}</span><span className="s-crm-badge" style={{ color: tier.c, background: tier.bg, borderColor: tier.bd }}>{tier.icon} {tier.label}</span></div>
@@ -2047,7 +2123,7 @@ function CrmPhoneAnim({ active }) {
               </div>
               <div className="s-crm-actions">
                 <div className="s-crm-act"><span className="s-crm-act-ic" style={{ color: '#818cf8' }}>{CrmIc.phone}</span>Llamar</div>
-                <div className="s-crm-act"><span className="s-crm-act-ic" style={{ color: '#10b981' }}>{CrmIc.chat}</span>WhatsApp</div>
+                <div className={`s-crm-act ${waOpen ? 'press' : ''}`}><span className="s-crm-act-ic" style={{ color: '#10b981' }}>{CrmIc.chat}</span>WhatsApp</div>
                 <div className="s-crm-act"><span className="s-crm-act-ic" style={{ color: '#818cf8' }}>{CrmIc.cal}</span>Nueva cita</div>
               </div>
               <div className="s-crm-card">
@@ -2065,6 +2141,51 @@ function CrmPhoneAnim({ active }) {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Filter & sort sheet */}
+        {filterOpen && (
+          <div className="s-crm-sheetwrap">
+            <div className="s-crm-backdrop" />
+            <div className="s-crm-sheet">
+              <div className="s-crm-grip" />
+              <div className="s-crm-sheet-h"><span>Ordenar y filtrar</span><span className="s-crm-sheet-x">{CrmIc.x}</span></div>
+              <div className="s-crm-sheet-lbl">Ordenar por</div>
+              <div className="s-crm-sortgrid">
+                {CRM_SORTS.map(([k, l]) => (
+                  <div className={`s-crm-sopt ${sortSel === k ? 'sel' : ''}`} key={k}><span>{l}</span>{sortSel === k && CrmIc.check}</div>
+                ))}
+              </div>
+              <div className="s-crm-dirrow">
+                <div className="s-crm-dir">{CrmIc.up} Ascendente</div>
+                <div className="s-crm-dir sel">{CrmIc.down} Descendente</div>
+              </div>
+              <div className="s-crm-sheet-lbl">Gasto (LTV)</div>
+              <div className="s-crm-rangerow"><span className="s-crm-input">Mín</span><span className="s-crm-dash">—</span><span className="s-crm-input">Máx</span></div>
+              <div className="s-crm-sheet-btns">
+                <div className="s-crm-bghost">Limpiar</div>
+                <div className={`s-crm-bprimary ${applyActive ? 'press' : ''}`}>Aplicar</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* WhatsApp quick templates sheet */}
+        {waOpen && (
+          <div className="s-crm-sheetwrap">
+            <div className="s-crm-backdrop" />
+            <div className="s-crm-sheet">
+              <div className="s-crm-grip" />
+              <div className="s-crm-sheet-h"><span>Enviar WhatsApp</span><span className="s-crm-sheet-x">{CrmIc.x}</span></div>
+              <div className="s-crm-wa-top"><span className="s-crm-sheet-lbl" style={{ margin: 0 }}>Enviar WhatsApp</span><span className="s-crm-wa-custom">{CrmIc.file} Personalizado</span></div>
+              {WA_TEMPLATES.map((t) => (
+                <div className="s-crm-watpl" key={t.l}>
+                  <div className="s-crm-watl">{t.l}</div>
+                  <div className="s-crm-watx">{t.t}</div>
+                </div>
+              ))}
             </div>
           </div>
         )}
