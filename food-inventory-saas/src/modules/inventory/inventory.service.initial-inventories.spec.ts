@@ -44,11 +44,9 @@ describe("InventoryService — auto-create initial inventories", () => {
     const model: any = jest.fn().mockImplementation((data) => ({
       ...data,
       _id: data._id ?? new Types.ObjectId(),
-      save: jest
-        .fn()
-        .mockImplementation(function (this: any) {
-          return Promise.resolve({ ...this });
-        }),
+      save: jest.fn().mockImplementation(function (this: any) {
+        return Promise.resolve({ ...this });
+      }),
     }));
     model.find = jest.fn();
     model.findOne = jest.fn();
@@ -105,7 +103,8 @@ describe("InventoryService — auto-create initial inventories", () => {
     // warehouseModel.findOne defaults: one active default warehouse per tenant
     warehouseModel.findOne = jest.fn().mockImplementation((filter: any) => {
       // tenantId filter is built via buildTenantFilter — it produces { $in: [...] }
-      const tenantIds: string[] = filter?.tenantId?.$in?.map((x: any) => x.toString()) || [];
+      const tenantIds: string[] =
+        filter?.tenantId?.$in?.map((x: any) => x.toString()) || [];
       let id: Types.ObjectId | null = null;
       if (tenantIds.includes(matrixId.toString())) id = matrixWarehouseId;
       else if (tenantIds.includes(subAId.toString())) id = subAWarehouseId;
@@ -163,10 +162,14 @@ describe("InventoryService — auto-create initial inventories", () => {
       const standaloneId = new Types.ObjectId();
       tenantModel.findById = jest
         .fn()
-        .mockReturnValue(queryReturning({ parentTenantId: null, isSubsidiary: false }));
+        .mockReturnValue(
+          queryReturning({ parentTenantId: null, isSubsidiary: false }),
+        );
       tenantModel.find = jest.fn().mockReturnValue(queryReturning([]));
 
-      const group = await (service as any).getTenantGroup(standaloneId.toString());
+      const group = await (service as any).getTenantGroup(
+        standaloneId.toString(),
+      );
       expect(group.length).toBe(1);
       expect(group[0].toString()).toBe(standaloneId.toString());
     });
@@ -181,7 +184,9 @@ describe("InventoryService — auto-create initial inventories", () => {
       _id: new Types.ObjectId(),
       sku: "TST-0001",
       name: "Test Product",
-      variants: [{ _id: new Types.ObjectId(), sku: "TST-0001-VAR1", costPrice: 5 }],
+      variants: [
+        { _id: new Types.ObjectId(), sku: "TST-0001-VAR1", costPrice: 5 },
+      ],
       ...overrides,
     });
 
@@ -189,11 +194,14 @@ describe("InventoryService — auto-create initial inventories", () => {
       const product = buildProduct();
       const userId = new Types.ObjectId();
 
-      const result = await service.createInitialInventoriesForProductInGroup(product as any, {
-        ownerTenantId: matrixId.toString(),
-        initialQuantity: 0,
-        createdBy: userId.toString(),
-      });
+      const result = await service.createInitialInventoriesForProductInGroup(
+        product as any,
+        {
+          ownerTenantId: matrixId.toString(),
+          initialQuantity: 0,
+          createdBy: userId.toString(),
+        },
+      );
 
       // 3 tenants × 1 variant = 3 inventories
       expect(result.created).toBe(3);
@@ -210,11 +218,14 @@ describe("InventoryService — auto-create initial inventories", () => {
         ],
       });
 
-      const result = await service.createInitialInventoriesForProductInGroup(product as any, {
-        ownerTenantId: matrixId.toString(),
-        initialQuantity: 0,
-        createdBy: new Types.ObjectId().toString(),
-      });
+      const result = await service.createInitialInventoriesForProductInGroup(
+        product as any,
+        {
+          ownerTenantId: matrixId.toString(),
+          initialQuantity: 0,
+          createdBy: new Types.ObjectId().toString(),
+        },
+      );
 
       // 3 tenants × 3 variants = 9 inventories
       expect(result.created).toBe(9);
@@ -264,8 +275,12 @@ describe("InventoryService — auto-create initial inventories", () => {
         createdBy: new Types.ObjectId().toString(),
       });
 
-      const ownerDoc = inventoryDocs.find((d) => d.tenantId.toString() === subAId.toString());
-      const others = inventoryDocs.filter((d) => d.tenantId.toString() !== subAId.toString());
+      const ownerDoc = inventoryDocs.find(
+        (d) => d.tenantId.toString() === subAId.toString(),
+      );
+      const others = inventoryDocs.filter(
+        (d) => d.tenantId.toString() !== subAId.toString(),
+      );
 
       expect(ownerDoc.totalQuantity).toBe(50);
       expect(ownerDoc.availableQuantity).toBe(50);
@@ -338,15 +353,54 @@ describe("InventoryService — auto-create initial inventories", () => {
         return { session: jest.fn().mockResolvedValue(null) }; // does not exist
       });
 
-      const result = await service.createInitialInventoriesForProductInGroup(product as any, {
-        ownerTenantId: matrixId.toString(),
-        initialQuantity: 0,
-        createdBy: new Types.ObjectId().toString(),
-      });
+      const result = await service.createInitialInventoriesForProductInGroup(
+        product as any,
+        {
+          ownerTenantId: matrixId.toString(),
+          initialQuantity: 0,
+          createdBy: new Types.ObjectId().toString(),
+        },
+      );
 
       // 3 tenants, 1 already exists (subA) → 2 created, 1 skipped
       expect(result.created).toBe(2);
       expect(result.skipped).toBe(1);
+    });
+
+    it("reactivates a pre-existing INACTIVE inventory instead of skipping it", async () => {
+      const product = buildProduct();
+      const inactiveDoc: any = {
+        _id: new Types.ObjectId(),
+        isActive: false,
+        save: jest.fn().mockResolvedValue({}),
+      };
+
+      // subA already has an inventory, but it's INACTIVE (was "deleted")
+      inventoryModel.findOne = jest.fn().mockImplementation((filter: any) => {
+        const tenantIds: string[] = filter?.tenantId?.$in
+          ? filter.tenantId.$in.map((x: any) => x.toString())
+          : [filter.tenantId?.toString()];
+        if (tenantIds.includes(subAId.toString())) {
+          return { session: jest.fn().mockResolvedValue(inactiveDoc) };
+        }
+        return { session: jest.fn().mockResolvedValue(null) };
+      });
+
+      const result = await service.createInitialInventoriesForProductInGroup(
+        product as any,
+        {
+          ownerTenantId: matrixId.toString(),
+          initialQuantity: 0,
+          createdBy: new Types.ObjectId().toString(),
+        },
+      );
+
+      // matrix + subB created (2), subA reactivated (1), none skipped
+      expect(result.created).toBe(2);
+      expect(result.reactivated).toBe(1);
+      expect(result.skipped).toBe(0);
+      expect(inactiveDoc.isActive).toBe(true);
+      expect(inactiveDoc.save).toHaveBeenCalled();
     });
 
     it("skips a tenant with no usable warehouse and emits a warning", async () => {
@@ -354,7 +408,8 @@ describe("InventoryService — auto-create initial inventories", () => {
 
       // subB has no warehouse
       warehouseModel.findOne = jest.fn().mockImplementation((filter: any) => {
-        const tenantIds: string[] = filter?.tenantId?.$in?.map((x: any) => x.toString()) || [];
+        const tenantIds: string[] =
+          filter?.tenantId?.$in?.map((x: any) => x.toString()) || [];
         if (tenantIds.includes(subBId.toString())) {
           return {
             select: jest.fn().mockReturnThis(),
@@ -370,16 +425,21 @@ describe("InventoryService — auto-create initial inventories", () => {
         };
       });
 
-      const result = await service.createInitialInventoriesForProductInGroup(product as any, {
-        ownerTenantId: matrixId.toString(),
-        initialQuantity: 0,
-        createdBy: new Types.ObjectId().toString(),
-      });
+      const result = await service.createInitialInventoriesForProductInGroup(
+        product as any,
+        {
+          ownerTenantId: matrixId.toString(),
+          initialQuantity: 0,
+          createdBy: new Types.ObjectId().toString(),
+        },
+      );
 
       // matrix + subA created (2), subB skipped → warning
       expect(result.created).toBe(2);
       expect(result.warnings.length).toBeGreaterThan(0);
-      expect(result.warnings.some((w) => w.includes(subBId.toString()))).toBe(true);
+      expect(result.warnings.some((w) => w.includes(subBId.toString()))).toBe(
+        true,
+      );
     });
 
     it("uses the explicit warehouseId for the owner tenant when provided", async () => {
@@ -402,8 +462,12 @@ describe("InventoryService — auto-create initial inventories", () => {
         createdBy: new Types.ObjectId().toString(),
       });
 
-      const ownerDoc = inventoryDocs.find((d) => d.tenantId.toString() === matrixId.toString());
-      expect(ownerDoc.warehouseId.toString()).toBe(customWarehouseId.toString());
+      const ownerDoc = inventoryDocs.find(
+        (d) => d.tenantId.toString() === matrixId.toString(),
+      );
+      expect(ownerDoc.warehouseId.toString()).toBe(
+        customWarehouseId.toString(),
+      );
     });
 
     it("falls back gracefully and skips IN movement if createdBy is missing for owner with initialQuantity > 0", async () => {
@@ -418,16 +482,21 @@ describe("InventoryService — auto-create initial inventories", () => {
         };
       });
 
-      const result = await service.createInitialInventoriesForProductInGroup(product as any, {
-        ownerTenantId: matrixId.toString(),
-        initialQuantity: 30,
-        // createdBy intentionally omitted
-      });
+      const result = await service.createInitialInventoriesForProductInGroup(
+        product as any,
+        {
+          ownerTenantId: matrixId.toString(),
+          initialQuantity: 30,
+          // createdBy intentionally omitted
+        },
+      );
 
       // Inventory still created, but movement skipped with warning
       expect(result.created).toBe(3);
       expect(movementDocs).toHaveLength(0);
-      expect(result.warnings.some((w) => w.toLowerCase().includes("createdby"))).toBe(true);
+      expect(
+        result.warnings.some((w) => w.toLowerCase().includes("createdby")),
+      ).toBe(true);
     });
   });
 });

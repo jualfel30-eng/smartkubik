@@ -129,6 +129,18 @@ CREAR PRODUCTO:
      ownerTenantId proviene del JWT del usuario, NO del tenant del catálogo (req.tenantId).
      El bulk endpoint (POST /products/bulk) propaga el mismo contexto pero con initialQuantity=0 forzado.
 
+ACTUALIZAR PRODUCTO (cascade producto → inventario):
+  PATCH /products/:id — el catálogo es la fuente de verdad; al actualizar, los
+  campos desnormalizados del inventario lo siguen (products.service.ts update()):
+    - sku        → inventory.productSku + inventorymovements.productSku
+    - name       → inventory.productName (movements NO tienen productName)
+    - variantSku → inventory.variantSku (identidad de variante = _id, preservado por SKU)
+    - _id de variante: se preserva por SKU; si aun así cambia, se re-vincula el
+      inventory.variantId (red de seguridad contra "variantes muertas")
+  ⚠️ productId en inventory está String u ObjectId → el cascade matchea ambas formas.
+  ⚠️ Daño histórico (pre-2026-06-26) se repara con db:repair:orphaned-inventory y
+     db:repair:dead-variant-inventory; detección con db:check:orphaned-inventory.
+
 LISTAR PRODUCTOS:
   Frontend envía: GET /products?page=1&limit=20&search=harina&category=Alimentos&sortBy=createdAt&sortOrder=desc
   
@@ -188,6 +200,13 @@ CREAR INVENTARIO:
   
   ⚠️ Si el producto YA tiene inventario → backend SUMA la cantidad (no crea duplicado)
   ⚠️ Si el inventario existía pero estaba isActive=false → lo REACTIVA
+  ⚠️ La pantalla de Inventario (findAll) filtra isActive:{$ne:false}: un doc
+     isActive=false (lo deja DELETE /inventory/:id → remove(), con qty=0) hace que
+     el producto exista en catálogo pero NO en Inventario (incidente 2026-06-26).
+     - El hook createInitialInventoriesForProductInGroup ahora REACTIVA un doc
+       inactivo en vez de saltarlo (antes hacía skipped++ y quedaba oculto).
+     - Detección: `npm run db:check:orphaned-inventory` (productos activos sin
+       inventario activo). Reparación idempotente: `db:repair:orphaned-inventory`.
 
 AJUSTAR INVENTARIO:
   Frontend envía: POST /inventory/adjust

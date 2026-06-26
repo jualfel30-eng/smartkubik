@@ -35,7 +35,8 @@ export class InventoryService {
     private movementModel: Model<InventoryMovementDocument>,
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
-    @InjectModel(Warehouse.name) private warehouseModel: Model<WarehouseDocument>,
+    @InjectModel(Warehouse.name)
+    private warehouseModel: Model<WarehouseDocument>,
     private readonly eventsService: EventsService,
     @InjectConnection() private connection: Connection,
   ) {
@@ -54,7 +55,9 @@ export class InventoryService {
    * Returns the tenantId that owns the product catalog.
    * For subsidiary tenants, products live in the parent tenant.
    */
-  private async getCatalogTenantId(tenantId: string | Types.ObjectId): Promise<Types.ObjectId> {
+  private async getCatalogTenantId(
+    tenantId: string | Types.ObjectId,
+  ): Promise<Types.ObjectId> {
     const tenant = await this.tenantModel
       .findById(tenantId)
       .select("parentTenantId isSubsidiary")
@@ -73,7 +76,9 @@ export class InventoryService {
    * Works whether the input is the matrix or a subsidiary — always returns
    * the full sibling set anchored at the matrix.
    */
-  private async getTenantGroup(tenantId: string | Types.ObjectId): Promise<Types.ObjectId[]> {
+  private async getTenantGroup(
+    tenantId: string | Types.ObjectId,
+  ): Promise<Types.ObjectId[]> {
     const inputObj = new Types.ObjectId(tenantId.toString());
     const tenant = await this.tenantModel
       .findById(inputObj)
@@ -121,19 +126,26 @@ export class InventoryService {
       createdBy?: string | Types.ObjectId;
     },
     session?: ClientSession,
-  ): Promise<{ created: number; skipped: number; warnings: string[] }> {
+  ): Promise<{
+    created: number;
+    skipped: number;
+    reactivated: number;
+    warnings: string[];
+  }> {
     const ownerTenantIdStr = options.ownerTenantId.toString();
     const initialQty = Math.max(0, options.initialQuantity ?? 0);
     const warnings: string[] = [];
 
     const groupTenantIds = await this.getTenantGroup(ownerTenantIdStr);
 
-    const variantsList = (product.variants && product.variants.length > 0)
-      ? product.variants
-      : [null];
+    const variantsList =
+      product.variants && product.variants.length > 0
+        ? product.variants
+        : [null];
 
     let created = 0;
     let skipped = 0;
+    let reactivated = 0;
 
     for (const tenantId of groupTenantIds) {
       const isOwner = tenantId.toString() === ownerTenantIdStr;
@@ -190,10 +202,7 @@ export class InventoryService {
         if (!existing && variantId && variantsList.length === 1) {
           const legacyFilter = {
             ...baseFilter,
-            $or: [
-              { variantId: { $exists: false } },
-              { variantId: null },
-            ],
+            $or: [{ variantId: { $exists: false } }, { variantId: null }],
           };
           const legacy = await this.inventoryModel
             .findOne(legacyFilter)
@@ -210,7 +219,27 @@ export class InventoryService {
         }
 
         if (existing) {
-          skipped++;
+          // Si el doc preexistente está inactivo (p.ej. fue "eliminado" vía
+          // inventory.remove(), que pone isActive=false + qty 0), se REACTIVA en
+          // vez de saltarlo: si no, el producto queda silenciosamente oculto del
+          // inventario aunque sigue en el catálogo. Espejo de la reactivación que
+          // ya hace create() (system-map §1.4).
+          if (
+            existing.isActive === false ||
+            (existing as any).isDeleted === true
+          ) {
+            existing.isActive = true;
+            (existing as any).isDeleted = false;
+            if (options.createdBy) {
+              existing.updatedBy = new Types.ObjectId(
+                options.createdBy.toString(),
+              );
+            }
+            await existing.save({ session });
+            reactivated++;
+          } else {
+            skipped++;
+          }
           continue;
         }
 
@@ -246,7 +275,9 @@ export class InventoryService {
         if (variantId) inventoryDoc.variantId = variantId;
         if (variantSku) inventoryDoc.variantSku = variantSku;
         if (options.createdBy) {
-          inventoryDoc.createdBy = new Types.ObjectId(options.createdBy.toString());
+          inventoryDoc.createdBy = new Types.ObjectId(
+            options.createdBy.toString(),
+          );
         }
 
         const inventory = new this.inventoryModel(inventoryDoc);
@@ -296,7 +327,7 @@ export class InventoryService {
       );
     }
 
-    return { created, skipped, warnings };
+    return { created, skipped, reactivated, warnings };
   }
 
   async create(
@@ -328,18 +359,17 @@ export class InventoryService {
     // Allow adding inventory to existing products (removed restriction)
     // Users can now add more inventory even if the product already has stock
 
-    const processedLots =
-      (createInventoryDto.lots?.map((lot) => {
-        const { supplierId, ...lotRest } = lot;
-        return {
-          ...lotRest,
-          availableQuantity: lot.quantity,
-          reservedQuantity: 0,
-          createdBy: user.id,
-          status: 'active' as const,
-          ...(supplierId && { supplierId: new Types.ObjectId(supplierId) }),
-        };
-      }) || []) as any[];
+    const processedLots = (createInventoryDto.lots?.map((lot) => {
+      const { supplierId, ...lotRest } = lot;
+      return {
+        ...lotRest,
+        availableQuantity: lot.quantity,
+        reservedQuantity: 0,
+        createdBy: user.id,
+        status: "active" as const,
+        ...(supplierId && { supplierId: new Types.ObjectId(supplierId) }),
+      };
+    }) || []) as any[];
 
     // Resolve warehouseId: use DTO value or fall back to default warehouse
     const resolvedWarehouseId = createInventoryDto.warehouseId
@@ -351,7 +381,12 @@ export class InventoryService {
     // Saldo previo (antes de incrementar/reactivar/crear) para el movimiento.
     const balanceBefore = inventory
       ? this.snapshotBalance(inventory)
-      : { totalQuantity: 0, availableQuantity: 0, reservedQuantity: 0, averageCostPrice: 0 };
+      : {
+          totalQuantity: 0,
+          availableQuantity: 0,
+          reservedQuantity: 0,
+          averageCostPrice: 0,
+        };
 
     if (inventory && inventory.isActive !== false) {
       // Inventory exists and is active - INCREMENT the quantities
@@ -369,9 +404,13 @@ export class InventoryService {
       }
 
       // Update average cost price (weighted average)
-      const oldTotalValue = (inventory.totalQuantity - createInventoryDto.totalQuantity) * inventory.averageCostPrice;
-      const newTotalValue = createInventoryDto.totalQuantity * createInventoryDto.averageCostPrice;
-      inventory.averageCostPrice = (oldTotalValue + newTotalValue) / inventory.totalQuantity;
+      const oldTotalValue =
+        (inventory.totalQuantity - createInventoryDto.totalQuantity) *
+        inventory.averageCostPrice;
+      const newTotalValue =
+        createInventoryDto.totalQuantity * createInventoryDto.averageCostPrice;
+      inventory.averageCostPrice =
+        (oldTotalValue + newTotalValue) / inventory.totalQuantity;
       inventory.lastCostPrice = createInventoryDto.averageCostPrice;
       inventory.updatedBy = user.id;
     } else if (inventory && inventory.isActive === false) {
@@ -475,7 +514,10 @@ export class InventoryService {
     return savedInventory;
   }
 
-  async getTopInventoryItems(tenantId: string, limit: number = 20): Promise<any[]> {
+  async getTopInventoryItems(
+    tenantId: string,
+    limit: number = 20,
+  ): Promise<any[]> {
     const inventoryItems = await this.inventoryModel
       .find({
         tenantId: this.buildTenantFilter(tenantId),
@@ -595,31 +637,34 @@ export class InventoryService {
     const quantityNum = Number(quantity);
 
     switch (movementType?.toLowerCase()) {
-      case 'in':
+      case "in":
         // Add stock for IN movements
         inventory.totalQuantity += quantityNum;
         inventory.availableQuantity += quantityNum;
         // Update average cost price using weighted average
         if (unitCost && inventory.totalQuantity > 0) {
-          const oldValue = inventory.averageCostPrice * (inventory.totalQuantity - quantityNum);
+          const oldValue =
+            inventory.averageCostPrice *
+            (inventory.totalQuantity - quantityNum);
           const newValue = unitCost * quantityNum;
-          inventory.averageCostPrice = (oldValue + newValue) / inventory.totalQuantity;
+          inventory.averageCostPrice =
+            (oldValue + newValue) / inventory.totalQuantity;
         }
         break;
 
-      case 'out':
+      case "out":
         // Subtract stock for OUT movements
         // Validate sufficient stock
         if (inventory.availableQuantity < quantityNum) {
           throw new Error(
-            `Stock insuficiente. Disponible: ${inventory.availableQuantity}, Solicitado: ${quantityNum}`
+            `Stock insuficiente. Disponible: ${inventory.availableQuantity}, Solicitado: ${quantityNum}`,
           );
         }
         inventory.totalQuantity -= quantityNum;
         inventory.availableQuantity -= quantityNum;
         break;
 
-      case 'adjustment':
+      case "adjustment":
         // For adjustments, the quantity represents the absolute change
         const difference = quantityNum;
         inventory.totalQuantity += difference;
@@ -629,7 +674,7 @@ export class InventoryService {
         }
         break;
 
-      case 'transfer':
+      case "transfer":
         // Transfers are handled separately via transfer-orders service
         // This shouldn't be called for transfers
         break;
@@ -921,7 +966,7 @@ export class InventoryService {
 
       const tenantId = this.buildTenantFilter(user.tenantId);
       const catalogTenantId = await this.getCatalogTenantId(user.tenantId);
-      const skus = bulkAdjustDto.items.map(i => i.SKU);
+      const skus = bulkAdjustDto.items.map((i) => i.SKU);
 
       // Pre-fetch all relevant inventories and products to avoid N+1 queries
       const existingInventoriesArr = await this.inventoryModel
@@ -935,7 +980,7 @@ export class InventoryService {
 
       const inventoriesBySkuVariant = new Map<string, InventoryDocument>();
       for (const inv of existingInventoriesArr) {
-        const key = `${inv.productSku}_${inv.variantSku || ''}`;
+        const key = `${inv.productSku}_${inv.variantSku || ""}`;
         inventoriesBySkuVariant.set(key, inv);
       }
 
@@ -945,7 +990,7 @@ export class InventoryService {
       }
 
       for (const item of bulkAdjustDto.items) {
-        const key = `${item.SKU}_${item.variantSku || ''}`;
+        const key = `${item.SKU}_${item.variantSku || ""}`;
         let inventory = inventoriesBySkuVariant.get(key);
         let isNewInventory = false;
 
@@ -962,7 +1007,9 @@ export class InventoryService {
           let variantId: Types.ObjectId | undefined = undefined;
           let costPrice = 0;
           if (item.variantSku && product.variants?.length > 0) {
-            const variant = product.variants.find((v: any) => v.sku === item.variantSku);
+            const variant = product.variants.find(
+              (v: any) => v.sku === item.variantSku,
+            );
             if (variant) {
               variantId = variant._id;
               costPrice = variant.costPrice || 0;
@@ -1001,7 +1048,9 @@ export class InventoryService {
             createdBy: user.id,
           });
           isNewInventory = true;
-          this.logger.log(`Inventario inicializado al vuelo para SKU: ${item.SKU}`);
+          this.logger.log(
+            `Inventario inicializado al vuelo para SKU: ${item.SKU}`,
+          );
         }
 
         inventory.availableQuantity = inventory.availableQuantity ?? 0;
@@ -1041,24 +1090,24 @@ export class InventoryService {
 
           const previousCombinationTotals = combination
             ? {
-              total: combination.totalQuantity ?? 0,
-              reserved: combination.reservedQuantity ?? 0,
-              committed: combination.committedQuantity ?? 0,
-              available:
-                combination.availableQuantity ??
-                Math.max(
-                  0,
-                  (combination.totalQuantity ?? 0) -
-                  (combination.reservedQuantity ?? 0) -
-                  (combination.committedQuantity ?? 0),
-                ),
-            }
+                total: combination.totalQuantity ?? 0,
+                reserved: combination.reservedQuantity ?? 0,
+                committed: combination.committedQuantity ?? 0,
+                available:
+                  combination.availableQuantity ??
+                  Math.max(
+                    0,
+                    (combination.totalQuantity ?? 0) -
+                      (combination.reservedQuantity ?? 0) -
+                      (combination.committedQuantity ?? 0),
+                  ),
+              }
             : {
-              total: 0,
-              reserved: 0,
-              committed: 0,
-              available: 0,
-            };
+                total: 0,
+                reserved: 0,
+                committed: 0,
+                available: 0,
+              };
 
           if (!combination) {
             combination = {
@@ -1131,11 +1180,11 @@ export class InventoryService {
           inventoriesBySkuVariant.set(key, inventory);
         } else {
           // Otherwise, we flag it as modified. We'll bulkWrite it below.
-          inventory.markModified('totalQuantity');
-          inventory.markModified('availableQuantity');
-          inventory.markModified('reservedQuantity');
-          inventory.markModified('committedQuantity');
-          inventory.markModified('attributeCombinations');
+          inventory.markModified("totalQuantity");
+          inventory.markModified("availableQuantity");
+          inventory.markModified("reservedQuantity");
+          inventory.markModified("committedQuantity");
+          inventory.markModified("attributeCombinations");
         }
 
         const totalDifference =
@@ -1166,7 +1215,7 @@ export class InventoryService {
       }
 
       // Execute Bulk updates for existing inventories
-      const bulkOps = results.map(inv => ({
+      const bulkOps = results.map((inv) => ({
         updateOne: {
           filter: { _id: inv._id },
           update: {
@@ -1176,9 +1225,9 @@ export class InventoryService {
               reservedQuantity: inv.reservedQuantity,
               committedQuantity: inv.committedQuantity,
               attributeCombinations: inv.attributeCombinations,
-            }
-          }
-        }
+            },
+          },
+        },
       }));
 
       // Only perform bulkWrite if there are operations (some might be new ones just saved)
@@ -1191,7 +1240,7 @@ export class InventoryService {
         await this.movementModel.insertMany(movementsToInsert, { session });
       }
 
-      // Check alerts (this still loops, but takes much less DB calls because it uses bulk writes internally where possible, 
+      // Check alerts (this still loops, but takes much less DB calls because it uses bulk writes internally where possible,
       // though eventsService creates individually. We'll await inside the loop to ensure they finish.
       // In production this might be offloaded to an event emitter or queue)
       for (const inv of alertsToCheck) {
@@ -1207,7 +1256,7 @@ export class InventoryService {
       // Avoid crash if the transaction was already aborted by the server
       try {
         await session.abortTransaction();
-      } catch (e) { }
+      } catch (e) {}
 
       this.logger.error(
         `Error durante el ajuste masivo de inventario: ${error.message}`,
@@ -1469,7 +1518,12 @@ export class InventoryService {
         $project: {
           _id: 1,
           productName: { $ifNull: ["$productName", "$productInfo.name"] },
-          productSku: { $ifNull: ["$productSku", { $arrayElemAt: ["$productInfo.variants.sku", 0] }] },
+          productSku: {
+            $ifNull: [
+              "$productSku",
+              { $arrayElemAt: ["$productInfo.variants.sku", 0] },
+            ],
+          },
           availableQuantity: 1,
           minimumStock: "$productInfo.inventoryConfig.minimumStock",
           // Inline a partial product doc so the frontend can resolve the
@@ -1569,7 +1623,11 @@ export class InventoryService {
       {
         $match: {
           tenantId: this.buildTenantFilter(tenantId),
-          "lots.expirationDate": { $exists: true, $type: "date", $lte: alertDate },
+          "lots.expirationDate": {
+            $exists: true,
+            $type: "date",
+            $lte: alertDate,
+          },
           "lots.status": "available",
           isActive: { $ne: false },
         },
@@ -1594,8 +1652,16 @@ export class InventoryService {
               { category: { $arrayElemAt: ["$productData.category", 0] } },
               { variants: { $arrayElemAt: ["$productData.variants", 0] } },
               { suppliers: { $arrayElemAt: ["$productData.suppliers", 0] } },
-              { isPerishable: { $arrayElemAt: ["$productData.isPerishable", 0] } },
-              { inventoryConfig: { $arrayElemAt: ["$productData.inventoryConfig", 0] } },
+              {
+                isPerishable: {
+                  $arrayElemAt: ["$productData.isPerishable", 0],
+                },
+              },
+              {
+                inventoryConfig: {
+                  $arrayElemAt: ["$productData.inventoryConfig", 0],
+                },
+              },
             ],
           },
         },
@@ -1780,7 +1846,10 @@ export class InventoryService {
         .sort(sortOptions)
         .skip(skip)
         .limit(limitNumber)
-        .populate("productId", "name category brand isPerishable variants sellingUnits hasMultipleSellingUnits unitOfMeasure isSoldByWeight")
+        .populate(
+          "productId",
+          "name category brand isPerishable variants sellingUnits hasMultipleSellingUnits unitOfMeasure isSoldByWeight",
+        )
         .exec(),
       this.inventoryModel.countDocuments(filter),
     ]);
@@ -1906,7 +1975,10 @@ export class InventoryService {
         .session(session ?? null);
 
       // Only use if it belongs to the same product (prevent cross-product contamination)
-      if (skuInventory && skuInventory.productId?.toString() === item.productId?.toString()) {
+      if (
+        skuInventory &&
+        skuInventory.productId?.toString() === item.productId?.toString()
+      ) {
         inventory = skuInventory;
       } else if (skuInventory) {
         this.logger.warn(
@@ -2001,7 +2073,9 @@ export class InventoryService {
 
     // Sync average cost price back to product variant so auto-calculate pricing stays accurate
     const variantIndex = product.variants.findIndex(
-      (v: any) => v.sku === sku || (item.variantId && v._id?.toString() === item.variantId?.toString()),
+      (v: any) =>
+        v.sku === sku ||
+        (item.variantId && v._id?.toString() === item.variantId?.toString()),
     );
     if (variantIndex !== -1) {
       const variant = product.variants[variantIndex] as any;
@@ -2010,11 +2084,14 @@ export class InventoryService {
 
       // Re-calculate basePrice if auto-calculate is enabled
       const strategy = variant.pricingStrategy;
-      if (strategy?.autoCalculate && strategy.mode !== 'manual') {
+      if (strategy?.autoCalculate && strategy.mode !== "manual") {
         let newBasePrice: number | null = null;
-        if (strategy.mode === 'markup' && strategy.markupPercentage != null) {
+        if (strategy.mode === "markup" && strategy.markupPercentage != null) {
           newBasePrice = newCostPrice * (1 + strategy.markupPercentage / 100);
-        } else if (strategy.mode === 'margin' && strategy.marginPercentage != null) {
+        } else if (
+          strategy.mode === "margin" &&
+          strategy.marginPercentage != null
+        ) {
           const divisor = 1 - strategy.marginPercentage / 100;
           if (divisor > 0) newBasePrice = newCostPrice / divisor;
         }
@@ -2023,12 +2100,12 @@ export class InventoryService {
         }
       }
 
-      product.markModified('variants');
+      product.markModified("variants");
       // Sanitize legacy supplier entries missing required fields
       if (product.suppliers?.length) {
         for (const s of product.suppliers) {
-          if (!s.supplierName) s.supplierName = 'Proveedor';
-          if (!s.supplierSku) s.supplierSku = '-';
+          if (!s.supplierName) s.supplierName = "Proveedor";
+          if (!s.supplierSku) s.supplierSku = "-";
           if (s.costPrice == null) s.costPrice = 0;
           if (s.leadTimeDays == null) s.leadTimeDays = 1;
           if (s.minimumOrderQuantity == null) s.minimumOrderQuantity = 1;
@@ -2105,32 +2182,43 @@ export class InventoryService {
    * Get the default warehouse for a tenant
    * Returns the primary warehouse, or the first active warehouse if no primary is set
    */
-  private async getDefaultWarehouse(tenantId: string | Types.ObjectId): Promise<Types.ObjectId | undefined> {
+  private async getDefaultWarehouse(
+    tenantId: string | Types.ObjectId,
+  ): Promise<Types.ObjectId | undefined> {
     try {
       const tenantFilter = this.buildTenantFilter(tenantId);
 
       // Try to find default warehouse first
-      const defaultWarehouse = await this.warehouseModel.findOne({
-        tenantId: tenantFilter,
-        isDefault: true,
-        isActive: true,
-        isDeleted: false
-      }).select('_id').lean();
+      const defaultWarehouse = await this.warehouseModel
+        .findOne({
+          tenantId: tenantFilter,
+          isDefault: true,
+          isActive: true,
+          isDeleted: false,
+        })
+        .select("_id")
+        .lean();
 
       if (defaultWarehouse) {
         return defaultWarehouse._id;
       }
 
       // If no default, get first active warehouse
-      const anyWarehouse = await this.warehouseModel.findOne({
-        tenantId: tenantFilter,
-        isActive: true,
-        isDeleted: false
-      }).select('_id').lean();
+      const anyWarehouse = await this.warehouseModel
+        .findOne({
+          tenantId: tenantFilter,
+          isActive: true,
+          isDeleted: false,
+        })
+        .select("_id")
+        .lean();
 
       return anyWarehouse?._id;
     } catch (error) {
-      this.logger.error(`Error getting default warehouse for tenant ${tenantId}:`, error);
+      this.logger.error(
+        `Error getting default warehouse for tenant ${tenantId}:`,
+        error,
+      );
       return undefined;
     }
   }
@@ -2322,7 +2410,9 @@ export class InventoryService {
     }
 
     if (!inventory) {
-      this.logger.warn(`Inventory not found for SKU: ${sku} during deduction. Skipping.`);
+      this.logger.warn(
+        `Inventory not found for SKU: ${sku} during deduction. Skipping.`,
+      );
       return;
     }
 

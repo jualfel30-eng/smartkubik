@@ -3,14 +3,22 @@ import {
   Logger,
   Inject,
   forwardRef,
-  InternalServerErrorException,
   NotFoundException,
-  BadRequestException
+  BadRequestException,
 } from "@nestjs/common";
 import { InjectModel, InjectConnection } from "@nestjs/mongoose";
 import { Model, Connection, Types } from "mongoose";
-import { Product, ProductDocument, ProductType } from "../../schemas/product.schema";
-import { Inventory, InventoryDocument, InventoryMovement, InventoryMovementDocument } from "../../schemas/inventory.schema";
+import {
+  Product,
+  ProductDocument,
+  ProductType,
+} from "../../schemas/product.schema";
+import {
+  Inventory,
+  InventoryDocument,
+  InventoryMovement,
+  InventoryMovementDocument,
+} from "../../schemas/inventory.schema";
 import { Tenant, TenantDocument } from "../../schemas/tenant.schema";
 import { CustomersService } from "../customers/customers.service";
 import { PurchasesService } from "../purchases/purchases.service";
@@ -28,7 +36,10 @@ import { OpenaiService } from "../openai/openai.service";
 import { PriceHistoryService } from "../price-history/price-history.service";
 import { PriceListsService } from "../price-lists/price-lists.service";
 import sharp from "sharp";
-import { calculatePriceWithRounding, validatePricingStrategy } from "../../utils/pricing-strategy.util";
+import {
+  calculatePriceWithRounding,
+  validatePricingStrategy,
+} from "../../utils/pricing-strategy.util";
 import { accentInsensitiveRegex } from "../../utils/accent-regex.util";
 
 @Injectable()
@@ -44,13 +55,15 @@ export class ProductsService {
     @InjectModel(Tenant.name) private tenantModel: Model<TenantDocument>,
     private readonly customersService: CustomersService,
     private readonly purchasesService: PurchasesService,
-    @Inject(forwardRef(() => SuppliersService)) private readonly suppliersService: SuppliersService,
+    @Inject(forwardRef(() => SuppliersService))
+    private readonly suppliersService: SuppliersService,
     private readonly openaiService: OpenaiService,
     private readonly priceHistoryService: PriceHistoryService,
     private readonly priceListsService: PriceListsService,
-    @Inject(forwardRef(() => InventoryService)) private readonly inventoryService: InventoryService,
+    @Inject(forwardRef(() => InventoryService))
+    private readonly inventoryService: InventoryService,
     @InjectConnection() private readonly connection: Connection,
-  ) { }
+  ) {}
 
   private collectNormalizedBarcodes(variants: any[]): string[] {
     const uniqueBarcodes = new Set<string>();
@@ -128,7 +141,7 @@ export class ProductsService {
 
       // Si la estrategia es manual o autoCalculate está desactivado, mantener basePrice
       if (
-        variant.pricingStrategy.mode === 'manual' ||
+        variant.pricingStrategy.mode === "manual" ||
         !variant.pricingStrategy.autoCalculate
       ) {
         return variant;
@@ -159,20 +172,25 @@ export class ProductsService {
     // Extract prefix: first 3 alphanumeric letters of tenant name, uppercase. Fallback to "TNT"
     let prefix = "TNT";
     if (tenant.name) {
-      prefix = tenant.name.replace(/[^a-zA-Z0-9]/gi, '').substring(0, 3).toUpperCase();
-      if (prefix.length < 3) prefix = prefix.padEnd(3, 'X');
+      prefix = tenant.name
+        .replace(/[^a-zA-Z0-9]/gi, "")
+        .substring(0, 3)
+        .toUpperCase();
+      if (prefix.length < 3) prefix = prefix.padEnd(3, "X");
     }
 
     let baseNumber = tenant.usage?.currentProducts || 0;
     let isUnique = false;
-    let newSku = '';
+    let newSku = "";
 
     while (!isUnique) {
       baseNumber++;
-      const numberStr = baseNumber.toString().padStart(4, '0');
+      const numberStr = baseNumber.toString().padStart(4, "0");
       newSku = `${prefix}-${numberStr}`;
 
-      const existing = await this.productModel.findOne({ sku: newSku, tenantId: new Types.ObjectId(tenantId) }).lean();
+      const existing = await this.productModel
+        .findOne({ sku: newSku, tenantId: new Types.ObjectId(tenantId) })
+        .lean();
       if (!existing) {
         isUnique = true;
       }
@@ -211,9 +229,12 @@ export class ProductsService {
     }
     if (dto.product.variants && dto.product.variants.length > 0) {
       dto.product.variants.forEach((v, index) => {
-        if (!v.sku || v.sku === 'SKU') {
+        if (!v.sku || v.sku === "SKU") {
           // Primary variant (index 0) uses the product SKU directly
-          v.sku = index === 0 ? dto.product.sku : `${dto.product.sku}-VAR${index + 1}`;
+          v.sku =
+            index === 0
+              ? dto.product.sku
+              : `${dto.product.sku}-VAR${index + 1}`;
         }
         if (!v.barcode || !v.barcode.trim()) {
           v.barcode = v.sku;
@@ -245,7 +266,9 @@ export class ProductsService {
         const supplierContacts: any[] = [];
         if (dto.supplier.newSupplierContactPhone) {
           supplierContacts.push({
-            name: dto.supplier.newSupplierContactName || dto.supplier.newSupplierName,
+            name:
+              dto.supplier.newSupplierContactName ||
+              dto.supplier.newSupplierName,
             type: "phone",
             value: dto.supplier.newSupplierContactPhone,
             isPrimary: true,
@@ -253,7 +276,9 @@ export class ProductsService {
         }
         if (dto.supplier.newSupplierContactEmail) {
           supplierContacts.push({
-            name: dto.supplier.newSupplierContactName || dto.supplier.newSupplierName,
+            name:
+              dto.supplier.newSupplierContactName ||
+              dto.supplier.newSupplierName,
             type: "email",
             value: dto.supplier.newSupplierContactEmail,
             isPrimary: supplierContacts.length === 0,
@@ -270,12 +295,14 @@ export class ProductsService {
           contacts: supplierContacts,
         } as any;
         if (dto.supplier.newSupplierAddress) {
-          (newCustomerDto as any).addresses = [{
-            street: dto.supplier.newSupplierAddress.street || '',
-            city: dto.supplier.newSupplierAddress.city || '',
-            state: dto.supplier.newSupplierAddress.state || '',
-            isDefault: true,
-          }];
+          (newCustomerDto as any).addresses = [
+            {
+              street: dto.supplier.newSupplierAddress.street || "",
+              city: dto.supplier.newSupplierAddress.city || "",
+              state: dto.supplier.newSupplierAddress.state || "",
+              isDefault: true,
+            },
+          ];
         }
         const newSupplier = await this.customersService.create(
           newCustomerDto,
@@ -331,7 +358,9 @@ export class ProductsService {
       if (dto.paymentTerms.isCredit && dto.paymentTerms.paymentDueDate) {
         const purchaseDate = new Date(dto.purchaseDate);
         const dueDate = new Date(dto.paymentTerms.paymentDueDate);
-        creditDays = Math.ceil((dueDate.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24));
+        creditDays = Math.ceil(
+          (dueDate.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24),
+        );
         // Ensure not negative
         creditDays = creditDays > 0 ? creditDays : 0;
       }
@@ -339,14 +368,14 @@ export class ProductsService {
       // Calculate amounts for advance payment logic
       const totalAmount = dto.inventory.quantity * dto.inventory.costPrice;
       const advancePaymentAmount = dto.paymentTerms.requiresAdvancePayment
-        ? (totalAmount * (dto.paymentTerms.advancePaymentPercentage / 100))
+        ? totalAmount * (dto.paymentTerms.advancePaymentPercentage / 100)
         : 0;
       const remainingBalance = totalAmount - advancePaymentAmount;
 
       const purchaseDto: any = {
         supplierId: supplierId,
         purchaseDate: dto.purchaseDate,
-        documentType: dto.documentType || 'factura_fiscal',
+        documentType: dto.documentType || "factura_fiscal",
         invoiceNumber: dto.invoiceNumber || undefined,
         subtotal: dto.subtotal,
         ivaTotal: dto.ivaTotal,
@@ -431,9 +460,12 @@ export class ProductsService {
     }
     if (createProductDto.variants && createProductDto.variants.length > 0) {
       createProductDto.variants.forEach((v, index) => {
-        if (!v.sku || v.sku === 'SKU') {
+        if (!v.sku || v.sku === "SKU") {
           // Primary variant (index 0) uses the product SKU directly
-          v.sku = index === 0 ? createProductDto.sku : `${createProductDto.sku}-VAR${index + 1}`;
+          v.sku =
+            index === 0
+              ? createProductDto.sku
+              : `${createProductDto.sku}-VAR${index + 1}`;
         }
       });
     }
@@ -460,7 +492,7 @@ export class ProductsService {
     ) {
       throw new BadRequestException(
         "Los productos SIMPLE deben usar SellingUnits, no UnitConversion. " +
-        "El sistema de conversión purchase/stock/consumption es solo para productos SUPPLY y CONSUMABLE.",
+          "El sistema de conversión purchase/stock/consumption es solo para productos SUPPLY y CONSUMABLE.",
       );
     }
 
@@ -474,7 +506,7 @@ export class ProductsService {
     ) {
       this.logger.warn(
         `Product ${createProductDto.sku} is SUPPLY/CONSUMABLE but has multiple selling units. ` +
-        `Consider using ProductConsumableConfig or ProductSupplyConfig instead.`,
+          `Consider using ProductConsumableConfig or ProductSupplyConfig instead.`,
       );
     }
 
@@ -502,21 +534,34 @@ export class ProductsService {
 
     if (inventoryContext) {
       try {
-        const result = await this.inventoryService.createInitialInventoriesForProductInGroup(
-          savedProduct,
-          {
-            ownerTenantId: inventoryContext.ownerTenantId,
-            warehouseId: inventoryContext.warehouseId,
-            initialQuantity: inventoryContext.initialQuantity,
-            createdBy: user.id,
-          },
-        );
+        const result =
+          await this.inventoryService.createInitialInventoriesForProductInGroup(
+            savedProduct,
+            {
+              ownerTenantId: inventoryContext.ownerTenantId,
+              warehouseId: inventoryContext.warehouseId,
+              initialQuantity: inventoryContext.initialQuantity,
+              createdBy: user.id,
+            },
+          );
         this.logger.log(
-          `Initial inventories for ${savedProduct.sku}: ${result.created} created, ${result.skipped} skipped`,
+          `Initial inventories for ${savedProduct.sku}: ${result.created} created, ${result.reactivated} reactivated, ${result.skipped} skipped`,
         );
+        if (result.warnings.length > 0) {
+          // Un producto creado SIN inventario (p.ej. tenant sin warehouse usable)
+          // es la causa de "producto en catálogo pero no en inventario". Debe ser
+          // visible/detectable, no quedar tragado en silencio.
+          this.logger.warn(
+            `⚠️ INVENTORY_GAP product=${savedProduct.sku} (${savedProduct._id}): ${result.warnings.join(" | ")}`,
+          );
+        }
       } catch (err) {
+        // No abortamos la creación del producto (es intencional), pero el fallo
+        // NO puede quedar invisible: log con stack + marcador greppable para
+        // monitoreo. La detección operativa vive en db:check:orphaned-inventory.
         this.logger.error(
-          `Failed to create initial inventories for ${savedProduct.sku}: ${err.message}`,
+          `⚠️ INVENTORY_GAP product=${savedProduct.sku} (${savedProduct._id}): failed to create initial inventories: ${err.message}`,
+          err.stack,
         );
       }
     }
@@ -539,7 +584,9 @@ export class ProductsService {
       let productIndex = 0;
       for (const productDto of bulkCreateProductsDto.products) {
         productIndex++;
-        this.logger.log(`Processing product ${productIndex}/${bulkCreateProductsDto.products.length}: SKU ${productDto.sku}`);
+        this.logger.log(
+          `Processing product ${productIndex}/${bulkCreateProductsDto.products.length}: SKU ${productDto.sku}`,
+        );
 
         const createProductDto: CreateProductDto = {
           sku: productDto.sku,
@@ -553,7 +600,7 @@ export class ProductsService {
           ingredients: productDto.ingredients,
           isPerishable: productDto.isPerishable,
           shelfLifeDays: productDto.shelfLifeDays,
-          shelfLifeUnit: productDto.shelfLifeUnit || 'days',
+          shelfLifeUnit: productDto.shelfLifeUnit || "days",
           storageTemperature: productDto.storageTemperature,
           ivaApplicable: productDto.ivaApplicable,
           ivaRate: productDto.ivaRate ?? 0,
@@ -577,7 +624,9 @@ export class ProductsService {
           variants: [
             {
               name: productDto.variantName,
-              sku: productDto.variantSku || (productDto.sku ? `${productDto.sku}-VAR1` : ""),
+              sku:
+                productDto.variantSku ||
+                (productDto.sku ? `${productDto.sku}-VAR1` : ""),
               barcode: productDto.variantBarcode || "",
               unit: productDto.variantUnit || "und",
               unitSize: productDto.variantUnitSize,
@@ -607,13 +656,17 @@ export class ProductsService {
               : undefined,
           );
           createdProducts.push(createdProduct);
-          this.logger.log(`✅ Successfully created product ${productIndex}: ${productDto.sku}`);
+          this.logger.log(
+            `✅ Successfully created product ${productIndex}: ${productDto.sku}`,
+          );
         } catch (productError) {
           this.logger.error(
             `❌ Error creating product ${productIndex} (SKU: ${productDto.sku}): ${productError.message}`,
             productError.stack,
           );
-          throw new Error(`Error en producto ${productIndex} (SKU: ${productDto.sku}): ${productError.message}`);
+          throw new Error(
+            `Error en producto ${productIndex} (SKU: ${productDto.sku}): ${productError.message}`,
+          );
         }
       }
 
@@ -665,7 +718,6 @@ export class ProductsService {
     const limitNumber = Math.max(Number(limit) || 20, 1);
     const searchTerm = typeof search === "string" ? search.trim() : "";
     const isSearching = searchTerm.length > 0;
-    let looksLikeCode = false;
     let useTextSearch = false;
 
     const filter: any = {
@@ -686,7 +738,9 @@ export class ProductsService {
     if (supplierId && Types.ObjectId.isValid(supplierId)) {
       // Support both String and ObjectId types for backward compatibility
       // Some products have supplierId as String, others as ObjectId
-      filter["suppliers.supplierId"] = { $in: [supplierId, new Types.ObjectId(supplierId)] };
+      filter["suppliers.supplierId"] = {
+        $in: [supplierId, new Types.ObjectId(supplierId)],
+      };
     }
     if (query.excludeProductIds?.length) {
       const ids = query.excludeProductIds
@@ -716,9 +770,9 @@ export class ProductsService {
     }
     if (isSearching) {
       // Split by spaces to allow non-contiguous matches (e.g. "aceite oliva" matches "aceite de oliva")
-      const words = searchTerm.split(/\s+/).filter(w => w.length > 0);
+      const words = searchTerm.split(/\s+/).filter((w) => w.length > 0);
 
-      const searchConditions = words.map(word => {
+      const searchConditions = words.map((word) => {
         const regex = accentInsensitiveRegex(word);
         return {
           $or: [
@@ -730,7 +784,7 @@ export class ProductsService {
             { "variants.name": regex },
             { "variants.sku": regex },
             { "variants.barcode": regex },
-          ]
+          ],
         };
       });
 
@@ -938,7 +992,10 @@ export class ProductsService {
     // 2. Resolve Supplier (Check Explicit or Create from Virtual)
     let supplier;
     try {
-      supplier = await this.suppliersService.ensureSupplierProfile(dto.supplierId, user);
+      supplier = await this.suppliersService.ensureSupplierProfile(
+        dto.supplierId,
+        user,
+      );
     } catch (error) {
       throw new NotFoundException("Proveedor no encontrado");
     }
@@ -1066,7 +1123,7 @@ export class ProductsService {
     ) {
       throw new BadRequestException(
         "Los productos SIMPLE deben usar SellingUnits, no UnitConversion. " +
-        "El sistema de conversión purchase/stock/consumption es solo para productos SUPPLY y CONSUMABLE.",
+          "El sistema de conversión purchase/stock/consumption es solo para productos SUPPLY y CONSUMABLE.",
       );
     }
 
@@ -1086,7 +1143,10 @@ export class ProductsService {
     }
 
     // Check if SKU is being updated
-    if (updateProductDto.sku && updateProductDto.sku !== productBeforeUpdate.sku) {
+    if (
+      updateProductDto.sku &&
+      updateProductDto.sku !== productBeforeUpdate.sku
+    ) {
       const existingProduct = await this.productModel.findOne({
         sku: updateProductDto.sku,
         tenantId: user.tenantId,
@@ -1100,7 +1160,7 @@ export class ProductsService {
     }
 
     // Process pricing strategies for variants if they're being updated
-    let updateData: any = { ...updateProductDto, updatedBy: user.id };
+    const updateData: any = { ...updateProductDto, updatedBy: user.id };
     if (updateProductDto.variants && updateProductDto.variants.length > 0) {
       const processedVariants = this.processVariantPricing(
         updateProductDto.variants,
@@ -1128,7 +1188,10 @@ export class ProductsService {
       .exec();
 
     // Cascade update to Inventory and InventoryMovement if SKU changed
-    if (updateProductDto.sku && updateProductDto.sku !== productBeforeUpdate.sku) {
+    if (
+      updateProductDto.sku &&
+      updateProductDto.sku !== productBeforeUpdate.sku
+    ) {
       await this.inventoryModel.updateMany(
         { productId: productBeforeUpdate._id },
         { $set: { productSku: updateProductDto.sku } },
@@ -1144,6 +1207,85 @@ export class ProductsService {
       );
     }
 
+    // Cascade NAME change to Inventory (campo desnormalizado productName). El
+    // catálogo es la fuente de verdad: si el producto se renombra, el inventario
+    // debe seguirlo. Antes solo se cascadeaba el SKU → quedaban nombres viejos en
+    // inventario (drift de ~20% de los docs). productId puede estar String u
+    // ObjectId (gotcha objectid-vs-string) → matchear ambas formas.
+    // Nota: InventoryMovement no tiene productName, por eso solo se toca Inventory.
+    const productIdForms = [
+      productBeforeUpdate._id,
+      productBeforeUpdate._id.toString(),
+    ];
+    if (
+      updateProductDto.name &&
+      updateProductDto.name !== productBeforeUpdate.name
+    ) {
+      const res = await this.inventoryModel.updateMany(
+        { productId: { $in: productIdForms } },
+        { $set: { productName: updateProductDto.name } },
+      );
+      this.logger.log(
+        `Cascaded name update to inventory for product ${id} (${res.modifiedCount} docs)`,
+      );
+    }
+
+    // Cascade de variantes al Inventario. La identidad de la variante es su _id
+    // (preservado por SKU más arriba). Dos cosas:
+    //   1) si el _id de una variante cambió pese a la preservación (red de
+    //      seguridad), re-vincular los inventarios colgados del _id viejo al vivo;
+    //   2) mantener inventory.variantSku al día si el SKU de la variante cambió.
+    // Se envuelve en try/catch para no romper la actualización del producto si una
+    // colisión del índice único (tenant,productId,variantId) impide el re-vínculo.
+    if (updateData.variants && updateData.variants.length > 0) {
+      const oldVariants = productBeforeUpdate.variants || [];
+      const oldById = new Map(
+        oldVariants
+          .filter((v: any) => v?._id)
+          .map((v: any) => [v._id.toString(), v]),
+      );
+      const oldIdBySku = new Map(
+        oldVariants
+          .filter((v: any) => v?.sku && v?._id)
+          .map((v: any) => [v.sku, v._id.toString()]),
+      );
+      for (const v of updateData.variants) {
+        if (!v?._id || !v?.sku) continue;
+        const liveId = new Types.ObjectId(v._id.toString());
+        const liveIdStr = liveId.toString();
+        try {
+          // 1) re-vincular si el _id cambió para este SKU
+          const oldIdStr = oldIdBySku.get(v.sku);
+          if (oldIdStr && oldIdStr !== liveIdStr) {
+            await this.inventoryModel.updateMany(
+              {
+                productId: { $in: productIdForms },
+                variantId: {
+                  $in: [new Types.ObjectId(oldIdStr), oldIdStr],
+                },
+              },
+              { $set: { variantId: liveId, variantSku: v.sku } },
+            );
+          }
+          // 2) variantSku al día si cambió (identidad estable por _id)
+          const old = oldById.get(liveIdStr);
+          if (old && old.sku !== v.sku) {
+            await this.inventoryModel.updateMany(
+              {
+                productId: { $in: productIdForms },
+                variantId: { $in: [liveId, liveIdStr] },
+              },
+              { $set: { variantSku: v.sku } },
+            );
+          }
+        } catch (error) {
+          this.logger.error(
+            `Failed to cascade variant ${v.sku} to inventory for product ${id}: ${error.message}`,
+          );
+        }
+      }
+    }
+
     // Track price changes for audit
     if (updateData.variants && productBeforeUpdate.variants) {
       for (let i = 0; i < updateData.variants.length; i++) {
@@ -1153,11 +1295,8 @@ export class ProductsService {
         if (!oldVariant || !newVariant) continue;
 
         // Check each price field for changes
-        const priceFields: Array<'basePrice' | 'costPrice' | 'wholesalePrice'> = [
-          'basePrice',
-          'costPrice',
-          'wholesalePrice',
-        ];
+        const priceFields: Array<"basePrice" | "costPrice" | "wholesalePrice"> =
+          ["basePrice", "costPrice", "wholesalePrice"];
 
         for (const field of priceFields) {
           const oldValue = oldVariant[field];
@@ -1185,7 +1324,7 @@ export class ProductsService {
                 pricingStrategy: newVariant.pricingStrategy,
                 changedBy: user.id,
                 changedByName: user.name || user.email,
-                changeSource: 'manual',
+                changeSource: "manual",
               });
             } catch (error) {
               this.logger.error(
@@ -1285,14 +1424,15 @@ export class ProductsService {
     return this.productModel.distinct("category", filter).exec();
   }
 
-  async getSubcategories(tenantId: string, category?: string): Promise<string[]> {
+  async getSubcategories(
+    tenantId: string,
+    category?: string,
+  ): Promise<string[]> {
     const filter: any = { tenantId: new Types.ObjectId(tenantId) };
-    if (category && category !== 'all') {
+    if (category && category !== "all") {
       filter.category = category;
     }
-    return this.productModel
-      .distinct("subcategory", filter)
-      .exec();
+    return this.productModel.distinct("subcategory", filter).exec();
   }
 
   private calculateImagesSize(variants: any[] | undefined): number {
@@ -1344,7 +1484,10 @@ export class ProductsService {
     overallConfidence: number;
   }> {
     // 1. Compress all images
-    const imageContents: Array<{ type: "image_url"; image_url: { url: string; detail: string } }> = [];
+    const imageContents: Array<{
+      type: "image_url";
+      image_url: { url: string; detail: string };
+    }> = [];
 
     for (const img of images) {
       let optimizedBase64: string;
@@ -1422,7 +1565,10 @@ Reglas:
           {
             role: "user",
             content: [
-              { type: "text", text: `Analiza esta(s) ${images.length} imagen(es) de la etiqueta del producto:` },
+              {
+                type: "text",
+                text: `Analiza esta(s) ${images.length} imagen(es) de la etiqueta del producto:`,
+              },
               ...imageContents,
             ] as any,
           },
@@ -1433,10 +1579,15 @@ Reglas:
       });
 
       const rawContent = response.choices?.[0]?.message?.content || "{}";
-      const cleaned = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      const cleaned = rawContent
+        .replace(/```json\n?/g, "")
+        .replace(/```\n?/g, "")
+        .trim();
       extractedData = JSON.parse(cleaned);
     } catch (parseError) {
-      this.logger.error(`Label scan: Failed to parse AI response: ${parseError.message}`);
+      this.logger.error(
+        `Label scan: Failed to parse AI response: ${parseError.message}`,
+      );
       throw new BadRequestException(
         "No se pudo interpretar la imagen. Asegúrese de que sea una etiqueta de producto legible.",
       );
@@ -1448,21 +1599,38 @@ Reglas:
 
     if (extractedData.suggestedCategory) {
       try {
-        const existingCategories = await this.getCategories(tenantId, { onlyActive: true });
-        const suggested = (extractedData.suggestedCategory as string).toLowerCase().trim();
+        const existingCategories = await this.getCategories(tenantId, {
+          onlyActive: true,
+        });
+        const suggested = (extractedData.suggestedCategory as string)
+          .toLowerCase()
+          .trim();
 
         // Exact or partial match
-        matchedCategory = existingCategories.find(
-          (c) => c.toLowerCase() === suggested || c.toLowerCase().includes(suggested) || suggested.includes(c.toLowerCase()),
-        ) || null;
+        matchedCategory =
+          existingCategories.find(
+            (c) =>
+              c.toLowerCase() === suggested ||
+              c.toLowerCase().includes(suggested) ||
+              suggested.includes(c.toLowerCase()),
+          ) || null;
 
         // If category matched, try subcategory
         if (matchedCategory && extractedData.suggestedSubcategory) {
-          const existingSubs = await this.getSubcategories(tenantId, matchedCategory);
-          const suggestedSub = (extractedData.suggestedSubcategory as string).toLowerCase().trim();
-          matchedSubcategory = existingSubs.find(
-            (s) => s.toLowerCase() === suggestedSub || s.toLowerCase().includes(suggestedSub) || suggestedSub.includes(s.toLowerCase()),
-          ) || null;
+          const existingSubs = await this.getSubcategories(
+            tenantId,
+            matchedCategory,
+          );
+          const suggestedSub = (extractedData.suggestedSubcategory as string)
+            .toLowerCase()
+            .trim();
+          matchedSubcategory =
+            existingSubs.find(
+              (s) =>
+                s.toLowerCase() === suggestedSub ||
+                s.toLowerCase().includes(suggestedSub) ||
+                suggestedSub.includes(s.toLowerCase()),
+            ) || null;
         }
       } catch {
         // Ignore category matching errors
@@ -1471,7 +1639,10 @@ Reglas:
 
     // 4. Clean up attributes — remove empty values
     const cleanAttributes: Record<string, string> = {};
-    if (extractedData.attributes && typeof extractedData.attributes === "object") {
+    if (
+      extractedData.attributes &&
+      typeof extractedData.attributes === "object"
+    ) {
       for (const [key, value] of Object.entries(extractedData.attributes)) {
         if (value && typeof value === "string" && value.trim()) {
           cleanAttributes[key] = value.trim();
@@ -1488,12 +1659,17 @@ Reglas:
       ingredients: extractedData.ingredients || "",
       origin: extractedData.origin || "",
       isPerishable: Boolean(extractedData.isPerishable),
-      shelfLifeDays: extractedData.shelfLifeDays != null ? Number(extractedData.shelfLifeDays) : null,
+      shelfLifeDays:
+        extractedData.shelfLifeDays != null
+          ? Number(extractedData.shelfLifeDays)
+          : null,
       storageTemperature: extractedData.storageTemperature || "",
       category: extractedData.suggestedCategory || "",
       subcategory: extractedData.suggestedSubcategory || "",
       unitOfMeasure: extractedData.unitOfMeasure || "unidad",
-      allergens: Array.isArray(extractedData.allergens) ? extractedData.allergens : [],
+      allergens: Array.isArray(extractedData.allergens)
+        ? extractedData.allergens
+        : [],
       attributes: cleanAttributes,
       matchedCategory,
       matchedSubcategory,

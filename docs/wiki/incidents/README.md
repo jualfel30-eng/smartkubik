@@ -5,6 +5,7 @@ Cada bug crítico resuelto se documenta aquí con: síntoma, root cause, archivo
 ## 2026
 
 ### Junio
+- [2026-06-26 — Productos en catálogo que no aparecen en Inventario (inventario inactivo huérfano)](./2026-06-26-orphaned-inactive-inventory.md)
 - [2026-06-20 — Búsqueda de productos: regresiones recurrentes (doble-filtro, tope 100, productId String/ObjectId, acentos)](./2026-06-20-product-search-regressions.md)
 - [2026-06-16 — Ajuste de stock calculaba sobre `availableQuantity` y el backend lo aplicaba contra `totalQuantity`](./2026-06-16-stock-adjust-available-vs-total.md)
 - [2026-06-20 — Stock a granel con saldo fraccional invisible en el buscador de traslados](./2026-06-20-fractional-base-unit-hidden-in-transfer-search.md)
