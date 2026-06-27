@@ -6,19 +6,19 @@ import {
   Body,
   Query,
   NotFoundException,
-} from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
-import { BeautyBookingsService } from '../services/beauty-bookings.service';
+} from "@nestjs/common";
+import { ApiTags, ApiOperation } from "@nestjs/swagger";
+import { BeautyBookingsService } from "../services/beauty-bookings.service";
 import {
   CreateBeautyBookingDto,
   GetAvailabilityDto,
-} from '../../../dto/beauty';
-import { Public } from '../../../decorators/public.decorator';
-import { WebPushService } from '../../notification-center/web-push.service';
+} from "../../../dto/beauty";
+import { Public } from "../../../decorators/public.decorator";
+import { WebPushService } from "../../notification-center/web-push.service";
 
-@ApiTags('Beauty Bookings (Public)')
+@ApiTags("Beauty Bookings (Public)")
 @Public()
-@Controller('public/beauty-bookings')
+@Controller("public/beauty-bookings")
 export class BeautyBookingsPublicController {
   constructor(
     private readonly beautyBookingsService: BeautyBookingsService,
@@ -26,23 +26,29 @@ export class BeautyBookingsPublicController {
   ) {}
 
   @Post()
-  @ApiOperation({ summary: 'Crear reserva (público - storefront)' })
+  @ApiOperation({ summary: "Crear reserva (público - storefront)" })
   async create(@Body() dto: CreateBeautyBookingDto) {
     return this.beautyBookingsService.create(dto);
   }
 
-  @Post('availability')
+  @Post("availability")
   @ApiOperation({
-    summary: 'Obtener horarios disponibles para fecha y servicios (público)',
+    summary: "Obtener horarios disponibles para fecha y servicios (público)",
   })
   async getAvailability(@Body() dto: GetAvailabilityDto) {
     return this.beautyBookingsService.getAvailability(dto);
   }
 
-  @Get('booking-number/:bookingNumber')
-  @ApiOperation({ summary: 'Buscar reserva por número (público)' })
-  async findByBookingNumber(@Param('bookingNumber') bookingNumber: string) {
-    return this.beautyBookingsService.findByBookingNumber(bookingNumber);
+  @Get("booking-number/:bookingNumber")
+  @ApiOperation({ summary: "Buscar reserva por número (público)" })
+  async findByBookingNumber(
+    @Param("bookingNumber") bookingNumber: string,
+    @Query("tenantId") tenantId?: string,
+  ) {
+    return this.beautyBookingsService.findByBookingNumber(
+      bookingNumber,
+      tenantId,
+    );
   }
 
   /**
@@ -51,11 +57,13 @@ export class BeautyBookingsPublicController {
    * Marca la cita de hoy (primer match activo) con checkedInAt = ahora.
    * Dispara push notification al equipo del salón.
    */
-  @Get('client-status')
-  @ApiOperation({ summary: 'Verificar si cliente puede reservar (política no-shows)' })
+  @Get("client-status")
+  @ApiOperation({
+    summary: "Verificar si cliente puede reservar (política no-shows)",
+  })
   async getClientStatus(
-    @Query('tenantId') tenantId: string,
-    @Query('phone') phone: string,
+    @Query("tenantId") tenantId: string,
+    @Query("phone") phone: string,
   ) {
     if (!tenantId || !phone) {
       return { canBook: true, requiresDeposit: false, depositAmount: 0 };
@@ -63,14 +71,14 @@ export class BeautyBookingsPublicController {
     return this.beautyBookingsService.getClientNoShowStatus(tenantId, phone);
   }
 
-  @Get('checkin')
-  @ApiOperation({ summary: 'Check-in cliente vía QR (público)' })
+  @Get("checkin")
+  @ApiOperation({ summary: "Check-in cliente vía QR (público)" })
   async checkin(
-    @Query('tenantId') tenantId: string,
-    @Query('phone') phone: string,
+    @Query("tenantId") tenantId: string,
+    @Query("phone") phone: string,
   ) {
     if (!tenantId || !phone) {
-      throw new NotFoundException('tenantId y phone son requeridos');
+      throw new NotFoundException("tenantId y phone son requeridos");
     }
 
     const today = new Date().toISOString().slice(0, 10);
@@ -80,13 +88,13 @@ export class BeautyBookingsPublicController {
     });
 
     const active = bookings.find(
-      (b) => b.status === 'confirmed' || b.status === 'pending',
+      (b) => b.status === "confirmed" || b.status === "pending",
     );
 
     if (!active) {
       return {
         success: false,
-        message: 'No se encontró una cita activa para hoy con ese teléfono.',
+        message: "No se encontró una cita activa para hoy con ese teléfono.",
       };
     }
 
@@ -95,21 +103,21 @@ export class BeautyBookingsPublicController {
       String(active._id),
       { checkedInAt: new Date() } as any,
       tenantId,
-      'checkin-qr',
+      "checkin-qr",
     );
 
     // Push notification to salon team
     try {
       await this.webPushService.sendToTenant(tenantId, {
-        title: '📍 Cliente llegó',
-        body: `${active.client?.name || 'Cliente'} está en recepción · ${active.services?.map((s) => s.name).join(', ')}`,
-        url: '/appointments',
+        title: "📍 Cliente llegó",
+        body: `${active.client?.name || "Cliente"} está en recepción · ${active.services?.map((s) => s.name).join(", ")}`,
+        url: "/appointments",
       });
     } catch (_) {}
 
     return {
       success: true,
-      message: `¡Bienvenido/a, ${active.client?.name || 'cliente'}! Tu cita está confirmada.`,
+      message: `¡Bienvenido/a, ${active.client?.name || "cliente"}! Tu cita está confirmada.`,
       bookingNumber: active.bookingNumber,
       startTime: active.startTime,
     };

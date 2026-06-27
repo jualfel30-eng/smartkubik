@@ -1,13 +1,6 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { Document, Types } from "mongoose";
-import {
-  IsString,
-  IsBoolean,
-  IsOptional,
-  IsNumber,
-  IsObject,
-  IsArray,
-} from "class-validator";
+import { IsString, IsBoolean, IsOptional } from "class-validator";
 
 export type StorefrontConfigDocument = StorefrontConfig & Document;
 
@@ -141,7 +134,14 @@ export class StorefrontConfig {
 
   @Prop({
     type: String,
-    enum: ["ecommerce", "services", "beauty", "premium", "restaurant"],
+    enum: [
+      "ecommerce",
+      "services",
+      "beauty",
+      "premium",
+      "restaurant",
+      "health",
+    ],
     required: true,
     default: "ecommerce",
   })
@@ -166,18 +166,24 @@ export class StorefrontConfig {
   googlePlaceId?: string;
 
   @Prop({
-    type: [{
-      url: { type: String, required: true },
-      type: { type: String, enum: ['single', 'before', 'after'], default: 'single' },
-      pairId: { type: String },
-      label: { type: String },
-      createdAt: { type: Date, default: Date.now },
-    }],
+    type: [
+      {
+        url: { type: String, required: true },
+        type: {
+          type: String,
+          enum: ["single", "before", "after"],
+          default: "single",
+        },
+        pairId: { type: String },
+        label: { type: String },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     default: [],
   })
   gallery?: Array<{
     url: string;
-    type: 'single' | 'before' | 'after';
+    type: "single" | "before" | "after";
     pairId?: string;
     label?: string;
     createdAt?: Date;
@@ -205,30 +211,30 @@ export class StorefrontConfig {
     paymentMethods: string[];
     loyalty: {
       enabled: boolean;
-      pointsPerUnit?: number;          // Points earned per $1 paid (default: 1)
-      pointValue?: number;             // $ value of 1 point for redemption (default: 0.01)
-      maxRedemptionPercent?: number;   // Max % of bill redeemable with points (default: 50)
+      pointsPerUnit?: number; // Points earned per $1 paid (default: 1)
+      pointValue?: number; // $ value of 1 point for redemption (default: 0.01)
+      maxRedemptionPercent?: number; // Max % of bill redeemable with points (default: 50)
     };
     notifications?: {
-      reminderEnabled?: boolean;    // Cron 24h reminders (default: true)
-      autoConfirmation?: boolean;   // Auto-send confirmation on booking create (default: true)
-      autoChangeNotify?: boolean;   // Notify client on reschedule/cancel (default: true)
+      reminderEnabled?: boolean; // Cron 24h reminders (default: true)
+      autoConfirmation?: boolean; // Auto-send confirmation on booking create (default: true)
+      autoChangeNotify?: boolean; // Notify client on reschedule/cancel (default: true)
     };
     noShowPolicy?: {
-      enabled?: boolean;           // default false
-      warningThreshold?: number;   // default 2
-      depositThreshold?: number;   // default 3
+      enabled?: boolean; // default false
+      warningThreshold?: number; // default 2
+      depositThreshold?: number; // default 3
       blacklistThreshold?: number; // default 5
-      resetAfterDays?: number;     // default 180
-      depositPercentage?: number;  // default 50
+      resetAfterDays?: number; // default 180
+      depositPercentage?: number; // default 50
     };
     // Política del depósito al CANCELAR una reserva ya pagada (v1: solo
     // cancelación explícita; no-show → v2). Ver blueprint
     // docs/wiki/features/beauty-cancellation-deposit-policy.md
     cancellationPolicy?: {
-      enabled?: boolean;            // default false → sin tratamiento
-      mode?: 'credit' | 'refund';   // default 'credit'
-      refundPercentage?: number;    // 0–100, solo para mode='refund'. default 0
+      enabled?: boolean; // default false → sin tratamiento
+      mode?: "credit" | "refund"; // default 'credit'
+      refundPercentage?: number; // 0–100, solo para mode='refund'. default 0
     };
   };
 
@@ -245,18 +251,18 @@ export class StorefrontConfig {
     heroImageUrl?: string;
 
     // Pedidos
-    whatsappNumber?: string;        // Número destino de los pedidos (formato: 584141234567)
-    paymentInstructions?: string;   // Instrucciones de pago que se muestran en checkout
-    currency?: string;              // "USD", "VES", "COP"
+    whatsappNumber?: string; // Número destino de los pedidos (formato: 584141234567)
+    paymentInstructions?: string; // Instrucciones de pago que se muestran en checkout
+    currency?: string; // "USD", "VES", "COP"
 
     // Tema visual (sobreescribe StorefrontConfig.theme para el template restaurant)
-    accentColor?: string;           // Hex ej: "#FF4500" — mapea a CSS var(--accent)
+    accentColor?: string; // Hex ej: "#FF4500" — mapea a CSS var(--accent)
 
     // Horario visible en el storefront (informativo, no bloquea pedidos)
     businessHours?: Array<{
-      day: number;     // 0=domingo
-      open: string;    // "11:00"
-      close: string;   // "22:00"
+      day: number; // 0=domingo
+      open: string; // "11:00"
+      close: string; // "22:00"
       isOpen: boolean;
     }>;
   };

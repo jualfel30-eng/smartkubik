@@ -2,55 +2,51 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  ForbiddenException,
   Logger,
-} from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+} from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
 import {
   BeautyBooking,
   BeautyBookingDocument,
-} from '../../../schemas/beauty-booking.schema';
+} from "../../../schemas/beauty-booking.schema";
 import {
   BeautyService,
   BeautyServiceDocument,
-} from '../../../schemas/beauty-service.schema';
+} from "../../../schemas/beauty-service.schema";
 import {
   Professional,
   ProfessionalDocument,
-} from '../../../schemas/professional.schema';
+} from "../../../schemas/professional.schema";
 import {
   StorefrontConfig,
   StorefrontConfigDocument,
-} from '../../../schemas/storefront-config.schema';
+} from "../../../schemas/storefront-config.schema";
 import {
   ResourceBlock,
   ResourceBlockDocument,
-} from '../../../schemas/resource-block.schema';
+} from "../../../schemas/resource-block.schema";
 import {
   Inventory,
   InventoryDocument,
   InventoryMovement,
   InventoryMovementDocument,
-} from '../../../schemas/inventory.schema';
-import {
-  Customer,
-  CustomerDocument,
-} from '../../../schemas/customer.schema';
-import { PaymentRequestsService } from '../../payment-requests/services/payment-requests.service';
-import { AccountingService } from '../../accounting/accounting.service';
-import { computeBeautyBookingDeposit } from '../utils/deposit.util';
+} from "../../../schemas/inventory.schema";
+import { Customer, CustomerDocument } from "../../../schemas/customer.schema";
+import { PaymentRequestsService } from "../../payment-requests/services/payment-requests.service";
+import { AccountingService } from "../../accounting/accounting.service";
+import { computeBeautyBookingDeposit } from "../utils/deposit.util";
 import {
   CreateBeautyBookingDto,
   UpdateBookingStatusDto,
   UpdateBeautyBookingDto,
   GetAvailabilityDto,
-} from '../../../dto/beauty';
-import { BeautyWhatsAppNotificationsService } from './beauty-whatsapp-notifications.service';
-import { BeautyLoyaltyService } from './beauty-loyalty.service';
-import { WebPushService } from '../../notification-center/web-push.service';
-import { CashRegisterService } from '../../cash-register/cash-register.service';
-import { CommissionService } from '../../commissions/services/commission.service';
+} from "../../../dto/beauty";
+import { BeautyWhatsAppNotificationsService } from "./beauty-whatsapp-notifications.service";
+import { BeautyLoyaltyService } from "./beauty-loyalty.service";
+import { WebPushService } from "../../notification-center/web-push.service";
+import { CashRegisterService } from "../../cash-register/cash-register.service";
+import { CommissionService } from "../../commissions/services/commission.service";
 
 /**
  * Servicio para gestión de reservas de belleza
@@ -101,7 +97,7 @@ export class BeautyBookingsService {
       .exec();
 
     if (services.length !== dto.services.length) {
-      throw new BadRequestException('Some services not found');
+      throw new BadRequestException("Some services not found");
     }
 
     // 2. Calcular totales
@@ -114,7 +110,9 @@ export class BeautyBookingsService {
       );
 
       if (!service) {
-        throw new BadRequestException(`Service ${serviceDto.service} not found`);
+        throw new BadRequestException(
+          `Service ${serviceDto.service} not found`,
+        );
       }
 
       let serviceDuration =
@@ -122,8 +120,13 @@ export class BeautyBookingsService {
       let servicePrice = service.price.amount;
 
       // Procesar addons si existen
-      const addons: Array<{ name: string; price: number; duration: number }> = [];
-      if (serviceDto.addonNames && serviceDto.addonNames.length > 0 && service.addons) {
+      const addons: Array<{ name: string; price: number; duration: number }> =
+        [];
+      if (
+        serviceDto.addonNames &&
+        serviceDto.addonNames.length > 0 &&
+        service.addons
+      ) {
         for (const addonName of serviceDto.addonNames) {
           const addon = service.addons.find((a) => a.name === addonName);
           if (addon && addon.isActive) {
@@ -167,7 +170,7 @@ export class BeautyBookingsService {
 
       if (!isAvailable) {
         throw new BadRequestException(
-          'The selected time slot is not available',
+          "The selected time slot is not available",
         );
       }
     }
@@ -193,7 +196,7 @@ export class BeautyBookingsService {
         // El schema de Customer NO tiene `phone` top-level: el teléfono vive en
         // contacts[] ({ type:'phone', value }). Por eso buscamos y guardamos ahí.
         const phoneRaw = dto.client.phone;
-        const phoneDigits = phoneRaw.replace(/\D/g, '');
+        const phoneDigits = phoneRaw.replace(/\D/g, "");
         // Canónico = últimos 10 dígitos (neutraliza +58 / 0 inicial / formato).
         const phoneCanonical =
           phoneDigits.length >= 10 ? phoneDigits.slice(-10) : phoneDigits;
@@ -201,11 +204,11 @@ export class BeautyBookingsService {
         // 1) match exacto por contacts.value; 2) fallback normalizado (el canónico
         //    como substring del valor guardado, p.ej. "04120402324" ~ "4120402324").
         let existingCustomer = await this.customerModel
-          .findOne({ tenantId, 'contacts.value': phoneRaw })
+          .findOne({ tenantId, "contacts.value": phoneRaw })
           .exec();
         if (!existingCustomer && phoneCanonical.length >= 7) {
           existingCustomer = await this.customerModel
-            .findOne({ tenantId, 'contacts.value': { $regex: phoneCanonical } })
+            .findOne({ tenantId, "contacts.value": { $regex: phoneCanonical } })
             .exec();
         }
 
@@ -214,21 +217,21 @@ export class BeautyBookingsService {
           const lastCli = await this.customerModel
             .findOne({ tenantId, customerNumber: /^CLI-/ })
             .sort({ customerNumber: -1 })
-            .select('customerNumber')
+            .select("customerNumber")
             .exec();
           let nextNum = 1;
           if (lastCli?.customerNumber) {
             const match = lastCli.customerNumber.match(/CLI-(\d+)/);
             if (match) nextNum = parseInt(match[1], 10) + 1;
           }
-          const customerNumber = `CLI-${String(nextNum).padStart(6, '0')}`;
+          const customerNumber = `CLI-${String(nextNum).padStart(6, "0")}`;
 
           const contacts: Array<Record<string, any>> = [
-            { type: 'phone', value: phoneRaw, isPrimary: true, isActive: true },
+            { type: "phone", value: phoneRaw, isPrimary: true, isActive: true },
           ];
           if (dto.client.email) {
             contacts.push({
-              type: 'email',
+              type: "email",
               value: dto.client.email,
               isPrimary: false,
               isActive: true,
@@ -238,17 +241,19 @@ export class BeautyBookingsService {
           const createdCustomer = await this.customerModel.create({
             tenantId,
             customerNumber,
-            name: dto.client.name || 'Walk-in',
+            name: dto.client.name || "Walk-in",
             contacts,
-            customerType: 'individual',
-            tags: ['walk-in'],
-            source: 'walk-in',
+            customerType: "individual",
+            tags: ["walk-in"],
+            source: "walk-in",
             createdBy: dto.professionalId
               ? new Types.ObjectId(dto.professionalId)
               : tenantId,
           });
           customerId = createdCustomer._id;
-          this.logger.log(`Auto-created customer ${customerNumber} for walk-in: ${phoneRaw}`);
+          this.logger.log(
+            `Auto-created customer ${customerNumber} for walk-in: ${phoneRaw}`,
+          );
         } else {
           customerId = existingCustomer._id;
           // Update name if changed
@@ -258,13 +263,13 @@ export class BeautyBookingsService {
           }
           // Si el customer no tenía este teléfono en contacts, añadirlo.
           const hasPhone = (existingCustomer.contacts || []).some(
-            (c: any) => c.type === 'phone' && c.value === phoneRaw,
+            (c: any) => c.type === "phone" && c.value === phoneRaw,
           );
           if (!hasPhone) {
             existingCustomer.contacts = [
               ...(existingCustomer.contacts || []),
               {
-                type: 'phone',
+                type: "phone",
                 value: phoneRaw,
                 isPrimary: (existingCustomer.contacts || []).length === 0,
                 isActive: true,
@@ -295,15 +300,13 @@ export class BeautyBookingsService {
       endTime,
       totalPrice,
       totalDuration,
-      status: 'pending',
-      paymentStatus: 'unpaid',
+      status: "pending",
+      paymentStatus: "unpaid",
       notes: dto.notes,
       locationId: dto.locationId
         ? new Types.ObjectId(dto.locationId)
         : undefined,
-      packageId: dto.packageId
-        ? new Types.ObjectId(dto.packageId)
-        : undefined,
+      packageId: dto.packageId ? new Types.ObjectId(dto.packageId) : undefined,
     });
 
     // 7.5 Depósito de reserva: si algún servicio lo requiere, se crea una
@@ -331,14 +334,14 @@ export class BeautyBookingsService {
           await this.paymentRequestsService.create(
             dto.tenantId,
             {
-              entityType: 'appointment',
+              entityType: "appointment",
               entityId: booking._id.toString(),
-              deliveryChannel: dto.client?.phone ? 'whatsapp' : 'manual',
+              deliveryChannel: dto.client?.phone ? "whatsapp" : "manual",
               deliveryPhone: dto.client?.phone,
               allowMethodOverride: true,
               expiresInMinutes: 60,
             },
-            { kind: 'system' },
+            { kind: "system" },
           );
         booking.depositRequired = true;
         booking.depositInfo = { amount: depositAmount, paid: false } as any;
@@ -365,7 +368,8 @@ export class BeautyBookingsService {
         .findOne({ tenantId: dto.tenantId })
         .exec();
       const autoConfirmation =
-        (storefront as any)?.beautyConfig?.notifications?.autoConfirmation !== false;
+        (storefront as any)?.beautyConfig?.notifications?.autoConfirmation !==
+        false;
 
       // Si hay depósito pendiente, NO confirmamos aún: el PR ya envió el link
       // de pago y la reserva se confirma al aceptar el comprobante.
@@ -392,12 +396,13 @@ export class BeautyBookingsService {
 
     // 9. Push notification al equipo del salón
     try {
-      const clientName = booking.client?.name || 'Un cliente';
-      const serviceNames = booking.services?.map((s) => s.name).join(', ') || 'servicio';
+      const clientName = booking.client?.name || "Un cliente";
+      const serviceNames =
+        booking.services?.map((s) => s.name).join(", ") || "servicio";
       await this.webPushService.sendToTenant(dto.tenantId, {
-        title: '📅 Nueva reserva',
+        title: "📅 Nueva reserva",
         body: `${clientName} — ${serviceNames} a las ${booking.startTime}`,
-        url: '/appointments',
+        url: "/appointments",
       });
     } catch (error) {
       this.logger.error(`Push notification error on create: ${error.message}`);
@@ -422,12 +427,15 @@ export class BeautyBookingsService {
       );
 
       const mainDate = new Date(dto.date);
-      const futureDates = this.calculateRecurringDates(mainDate, dto.recurrenceRule);
+      const futureDates = this.calculateRecurringDates(
+        mainDate,
+        dto.recurrenceRule,
+      );
 
       for (let i = 0; i < futureDates.length; i++) {
         try {
           const futureDate = futureDates[i];
-          const futureDateStr = futureDate.toISOString().split('T')[0];
+          const futureDateStr = futureDate.toISOString().split("T")[0];
 
           // Check for conflicts with existing bookings (same professional, same time)
           if (dto.professionalId) {
@@ -436,10 +444,12 @@ export class BeautyBookingsService {
               professional: new Types.ObjectId(dto.professionalId),
               date: {
                 $gte: new Date(futureDateStr),
-                $lt: new Date(new Date(futureDateStr).getTime() + 24 * 60 * 60 * 1000),
+                $lt: new Date(
+                  new Date(futureDateStr).getTime() + 24 * 60 * 60 * 1000,
+                ),
               },
               startTime: dto.startTime,
-              status: { $nin: ['cancelled', 'no_show'] },
+              status: { $nin: ["cancelled", "no_show"] },
               isDeleted: { $ne: true },
             });
             if (conflict) {
@@ -459,20 +469,25 @@ export class BeautyBookingsService {
             isRecurring: true,
             occurrenceIndex: i + 1,
             recurrenceRule: undefined,
-            status: 'pending',
+            status: "pending",
             whatsappNotifications: [],
             reminderSentAt: undefined,
             loyaltyPointsAwarded: 0,
             loyaltyPointsRedeemed: 0,
             loyaltyDiscount: 0,
-            paymentStatus: 'unpaid',
-            bookingNumber: await this.generateBookingNumber(booking.tenantId.toString()),
+            paymentStatus: "unpaid",
+            bookingNumber: await this.generateBookingNumber(
+              booking.tenantId.toString(),
+            ),
             createdAt: undefined,
             updatedAt: undefined,
           });
           occurrencesCreated++;
         } catch (err) {
-          this.logger.error(`Failed to create recurring occurrence ${i + 1}:`, err);
+          this.logger.error(
+            `Failed to create recurring occurrence ${i + 1}:`,
+            err,
+          );
           // Continue — don't fail the whole series
         }
       }
@@ -505,16 +520,19 @@ export class BeautyBookingsService {
 
     // Interval in days
     let intervalDays: number;
-    if (rule.frequency === 'weekly') intervalDays = 7 * (rule.interval || 1);
-    else if (rule.frequency === 'biweekly') intervalDays = 14;
-    else if (rule.frequency === 'monthly') intervalDays = 30; // approximate
+    if (rule.frequency === "weekly") intervalDays = 7 * (rule.interval || 1);
+    else if (rule.frequency === "biweekly") intervalDays = 14;
+    else if (rule.frequency === "monthly")
+      intervalDays = 30; // approximate
     else intervalDays = 7;
 
     let current = new Date(startDate);
     let count = 0;
 
     while (count < maxOccurrences) {
-      current = new Date(current.getTime() + intervalDays * 24 * 60 * 60 * 1000);
+      current = new Date(
+        current.getTime() + intervalDays * 24 * 60 * 60 * 1000,
+      );
       if (endDate && current > endDate) break;
       dates.push(new Date(current));
       count++;
@@ -539,14 +557,16 @@ export class BeautyBookingsService {
         tenantId: new Types.ObjectId(tenantId),
         seriesId: new Types.ObjectId(seriesId),
         date: { $gte: today },
-        status: { $nin: ['completed', 'cancelled'] },
+        status: { $nin: ["completed", "cancelled"] },
         isDeleted: { $ne: true },
       },
       {
         $set: {
-          status: 'cancelled',
-          cancellationReason: 'Serie cancelada',
-          cancelledBy: cancelledBy ? new Types.ObjectId(cancelledBy) : undefined,
+          status: "cancelled",
+          cancellationReason: "Serie cancelada",
+          cancelledBy: cancelledBy
+            ? new Types.ObjectId(cancelledBy)
+            : undefined,
           cancelledAt: new Date(),
         },
       },
@@ -595,7 +615,7 @@ export class BeautyBookingsService {
         query.professional = new Types.ObjectId(filters.professionalId);
       }
       if (filters.clientPhone) {
-        query['client.phone'] = filters.clientPhone;
+        query["client.phone"] = filters.clientPhone;
       }
       if (filters.customerId && Types.ObjectId.isValid(filters.customerId)) {
         query.customerId = new Types.ObjectId(filters.customerId);
@@ -607,22 +627,19 @@ export class BeautyBookingsService {
 
     return this.beautyBookingModel
       .find(query)
-      .populate('professional', 'name role avatar')
+      .populate("professional", "name role avatar")
       .sort({ date: -1, startTime: -1 })
       .exec();
   }
 
-  async findOne(
-    id: string,
-    tenantId: string,
-  ): Promise<BeautyBookingDocument> {
+  async findOne(id: string, tenantId: string): Promise<BeautyBookingDocument> {
     const booking = await this.beautyBookingModel
       .findOne({
         _id: new Types.ObjectId(id),
         tenantId: new Types.ObjectId(tenantId),
       })
-      .populate('professional', 'name role avatar instagram')
-      .populate('services.service', 'name category')
+      .populate("professional", "name role avatar instagram")
+      .populate("services.service", "name category")
       .exec();
 
     if (!booking) {
@@ -634,10 +651,17 @@ export class BeautyBookingsService {
 
   async findByBookingNumber(
     bookingNumber: string,
+    tenantId?: string,
   ): Promise<BeautyBookingDocument> {
+    // bookingNumber es único POR TENANT (no global), así que se debe escopar por
+    // tenantId para evitar devolver la reserva de otro tenant con el mismo número.
+    const filter: any = { bookingNumber };
+    if (tenantId) {
+      filter.tenantId = { $in: [tenantId, new Types.ObjectId(tenantId)] };
+    }
     const booking = await this.beautyBookingModel
-      .findOne({ bookingNumber })
-      .populate('professional', 'name role avatar')
+      .findOne(filter)
+      .populate("professional", "name role avatar")
       .exec();
 
     if (!booking) {
@@ -663,23 +687,26 @@ export class BeautyBookingsService {
     if (dto.status) {
       booking.status = dto.status;
 
-      if (dto.status === 'confirmed') {
+      if (dto.status === "confirmed") {
         booking.confirmedBy = new Types.ObjectId(userId);
         booking.confirmedAt = new Date();
 
         // Push al equipo: cita confirmada
         try {
-          const clientName = booking.client?.name || 'Cliente';
-          const serviceNames = booking.services?.map((s) => s.name).join(', ') || 'servicio';
+          const clientName = booking.client?.name || "Cliente";
+          const serviceNames =
+            booking.services?.map((s) => s.name).join(", ") || "servicio";
           await this.webPushService.sendToTenant(tenantId, {
-            title: '✅ Cita confirmada',
+            title: "✅ Cita confirmada",
             body: `${clientName} — ${serviceNames} a las ${booking.startTime}`,
-            url: '/appointments',
+            url: "/appointments",
           });
         } catch (error) {
-          this.logger.error(`Push notification error on confirm: ${error.message}`);
+          this.logger.error(
+            `Push notification error on confirm: ${error.message}`,
+          );
         }
-      } else if (dto.status === 'cancelled') {
+      } else if (dto.status === "cancelled") {
         booking.cancelledBy = new Types.ObjectId(userId);
         booking.cancelledAt = new Date();
         if (dto.cancellationReason) {
@@ -689,7 +716,7 @@ export class BeautyBookingsService {
         // Política de cancelación del depósito (si estaba pagado). v1: solo
         // cancelación explícita; no-show → v2.
         if (
-          previousStatus !== 'cancelled' &&
+          previousStatus !== "cancelled" &&
           (booking as any).depositInfo?.paid
         ) {
           await this.applyCancellationDepositPolicy(booking, tenantId);
@@ -713,14 +740,16 @@ export class BeautyBookingsService {
         // Check waitlist for freed slot (fire-and-forget)
         this.checkWaitlistAvailability(
           booking.tenantId.toString(),
-          booking.date instanceof Date ? booking.date.toISOString().split('T')[0] : booking.date as string,
+          booking.date instanceof Date
+            ? booking.date.toISOString().split("T")[0]
+            : (booking.date as string),
           booking.professional?.toString(),
           booking.startTime,
-        ).catch(err => this.logger.error(`Waitlist check error: ${err}`));
-      } else if (dto.status === 'no_show' && previousStatus !== 'no_show') {
+        ).catch((err) => this.logger.error(`Waitlist check error: ${err}`));
+      } else if (dto.status === "no_show" && previousStatus !== "no_show") {
         // Process no-show penalty (fire-and-forget)
-        this.processNoShow(booking).catch(err =>
-          this.logger.error(`No-show processing error: ${err}`)
+        this.processNoShow(booking).catch((err) =>
+          this.logger.error(`No-show processing error: ${err}`),
         );
       }
     }
@@ -738,7 +767,11 @@ export class BeautyBookingsService {
     }
 
     // ── Lealtad: al marcar como pagado ──────────────────────────────────
-    if (dto.paymentStatus === 'paid' && previousPaymentStatus !== 'paid' && booking.client.phone) {
+    if (
+      dto.paymentStatus === "paid" &&
+      previousPaymentStatus !== "paid" &&
+      booking.client.phone
+    ) {
       try {
         const storefront = await this.storefrontConfigModel
           .findOne({ tenantId: booking.tenantId })
@@ -758,7 +791,8 @@ export class BeautyBookingsService {
 
         // 2. Acumular puntos automáticamente si el programa de lealtad está activo
         if (loyaltyConfig?.enabled && booking.loyaltyPointsAwarded === 0) {
-          const amountPaid = (dto.amountPaid ?? booking.totalPrice) - (dto.loyaltyDiscount ?? 0);
+          const amountPaid =
+            (dto.amountPaid ?? booking.totalPrice) - (dto.loyaltyDiscount ?? 0);
           const pointsPerUnit = loyaltyConfig.pointsPerUnit ?? 1;
           const pointsEarned = Math.floor(amountPaid * pointsPerUnit);
 
@@ -779,14 +813,16 @@ export class BeautyBookingsService {
         }
       } catch (error) {
         // No revertir el pago si falla lealtad
-        this.logger.error(`Error handling loyalty on payment: ${error.message}`);
+        this.logger.error(
+          `Error handling loyalty on payment: ${error.message}`,
+        );
       }
     }
 
     // ── Addons: guardar productos adicionales vendidos ───────────────────────
     if (dto.addons && dto.addons.length > 0) {
       booking.addons = dto.addons.map((a) => ({
-        name: a.name || '',
+        name: a.name || "",
         price: a.price ?? 0,
         quantity: a.quantity ?? 1,
         productId: a.productId ? new Types.ObjectId(a.productId) : undefined,
@@ -794,8 +830,10 @@ export class BeautyBookingsService {
     }
 
     // ── Inventario: descontar stock de productos adicionales al confirmar pago ──
-    if (dto.paymentStatus === 'paid' && previousPaymentStatus !== 'paid') {
-      const addonsToDeduct = dto.addons?.length ? dto.addons : (booking.addons || []);
+    if (dto.paymentStatus === "paid" && previousPaymentStatus !== "paid") {
+      const addonsToDeduct = dto.addons?.length
+        ? dto.addons
+        : booking.addons || [];
       for (const addon of addonsToDeduct) {
         if (!addon.productId) continue;
         try {
@@ -803,16 +841,15 @@ export class BeautyBookingsService {
           const inventory = await this.inventoryModel.findOne({
             tenantId: booking.tenantId,
             productId: {
-              $in: [
-                productIdStr,
-                new Types.ObjectId(productIdStr),
-              ],
+              $in: [productIdStr, new Types.ObjectId(productIdStr)],
             },
             isDeleted: { $ne: true },
           });
 
           if (!inventory) {
-            this.logger.warn(`No se encontró inventario para productId=${productIdStr} al pagar cita ${booking.bookingNumber}`);
+            this.logger.warn(
+              `No se encontró inventario para productId=${productIdStr} al pagar cita ${booking.bookingNumber}`,
+            );
             continue;
           }
 
@@ -838,11 +875,11 @@ export class BeautyBookingsService {
                 productId: inventory.productId,
                 productSku: inventory.productSku,
                 warehouseId: inventory.warehouseId,
-                movementType: 'out',
+                movementType: "out",
                 quantity: deductQty,
                 unitCost: inventory.averageCostPrice ?? 0,
                 totalCost: (inventory.averageCostPrice ?? 0) * deductQty,
-                referenceType: 'beauty_booking',
+                referenceType: "beauty_booking",
                 referenceId: booking._id,
                 notes: `Venta en cita ${booking.bookingNumber}`,
                 balanceBefore: {
@@ -860,59 +897,110 @@ export class BeautyBookingsService {
               });
             } catch (movErr) {
               // Movimiento fallido no revierte el descuento ya aplicado
-              this.logger.error(`Error registrando movimiento de inventario para productId=${productIdStr}: ${movErr.message}`);
+              this.logger.error(
+                `Error registrando movimiento de inventario para productId=${productIdStr}: ${movErr.message}`,
+              );
             }
 
-            this.logger.log(`Inventario descontado: ${deductQty} unidades de productId=${productIdStr} para cita ${booking.bookingNumber}`);
+            this.logger.log(
+              `Inventario descontado: ${deductQty} unidades de productId=${productIdStr} para cita ${booking.bookingNumber}`,
+            );
           } else {
-            this.logger.warn(`Stock insuficiente para productId=${productIdStr}: disponible=${currentAvail}, solicitado=${deductQty}`);
+            this.logger.warn(
+              `Stock insuficiente para productId=${productIdStr}: disponible=${currentAvail}, solicitado=${deductQty}`,
+            );
           }
         } catch (invErr) {
           // No revertir el pago si falla el descuento de inventario
-          this.logger.error(`Error descontando inventario para addon productId=${addon.productId?.toString()}: ${invErr.message}`);
+          this.logger.error(
+            `Error descontando inventario para addon productId=${addon.productId?.toString()}: ${invErr.message}`,
+          );
         }
       }
     }
 
     // ── Caja registradora: registrar cobro en sesión activa ────────────
-    if (dto.paymentStatus === 'paid' && previousPaymentStatus !== 'paid') {
+    if (dto.paymentStatus === "paid" && previousPaymentStatus !== "paid") {
       try {
-        const method = dto.paymentMethod || booking.paymentMethod || '';
+        const method = dto.paymentMethod || booking.paymentMethod || "";
         const isVes = /ves|pago\s*m[oó]vil|pos\b/i.test(method);
-        const serviceName = booking.services?.map(s => s.name).join(' + ') || 'Servicio';
+        const serviceName =
+          booking.services?.map((s) => s.name).join(" + ") || "Servicio";
 
         await this.cashRegisterService.registerServicePayment(
           booking.tenantId.toString(),
           {
             bookingId: booking._id.toString(),
             bookingNumber: booking.bookingNumber,
-            clientName: booking.client?.name || 'Walk-in',
+            clientName: booking.client?.name || "Walk-in",
             serviceName,
             amount: dto.amountPaid ?? booking.totalPrice ?? 0,
-            currency: isVes ? 'VES' : 'USD',
+            currency: isVes ? "VES" : "USD",
             paymentMethod: method,
           },
         );
       } catch (cashErr) {
-        this.logger.error(`Cash register integration failed: ${cashErr.message}`);
+        this.logger.error(
+          `Cash register integration failed: ${cashErr.message}`,
+        );
       }
 
       // ── Comisiones: generar comisión para el profesional ──
       if (booking.professional) {
         try {
-          const serviceName = booking.services?.map(s => s.name).join(' + ') || 'Servicio';
           await this.commissionService.calculateServiceCommission({
             tenantId: booking.tenantId.toString(),
             bookingId: booking._id.toString(),
             bookingNumber: booking.bookingNumber,
             professionalId: booking.professional.toString(),
-            professionalName: booking.professionalName || 'Profesional',
+            professionalName: booking.professionalName || "Profesional",
             totalAmount: dto.amountPaid ?? booking.totalPrice ?? 0,
             date: booking.date || new Date(),
           });
         } catch (commErr) {
-          this.logger.error(`Commission calculation failed: ${commErr.message}`);
+          this.logger.error(
+            `Commission calculation failed: ${commErr.message}`,
+          );
         }
+      }
+    }
+
+    // ── Solicitud de reseña: al quedar la cita COMPLETADA + PAGADA ──────────
+    // Reutilizable para toda la vertical de servicios (beauty, health, futuros):
+    // todos comparten este service. Idempotente vía reviewRequestSentAt.
+    if (
+      booking.status === "completed" &&
+      booking.paymentStatus === "paid" &&
+      !booking.reviewRequestSentAt &&
+      booking.client?.phone
+    ) {
+      try {
+        const sfConfig = await this.storefrontConfigModel
+          .findOne({
+            tenantId: { $in: [booking.tenantId, booking.tenantId.toString()] },
+          })
+          .select("domain")
+          .exec();
+        const slug = (sfConfig as any)?.domain;
+        const host = slug
+          ? slug.includes(".")
+            ? slug
+            : `${slug}.smartkubik.com`
+          : null;
+        const reviewUrl = host
+          ? `https://${host}/review/${booking.bookingNumber}`
+          : `https://smartkubik.com/review/${booking.bookingNumber}`;
+        const result = await this.whatsappService.sendReviewRequestNotification(
+          booking,
+          reviewUrl,
+        );
+        if (result.success) {
+          booking.reviewRequestSentAt = new Date();
+        }
+      } catch (error) {
+        this.logger.error(
+          `Review request notification error: ${error.message}`,
+        );
       }
     }
 
@@ -931,7 +1019,7 @@ export class BeautyBookingsService {
   ): Promise<BeautyBookingDocument> {
     const booking = await this.findOne(id, tenantId);
 
-    const previousDateStr = new Date(booking.date).toISOString().split('T')[0];
+    const previousDateStr = new Date(booking.date).toISOString().split("T")[0];
     const previousTime = booking.startTime;
 
     if (dto.date) booking.date = new Date(dto.date);
@@ -939,13 +1027,18 @@ export class BeautyBookingsService {
     if (dto.startTime) {
       booking.startTime = dto.startTime;
       // Recalcular endTime con la nueva hora de inicio
-      booking.endTime = this.addMinutesToTime(dto.startTime, booking.totalDuration);
+      booking.endTime = this.addMinutesToTime(
+        dto.startTime,
+        booking.totalDuration,
+      );
     }
 
     if (dto.professionalId !== undefined) {
       if (dto.professionalId) {
         booking.professional = new Types.ObjectId(dto.professionalId);
-        const prof = await this.professionalModel.findById(dto.professionalId).exec();
+        const prof = await this.professionalModel
+          .findById(dto.professionalId)
+          .exec();
         booking.professionalName = prof?.name || undefined;
       } else {
         booking.professional = undefined;
@@ -960,7 +1053,8 @@ export class BeautyBookingsService {
     // Notificar al cliente si fecha u hora cambiaron
     const newDateStr = dto.date || previousDateStr;
     const newTime = dto.startTime || previousTime;
-    const dateTimeChanged = newDateStr !== previousDateStr || newTime !== previousTime;
+    const dateTimeChanged =
+      newDateStr !== previousDateStr || newTime !== previousTime;
 
     if (dateTimeChanged && saved.client.phone) {
       try {
@@ -970,7 +1064,9 @@ export class BeautyBookingsService {
           previousTime,
         );
       } catch (error) {
-        this.logger.error(`Error sending reschedule notification: ${error.message}`);
+        this.logger.error(
+          `Error sending reschedule notification: ${error.message}`,
+        );
       }
     }
 
@@ -1011,7 +1107,7 @@ export class BeautyBookingsService {
       .exec();
 
     if (!storefront || !(storefront as any).beautyConfig?.enabled) {
-      throw new BadRequestException('Beauty booking not enabled for tenant');
+      throw new BadRequestException("Beauty booking not enabled for tenant");
     }
 
     const beautyConfig = (storefront as any).beautyConfig;
@@ -1056,7 +1152,7 @@ export class BeautyBookingsService {
       .find({
         tenantId,
         date: new Date(dto.date),
-        status: { $nin: ['cancelled'] },
+        status: { $nin: ["cancelled"] },
         professional: dto.professionalId
           ? new Types.ObjectId(dto.professionalId)
           : { $in: professionals.map((p) => p._id) },
@@ -1191,11 +1287,11 @@ export class BeautyBookingsService {
    * Suma minutos a una hora en formato HH:MM
    */
   private addMinutesToTime(time: string, minutes: number): string {
-    const [hours, mins] = time.split(':').map(Number);
+    const [hours, mins] = time.split(":").map(Number);
     const totalMinutes = hours * 60 + mins + minutes;
     const newHours = Math.floor(totalMinutes / 60);
     const newMins = totalMinutes % 60;
-    return `${String(newHours).padStart(2, '0')}:${String(newMins).padStart(2, '0')}`;
+    return `${String(newHours).padStart(2, "0")}:${String(newMins).padStart(2, "0")}`;
   }
 
   /**
@@ -1253,7 +1349,7 @@ export class BeautyBookingsService {
       })
       .exec();
 
-    return `BBK-${String(count + 1).padStart(5, '0')}`;
+    return `BBK-${String(count + 1).padStart(5, "0")}`;
   }
 
   // ── WAITLIST METHODS ─────────────────────────────────────────────────
@@ -1269,12 +1365,13 @@ export class BeautyBookingsService {
     preferredTimeRange?: { from: string; to: string };
     preferredProfessionalId?: string;
   }) {
-    const position = await this.beautyBookingModel.countDocuments({
-      tenantId: new Types.ObjectId(dto.tenantId),
-      status: 'waitlisted',
-      waitlistPreferredDate: new Date(dto.preferredDate),
-      isDeleted: { $ne: true },
-    }) + 1;
+    const position =
+      (await this.beautyBookingModel.countDocuments({
+        tenantId: new Types.ObjectId(dto.tenantId),
+        status: "waitlisted",
+        waitlistPreferredDate: new Date(dto.preferredDate),
+        isDeleted: { $ne: true },
+      })) + 1;
 
     const bookingNumber = await this.generateBookingNumber(dto.tenantId);
 
@@ -1282,7 +1379,7 @@ export class BeautyBookingsService {
       tenantId: new Types.ObjectId(dto.tenantId),
       client: dto.client,
       services: dto.services,
-      status: 'waitlisted',
+      status: "waitlisted",
       waitlistPosition: position,
       waitlistPreferredDate: new Date(dto.preferredDate),
       waitlistPreferredTimeRange: dto.preferredTimeRange,
@@ -1291,8 +1388,8 @@ export class BeautyBookingsService {
         : undefined,
       bookingNumber,
       date: new Date(dto.preferredDate),
-      startTime: dto.preferredTimeRange?.from || '09:00',
-      endTime: dto.preferredTimeRange?.to || '18:00',
+      startTime: dto.preferredTimeRange?.from || "09:00",
+      endTime: dto.preferredTimeRange?.to || "18:00",
       totalDuration: 0,
       totalPrice: 0,
       isDeleted: false,
@@ -1307,7 +1404,7 @@ export class BeautyBookingsService {
   async getWaitlist(tenantId: string, date?: string) {
     const filter: any = {
       tenantId: new Types.ObjectId(tenantId),
-      status: 'waitlisted',
+      status: "waitlisted",
       isDeleted: { $ne: true },
     };
     if (date) {
@@ -1316,7 +1413,10 @@ export class BeautyBookingsService {
         $lt: new Date(new Date(date).getTime() + 24 * 60 * 60 * 1000),
       };
     }
-    return this.beautyBookingModel.find(filter).sort({ waitlistPosition: 1 }).lean();
+    return this.beautyBookingModel
+      .find(filter)
+      .sort({ waitlistPosition: 1 })
+      .lean();
   }
 
   /**
@@ -1332,8 +1432,11 @@ export class BeautyBookingsService {
     const dateObj = new Date(date);
     const filter: any = {
       tenantId: new Types.ObjectId(tenantId),
-      status: 'waitlisted',
-      waitlistPreferredDate: { $gte: dateObj, $lt: new Date(dateObj.getTime() + 24 * 60 * 60 * 1000) },
+      status: "waitlisted",
+      waitlistPreferredDate: {
+        $gte: dateObj,
+        $lt: new Date(dateObj.getTime() + 24 * 60 * 60 * 1000),
+      },
       waitlistNotifiedAt: { $exists: false },
       isDeleted: { $ne: true },
     };
@@ -1345,7 +1448,10 @@ export class BeautyBookingsService {
       ];
     }
 
-    const waitlisted = await this.beautyBookingModel.find(filter).sort({ waitlistPosition: 1 }).limit(1);
+    const waitlisted = await this.beautyBookingModel
+      .find(filter)
+      .sort({ waitlistPosition: 1 })
+      .limit(1);
     if (!waitlisted.length) return;
 
     const first = waitlisted[0];
@@ -1358,7 +1464,11 @@ export class BeautyBookingsService {
     );
 
     try {
-      await this.whatsappService.sendWaitlistNotification(first, date, timeSlot);
+      await this.whatsappService.sendWaitlistNotification(
+        first,
+        date,
+        timeSlot,
+      );
     } catch (err) {
       this.logger.error(`Waitlist WhatsApp notification failed: ${err}`);
     }
@@ -1370,39 +1480,44 @@ export class BeautyBookingsService {
    * Verifica si un cliente puede reservar (política de no-shows)
    * Endpoint público — solo expone canBook y requiresDeposit
    */
-  async getClientNoShowStatus(tenantId: string, phone: string): Promise<{
+  async getClientNoShowStatus(
+    tenantId: string,
+    phone: string,
+  ): Promise<{
     canBook: boolean;
     requiresDeposit: boolean;
     depositAmount: number;
     message?: string;
   }> {
     try {
-      const config = await this.storefrontConfigModel.findOne({
-        tenantId: new Types.ObjectId(tenantId),
-      }).lean();
+      const config = await this.storefrontConfigModel
+        .findOne({
+          tenantId: new Types.ObjectId(tenantId),
+        })
+        .lean();
 
       const policy = (config as any)?.beautyConfig?.noShowPolicy;
       if (!policy?.enabled) {
         return { canBook: true, requiresDeposit: false, depositAmount: 0 };
       }
 
-      const customer = await this.customerModel.findOne({
-        tenantId: new Types.ObjectId(tenantId),
-        $or: [
-          { whatsappNumber: phone },
-          { 'contacts.value': phone },
-        ],
-        isDeleted: { $ne: true },
-      }).lean();
+      const customer = await this.customerModel
+        .findOne({
+          tenantId: new Types.ObjectId(tenantId),
+          $or: [{ whatsappNumber: phone }, { "contacts.value": phone }],
+          isDeleted: { $ne: true },
+        })
+        .lean();
 
-      if (!customer) return { canBook: true, requiresDeposit: false, depositAmount: 0 };
+      if (!customer)
+        return { canBook: true, requiresDeposit: false, depositAmount: 0 };
 
       return {
         canBook: !(customer as any).isBlacklisted,
         requiresDeposit: (customer as any).requiresDeposit || false,
         depositAmount: 0,
         message: (customer as any).isBlacklisted
-          ? 'No es posible realizar la reserva. Por favor contacta al negocio directamente.'
+          ? "No es posible realizar la reserva. Por favor contacta al negocio directamente."
           : undefined,
       };
     } catch (err) {
@@ -1434,40 +1549,45 @@ export class BeautyBookingsService {
       const amount = booking.depositInfo?.amount || 0;
       if (amount <= 0) return;
 
-      const mode = policy.mode === 'refund' ? 'refund' : 'credit';
+      const mode = policy.mode === "refund" ? "refund" : "credit";
       const serviceName = (booking.services || [])
         .map((s: any) => s.name)
         .filter(Boolean)
-        .join(', ');
+        .join(", ");
 
-      if (mode === 'credit') {
+      if (mode === "credit") {
         booking.depositInfo = {
           ...booking.depositInfo,
-          cancellationOutcome: { mode: 'credit', at: new Date() },
+          cancellationOutcome: { mode: "credit", at: new Date() },
         };
-        booking.markModified('depositInfo');
+        booking.markModified("depositInfo");
         return;
       }
 
       // mode === 'refund'
-      const pct = Math.min(100, Math.max(0, Number(policy.refundPercentage) || 0));
+      const pct = Math.min(
+        100,
+        Math.max(0, Number(policy.refundPercentage) || 0),
+      );
       const refundAmount = Math.round(amount * pct) / 100;
       const forfeitAmount = Math.round((amount - refundAmount) * 100) / 100;
 
       let journalEntryId: string | null = null;
       try {
         const entry =
-          await this.accountingService.createJournalEntryForDepositCancellation({
-            tenantId,
-            refundAmount,
-            forfeitAmount,
-            currency: 'USD',
-            appointmentId: booking._id.toString(),
-            appointmentNumber: booking.bookingNumber,
-            customerName: booking.client?.name,
-            serviceName,
-            transactionDate: new Date(),
-          });
+          await this.accountingService.createJournalEntryForDepositCancellation(
+            {
+              tenantId,
+              refundAmount,
+              forfeitAmount,
+              currency: "USD",
+              appointmentId: booking._id.toString(),
+              appointmentNumber: booking.bookingNumber,
+              customerName: booking.client?.name,
+              serviceName,
+              transactionDate: new Date(),
+            },
+          );
         journalEntryId = entry?._id ? entry._id.toString() : null;
       } catch (err) {
         this.logger.error(
@@ -1478,7 +1598,7 @@ export class BeautyBookingsService {
       booking.depositInfo = {
         ...booking.depositInfo,
         cancellationOutcome: {
-          mode: 'refund',
+          mode: "refund",
           refundAmount,
           forfeitAmount,
           refundPending: refundAmount > 0, // el negocio paga el dinero (v1)
@@ -1486,7 +1606,7 @@ export class BeautyBookingsService {
           at: new Date(),
         },
       };
-      booking.markModified('depositInfo');
+      booking.markModified("depositInfo");
     } catch (err) {
       this.logger.error(
         `applyCancellationDepositPolicy error (${booking?._id}): ${err.message}`,
@@ -1498,10 +1618,12 @@ export class BeautyBookingsService {
    * Procesa las penalidades por no-show según la política del negocio
    */
   private async processNoShow(booking: any) {
-    const config = await this.storefrontConfigModel.findOne({
-      tenantId: booking.tenantId,
-      isDeleted: { $ne: true },
-    }).lean();
+    const config = await this.storefrontConfigModel
+      .findOne({
+        tenantId: booking.tenantId,
+        isDeleted: { $ne: true },
+      })
+      .lean();
 
     const policy = (config as any)?.beautyConfig?.noShowPolicy;
     if (!policy?.enabled) return; // Policy disabled — do nothing
@@ -1518,7 +1640,7 @@ export class BeautyBookingsService {
       tenantId: booking.tenantId,
       $or: [
         { whatsappNumber: booking.client.phone },
-        { 'contacts.value': booking.client.phone },
+        { "contacts.value": booking.client.phone },
       ],
       isDeleted: { $ne: true },
     });
@@ -1545,6 +1667,8 @@ export class BeautyBookingsService {
     }
 
     await customer.save();
-    this.logger.log(`No-show processed for customer phone=${booking.client.phone}, count=${customer.noShowCount}`);
+    this.logger.log(
+      `No-show processed for customer phone=${booking.client.phone}, count=${customer.noShowCount}`,
+    );
   }
 }

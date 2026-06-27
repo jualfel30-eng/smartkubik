@@ -14,6 +14,7 @@ import {
   UpdateCustomerDto,
   CustomerQueryDto,
 } from "../../dto/customer.dto";
+import { CreatePublicLeadDto } from "./dto/create-public-lead.dto";
 
 interface CustomerScore {
   customerId: string;
@@ -47,7 +48,7 @@ export class CustomersService {
     private employeeProfileModel: Model<EmployeeProfileDocument>,
     @InjectModel(Supplier.name) private supplierModel: Model<SupplierDocument>,
     private readonly loyaltyService: LoyaltyService,
-  ) { }
+  ) {}
 
   private toObjectId(id: string | Types.ObjectId): Types.ObjectId {
     if (id instanceof Types.ObjectId) {
@@ -61,7 +62,7 @@ export class CustomersService {
     const lastEmployee = await this.employeeProfileModel
       .findOne({
         tenantId: tenantObjectId,
-        employeeNumber: /^EMP-/  // Filtrar solo empleados con formato EMP-*
+        employeeNumber: /^EMP-/, // Filtrar solo empleados con formato EMP-*
       })
       .sort({ employeeNumber: -1 })
       .exec();
@@ -122,12 +123,12 @@ export class CustomersService {
         .sort({ supplierNumber: -1 })
         .exec();
 
-      let supplierNumber = 'PROV-000001';
+      let supplierNumber = "PROV-000001";
       if (lastSupplier?.supplierNumber) {
         const match = lastSupplier.supplierNumber.match(/PROV-(\d+)/);
         if (match) {
           const nextNumber = parseInt(match[1]) + 1;
-          supplierNumber = `PROV-${String(nextNumber).padStart(6, '0')}`;
+          supplierNumber = `PROV-${String(nextNumber).padStart(6, "0")}`;
         }
       }
 
@@ -136,18 +137,22 @@ export class CustomersService {
         customerId: customer._id,
         name: customer.companyName || customer.name,
         supplierNumber,
-        supplierType: 'distributor',
+        supplierType: "distributor",
         taxInfo: {
-          rif: customer.taxInfo?.taxId || '',
-          businessName: customer.taxInfo?.taxName || customer.companyName || customer.name,
+          rif: customer.taxInfo?.taxId || "",
+          businessName:
+            customer.taxInfo?.taxName || customer.companyName || customer.name,
           isRetentionAgent: false,
         },
-        contacts: customer.contacts?.map(c => ({
-          name: customer.name,
-          email: c.type === 'email' ? c.value : undefined,
-          phone: c.type === 'phone' ? c.value : undefined,
-          isPrimary: c.isPrimary || false,
-        })).filter(c => c.email || c.phone) || [],
+        contacts:
+          customer.contacts
+            ?.map((c) => ({
+              name: customer.name,
+              email: c.type === "email" ? c.value : undefined,
+              phone: c.type === "phone" ? c.value : undefined,
+              isPrimary: c.isPrimary || false,
+            }))
+            .filter((c) => c.email || c.phone) || [],
         address: customer.addresses?.[0] || {},
         paymentSettings: paymentSettings || {
           acceptsCredit: customer.creditInfo?.acceptsCredit || false,
@@ -157,7 +162,7 @@ export class CustomersService {
           requiresAdvancePayment: false,
           advancePaymentPercentage: 0,
         },
-        status: 'active',
+        status: "active",
         tenantId: String(tenantId),
       });
 
@@ -240,6 +245,45 @@ export class CustomersService {
       `Customer created successfully with number: ${customerNumber}`,
     );
     return savedCustomer;
+  }
+
+  /**
+   * Crea un lead desde un storefront público (form de contacto). Sin auth: el
+   * tenant llega en el DTO. Reutiliza la numeración CLI-* y crea un Customer
+   * tipo 'individual' marcado como lead (tags + source) para que aparezca en el CRM.
+   */
+  async createLead(
+    dto: CreatePublicLeadDto,
+  ): Promise<{ id: string; customerNumber: string }> {
+    const tenantObjectId = this.toObjectId(dto.tenantId);
+    const customerNumber = await this.generateCustomerNumber(dto.tenantId);
+
+    const contacts: Array<{ type: string; value: string; isPrimary: boolean }> =
+      [{ type: "phone", value: dto.phone, isPrimary: true }];
+    if (dto.email) {
+      contacts.push({ type: "email", value: dto.email, isPrimary: false });
+    }
+
+    const noteParts: string[] = [];
+    if (dto.serviceInterest) noteParts.push(`Interés: ${dto.serviceInterest}`);
+    if (dto.message) noteParts.push(dto.message);
+
+    const customer = await this.customerModel.create({
+      tenantId: tenantObjectId,
+      customerNumber,
+      name: dto.name,
+      contacts,
+      customerType: "individual",
+      source: "storefront-health-contact", // marca el lead (el schema no tiene tags)
+      status: "active",
+      notes: noteParts.join(" · ") || undefined,
+      createdBy: tenantObjectId,
+    });
+
+    this.logger.log(
+      `Lead created ${customerNumber} for tenant ${dto.tenantId}`,
+    );
+    return { id: customer._id.toString(), customerNumber };
   }
 
   async findAll(query: CustomerQueryDto, tenantId: string) {
@@ -780,7 +824,12 @@ export class CustomersService {
                         {
                           $in: [
                             "$status",
-                            ["pending", "confirmed", "in_progress", "waitlisted"],
+                            [
+                              "pending",
+                              "confirmed",
+                              "in_progress",
+                              "waitlisted",
+                            ],
                           ],
                         },
                         { $ifNull: ["$amountPaid", 0] },
@@ -855,7 +904,9 @@ export class CustomersService {
                     },
                     {
                       $ifNull: [
-                        { $arrayElemAt: ["$beautyBookingAgg.completedValue", 0] },
+                        {
+                          $arrayElemAt: ["$beautyBookingAgg.completedValue", 0],
+                        },
                         0,
                       ],
                     },
@@ -900,7 +951,9 @@ export class CustomersService {
                     },
                     {
                       $ifNull: [
-                        { $arrayElemAt: ["$beautyBookingAgg.completedValue", 0] },
+                        {
+                          $arrayElemAt: ["$beautyBookingAgg.completedValue", 0],
+                        },
                         0,
                       ],
                     },
@@ -929,7 +982,9 @@ export class CustomersService {
               $add: [
                 {
                   $ifNull: [
-                    { $arrayElemAt: ["$appointmentDeposits.completedCount", 0] },
+                    {
+                      $arrayElemAt: ["$appointmentDeposits.completedCount", 0],
+                    },
                     0,
                   ],
                 },
@@ -1207,14 +1262,14 @@ export class CustomersService {
       );
       const daysSinceLastPurchase = Math.floor(
         (today.getTime() - new Date(lastOrderDate).getTime()) /
-        (1000 * 3600 * 24),
+          (1000 * 3600 * 24),
       );
       const rScore = 100 / (daysSinceLastPurchase + 1);
       const fScore = customerOrders.length;
       const mScore = customerOrders.reduce((sum, order) => {
         const daysAgo = Math.floor(
           (today.getTime() - new Date(order.createdAt).getTime()) /
-          (1000 * 3600 * 24),
+            (1000 * 3600 * 24),
         );
         const weight = Math.pow(0.99, daysAgo);
         return sum + order.totalAmount * weight;
@@ -1329,16 +1384,18 @@ export class CustomersService {
       if (Types.ObjectId.isValid(assignedToStr)) {
         try {
           const assignedUser = await this.customerModel.db
-            .collection('users')
+            .collection("users")
             .findOne(
               { _id: new Types.ObjectId(assignedToStr) },
-              { projection: { firstName: 1, lastName: 1 } }
+              { projection: { firstName: 1, lastName: 1 } },
             );
           if (assignedUser) {
             (customer as any).assignedTo = assignedUser;
           }
         } catch (error) {
-          this.logger.warn(`Failed to populate assignedTo for customer ${id}: ${error.message}`);
+          this.logger.warn(
+            `Failed to populate assignedTo for customer ${id}: ${error.message}`,
+          );
         }
       }
     }
@@ -1348,16 +1405,18 @@ export class CustomersService {
       if (Types.ObjectId.isValid(createdByStr)) {
         try {
           const createdByUser = await this.customerModel.db
-            .collection('users')
+            .collection("users")
             .findOne(
               { _id: new Types.ObjectId(createdByStr) },
-              { projection: { firstName: 1, lastName: 1 } }
+              { projection: { firstName: 1, lastName: 1 } },
             );
           if (createdByUser) {
             (customer as any).createdBy = createdByUser;
           }
         } catch (error) {
-          this.logger.warn(`Failed to populate createdBy for customer ${id}: ${error.message}`);
+          this.logger.warn(
+            `Failed to populate createdBy for customer ${id}: ${error.message}`,
+          );
         }
       }
     }
@@ -1640,9 +1699,9 @@ export class CustomersService {
       firstPurchaseDate: item.firstPurchaseDate,
       daysSinceLastPurchase: item.lastPurchaseDate
         ? Math.floor(
-          (Date.now() - new Date(item.lastPurchaseDate).getTime()) /
-          (1000 * 3600 * 24),
-        )
+            (Date.now() - new Date(item.lastPurchaseDate).getTime()) /
+              (1000 * 3600 * 24),
+          )
         : null,
     }));
   }
@@ -1654,25 +1713,25 @@ export class CustomersService {
     const lastCustomer = await this.customerModel
       .findOne({
         tenantId: tenantObjectId,
-        customerNumber: /^CLI-/  // Filtrar solo clientes con formato CLI-*
+        customerNumber: /^CLI-/, // Filtrar solo clientes con formato CLI-*
       })
       .sort({ customerNumber: -1 })
-      .select('customerNumber')
+      .select("customerNumber")
       .exec();
 
     if (!lastCustomer?.customerNumber) {
-      return 'CLI-000001';
+      return "CLI-000001";
     }
 
     // Extraer el número del formato CLI-XXXXXX
     const match = lastCustomer.customerNumber.match(/CLI-(\d+)/);
     if (match) {
       const nextNumber = parseInt(match[1]) + 1;
-      return `CLI-${String(nextNumber).padStart(6, '0')}`;
+      return `CLI-${String(nextNumber).padStart(6, "0")}`;
     }
 
     // Fallback si el formato no coincide
-    return 'CLI-000001';
+    return "CLI-000001";
   }
 
   /**
@@ -1707,8 +1766,10 @@ export class CustomersService {
 
     if (filters?.minAmount !== undefined || filters?.maxAmount !== undefined) {
       query.totalAmount = {};
-      if (filters.minAmount !== undefined) query.totalAmount.$gte = filters.minAmount;
-      if (filters.maxAmount !== undefined) query.totalAmount.$lte = filters.maxAmount;
+      if (filters.minAmount !== undefined)
+        query.totalAmount.$gte = filters.minAmount;
+      if (filters.maxAmount !== undefined)
+        query.totalAmount.$lte = filters.maxAmount;
     }
 
     const orders = await this.orderModel
@@ -1822,7 +1883,9 @@ export class CustomersService {
           { requiresDeposit: true },
         ],
       })
-      .select('name companyName phone whatsappNumber noShowCount lastNoShowDate requiresDeposit isBlacklisted')
+      .select(
+        "name companyName phone whatsappNumber noShowCount lastNoShowDate requiresDeposit isBlacklisted",
+      )
       .sort({ noShowCount: -1 })
       .lean();
   }
@@ -1837,7 +1900,7 @@ export class CustomersService {
       isDeleted: { $ne: true },
     });
     if (!customer) {
-      throw new Error('Cliente no encontrado');
+      throw new Error("Cliente no encontrado");
     }
     customer.noShowCount = 0;
     customer.lastNoShowDate = undefined;

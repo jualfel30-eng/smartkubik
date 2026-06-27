@@ -50,6 +50,8 @@
     "seed:payroll-structures": "ts-node -r dotenv/config scripts/seed-default-payroll-structures.ts",
     "seed:unit-types": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/seed-unit-types.ts",
     "seed:beauty": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/seed-beauty-demo.ts",
+    "seed:health": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/seed-health-demo.ts",
+    "db:migrate:booking-number-index": "ts-node -r dotenv/config scripts/migrations/2026-06-27-beauty-booking-number-per-tenant-index.ts",
     "db:reset": "ts-node scripts/reset-database.ts",
     "db:bootstrap:payroll": "ts-node -r dotenv/config scripts/payroll-phase0-bootstrap.ts",
     "debug:data": "ts-node -r dotenv/config -r tsconfig-paths/register scripts/debug-data.ts",

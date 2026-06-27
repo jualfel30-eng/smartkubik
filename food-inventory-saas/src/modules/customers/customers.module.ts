@@ -3,6 +3,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { CustomersController } from "./customers.controller";
 import { CustomersService } from "./customers.service";
 import { CustomersAuthController } from "./customers-auth.controller";
+import { LeadsPublicController } from "./leads-public.controller";
 import { DebugController } from "./debug.controller";
 import { AuthModule } from "../../auth/auth.module";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
@@ -41,7 +42,12 @@ import { OrdersModule } from "../orders/orders.module";
       { name: PurchaseOrderRating.name, schema: PurchaseOrderRatingSchema },
     ]),
   ],
-  controllers: [CustomersController, CustomersAuthController, DebugController],
+  controllers: [
+    CustomersController,
+    CustomersAuthController,
+    LeadsPublicController,
+    DebugController,
+  ],
   providers: [CustomersService],
   exports: [CustomersService],
 })

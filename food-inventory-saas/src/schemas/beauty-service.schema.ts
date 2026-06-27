@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 /**
  * Schema para servicios de belleza (peluquerías, barberías, salones)
@@ -8,7 +8,7 @@ import { Document, Types } from 'mongoose';
 @Schema({ timestamps: true })
 export class BeautyService {
   // Multi-tenancy (REQUERIDO en todos los documentos)
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true, index: true })
   tenantId: Types.ObjectId;
 
   // Identificación
@@ -35,11 +35,15 @@ export class BeautyService {
   @Prop({
     type: {
       amount: { type: Number, required: true, min: 0 },
-      currency: { type: String, enum: ['USD', 'VES', 'COP', 'EUR'], default: 'USD' },
-      displayText: { type: String, trim: true } // "Desde $15" o "$15 - $25"
+      currency: {
+        type: String,
+        enum: ["USD", "VES", "COP", "EUR"],
+        default: "USD",
+      },
+      displayText: { type: String, trim: true }, // "Desde $15" o "$15 - $25"
     },
     required: true,
-    _id: false
+    _id: false,
   })
   price: {
     amount: number;
@@ -52,15 +56,19 @@ export class BeautyService {
 
   @Prop({
     type: {
-      mode: { type: String, enum: ['manual', 'markup', 'margin'], default: 'manual' },
+      mode: {
+        type: String,
+        enum: ["manual", "markup", "margin"],
+        default: "manual",
+      },
       markupPercentage: { type: Number, min: 0 },
       marginPercentage: { type: Number, min: 0, max: 100 },
-      autoCalculate: { type: Boolean, default: false }
+      autoCalculate: { type: Boolean, default: false },
     },
-    _id: false
+    _id: false,
   })
   pricingStrategy?: {
-    mode: 'manual' | 'markup' | 'margin';
+    mode: "manual" | "markup" | "margin";
     markupPercentage?: number;
     marginPercentage?: number;
     autoCalculate: boolean;
@@ -70,8 +78,25 @@ export class BeautyService {
   @Prop({ type: [String], default: [] })
   images: string[]; // ["data:image/jpeg;base64,..."]
 
+  // Beneficios del servicio (bullets para la página de detalle — vertical salud)
+  @Prop({ type: [String], default: [] })
+  benefits: string[];
+
+  // Antes/después del servicio (pares de imágenes para la página de detalle)
+  @Prop({
+    type: [
+      {
+        before: { type: String, required: true },
+        after: { type: String, required: true },
+        label: String,
+      },
+    ],
+    default: [],
+  })
+  beforeAfter: Array<{ before: string; after: string; label?: string }>;
+
   // Profesionales que ofrecen este servicio
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'Professional' }], default: [] })
+  @Prop({ type: [{ type: Types.ObjectId, ref: "Professional" }], default: [] })
   professionals: Types.ObjectId[];
 
   // Restricciones de booking
@@ -87,14 +112,16 @@ export class BeautyService {
 
   // Complementos (addons)
   @Prop({
-    type: [{
-      name: { type: String, required: true },
-      description: String,
-      price: { type: Number, required: true, min: 0 },
-      duration: { type: Number, min: 0 },
-      isActive: { type: Boolean, default: true }
-    }],
-    default: []
+    type: [
+      {
+        name: { type: String, required: true },
+        description: String,
+        price: { type: Number, required: true, min: 0 },
+        duration: { type: Number, min: 0 },
+        isActive: { type: Boolean, default: true },
+      },
+    ],
+    default: [],
   })
   addons?: Array<{
     name: string;
@@ -108,8 +135,8 @@ export class BeautyService {
   @Prop({ type: Boolean, default: false })
   requiresDeposit: boolean;
 
-  @Prop({ type: String, enum: ['fixed', 'percentage'], default: 'fixed' })
-  depositType: 'fixed' | 'percentage';
+  @Prop({ type: String, enum: ["fixed", "percentage"], default: "fixed" })
+  depositType: "fixed" | "percentage";
 
   @Prop({ type: Number, default: 0, min: 0 })
   depositAmount: number;
@@ -129,10 +156,10 @@ export class BeautyService {
   tags: string[];
 
   // Auditoría (REQUERIDO según patrón existente)
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: "User", required: true })
   createdBy: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   updatedBy?: Types.ObjectId;
 }
 

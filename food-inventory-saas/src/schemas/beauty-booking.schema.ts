@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
 /**
  * Schema para reservas de servicios de belleza
@@ -8,11 +8,13 @@ import { Document, Types } from 'mongoose';
 @Schema({ timestamps: true })
 export class BeautyBooking {
   // Multi-tenancy
-  @Prop({ type: Types.ObjectId, ref: 'Tenant', required: true, index: true })
+  @Prop({ type: Types.ObjectId, ref: "Tenant", required: true, index: true })
   tenantId: Types.ObjectId;
 
-  // Número único de reserva
-  @Prop({ type: String, unique: true, required: true, index: true })
+  // Número de reserva (único POR TENANT, no global — ver índice compuesto abajo).
+  // El número se genera por-tenant (BBK-00001...) por lo que NO puede ser único global:
+  // colisionaría con la primera reserva de cada tenant nuevo.
+  @Prop({ type: String, required: true, index: true })
   bookingNumber: string; // "BBK-00001", "BBK-00002"
 
   // Cliente (SIN cuenta - solo datos básicos)
@@ -21,10 +23,10 @@ export class BeautyBooking {
       name: { type: String, required: true, trim: true },
       phone: { type: String, required: true, trim: true }, // con código país: +58...
       email: { type: String, trim: true },
-      whatsapp: { type: String, trim: true }
+      whatsapp: { type: String, trim: true },
     },
     required: true,
-    _id: false
+    _id: false,
   })
   client: {
     name: string;
@@ -36,11 +38,11 @@ export class BeautyBooking {
   // Enlace al registro Customer del CRM (auto-registrado por teléfono al crear
   // la booking). Permite que las métricas del cliente (gasto, visitas, actividad)
   // agreguen sus beauty bookings de forma robusta, sin depender del teléfono.
-  @Prop({ type: Types.ObjectId, ref: 'Customer', index: true })
+  @Prop({ type: Types.ObjectId, ref: "Customer", index: true })
   customerId?: Types.ObjectId;
 
   // Profesional (puede ser null si "sin preferencia")
-  @Prop({ type: Types.ObjectId, ref: 'Professional' })
+  @Prop({ type: Types.ObjectId, ref: "Professional" })
   professional?: Types.ObjectId;
 
   @Prop({ type: String, trim: true })
@@ -48,18 +50,22 @@ export class BeautyBooking {
 
   // Servicios reservados (array porque puede ser múltiple)
   @Prop({
-    type: [{
-      service: { type: Types.ObjectId, ref: 'BeautyService', required: true },
-      name: { type: String, required: true }, // Desnormalizado
-      duration: { type: Number, required: true },
-      price: { type: Number, required: true },
-      addons: [{
-        name: String,
-        price: Number,
-        duration: Number
-      }]
-    }],
-    required: true
+    type: [
+      {
+        service: { type: Types.ObjectId, ref: "BeautyService", required: true },
+        name: { type: String, required: true }, // Desnormalizado
+        duration: { type: Number, required: true },
+        price: { type: Number, required: true },
+        addons: [
+          {
+            name: String,
+            price: Number,
+            duration: Number,
+          },
+        ],
+      },
+    ],
+    required: true,
   })
   services: Array<{
     service: Types.ObjectId;
@@ -93,18 +99,26 @@ export class BeautyBooking {
   // Estado de la reserva
   @Prop({
     type: String,
-    enum: ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled', 'no_show', 'waitlisted'],
-    default: 'pending',
-    index: true
+    enum: [
+      "pending",
+      "confirmed",
+      "in_progress",
+      "completed",
+      "cancelled",
+      "no_show",
+      "waitlisted",
+    ],
+    default: "pending",
+    index: true,
   })
   status: string;
 
   // Estado del pago
   @Prop({
     type: String,
-    enum: ['unpaid', 'deposit_paid', 'paid'],
-    default: 'unpaid',
-    index: true
+    enum: ["unpaid", "deposit_paid", "paid"],
+    default: "unpaid",
+    index: true,
   })
   paymentStatus: string;
 
@@ -122,37 +136,65 @@ export class BeautyBooking {
   @Prop({ type: Date })
   reminderSentAt?: Date;
 
+  // Solicitud de reseña enviada (idempotencia: se envía una sola vez al quedar
+  // la cita completada + pagada). Reutilizable para toda la vertical de servicios.
+  @Prop({ type: Date })
+  reviewRequestSentAt?: Date;
+
   // Puntos de lealtad redimidos en este pago
   @Prop({ type: Number, default: 0, min: 0 })
   loyaltyPointsRedeemed: number;
 
   // Notificaciones WhatsApp
   @Prop({
-    type: [{
-      type: { type: String, enum: ['confirmation', 'reminder', 'cancellation', 'rescheduled'], required: true },
-      sentAt: { type: Date, required: true },
-      status: { type: String, enum: ['sent', 'delivered', 'read', 'failed'], required: true },
-      messageId: String,
-      error: String
-    }],
-    default: []
+    type: [
+      {
+        type: {
+          type: String,
+          enum: [
+            "confirmation",
+            "reminder",
+            "cancellation",
+            "rescheduled",
+            "review_request",
+          ],
+          required: true,
+        },
+        sentAt: { type: Date, required: true },
+        status: {
+          type: String,
+          enum: ["sent", "delivered", "read", "failed"],
+          required: true,
+        },
+        messageId: String,
+        error: String,
+      },
+    ],
+    default: [],
   })
   whatsappNotifications: Array<{
-    type: 'confirmation' | 'reminder' | 'cancellation' | 'rescheduled';
+    type:
+      | "confirmation"
+      | "reminder"
+      | "cancellation"
+      | "rescheduled"
+      | "review_request";
     sentAt: Date;
-    status: 'sent' | 'delivered' | 'read' | 'failed';
+    status: "sent" | "delivered" | "read" | "failed";
     messageId?: string;
     error?: string;
   }>;
 
   // Productos adicionales vendidos en la cita (upsell)
   @Prop({
-    type: [{
-      name: { type: String },
-      price: { type: Number, default: 0 },
-      quantity: { type: Number, default: 1 },
-      productId: { type: Types.ObjectId, ref: 'Product', required: false },
-    }],
+    type: [
+      {
+        name: { type: String },
+        price: { type: Number, default: 0 },
+        quantity: { type: Number, default: 1 },
+        productId: { type: Types.ObjectId, ref: "Product", required: false },
+      },
+    ],
     default: [],
   })
   addons: Array<{
@@ -167,21 +209,21 @@ export class BeautyBooking {
   loyaltyPointsAwarded: number;
 
   // Ubicación (si el tenant tiene múltiples sedes)
-  @Prop({ type: Types.ObjectId, ref: 'BusinessLocation' })
+  @Prop({ type: Types.ObjectId, ref: "BusinessLocation" })
   locationId?: Types.ObjectId;
 
   // Paquete seleccionado (opcional)
-  @Prop({ type: Types.ObjectId, ref: 'BeautyPackage' })
+  @Prop({ type: Types.ObjectId, ref: "BeautyPackage" })
   packageId?: Types.ObjectId;
 
   // Auditoría y tracking
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   confirmedBy?: Types.ObjectId;
 
   @Prop({ type: Date })
   confirmedAt?: Date;
 
-  @Prop({ type: Types.ObjectId, ref: 'User' })
+  @Prop({ type: Types.ObjectId, ref: "User" })
   cancelledBy?: Types.ObjectId;
 
   @Prop({ type: Date })
@@ -196,7 +238,7 @@ export class BeautyBooking {
 
   @Prop({ type: Object })
   recurrenceRule?: {
-    frequency: string;               // 'weekly' | 'biweekly' | 'monthly'
+    frequency: string; // 'weekly' | 'biweekly' | 'monthly'
     interval: number;
     endDate?: Date;
     endAfterOccurrences?: number;
@@ -221,7 +263,7 @@ export class BeautyBooking {
     to: string;
   };
 
-  @Prop({ type: Types.ObjectId, ref: 'Professional' })
+  @Prop({ type: Types.ObjectId, ref: "Professional" })
   waitlistPreferredProfessionalId?: Types.ObjectId;
 
   @Prop({ type: Date })
@@ -243,7 +285,7 @@ export class BeautyBooking {
   };
 
   // Solicitud de pago (PaymentRequest) asociada al depósito de esta reserva.
-  @Prop({ type: Types.ObjectId, ref: 'PaymentRequest' })
+  @Prop({ type: Types.ObjectId, ref: "PaymentRequest" })
   paymentRequestId?: Types.ObjectId;
 
   // Hold del slot: si el depósito no se paga/valida antes de esta fecha, el
@@ -257,16 +299,21 @@ export const BeautyBookingSchema = SchemaFactory.createForClass(BeautyBooking);
 
 // Índices críticos para queries de disponibilidad y búsqueda
 BeautyBookingSchema.index({ tenantId: 1, date: 1, status: 1 });
-BeautyBookingSchema.index({ tenantId: 1, professional: 1, date: 1, startTime: 1 });
-BeautyBookingSchema.index({ 'client.phone': 1, tenantId: 1 });
-BeautyBookingSchema.index({ bookingNumber: 1 }, { unique: true });
+BeautyBookingSchema.index({
+  tenantId: 1,
+  professional: 1,
+  date: 1,
+  startTime: 1,
+});
+BeautyBookingSchema.index({ "client.phone": 1, tenantId: 1 });
+BeautyBookingSchema.index({ tenantId: 1, bookingNumber: 1 }, { unique: true });
 BeautyBookingSchema.index({ tenantId: 1, locationId: 1, date: 1 });
 BeautyBookingSchema.index({ tenantId: 1, createdAt: -1 });
 
 // Virtual para nombre completo del profesional (si se necesita populate)
-BeautyBookingSchema.virtual('professionalDetails', {
-  ref: 'Professional',
-  localField: 'professional',
-  foreignField: '_id',
-  justOne: true
+BeautyBookingSchema.virtual("professionalDetails", {
+  ref: "Professional",
+  localField: "professional",
+  foreignField: "_id",
+  justOne: true,
 });

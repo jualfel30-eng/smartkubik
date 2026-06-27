@@ -1,12 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { ConfigService } from '@nestjs/config';
-import { BeautyBookingDocument } from '../../../schemas/beauty-booking.schema';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model } from "mongoose";
+import { ConfigService } from "@nestjs/config";
+import { BeautyBookingDocument } from "../../../schemas/beauty-booking.schema";
 import {
   StorefrontConfig,
   StorefrontConfigDocument,
-} from '../../../schemas/storefront-config.schema';
+} from "../../../schemas/storefront-config.schema";
 
 /**
  * Servicio simplificado para notificaciones WhatsApp en Beauty Module
@@ -14,9 +14,7 @@ import {
  */
 @Injectable()
 export class BeautyWhatsAppNotificationsService {
-  private readonly logger = new Logger(
-    BeautyWhatsAppNotificationsService.name,
-  );
+  private readonly logger = new Logger(BeautyWhatsAppNotificationsService.name);
 
   constructor(
     @InjectModel(StorefrontConfig.name)
@@ -40,15 +38,15 @@ export class BeautyWhatsAppNotificationsService {
         this.logger.warn(
           `Beauty config not enabled for tenant ${booking.tenantId}`,
         );
-        return { success: false, error: 'Beauty config not enabled' };
+        return { success: false, error: "Beauty config not enabled" };
       }
 
       // 2. Verificar si WhatsApp está habilitado
-      const whatsappConfig =
-        (storefront as any).beautyConfig.bookingSettings?.whatsappNotification;
-      if (!whatsappConfig?.enabled || whatsappConfig.mode === 'disabled') {
-        this.logger.log('WhatsApp notifications disabled for this tenant');
-        return { success: false, error: 'WhatsApp notifications disabled' };
+      const whatsappConfig = (storefront as any).beautyConfig.bookingSettings
+        ?.whatsappNotification;
+      if (!whatsappConfig?.enabled || whatsappConfig.mode === "disabled") {
+        this.logger.log("WhatsApp notifications disabled for this tenant");
+        return { success: false, error: "WhatsApp notifications disabled" };
       }
 
       // 3. Construir mensaje
@@ -58,7 +56,7 @@ export class BeautyWhatsAppNotificationsService {
       let result: { success: boolean; messageId?: string; error?: string };
 
       switch (whatsappConfig.mode) {
-        case 'auto':
+        case "auto":
           // Envío automático via API
           result = await this.sendWhatsAppMessage(
             booking.client.phone,
@@ -67,27 +65,27 @@ export class BeautyWhatsAppNotificationsService {
           );
           break;
 
-        case 'manual':
+        case "manual":
           // Solo registrar, el admin enviará manualmente
           this.logger.log(
             `Manual mode: notification logged but not sent for booking ${booking.bookingNumber}`,
           );
           result = {
             success: true,
-            messageId: 'MANUAL_MODE',
+            messageId: "MANUAL_MODE",
           };
           break;
 
         default:
-          result = { success: false, error: 'Invalid WhatsApp mode' };
+          result = { success: false, error: "Invalid WhatsApp mode" };
       }
 
       // 5. Registrar notificación en el booking
       if (result.success) {
         booking.whatsappNotifications.push({
-          type: 'confirmation',
+          type: "confirmation",
           sentAt: new Date(),
-          status: 'sent',
+          status: "sent",
           messageId: result.messageId,
         });
         await booking.save();
@@ -104,6 +102,70 @@ export class BeautyWhatsAppNotificationsService {
   }
 
   /**
+   * Envía solicitud de reseña post-cita (cuando la cita queda completada + pagada).
+   * Reutilizable para toda la vertical de servicios (beauty, health, futuros).
+   * El caller (updateStatus) persiste el booking; aquí solo se agrega la notificación
+   * en memoria y se respeta el modo auto/manual del tenant.
+   */
+  async sendReviewRequestNotification(
+    booking: BeautyBookingDocument,
+    reviewUrl: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const storefront = await this.storefrontConfigModel
+        .findOne({
+          tenantId: {
+            $in: [booking.tenantId, booking.tenantId.toString()],
+          },
+        })
+        .exec();
+
+      const whatsappConfig = (storefront as any)?.beautyConfig?.bookingSettings
+        ?.whatsappNotification;
+      if (!whatsappConfig?.enabled || whatsappConfig.mode === "disabled") {
+        return { success: false, error: "WhatsApp notifications disabled" };
+      }
+
+      const businessName = (storefront as any)?.name || "nuestro equipo";
+      const clientName = booking.client?.name || "Hola";
+      const message =
+        `¡Hola ${clientName}! 🙌 Gracias por confiar en ${businessName}.\n\n` +
+        `Nos encantaría conocer tu opinión honesta sobre tu experiencia. ` +
+        `Déjanos tu reseña en 1 minuto aquí:\n${reviewUrl}\n\n¡Gracias! 💛`;
+
+      let result: { success: boolean; messageId?: string; error?: string };
+      if (whatsappConfig.mode === "auto") {
+        result = await this.sendWhatsAppMessage(
+          booking.client.phone,
+          message,
+          booking.tenantId.toString(),
+        );
+      } else {
+        // Modo manual: se registra; el negocio envía el link wa.me al cliente.
+        this.logger.log(
+          `Manual mode: review request logged for booking ${booking.bookingNumber}`,
+        );
+        result = { success: true, messageId: "MANUAL_MODE" };
+      }
+
+      if (result.success) {
+        booking.whatsappNotifications.push({
+          type: "review_request",
+          sentAt: new Date(),
+          status: "sent",
+          messageId: result.messageId,
+        });
+      }
+      return { success: result.success, error: result.error };
+    } catch (error) {
+      this.logger.error(
+        `Error sending review request notification: ${error.message}`,
+      );
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Envía recordatorio 24h antes de la cita
    */
   async sendReminderNotification(
@@ -114,8 +176,12 @@ export class BeautyWhatsAppNotificationsService {
         .findOne({ tenantId: booking.tenantId })
         .exec();
 
-      if (!storefront || !(storefront as any)?.beautyConfig?.bookingSettings?.whatsappNotification?.enabled) {
-        return { success: false, error: 'WhatsApp not enabled' };
+      if (
+        !storefront ||
+        !(storefront as any)?.beautyConfig?.bookingSettings
+          ?.whatsappNotification?.enabled
+      ) {
+        return { success: false, error: "WhatsApp not enabled" };
       }
 
       const message = this.buildReminderMessage(booking, storefront);
@@ -127,9 +193,9 @@ export class BeautyWhatsAppNotificationsService {
 
       if (result.success) {
         booking.whatsappNotifications.push({
-          type: 'reminder',
+          type: "reminder",
           sentAt: new Date(),
-          status: 'sent',
+          status: "sent",
           messageId: result.messageId,
         });
         await booking.save();
@@ -153,14 +219,23 @@ export class BeautyWhatsAppNotificationsService {
         .findOne({ tenantId: booking.tenantId })
         .exec();
 
-      if (!storefront || !(storefront as any)?.beautyConfig?.bookingSettings?.whatsappNotification?.enabled) {
-        return { success: false, error: 'WhatsApp not enabled' };
+      if (
+        !storefront ||
+        !(storefront as any)?.beautyConfig?.bookingSettings
+          ?.whatsappNotification?.enabled
+      ) {
+        return { success: false, error: "WhatsApp not enabled" };
       }
 
       // Respetar setting de notificaciones de cambios (cancelaciones incluidas)
-      if ((storefront as any)?.beautyConfig?.notifications?.autoChangeNotify === false) {
-        this.logger.log('Change notifications disabled for this tenant — skipping cancellation');
-        return { success: false, error: 'Change notifications disabled' };
+      if (
+        (storefront as any)?.beautyConfig?.notifications?.autoChangeNotify ===
+        false
+      ) {
+        this.logger.log(
+          "Change notifications disabled for this tenant — skipping cancellation",
+        );
+        return { success: false, error: "Change notifications disabled" };
       }
 
       const message = this.buildCancellationMessage(booking, storefront);
@@ -172,9 +247,9 @@ export class BeautyWhatsAppNotificationsService {
 
       if (result.success) {
         booking.whatsappNotifications.push({
-          type: 'cancellation',
+          type: "cancellation",
           sentAt: new Date(),
-          status: 'sent',
+          status: "sent",
           messageId: result.messageId,
         });
         await booking.save();
@@ -200,15 +275,24 @@ export class BeautyWhatsAppNotificationsService {
         .findOne({ tenantId: booking.tenantId })
         .exec();
 
-      if (!storefront || !(storefront as any)?.beautyConfig?.bookingSettings?.whatsappNotification?.enabled) {
-        return { success: false, error: 'WhatsApp not enabled' };
+      if (
+        !storefront ||
+        !(storefront as any)?.beautyConfig?.bookingSettings
+          ?.whatsappNotification?.enabled
+      ) {
+        return { success: false, error: "WhatsApp not enabled" };
       }
 
-      if ((storefront as any)?.beautyConfig?.notifications?.autoChangeNotify === false) {
-        return { success: false, error: 'Change notifications disabled' };
+      if (
+        (storefront as any)?.beautyConfig?.notifications?.autoChangeNotify ===
+        false
+      ) {
+        return { success: false, error: "Change notifications disabled" };
       }
 
-      const servicesList = booking.services.map((s) => `• ${s.name}`).join('\n');
+      const servicesList = booking.services
+        .map((s) => `• ${s.name}`)
+        .join("\n");
 
       const message =
         `Hola ${booking.client.name}, tu cita en *${(storefront as any).name}* ha sido reagendada 📅\n\n` +
@@ -226,9 +310,9 @@ export class BeautyWhatsAppNotificationsService {
 
       if (result.success) {
         booking.whatsappNotifications.push({
-          type: 'rescheduled' as any,
+          type: "rescheduled" as any,
           sentAt: new Date(),
-          status: 'sent',
+          status: "sent",
           messageId: result.messageId,
         });
         await booking.save();
@@ -236,7 +320,9 @@ export class BeautyWhatsAppNotificationsService {
 
       return result;
     } catch (error) {
-      this.logger.error(`Error sending rescheduled notification: ${error.message}`);
+      this.logger.error(
+        `Error sending rescheduled notification: ${error.message}`,
+      );
       return { success: false, error: error.message };
     }
   }
@@ -249,21 +335,20 @@ export class BeautyWhatsAppNotificationsService {
     storefront: StorefrontConfigDocument,
   ): string {
     // Usar template personalizado si existe
-    const customTemplate =
-      (storefront as any).beautyConfig?.bookingSettings?.whatsappNotification
-        ?.messageTemplate;
+    const customTemplate = (storefront as any).beautyConfig?.bookingSettings
+      ?.whatsappNotification?.messageTemplate;
 
     if (customTemplate) {
       return this.replaceTemplateVariables(customTemplate, booking, storefront);
     }
 
     // Template por defecto
-    const servicesList = booking.services.map((s) => `• ${s.name}`).join('\n');
+    const servicesList = booking.services.map((s) => `• ${s.name}`).join("\n");
 
     const paymentMethods = (storefront as any).beautyConfig?.paymentMethods
       ?.filter((pm) => pm.isActive)
       .map((pm) => `• ${pm.name}: ${pm.details}`)
-      .join('\n');
+      .join("\n");
 
     return `¡Hola ${booking.client.name}! 👋
 
@@ -272,14 +357,14 @@ Tu reserva en *${(storefront as any).name}* ha sido confirmada:
 💈 *Servicios:*
 ${servicesList}
 
-${booking.professionalName ? `👤 *Profesional:* ${booking.professionalName}` : '👤 *Profesional:* El siguiente disponible'}
+${booking.professionalName ? `👤 *Profesional:* ${booking.professionalName}` : "👤 *Profesional:* El siguiente disponible"}
 
 📅 *Fecha:* ${this.formatDate(booking.date)}
 🕐 *Hora:* ${booking.startTime}
 ⏱️ *Duración:* ${booking.totalDuration} min
 💰 *Total:* $${booking.totalPrice.toFixed(2)}
 
-${paymentMethods ? `*Métodos de pago aceptados:*\n${paymentMethods}\n\n` : ''}${(storefront as any).contactInfo?.address ? `📍 *Dirección:* ${(storefront as any).contactInfo.address}\n\n` : ''}Tu código de reserva es: *${booking.bookingNumber}*
+${paymentMethods ? `*Métodos de pago aceptados:*\n${paymentMethods}\n\n` : ""}${(storefront as any).contactInfo?.address ? `📍 *Dirección:* ${(storefront as any).contactInfo.address}\n\n` : ""}Tu código de reserva es: *${booking.bookingNumber}*
 
 Si necesitas reprogramar o cancelar, responde a este mensaje.
 
@@ -304,7 +389,7 @@ Te recordamos tu cita en *${(storefront as any).name}* mañana:
 
 Tu código de reserva: *${booking.bookingNumber}*
 
-${(storefront as any).contactInfo?.address ? `📍 *Dirección:* ${(storefront as any).contactInfo.address}\n\n` : ''}¡Te esperamos!
+${(storefront as any).contactInfo?.address ? `📍 *Dirección:* ${(storefront as any).contactInfo.address}\n\n` : ""}¡Te esperamos!
 
 — ${(storefront as any).name}`;
   }
@@ -322,7 +407,7 @@ Tu reserva *${booking.bookingNumber}* en *${(storefront as any).name}* ha sido c
 
 📅 Era para: ${this.formatDate(booking.date)} a las ${booking.startTime}
 
-${booking.cancellationReason ? `Motivo: ${booking.cancellationReason}\n\n` : ''}Si deseas hacer una nueva reserva, puedes contactarnos.
+${booking.cancellationReason ? `Motivo: ${booking.cancellationReason}\n\n` : ""}Si deseas hacer una nueva reserva, puedes contactarnos.
 
 — ${(storefront as any).name}`;
   }
@@ -335,11 +420,11 @@ ${booking.cancellationReason ? `Motivo: ${booking.cancellationReason}\n\n` : ''}
     booking: BeautyBookingDocument,
     storefront: StorefrontConfigDocument,
   ): string {
-    const servicesList = booking.services.map((s) => s.name).join(', ');
+    const servicesList = booking.services.map((s) => s.name).join(", ");
     const paymentMethodsList = (storefront as any).beautyConfig?.paymentMethods
       ?.filter((pm) => pm.isActive)
       .map((pm) => `${pm.name}: ${pm.details}`)
-      .join('\n');
+      .join("\n");
 
     return template
       .replace(/{{clientName}}/g, booking.client.name)
@@ -348,7 +433,7 @@ ${booking.cancellationReason ? `Motivo: ${booking.cancellationReason}\n\n` : ''}
       .replace(/{{servicesList}}/g, servicesList)
       .replace(
         /{{professionalName}}/g,
-        booking.professionalName || 'El siguiente disponible',
+        booking.professionalName || "El siguiente disponible",
       )
       .replace(/{{date}}/g, this.formatDate(booking.date))
       .replace(/{{startTime}}/g, booking.startTime)
@@ -357,8 +442,14 @@ ${booking.cancellationReason ? `Motivo: ${booking.cancellationReason}\n\n` : ''}
       .replace(/{{totalPrice}}/g, `$${booking.totalPrice.toFixed(2)}`)
       .replace(/{{bookingNumber}}/g, booking.bookingNumber)
       .replace(/{{bookingCode}}/g, booking.bookingNumber)
-      .replace(/{{paymentMethodsList}}/g, paymentMethodsList || 'Consultar al llegar')
-      .replace(/{{address}}/g, (storefront as any).contactInfo?.address || 'Ver ubicación en el mapa');
+      .replace(
+        /{{paymentMethodsList}}/g,
+        paymentMethodsList || "Consultar al llegar",
+      )
+      .replace(
+        /{{address}}/g,
+        (storefront as any).contactInfo?.address || "Ver ubicación en el mapa",
+      );
   }
 
   /**
@@ -366,10 +457,28 @@ ${booking.cancellationReason ? `Motivo: ${booking.cancellationReason}\n\n` : ''}
    */
   private formatDate(date: Date): string {
     const d = new Date(date);
-    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const days = [
+      "Domingo",
+      "Lunes",
+      "Martes",
+      "Miércoles",
+      "Jueves",
+      "Viernes",
+      "Sábado",
+    ];
     const months = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre",
     ];
 
     return `${days[d.getDay()]} ${d.getDate()} de ${months[d.getMonth()]}`;
@@ -389,18 +498,18 @@ ${booking.cancellationReason ? `Motivo: ${booking.cancellationReason}\n\n` : ''}
       const token = await this.getWhapiToken(tenantId);
 
       if (!token) {
-        return { success: false, error: 'Whapi token not configured' };
+        return { success: false, error: "Whapi token not configured" };
       }
 
       // Normalizar número de teléfono
       const normalizedPhone = this.normalizePhoneNumber(to);
 
       // Enviar mensaje usando Whapi API
-      const response = await fetch('https://gate.whapi.cloud/messages/text', {
-        method: 'POST',
+      const response = await fetch("https://gate.whapi.cloud/messages/text", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           to: normalizedPhone,
@@ -412,7 +521,7 @@ ${booking.cancellationReason ? `Motivo: ${booking.cancellationReason}\n\n` : ''}
 
       if (!response.ok) {
         this.logger.error(`Whapi API error: ${JSON.stringify(data)}`);
-        return { success: false, error: data.message || 'Whapi API error' };
+        return { success: false, error: data.message || "Whapi API error" };
       }
 
       this.logger.log(
@@ -437,7 +546,7 @@ ${booking.cancellationReason ? `Motivo: ${booking.cancellationReason}\n\n` : ''}
       // TODO: Implementar obtención del token
       // Prioridad: tenant.whapiToken (encriptado) > WHAPI_MASTER_TOKEN env > SuperAdmin setting
 
-      const masterToken = this.configService.get<string>('WHAPI_MASTER_TOKEN');
+      const masterToken = this.configService.get<string>("WHAPI_MASTER_TOKEN");
 
       if (masterToken) {
         return masterToken;
@@ -461,11 +570,11 @@ ${booking.cancellationReason ? `Motivo: ${booking.cancellationReason}\n\n` : ''}
    */
   private normalizePhoneNumber(phone: string): string {
     // Remover espacios, guiones, paréntesis
-    let normalized = phone.replace(/[\s\-\(\)]/g, '');
+    let normalized = phone.replace(/[\s\-\(\)]/g, "");
 
     // Asegurar que tiene el + al inicio
-    if (!normalized.startsWith('+')) {
-      normalized = '+' + normalized;
+    if (!normalized.startsWith("+")) {
+      normalized = "+" + normalized;
     }
 
     return normalized;
@@ -480,23 +589,23 @@ ${booking.cancellationReason ? `Motivo: ${booking.cancellationReason}\n\n` : ''}
     timeSlot?: string,
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      if (!booking?.client?.phone) return { success: false, error: 'No phone' };
+      if (!booking?.client?.phone) return { success: false, error: "No phone" };
 
-      const formattedDate = new Date(date).toLocaleDateString('es-ES', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
+      const formattedDate = new Date(date).toLocaleDateString("es-ES", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
       });
 
       const message =
         `¡Hola ${booking.client.name}! 🎉 Se liberó un espacio para el ${formattedDate}` +
-        `${timeSlot ? ` a las ${timeSlot}` : ''}. ¿Te gustaría confirmar tu cita? ` +
+        `${timeSlot ? ` a las ${timeSlot}` : ""}. ¿Te gustaría confirmar tu cita? ` +
         `Tienes 2 horas para responder. Responde SÍ para confirmar o NO para cancelar tu lugar en la lista de espera.`;
 
       return await this.sendWhatsAppMessage(
         booking.client.phone,
         message,
-        booking.tenantId?.toString() || '',
+        booking.tenantId?.toString() || "",
       );
     } catch (err) {
       return { success: false, error: err.message };
