@@ -25,6 +25,8 @@ export interface BeautyService {
   professionals: string[];
   requiresDeposit?: boolean;
   depositAmount?: number;
+  benefits?: string[];
+  beforeAfter?: Array<{ before: string; after: string; label?: string }>;
 }
 
 export interface Professional {
@@ -225,6 +227,53 @@ export async function getBeautyServices(tenantId: string): Promise<BeautyService
 }
 
 /**
+ * Enviar un lead desde el form de contacto del storefront (vertical salud).
+ * Crea un Customer (lead) en el CRM del tenant vía POST /public/leads.
+ */
+export async function submitLead(data: {
+  tenantId: string;
+  name: string;
+  phone: string;
+  email?: string;
+  serviceInterest?: string;
+  message?: string;
+}): Promise<{ customerNumber: string }> {
+  const response = await fetch(`${API_BASE_URL}/public/leads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to submit lead: ${response.statusText}`);
+  }
+  return await response.json();
+}
+
+/**
+ * Get a single beauty service by id (para la página de detalle)
+ */
+export async function getBeautyServiceById(
+  tenantId: string,
+  id: string,
+): Promise<BeautyService | null> {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/public/beauty-services/${tenantId}/service/${id}`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        next: { revalidate: 60 },
+      }
+    );
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching beauty service:', error);
+    return null;
+  }
+}
+
+/**
  * Get all active professionals for a tenant
  */
 export async function getProfessionals(tenantId: string): Promise<Professional[]> {
@@ -381,10 +430,12 @@ export async function getGooglePlacesData(placeId: string): Promise<GooglePlaces
 /**
  * Get booking by booking number (public access)
  */
-export async function getBookingByNumber(bookingNumber: string): Promise<Booking> {
+export async function getBookingByNumber(bookingNumber: string, tenantId?: string): Promise<Booking> {
   try {
+    // bookingNumber es único por-tenant: pasar tenantId evita traer la reserva de otro tenant.
+    const qs = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : '';
     const response = await fetch(
-      `${API_BASE_URL}/public/beauty-bookings/booking-number/${bookingNumber}`,
+      `${API_BASE_URL}/public/beauty-bookings/booking-number/${bookingNumber}${qs}`,
       {
         method: 'GET',
         headers: {
@@ -409,12 +460,12 @@ export async function getBookingByNumber(bookingNumber: string): Promise<Booking
  */
 export async function submitReview(data: {
   tenantId: string;
-  bookingId: string;
   clientName: string;
   clientPhone: string;
-  serviceId: string;
   rating: number;
-  comment: string;
+  comment?: string;
+  bookingId?: string;
+  serviceId?: string;
 }): Promise<Review> {
   try {
     const response = await fetch(`${API_BASE_URL}/public/beauty-reviews`, {

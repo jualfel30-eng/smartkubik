@@ -95,7 +95,9 @@ export default function BookingConfirmationPage() {
           },
         });
 
-        const bookingData = await getBookingByNumber(bookingNumber);
+        const tenantId =
+          typeof configData.tenantId === 'object' ? configData.tenantId._id : configData.tenantId;
+        const bookingData = await getBookingByNumber(bookingNumber, tenantId);
         setBooking(bookingData);
       } catch (err: any) {
         setError(err.message || 'Reserva no encontrada');

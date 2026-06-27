@@ -26,6 +26,11 @@ export default async function StorefrontPage({
     redirect(`/${domain}/education`);
   }
 
+  // Health vertical has its own dedicated route (services + professionals)
+  if ((config.templateType as string) === 'health') {
+    redirect(`/${domain}/health`);
+  }
+
   // Extract tenantId as string (could be object or string from backend)
   const tenantId: string = typeof config.tenantId === 'string'
     ? config.tenantId
