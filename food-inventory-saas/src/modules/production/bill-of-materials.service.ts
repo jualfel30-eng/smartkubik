@@ -26,7 +26,7 @@ export class BillOfMaterialsService {
     private readonly productModel: Model<ProductDocument>,
     @InjectConnection() private readonly connection: Connection,
     private readonly inventoryService: InventoryService,
-  ) { }
+  ) {}
 
   /**
    * Crear un BOM
@@ -127,7 +127,10 @@ export class BillOfMaterialsService {
     const bom = await this.billOfMaterialsModel
       .findOne({ _id: new Types.ObjectId(id), tenantId })
       .populate("productId", "name sku")
-      .populate("components.componentProductId", "name sku unitOfMeasure variants")
+      .populate(
+        "components.componentProductId",
+        "name sku unitOfMeasure variants",
+      )
       .lean()
       .exec();
 
@@ -136,7 +139,10 @@ export class BillOfMaterialsService {
     }
 
     if (bom.components && bom.components.length > 0) {
-      console.log("DEBUG BOM FETCH:", JSON.stringify(bom.components[0], null, 2));
+      console.log(
+        "DEBUG BOM FETCH:",
+        JSON.stringify(bom.components[0], null, 2),
+      );
     }
     return bom;
   }
@@ -278,7 +284,9 @@ export class BillOfMaterialsService {
         // Pero por simplicidad ahora usamos la primera o la que coincida
         if (component.componentVariantId) {
           const variantIdStr = component.componentVariantId.toString();
-          const variant = product.variants.find(v => v._id && v._id.toString() === variantIdStr);
+          const variant = product.variants.find(
+            (v) => v._id && v._id.toString() === variantIdStr,
+          );
           if (variant) unitCost = variant.costPrice;
         } else {
           // Usar la primera variante (producto simple o base)
@@ -357,6 +365,245 @@ export class BillOfMaterialsService {
     return {
       allAvailable: missing.length === 0,
       missing,
+    };
+  }
+
+  /**
+   * Producir un lote a partir de una receta (BOM), versión ligera.
+   *
+   * Reutiliza el núcleo de ManufacturingOrderService.complete() pero SIN exigir
+   * orden de manufactura, versión de producción, routing ni work centers. Pensado
+   * para el flujo "Producir lote" embebido en la ficha de producto (Mercancía),
+   * para negocios pequeños que elaboran productos propios (abastos, panaderías).
+   *
+   * @param id - ID del BOM
+   * @param quantity - Unidades terminadas a producir (en productionUnit del BOM)
+   * @param user - Usuario autenticado (provee tenantId)
+   * @returns Resumen de la producción (consumos, costo de materiales, costo unitario)
+   */
+  async produceBatch(
+    id: string,
+    quantity: number,
+    user: any,
+  ): Promise<{
+    produced: number;
+    unit: string;
+    materialCost: number;
+    unitCost: number;
+    consumed: Array<{ sku: string; name: string; quantity: number }>;
+  }> {
+    if (!quantity || quantity <= 0) {
+      throw new BadRequestException(
+        "La cantidad a producir debe ser mayor a 0",
+      );
+    }
+
+    const tenantId = new Types.ObjectId(user.tenantId);
+
+    // Cargar el BOM (raw, sin populate) dentro del scope del tenant.
+    const bom = await this.billOfMaterialsModel
+      .findOne({ _id: new Types.ObjectId(id), tenantId })
+      .lean()
+      .exec();
+
+    if (!bom) {
+      throw new NotFoundException("BOM no encontrado");
+    }
+
+    if (!bom.components || bom.components.length === 0) {
+      throw new BadRequestException(
+        "La receta no tiene materias primas definidas",
+      );
+    }
+
+    // Cuántas veces se ejecuta la receta. productionQuantity >= 0.001 (schema).
+    const batches = quantity / bom.productionQuantity;
+
+    // Pre-chequeo amigable de disponibilidad (incluye merma por componente).
+    const availability = await this.checkComponentsAvailability(
+      id,
+      batches,
+      user,
+    );
+    if (!availability.allAvailable) {
+      const detalle = availability.missing
+        .map(
+          (m) =>
+            `${m.name} (req: ${m.required.toFixed(2)}, disp: ${m.available.toFixed(2)})`,
+        )
+        .join("; ");
+      throw new BadRequestException(`Stock insuficiente para: ${detalle}`);
+    }
+
+    const session = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
+      let materialCost = 0;
+      const consumed: Array<{ sku: string; name: string; quantity: number }> =
+        [];
+
+      // PASO 1: Consumir materias primas.
+      for (const component of bom.components) {
+        const product = await this.productModel
+          .findById(component.componentProductId)
+          .session(session)
+          .lean()
+          .exec();
+
+        if (!product) {
+          throw new BadRequestException(
+            `Materia prima no encontrada: ${component.componentProductId}`,
+          );
+        }
+
+        const inventory = await this.inventoryService.findByProductSku(
+          product.sku,
+          user.tenantId,
+        );
+
+        if (!inventory) {
+          throw new BadRequestException(
+            `Inventario no encontrado para ${product.name}`,
+          );
+        }
+
+        const scrapFactor = 1 + (component.scrapPercentage || 0) / 100;
+        const consumedQuantity = component.quantity * batches * scrapFactor;
+        const newQuantity = inventory.totalQuantity - consumedQuantity;
+
+        if (newQuantity < 0) {
+          throw new BadRequestException(
+            `Stock insuficiente para ${product.name}. Requerido: ${consumedQuantity.toFixed(2)}, Disponible: ${inventory.totalQuantity}`,
+          );
+        }
+
+        await this.inventoryService.adjustInventory(
+          {
+            inventoryId: inventory._id.toString(),
+            newQuantity,
+            reason: `Elaboración de ${bom.name}`,
+          },
+          user,
+          session,
+        );
+
+        materialCost += consumedQuantity * inventory.averageCostPrice;
+        consumed.push({
+          sku: product.sku,
+          name: product.name,
+          quantity: consumedQuantity,
+        });
+      }
+
+      // PASO 2: Sumar el producto terminado al inventario.
+      const finishedProduct = await this.productModel
+        .findById(bom.productId)
+        .session(session)
+        .lean()
+        .exec();
+
+      if (!finishedProduct) {
+        throw new BadRequestException("Producto terminado no encontrado");
+      }
+
+      const unitCost = materialCost / quantity;
+      const finishedInventory = await this.inventoryService.findByProductSku(
+        finishedProduct.sku,
+        user.tenantId,
+      );
+
+      if (finishedInventory) {
+        await this.inventoryService.adjustInventory(
+          {
+            inventoryId: finishedInventory._id.toString(),
+            newQuantity: finishedInventory.totalQuantity + quantity,
+            newCostPrice: unitCost,
+            reason: `Producción de ${bom.name}`,
+          },
+          user,
+          session,
+        );
+      } else {
+        await this.inventoryService.create(
+          {
+            productId: bom.productId.toString(),
+            productSku: finishedProduct.sku,
+            productName: finishedProduct.name,
+            totalQuantity: quantity,
+            averageCostPrice: unitCost,
+            location: {
+              warehouse: "Producción",
+              zone: "Productos Terminados",
+              aisle: "A1",
+              shelf: "1",
+              bin: "1",
+            },
+          } as any,
+          user,
+          session,
+        );
+      }
+
+      await session.commitTransaction();
+
+      return {
+        produced: quantity,
+        unit: bom.productionUnit,
+        materialCost,
+        unitCost,
+        consumed,
+      };
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  /**
+   * Vista previa de una producción sin ejecutarla: disponibilidad + costo estimado.
+   * Alimenta el preview del botón "Producir lote" en el frontend.
+   */
+  async previewProduction(
+    id: string,
+    quantity: number,
+    user: any,
+  ): Promise<{
+    allAvailable: boolean;
+    missing: Array<{
+      sku: string;
+      name: string;
+      required: number;
+      available: number;
+    }>;
+    estimatedCost: number;
+    estimatedUnitCost: number;
+  }> {
+    if (!quantity || quantity <= 0) {
+      throw new BadRequestException(
+        "La cantidad a producir debe ser mayor a 0",
+      );
+    }
+
+    const bom = await this.findOne(id, user);
+    const batches = quantity / bom.productionQuantity;
+
+    const availability = await this.checkComponentsAvailability(
+      id,
+      batches,
+      user,
+    );
+    // calculateTotalMaterialCost devuelve el costo para una ejecución (productionQuantity).
+    const costPerBatch = await this.calculateTotalMaterialCost(id, user);
+    const estimatedCost = costPerBatch * batches;
+
+    return {
+      allAvailable: availability.allAvailable,
+      missing: availability.missing,
+      estimatedCost,
+      estimatedUnitCost: quantity > 0 ? estimatedCost / quantity : 0,
     };
   }
 

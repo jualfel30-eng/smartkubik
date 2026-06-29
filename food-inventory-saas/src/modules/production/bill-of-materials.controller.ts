@@ -18,8 +18,12 @@ import {
 } from "../../dto/bill-of-materials.dto";
 import { JwtAuthGuard } from "../../guards/jwt-auth.guard";
 import { TenantGuard } from "../../guards/tenant.guard";
+import { ModuleAccessGuard } from "../../guards/module-access.guard";
+import { PermissionsGuard } from "../../guards/permissions.guard";
+import { RequireModule } from "../../decorators/require-module.decorator";
+import { Permissions } from "../../decorators/permissions.decorator";
 
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, TenantGuard, ModuleAccessGuard, PermissionsGuard)
 @Controller("bill-of-materials")
 export class BillOfMaterialsController {
   constructor(private readonly bomService: BillOfMaterialsService) {}
@@ -111,5 +115,39 @@ export class BillOfMaterialsController {
   async getBOMStructure(@Param("id") id: string, @Request() req) {
     const structure = await this.bomService.getBOMStructure(id, req.user);
     return { success: true, data: structure };
+  }
+
+  /**
+   * Vista previa de una producción ligera (disponibilidad + costo estimado).
+   * GET /bill-of-materials/:id/produce-preview?quantity=40
+   */
+  @Get(":id/produce-preview")
+  @RequireModule("recipes")
+  @Permissions("inventory_read")
+  async producePreview(
+    @Param("id") id: string,
+    @Query("quantity") quantity: string,
+    @Request() req,
+  ) {
+    const qty = parseFloat(quantity);
+    const data = await this.bomService.previewProduction(id, qty, req.user);
+    return { success: true, data };
+  }
+
+  /**
+   * Producir un lote a partir de la receta: descuenta materias primas y
+   * suma el producto terminado al inventario. Flujo ligero para elaboración propia.
+   * POST /bill-of-materials/:id/produce  body: { quantity }
+   */
+  @Post(":id/produce")
+  @RequireModule("recipes")
+  @Permissions("inventory_update")
+  async produce(
+    @Param("id") id: string,
+    @Body("quantity") quantity: number,
+    @Request() req,
+  ) {
+    const data = await this.bomService.produceBatch(id, quantity, req.user);
+    return { success: true, data };
   }
 }

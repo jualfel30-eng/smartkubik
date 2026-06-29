@@ -7,20 +7,23 @@ import {
   BillOfMaterialsSchema,
 } from "../../schemas/bill-of-materials.schema";
 import { Product, ProductSchema } from "../../schemas/product.schema";
+import { Tenant, TenantSchema } from "../../schemas/tenant.schema";
 import { AuthModule } from "../../auth/auth.module";
 import { InventoryModule } from "../inventory/inventory.module";
+import { ModuleAccessGuard } from "../../guards/module-access.guard";
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: BillOfMaterials.name, schema: BillOfMaterialsSchema },
       { name: Product.name, schema: ProductSchema },
+      { name: Tenant.name, schema: TenantSchema },
     ]),
     forwardRef(() => AuthModule),
     InventoryModule,
   ],
   controllers: [BillOfMaterialsController],
-  providers: [BillOfMaterialsService],
+  providers: [BillOfMaterialsService, ModuleAccessGuard],
   exports: [BillOfMaterialsService],
 })
 export class BillOfMaterialsModule {}
