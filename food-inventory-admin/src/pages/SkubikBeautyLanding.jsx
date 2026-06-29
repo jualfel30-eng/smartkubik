@@ -3199,6 +3199,9 @@ function STimeline({ D }) {
 // ---- Web Showcase — "Tu salón en internet" ----
 // Demos reales y vivos: cada `url` resuelve a un storefront seedeado (template beauty).
 // `shotDesktop`/`shotMobile` son capturas reales del sitio (public/storefront-demos/).
+// SHOT_VERSION: cache-bust del CDN (Cloudflare cachea los .webp con max-age=4h).
+// Súbelo cada vez que reemplaces un screenshot para forzar el refetch en el edge.
+const SHOT_VERSION = 2;
 const WEB_MOCKS = [
   {
     key: 'barber',
@@ -3306,10 +3309,10 @@ function SWebShowcase() {
                 tabIndex={i === activeIdx ? 0 : -1}
               >
                 <picture>
-                  <source media="(max-width: 700px)" srcSet={m.shotMobile} />
+                  <source media="(max-width: 700px)" srcSet={`${m.shotMobile}?v=${SHOT_VERSION}`} />
                   <img
                     className="s-web-shot"
-                    src={m.shotDesktop}
+                    src={`${m.shotDesktop}?v=${SHOT_VERSION}`}
                     alt={`Web de ${m.name} hecha con SmartKubik`}
                     loading={i === 0 ? 'eager' : 'lazy'}
                     draggable="false"
