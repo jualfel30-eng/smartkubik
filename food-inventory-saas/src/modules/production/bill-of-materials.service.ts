@@ -17,6 +17,16 @@ import {
 } from "../../dto/bill-of-materials.dto";
 import { InventoryService } from "../inventory/inventory.service";
 
+/**
+ * Sustitución de insumo al momento de producir: en vez del producto que la receta
+ * fija por defecto (`componentProductId`), se consume `replacementProductId`.
+ * Resuelve el caso de ingredientes intercambiables (ej: chispas marca A vs marca B).
+ */
+export interface ComponentOverride {
+  componentProductId: string;
+  replacementProductId: string;
+}
+
 @Injectable()
 export class BillOfMaterialsService {
   constructor(
@@ -300,6 +310,30 @@ export class BillOfMaterialsService {
     return totalCost;
   }
 
+  /** Mapa de sustituciones {productoReceta -> productoReal} a partir de overrides. */
+  private buildOverrideMap(
+    overrides: ComponentOverride[] = [],
+  ): Map<string, string> {
+    const map = new Map<string, string>();
+    for (const o of overrides) {
+      if (o?.componentProductId && o?.replacementProductId) {
+        map.set(String(o.componentProductId), String(o.replacementProductId));
+      }
+    }
+    return map;
+  }
+
+  /** Resuelve el producto a consumir: el sustituto si hay override, si no el de la receta. */
+  private resolveComponentProductId(
+    component: any,
+    overrideMap: Map<string, string>,
+  ): string {
+    const original = String(
+      component.componentProductId?._id || component.componentProductId,
+    );
+    return overrideMap.get(original) || original;
+  }
+
   /**
    * Verificar disponibilidad de componentes
    */
@@ -307,6 +341,7 @@ export class BillOfMaterialsService {
     id: string,
     quantityToProduce: number,
     user: any,
+    overrides: ComponentOverride[] = [],
   ): Promise<{
     allAvailable: boolean;
     missing: Array<{
@@ -317,6 +352,7 @@ export class BillOfMaterialsService {
     }>;
   }> {
     const bom = await this.findOne(id, user);
+    const overrideMap = this.buildOverrideMap(overrides);
     const missing: Array<{
       sku: string;
       name: string;
@@ -327,7 +363,7 @@ export class BillOfMaterialsService {
     // Verificar cada componente
     for (const component of bom.components) {
       const product = await this.productModel
-        .findById(component.componentProductId)
+        .findById(this.resolveComponentProductId(component, overrideMap))
         .lean()
         .exec();
 
@@ -385,6 +421,7 @@ export class BillOfMaterialsService {
     id: string,
     quantity: number,
     user: any,
+    overrides: ComponentOverride[] = [],
   ): Promise<{
     produced: number;
     unit: string;
@@ -424,7 +461,9 @@ export class BillOfMaterialsService {
       id,
       batches,
       user,
+      overrides,
     );
+    const overrideMap = this.buildOverrideMap(overrides);
     if (!availability.allAvailable) {
       const detalle = availability.missing
         .map(
@@ -443,17 +482,21 @@ export class BillOfMaterialsService {
       const consumed: Array<{ sku: string; name: string; quantity: number }> =
         [];
 
-      // PASO 1: Consumir materias primas.
+      // PASO 1: Consumir materias primas (aplicando sustituciones si las hay).
       for (const component of bom.components) {
+        const effectiveProductId = this.resolveComponentProductId(
+          component,
+          overrideMap,
+        );
         const product = await this.productModel
-          .findById(component.componentProductId)
+          .findById(effectiveProductId)
           .session(session)
           .lean()
           .exec();
 
         if (!product) {
           throw new BadRequestException(
-            `Materia prima no encontrada: ${component.componentProductId}`,
+            `Materia prima no encontrada: ${effectiveProductId}`,
           );
         }
 
@@ -570,6 +613,7 @@ export class BillOfMaterialsService {
     id: string,
     quantity: number,
     user: any,
+    overrides: ComponentOverride[] = [],
   ): Promise<{
     allAvailable: boolean;
     missing: Array<{
@@ -589,14 +633,36 @@ export class BillOfMaterialsService {
 
     const bom = await this.findOne(id, user);
     const batches = quantity / bom.productionQuantity;
+    const overrideMap = this.buildOverrideMap(overrides);
 
     const availability = await this.checkComponentsAvailability(
       id,
       batches,
       user,
+      overrides,
     );
-    // calculateTotalMaterialCost devuelve el costo para una ejecución (productionQuantity).
-    const costPerBatch = await this.calculateTotalMaterialCost(id, user);
+
+    // Costo por ejecución (productionQuantity), aplicando sustituciones de insumo.
+    let costPerBatch = 0;
+    for (const component of bom.components) {
+      const product = await this.productModel
+        .findById(this.resolveComponentProductId(component, overrideMap))
+        .lean()
+        .exec();
+      if (!product) continue;
+      let unitCost = 0;
+      const inventory = await this.inventoryService.findByProductSku(
+        product.sku,
+        user.tenantId,
+      );
+      if (inventory && inventory.averageCostPrice > 0) {
+        unitCost = inventory.averageCostPrice;
+      }
+      if (unitCost === 0 && product.variants && product.variants.length > 0) {
+        unitCost = product.variants[0].costPrice;
+      }
+      costPerBatch += component.quantity * unitCost;
+    }
     const estimatedCost = costPerBatch * batches;
 
     return {

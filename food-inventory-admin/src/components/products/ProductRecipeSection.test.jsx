@@ -71,7 +71,7 @@ describe('ProductRecipeSection', () => {
     getBomByProduct.mockResolvedValue([existingBom]);
     render(<ProductRecipeSection product={product} />);
 
-    expect(await screen.findByText('Avena')).toBeInTheDocument();
+    expect((await screen.findAllByText('Avena')).length).toBeGreaterThan(0);
     expect(screen.getByText(/producir lote/i)).toBeInTheDocument();
   });
 
@@ -95,6 +95,6 @@ describe('ProductRecipeSection', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /^producir$/i }));
 
-    expect(produceBatch).toHaveBeenCalledWith('bom-1', 40);
+    expect(produceBatch).toHaveBeenCalledWith('bom-1', 40, []);
   });
 });

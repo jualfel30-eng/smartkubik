@@ -10,7 +10,10 @@ import {
   Request,
   UseGuards,
 } from "@nestjs/common";
-import { BillOfMaterialsService } from "./bill-of-materials.service";
+import {
+  BillOfMaterialsService,
+  ComponentOverride,
+} from "./bill-of-materials.service";
 import {
   CreateBillOfMaterialsDto,
   UpdateBillOfMaterialsDto,
@@ -119,35 +122,46 @@ export class BillOfMaterialsController {
 
   /**
    * Vista previa de una producción ligera (disponibilidad + costo estimado).
-   * GET /bill-of-materials/:id/produce-preview?quantity=40
+   * Acepta sustituciones de insumo (overrides) para reflejar la marca real elegida.
+   * POST /bill-of-materials/:id/produce-preview  body: { quantity, overrides? }
    */
-  @Get(":id/produce-preview")
+  @Post(":id/produce-preview")
   @RequireModule("recipes")
   @Permissions("inventory_read")
   async producePreview(
     @Param("id") id: string,
-    @Query("quantity") quantity: string,
+    @Body() body: { quantity: number; overrides?: ComponentOverride[] },
     @Request() req,
   ) {
-    const qty = parseFloat(quantity);
-    const data = await this.bomService.previewProduction(id, qty, req.user);
+    const data = await this.bomService.previewProduction(
+      id,
+      body?.quantity,
+      req.user,
+      body?.overrides || [],
+    );
     return { success: true, data };
   }
 
   /**
    * Producir un lote a partir de la receta: descuenta materias primas y
    * suma el producto terminado al inventario. Flujo ligero para elaboración propia.
-   * POST /bill-of-materials/:id/produce  body: { quantity }
+   * `overrides` permite sustituir el insumo por defecto por la marca/producto real usado.
+   * POST /bill-of-materials/:id/produce  body: { quantity, overrides? }
    */
   @Post(":id/produce")
   @RequireModule("recipes")
   @Permissions("inventory_update")
   async produce(
     @Param("id") id: string,
-    @Body("quantity") quantity: number,
+    @Body() body: { quantity: number; overrides?: ComponentOverride[] },
     @Request() req,
   ) {
-    const data = await this.bomService.produceBatch(id, quantity, req.user);
+    const data = await this.bomService.produceBatch(
+      id,
+      body?.quantity,
+      req.user,
+      body?.overrides || [],
+    );
     return { success: true, data };
   }
 }

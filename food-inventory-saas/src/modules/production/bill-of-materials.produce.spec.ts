@@ -8,9 +8,8 @@ import { Product } from "../../schemas/product.schema";
 import { InventoryService } from "../inventory/inventory.service";
 
 /**
- * Cobertura del flujo ligero "Producir lote" (produceBatch / previewProduction).
- * Verifica el camino feliz (consume materias, suma terminado, costo correcto)
- * y el caso de error (stock insuficiente lanza y NO muta inventario).
+ * Cobertura del flujo ligero "Producir lote" (produceBatch / previewProduction),
+ * incluida la sustitución de insumo al producir (overrides: chispas marca A vs B).
  */
 describe("BillOfMaterialsService — produceBatch / previewProduction", () => {
   let service: BillOfMaterialsService;
@@ -28,7 +27,8 @@ describe("BillOfMaterialsService — produceBatch / previewProduction", () => {
 
   const tenantId = new Types.ObjectId();
   const finishedProductId = new Types.ObjectId();
-  const componentProductId = new Types.ObjectId();
+  const componentProductId = new Types.ObjectId(); // insumo por defecto (marca A)
+  const replacementProductId = new Types.ObjectId(); // marca B (sustituto)
   const bomId = new Types.ObjectId();
 
   const mockUser = {
@@ -41,34 +41,50 @@ describe("BillOfMaterialsService — produceBatch / previewProduction", () => {
   const bom = {
     _id: bomId,
     code: "BOM-GALLETAS",
-    name: "Galletas de avena",
+    name: "Galletas de chispas",
     productId: finishedProductId,
     productionQuantity: 20,
     productionUnit: "unidad",
     components: [
-      {
-        componentProductId,
-        quantity: 2,
-        unit: "kg",
-        scrapPercentage: 0,
-      },
+      { componentProductId, quantity: 2, unit: "kg", scrapPercentage: 0 },
     ],
     isActive: true,
     tenantId,
   };
 
-  const componentProduct = {
-    _id: componentProductId,
-    name: "Avena",
-    sku: "AVENA-001",
+  // Registro de productos por id y de inventario por sku.
+  const productsById: Record<string, any> = {
+    [componentProductId.toString()]: {
+      _id: componentProductId,
+      name: "Chispas marca A",
+      sku: "CHISPAS-A",
+    },
+    [replacementProductId.toString()]: {
+      _id: replacementProductId,
+      name: "Chispas marca B",
+      sku: "CHISPAS-B",
+    },
+    [finishedProductId.toString()]: {
+      _id: finishedProductId,
+      name: "Galletas de chispas",
+      sku: "GALLETAS-001",
+    },
   };
-  const finishedProduct = {
-    _id: finishedProductId,
-    name: "Galletas de avena",
-    sku: "GALLETAS-001",
+  const invBySku: Record<string, any> = {
+    "CHISPAS-A": newInv(5),
+    "CHISPAS-B": newInv(8),
+    "GALLETAS-001": newInv(0, 10),
   };
 
-  // Mongoose chain mock que soporta populate/lean/session/sort y resuelve en exec.
+  function newInv(avgCost: number, qty = 100) {
+    return {
+      _id: new Types.ObjectId(),
+      totalQuantity: qty,
+      availableQuantity: qty,
+      averageCostPrice: avgCost,
+    };
+  }
+
   const chain = (resolved: any) => {
     const c: any = {
       populate: jest.fn(() => c),
@@ -80,14 +96,6 @@ describe("BillOfMaterialsService — produceBatch / previewProduction", () => {
     return c;
   };
 
-  const buildInventory = (overrides: Record<string, any> = {}) => ({
-    _id: new Types.ObjectId(),
-    totalQuantity: 100,
-    availableQuantity: 100,
-    averageCostPrice: 5,
-    ...overrides,
-  });
-
   beforeEach(async () => {
     session = {
       startTransaction: jest.fn(),
@@ -95,11 +103,12 @@ describe("BillOfMaterialsService — produceBatch / previewProduction", () => {
       abortTransaction: jest.fn(),
       endSession: jest.fn(),
     };
-
     inventoryService = {
-      findByProductSku: jest.fn(),
-      adjustInventory: jest.fn(),
-      create: jest.fn(),
+      findByProductSku: jest.fn((sku: string) =>
+        Promise.resolve(invBySku[sku] ?? null),
+      ),
+      adjustInventory: jest.fn().mockResolvedValue({}),
+      create: jest.fn().mockResolvedValue({}),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -107,19 +116,13 @@ describe("BillOfMaterialsService — produceBatch / previewProduction", () => {
         BillOfMaterialsService,
         {
           provide: getModelToken(BillOfMaterials.name),
-          useValue: {
-            findOne: jest.fn(() => chain(bom)),
-          },
+          useValue: { findOne: jest.fn(() => chain(bom)) },
         },
         {
           provide: getModelToken(Product.name),
           useValue: {
             findById: jest.fn((id: any) =>
-              chain(
-                id?.toString() === finishedProductId.toString()
-                  ? finishedProduct
-                  : componentProduct,
-              ),
+              chain(productsById[String(id)] ?? null),
             ),
           },
         },
@@ -135,42 +138,43 @@ describe("BillOfMaterialsService — produceBatch / previewProduction", () => {
   });
 
   describe("produceBatch", () => {
-    it("descuenta materias primas, suma el terminado y calcula el costo", async () => {
-      // 40 unidades => 2 tandas => consume 2 * 2 = 4 de la materia prima.
-      const componentInv = buildInventory({ averageCostPrice: 5 });
-      const finishedInv = buildInventory({ totalQuantity: 10 });
-      inventoryService.findByProductSku
-        .mockResolvedValueOnce(componentInv) // checkComponentsAvailability
-        .mockResolvedValueOnce(componentInv) // consumo en el loop
-        .mockResolvedValueOnce(finishedInv); // producto terminado
-      inventoryService.adjustInventory.mockResolvedValue({});
-
+    it("descuenta el insumo por defecto y calcula el costo", async () => {
       const result = await service.produceBatch(bomId.toString(), 40, mockUser);
 
       expect(result.produced).toBe(40);
-      expect(result.unit).toBe("unidad");
-      expect(result.materialCost).toBe(20); // 4 * 5
+      expect(result.materialCost).toBe(20); // 4 unidades * costo 5
       expect(result.unitCost).toBe(0.5); // 20 / 40
-      expect(result.consumed).toHaveLength(1);
+      expect(result.consumed[0].sku).toBe("CHISPAS-A");
       expect(result.consumed[0].quantity).toBe(4);
-
-      // Una baja de materia + una alta del terminado.
       expect(inventoryService.adjustInventory).toHaveBeenCalledTimes(2);
       expect(session.commitTransaction).toHaveBeenCalledTimes(1);
-      expect(session.abortTransaction).not.toHaveBeenCalled();
+    });
+
+    it("con override, consume la marca sustituta y su costo", async () => {
+      const overrides = [
+        {
+          componentProductId: componentProductId.toString(),
+          replacementProductId: replacementProductId.toString(),
+        },
+      ];
+      const result = await service.produceBatch(
+        bomId.toString(),
+        40,
+        mockUser,
+        overrides,
+      );
+
+      // Ahora consume marca B (costo 8) en vez de A.
+      expect(result.consumed[0].sku).toBe("CHISPAS-B");
+      expect(result.consumed[0].quantity).toBe(4);
+      expect(result.materialCost).toBe(32); // 4 * 8
+      expect(result.unitCost).toBe(0.8); // 32 / 40
     });
 
     it("lanza y NO muta inventario si falta stock", async () => {
-      // 4000 unidades => 200 tandas => requiere 400; solo hay 100 disponibles.
-      inventoryService.findByProductSku.mockResolvedValue(
-        buildInventory({ availableQuantity: 100, totalQuantity: 100 }),
-      );
-
       await expect(
         service.produceBatch(bomId.toString(), 4000, mockUser),
       ).rejects.toThrow(BadRequestException);
-
-      // El fallo ocurre en el pre-chequeo, antes de abrir transacción.
       expect(inventoryService.adjustInventory).not.toHaveBeenCalled();
       expect(session.commitTransaction).not.toHaveBeenCalled();
     });
@@ -184,22 +188,33 @@ describe("BillOfMaterialsService — produceBatch / previewProduction", () => {
   });
 
   describe("previewProduction", () => {
-    it("devuelve disponibilidad y costo estimado sin mutar inventario", async () => {
-      inventoryService.findByProductSku.mockResolvedValue(
-        buildInventory({ averageCostPrice: 5 }),
-      );
-
+    it("devuelve disponibilidad y costo del insumo por defecto", async () => {
       const result = await service.previewProduction(
         bomId.toString(),
         40,
         mockUser,
       );
-
       expect(result.allAvailable).toBe(true);
-      // costo por tanda = 2 * 5 = 10; 2 tandas => 20; unitario 0.5.
-      expect(result.estimatedCost).toBe(20);
+      expect(result.estimatedCost).toBe(20); // 2*5 por tanda * 2 tandas
       expect(result.estimatedUnitCost).toBe(0.5);
       expect(inventoryService.adjustInventory).not.toHaveBeenCalled();
+    });
+
+    it("refleja el costo de la marca sustituta en el preview", async () => {
+      const overrides = [
+        {
+          componentProductId: componentProductId.toString(),
+          replacementProductId: replacementProductId.toString(),
+        },
+      ];
+      const result = await service.previewProduction(
+        bomId.toString(),
+        40,
+        mockUser,
+        overrides,
+      );
+      expect(result.estimatedCost).toBe(32); // 2*8 por tanda * 2 tandas
+      expect(result.estimatedUnitCost).toBe(0.8);
     });
   });
 });

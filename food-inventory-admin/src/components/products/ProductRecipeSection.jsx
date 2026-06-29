@@ -64,6 +64,8 @@ export default function ProductRecipeSection({ product }) {
   const [preview, setPreview] = useState(null);
   const [previewing, setPreviewing] = useState(false);
   const [producing, setProducing] = useState(false);
+  // Sustituciones de insumo elegidas al producir: { [productoReceta]: productoReal }.
+  const [substitutes, setSubstitutes] = useState({});
 
   // Candidatos a ingrediente: materias primas + productos simples (un abasto suele
   // comprar a granel como 'simple' los insumos que también revende).
@@ -200,7 +202,21 @@ export default function ProductRecipeSection({ product }) {
     }
   };
 
-  const runPreview = async (qtyValue) => {
+  // Construye los overrides {insumo-receta → producto-real} a partir de los sustitutos
+  // que difieran del producto por defecto de la receta.
+  const buildOverrides = (subs = substitutes) =>
+    components
+      .filter(
+        (c) =>
+          subs[c.componentProductId] &&
+          subs[c.componentProductId] !== c.componentProductId,
+      )
+      .map((c) => ({
+        componentProductId: c.componentProductId,
+        replacementProductId: subs[c.componentProductId],
+      }));
+
+  const runPreview = async (qtyValue, overridesArg) => {
     const qty = parseFloat(qtyValue);
     if (!bom?._id || !qty || qty <= 0) {
       setPreview(null);
@@ -208,7 +224,11 @@ export default function ProductRecipeSection({ product }) {
     }
     setPreviewing(true);
     try {
-      const data = await previewProduction(bom._id, qty);
+      const data = await previewProduction(
+        bom._id,
+        qty,
+        overridesArg ?? buildOverrides(),
+      );
       setPreview(data);
     } catch (err) {
       setPreview(null);
@@ -218,12 +238,18 @@ export default function ProductRecipeSection({ product }) {
     }
   };
 
+  const handleSubstituteChange = (componentProductId, value) => {
+    const next = { ...substitutes, [componentProductId]: value };
+    setSubstitutes(next);
+    if (produceQty) runPreview(produceQty, buildOverrides(next));
+  };
+
   const handleProduce = async () => {
     const qty = parseFloat(produceQty);
     if (!bom?._id || !qty || qty <= 0) return;
     setProducing(true);
     try {
-      const result = await produceBatch(bom._id, qty);
+      const result = await produceBatch(bom._id, qty, buildOverrides());
       toast.success(
         `Producidas ${result.produced} ${result.unit}. Costo unitario: ${result.unitCost?.toFixed(2)}`,
       );
@@ -374,6 +400,52 @@ export default function ProductRecipeSection({ product }) {
                 <Factory className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium">Producir lote</span>
               </div>
+
+              {/* Sustitución de insumo: por defecto el de la receta, pero puedes
+                  elegir la marca/producto real que usaste en este lote. */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">
+                  Insumos a usar (cambia la marca real si aplica)
+                </Label>
+                {components.map((c) => {
+                  const rowOptions = [
+                    { _id: c.componentProductId, name: c.productName },
+                    ...ingredientOptions.filter(
+                      (o) => o._id !== c.componentProductId,
+                    ),
+                  ];
+                  const value =
+                    substitutes[c.componentProductId] || c.componentProductId;
+                  return (
+                    <div
+                      key={c.componentProductId}
+                      className="flex items-center gap-2"
+                    >
+                      <span className="text-xs text-muted-foreground w-28 shrink-0 truncate">
+                        {c.productName}
+                      </span>
+                      <Select
+                        value={value}
+                        onValueChange={(v) =>
+                          handleSubstituteChange(c.componentProductId, v)
+                        }
+                      >
+                        <SelectTrigger className="h-8 flex-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[200px]">
+                          {rowOptions.map((o) => (
+                            <SelectItem key={o._id} value={o._id}>
+                              {o.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                })}
+              </div>
+
               <div className="flex items-end gap-3">
                 <div className="w-40 space-y-1">
                   <Label className="text-xs">Cantidad a producir ({baseUnit})</Label>

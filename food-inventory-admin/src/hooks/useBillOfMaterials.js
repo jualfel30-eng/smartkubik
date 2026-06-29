@@ -163,10 +163,10 @@ export const useBillOfMaterials = () => {
     }
   }, []);
 
-  const previewProduction = useCallback(async (id, quantity) => {
+  const previewProduction = useCallback(async (id, quantity, overrides = []) => {
     try {
       setError(null);
-      const response = await previewBillOfMaterialsProduction(id, quantity);
+      const response = await previewBillOfMaterialsProduction(id, quantity, overrides);
       return response.data;
     } catch (err) {
       setError(err.message);
@@ -174,11 +174,11 @@ export const useBillOfMaterials = () => {
     }
   }, []);
 
-  const produceBatch = useCallback(async (id, quantity) => {
+  const produceBatch = useCallback(async (id, quantity, overrides = []) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await produceBillOfMaterials(id, quantity);
+      const response = await produceBillOfMaterials(id, quantity, overrides);
       return response.data;
     } catch (err) {
       setError(err.message);
