@@ -1746,6 +1746,18 @@ export const getBillOfMaterialsStructure = (id) => {
   return fetchApi(`/bill-of-materials/${id}/structure`);
 };
 
+// Flujo ligero "Producir lote" (módulo recipes): consume materias primas y suma el terminado.
+export const previewBillOfMaterialsProduction = (id, quantity) => {
+  return fetchApi(`/bill-of-materials/${id}/produce-preview?quantity=${quantity}`);
+};
+
+export const produceBillOfMaterials = (id, quantity) => {
+  return fetchApi(`/bill-of-materials/${id}/produce`, {
+    method: 'POST',
+    body: JSON.stringify({ quantity }),
+  });
+};
+
 
 export const recordIvaDeclarationPayment = (id, data) => {
   return fetchApi(`/accounting/iva-declaration/${id}/payment`, {

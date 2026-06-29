@@ -9,7 +9,9 @@ import {
   calculateBillOfMaterialsCost,
   checkBillOfMaterialsAvailability,
   explodeBillOfMaterials,
-  getBillOfMaterialsStructure
+  getBillOfMaterialsStructure,
+  previewBillOfMaterialsProduction,
+  produceBillOfMaterials
 } from '@/lib/api';
 
 export const useBillOfMaterials = () => {
@@ -161,6 +163,31 @@ export const useBillOfMaterials = () => {
     }
   }, []);
 
+  const previewProduction = useCallback(async (id, quantity) => {
+    try {
+      setError(null);
+      const response = await previewBillOfMaterialsProduction(id, quantity);
+      return response.data;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  }, []);
+
+  const produceBatch = useCallback(async (id, quantity) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await produceBillOfMaterials(id, quantity);
+      return response.data;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     boms,
     loading,
@@ -174,7 +201,9 @@ export const useBillOfMaterials = () => {
     calculateTotalCost,
     checkAvailability,
     explodeBom,
-    getStructure
+    getStructure,
+    previewProduction,
+    produceBatch
   };
 };
 

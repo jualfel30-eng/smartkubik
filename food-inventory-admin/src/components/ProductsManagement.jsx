@@ -28,6 +28,7 @@ import { toast } from 'sonner';
 import { fetchApi } from '../lib/api';
 import { useVerticalConfig } from '@/hooks/useVerticalConfig.js';
 import { useAuth } from '@/hooks/use-auth.jsx';
+import ProductRecipeSection from '@/components/products/ProductRecipeSection.jsx';
 import { useQueryClient } from '@tanstack/react-query';
 import { useInventoryCache } from '@/hooks/useInventoryCache';
 import { useConsumables } from '@/hooks/useConsumables';
@@ -5702,6 +5703,9 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                   ))}
                 </div>
                   </div>
+                  {tenant?.enabledModules?.recipes && editingProduct?._id && (
+                    <ProductRecipeSection product={editingProduct} />
+                  )}
                 </TabsContent>
               </Tabs>
               <div className="flex justify-end gap-2 px-6 py-4 border-t bg-card">
