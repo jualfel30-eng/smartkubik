@@ -44,7 +44,7 @@ export class AuthService {
     private mailService: MailService,
     private tokenService: TokenService,
     private membershipsService: MembershipsService,
-  ) { }
+  ) {}
 
   async login(
     loginDto: LoginDto | UserDocument | string,
@@ -241,7 +241,8 @@ export class AuthService {
         }
       } catch (error) {
         this.logger.warn(
-          `Auto-selection of default tenant failed: ${error instanceof Error ? error.message : error
+          `Auto-selection of default tenant failed: ${
+            error instanceof Error ? error.message : error
           }`,
         );
       }
@@ -402,7 +403,7 @@ export class AuthService {
         autoReplyEnabled: false,
         knowledgeBaseTenantId: "",
       },
-      verticalProfile: tenant.verticalProfile || { key: 'food-service' },
+      verticalProfile: tenant.verticalProfile || { key: "food-service" },
     };
   }
 
@@ -792,7 +793,7 @@ export class AuthService {
       .select("-password -passwordResetToken -emailVerificationToken")
       .populate(
         "tenantId",
-        "code name businessType subscriptionPlan isConfirmed",
+        "code name businessType subscriptionPlan isConfirmed vertical enabledModules verticalProfile slug parentTenantId isSubsidiary aiAssistant",
       )
       .populate("role")
       .exec();
@@ -801,7 +802,15 @@ export class AuthService {
       throw new UnauthorizedException("Usuario no encontrado");
     }
 
-    return user;
+    // Adjuntar el payload de tenant con módulos EFECTIVOS para que el frontend
+    // pueda refrescar enabledModules sin re-login (un módulo activado por el
+    // super-admin se refleja en la próxima validación de sesión).
+    const result: any = user.toObject();
+    const tenantDoc = user.tenantId as any;
+    if (tenantDoc && tenantDoc._id) {
+      result.tenant = this.buildTenantPayload(tenantDoc as TenantDocument);
+    }
+    return result;
   }
 
   async getMemberships(userId: string) {

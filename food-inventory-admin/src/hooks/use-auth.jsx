@@ -144,10 +144,23 @@ export const AuthProvider = ({ children }) => {
       if (!token) return;
 
       const response = await fetchApi('/auth/profile');
+      const profile = response?.data ?? response;
 
       // Update User
       setUser(response);
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(response));
+
+      // Refrescar módulos habilitados del tenant sin re-login: si el super-admin
+      // activó/desactivó un módulo, el sidebar/feature se actualiza al validar sesión.
+      // Solo mergeamos enabledModules para preservar currency/trial/logo/onboarding.
+      if (profile?.tenant?.enabledModules) {
+        setTenant((prev) => {
+          if (!prev) return prev;
+          const merged = { ...prev, enabledModules: profile.tenant.enabledModules };
+          localStorage.setItem(STORAGE_KEYS.TENANT, JSON.stringify(merged));
+          return merged;
+        });
+      }
 
       // Refresh Memberships from dedicated endpoint
       try {
