@@ -1,15 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -20,7 +13,8 @@ import {
 } from '@/components/ui/table';
 import { Plus, Trash, ChefHat, Factory, Loader2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { useProducts } from '@/hooks/useProducts';
+import { SearchableSelect } from '@/components/orders/v2/custom/SearchableSelect';
+import { fetchApi } from '@/lib/api';
 import { useBillOfMaterials } from '@/hooks/useBillOfMaterials';
 
 /**
@@ -30,14 +24,13 @@ import { useBillOfMaterials } from '@/hooks/useBillOfMaterials';
  * define las materias primas que componen ESTE producto (BoM) y permite producir
  * lotes que descuentan insumos y suman el terminado al inventario.
  *
- * Reutiliza el módulo BoM existente; gated por enabledModules.recipes en el padre.
+ * El insumo se busca server-side (igual que el buscador de productos): async,
+ * sin preload — escala a miles de productos.
  */
 export default function ProductRecipeSection({ product }) {
   const productId = product?._id;
   const baseUnit = product?.unitOfMeasure || 'unidad';
 
-  const { products: rawMaterials, loadProducts: loadRaw } = useProducts();
-  const { products: simpleProducts, loadProducts: loadSimple } = useProducts();
   const {
     getBomByProduct,
     createBom,
@@ -54,7 +47,7 @@ export default function ProductRecipeSection({ product }) {
   // Editor de receta
   const [productionQuantity, setProductionQuantity] = useState(1);
   const [components, setComponents] = useState([]);
-  const [selectedIngredient, setSelectedIngredient] = useState('');
+  const [selectedIngredient, setSelectedIngredient] = useState(null); // option {value,label,product}
   const [ingredientQty, setIngredientQty] = useState(1);
   const [saving, setSaving] = useState(false);
   const [estimatedCost, setEstimatedCost] = useState(null);
@@ -64,18 +57,29 @@ export default function ProductRecipeSection({ product }) {
   const [preview, setPreview] = useState(null);
   const [previewing, setPreviewing] = useState(false);
   const [producing, setProducing] = useState(false);
-  // Sustituciones de insumo elegidas al producir: { [productoReceta]: productoReal }.
+  // Sustituciones al producir: { [productoReceta]: option {value,label} }.
   const [substitutes, setSubstitutes] = useState({});
 
-  // Candidatos a ingrediente: materias primas + productos simples (un abasto suele
-  // comprar a granel como 'simple' los insumos que también revende).
-  const ingredientOptions = useMemo(() => {
-    const map = new Map();
-    [...(rawMaterials || []), ...(simpleProducts || [])].forEach((p) => {
-      if (p && p._id && p._id !== productId) map.set(p._id, p);
-    });
-    return Array.from(map.values());
-  }, [rawMaterials, simpleProducts, productId]);
+  // Búsqueda server-side de insumos (mismo patrón que el buscador de productos).
+  const loadProductOptions = useCallback(
+    async (query) => {
+      try {
+        const res = await fetchApi(
+          `/products?search=${encodeURIComponent(query)}&limit=20`,
+        );
+        return (res.data || [])
+          .filter((p) => p._id !== productId)
+          .map((p) => ({
+            value: p._id,
+            label: `${p.name} (${p.sku})`,
+            product: p,
+          }));
+      } catch {
+        return [];
+      }
+    },
+    [productId],
+  );
 
   const loadCost = useCallback(
     async (bomId, qty) => {
@@ -126,33 +130,26 @@ export default function ProductRecipeSection({ product }) {
     };
   }, [productId, getBomByProduct, loadCost]);
 
-  // Cargar candidatos a ingrediente cuando se activa la elaboración propia
-  useEffect(() => {
-    if (enabled) {
-      loadRaw({ limit: 100, isActive: true, productType: 'raw_material' });
-      loadSimple({ limit: 100, isActive: true, productType: 'simple' });
-    }
-  }, [enabled, loadRaw, loadSimple]);
-
   const handleAddIngredient = () => {
-    const prod = ingredientOptions.find((p) => p._id === selectedIngredient);
+    const opt = selectedIngredient;
     const qty = parseFloat(ingredientQty);
-    if (!prod || !qty || qty <= 0) return;
-    if (components.some((c) => c.componentProductId === prod._id)) {
+    if (!opt || !qty || qty <= 0) return;
+    if (components.some((c) => c.componentProductId === opt.value)) {
       toast.error('Ese insumo ya está en la receta');
       return;
     }
+    const prod = opt.product || {};
     setComponents([
       ...components,
       {
-        componentProductId: prod._id,
-        productName: prod.name,
+        componentProductId: opt.value,
+        productName: prod.name || opt.label,
         quantity: qty,
         unit: prod.unitOfMeasure || 'unidad',
         scrapPercentage: 0,
       },
     ]);
-    setSelectedIngredient('');
+    setSelectedIngredient(null);
     setIngredientQty(1);
   };
 
@@ -202,18 +199,17 @@ export default function ProductRecipeSection({ product }) {
     }
   };
 
-  // Construye los overrides {insumo-receta → producto-real} a partir de los sustitutos
-  // que difieran del producto por defecto de la receta.
+  // Overrides {insumo-receta → producto-real} para los sustitutos elegidos.
   const buildOverrides = (subs = substitutes) =>
     components
       .filter(
         (c) =>
           subs[c.componentProductId] &&
-          subs[c.componentProductId] !== c.componentProductId,
+          subs[c.componentProductId].value !== c.componentProductId,
       )
       .map((c) => ({
         componentProductId: c.componentProductId,
-        replacementProductId: subs[c.componentProductId],
+        replacementProductId: subs[c.componentProductId].value,
       }));
 
   const runPreview = async (qtyValue, overridesArg) => {
@@ -238,8 +234,13 @@ export default function ProductRecipeSection({ product }) {
     }
   };
 
-  const handleSubstituteChange = (componentProductId, value) => {
-    const next = { ...substitutes, [componentProductId]: value };
+  const handleSubstituteChange = (componentProductId, option) => {
+    const next = { ...substitutes };
+    if (!option || option.value === componentProductId) {
+      delete next[componentProductId]; // vuelve al insumo por defecto
+    } else {
+      next[componentProductId] = option;
+    }
     setSubstitutes(next);
     if (produceQty) runPreview(produceQty, buildOverrides(next));
   };
@@ -305,22 +306,20 @@ export default function ProductRecipeSection({ product }) {
             <span className="text-sm text-muted-foreground pb-2">{baseUnit}</span>
           </div>
 
-          {/* Agregar insumo */}
+          {/* Agregar insumo (búsqueda server-side) */}
           <div className="flex items-end gap-2 p-3 bg-muted rounded-md border">
             <div className="flex-1 space-y-1">
               <Label className="text-xs">Materia prima</Label>
-              <Select value={selectedIngredient} onValueChange={setSelectedIngredient}>
-                <SelectTrigger className="h-8">
-                  <SelectValue placeholder="Buscar insumo…" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[200px]">
-                  {ingredientOptions.map((p) => (
-                    <SelectItem key={p._id} value={p._id}>
-                      {p.name} ({p.sku})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                asyncSearch
+                isCreatable={false}
+                loadOptions={loadProductOptions}
+                minSearchLength={2}
+                debounceMs={300}
+                value={selectedIngredient}
+                onSelection={(opt) => setSelectedIngredient(opt)}
+                placeholder="Buscar insumo por nombre o SKU…"
+              />
             </div>
             <div className="w-24 space-y-1">
               <Label className="text-xs">Cantidad</Label>
@@ -407,43 +406,32 @@ export default function ProductRecipeSection({ product }) {
                 <Label className="text-xs text-muted-foreground">
                   Insumos a usar (cambia la marca real si aplica)
                 </Label>
-                {components.map((c) => {
-                  const rowOptions = [
-                    { _id: c.componentProductId, name: c.productName },
-                    ...ingredientOptions.filter(
-                      (o) => o._id !== c.componentProductId,
-                    ),
-                  ];
-                  const value =
-                    substitutes[c.componentProductId] || c.componentProductId;
-                  return (
-                    <div
-                      key={c.componentProductId}
-                      className="flex items-center gap-2"
-                    >
-                      <span className="text-xs text-muted-foreground w-28 shrink-0 truncate">
-                        {c.productName}
-                      </span>
-                      <Select
-                        value={value}
-                        onValueChange={(v) =>
-                          handleSubstituteChange(c.componentProductId, v)
+                {components.map((c) => (
+                  <div key={c.componentProductId} className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground w-28 shrink-0 truncate">
+                      {c.productName}
+                    </span>
+                    <div className="flex-1">
+                      <SearchableSelect
+                        asyncSearch
+                        isCreatable={false}
+                        loadOptions={loadProductOptions}
+                        minSearchLength={2}
+                        debounceMs={300}
+                        value={
+                          substitutes[c.componentProductId] || {
+                            value: c.componentProductId,
+                            label: c.productName,
+                          }
                         }
-                      >
-                        <SelectTrigger className="h-8 flex-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[200px]">
-                          {rowOptions.map((o) => (
-                            <SelectItem key={o._id} value={o._id}>
-                              {o.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        onSelection={(opt) =>
+                          handleSubstituteChange(c.componentProductId, opt)
+                        }
+                        placeholder="Buscar…"
+                      />
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
 
               <div className="flex items-end gap-3">
