@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 
 // ════════════════════════════════════════════════════════
@@ -990,69 +990,18 @@ body.skubik-page-active { cursor: none; overflow-x: clip; }
   .s-web-laptop-base { display: none; }
 }
 
-/* Web mock screens (one per vertical) */
-.s-web-mock { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s cubic-bezier(0.22,1,0.36,1); display: flex; flex-direction: column; overflow: hidden; }
-.s-web-mock.active { opacity: 1; }
-.s-web-mock-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
-.s-web-mock-logo { display: flex; align-items: center; gap: 8px; }
-.s-web-mock-logo-dot { width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-weight: 700; font-size: 12px; color: #fff; }
-.s-web-mock-name { font-family: 'Fraunces', serif; font-size: 13px; font-weight: 600; }
-.s-web-mock-cta { padding: 5px 12px; border-radius: 99px; font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #fff; }
-.s-web-mock-hero { flex: 1; padding: 24px; display: flex; flex-direction: column; justify-content: center; text-align: center; position: relative; overflow: hidden; }
-.s-web-mock-hero-bg { position: absolute; inset: 0; opacity: 0.4; }
-.s-web-mock-hero-content { position: relative; z-index: 1; }
-.s-web-mock-tagline { font-family: 'Fraunces', serif; font-weight: 700; line-height: 1.05; margin-bottom: 12px; }
-.s-web-mock-rating { display: inline-flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.05em; opacity: 0.85; }
-.s-web-mock-buttons { display: flex; gap: 8px; justify-content: center; margin-top: 18px; }
-.s-web-mock-btn { padding: 8px 16px; border-radius: 8px; font-size: 11px; font-weight: 700; }
-.s-web-mock-gallery { padding: 0 24px 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; flex-shrink: 0; }
-.s-web-mock-gallery > div { aspect-ratio: 1/1; border-radius: 3px; }
-@media (max-width: 700px) {
-  .s-web-mock-header { padding: 10px 14px; }
-  .s-web-mock-hero { padding: 20px 16px; }
-  .s-web-mock-gallery { padding: 0 14px 14px; }
-}
+/* Web mock screens (one screenshot per vertical, crossfade) */
+.s-web-mock { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s cubic-bezier(0.22,1,0.36,1); overflow: hidden; display: block; background: #0a0e1a; pointer-events: none; }
+.s-web-mock.active { opacity: 1; pointer-events: auto; }
+.s-web-shot { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; user-select: none; }
 
-/* Vertical-specific palettes */
-.s-web-mock.v-barber { background: #1a1612; color: #f5efe3; }
-.s-web-mock.v-barber .s-web-mock-logo-dot { background: linear-gradient(135deg, #b08968, #6b4e3d); }
-.s-web-mock.v-barber .s-web-mock-cta { background: #b08968; }
-.s-web-mock.v-barber .s-web-mock-hero-bg { background: radial-gradient(ellipse at center, rgba(176,137,104,0.3), transparent 70%); }
-.s-web-mock.v-barber .s-web-mock-btn-primary { background: #b08968; color: #fff; }
-.s-web-mock.v-barber .s-web-mock-btn-ghost { background: transparent; color: #f5efe3; border: 1px solid rgba(245,239,227,0.2); }
-.s-web-mock.v-barber .s-web-mock-gallery > div { background: linear-gradient(135deg, #2a1f17, #4a3a2a); }
-
-.s-web-mock.v-salon { background: #faf6f0; color: #2a1f17; }
-.s-web-mock.v-salon .s-web-mock-logo-dot { background: linear-gradient(135deg, #d4af6f, #8b7355); }
-.s-web-mock.v-salon .s-web-mock-cta { background: #c9a663; color: #fff; }
-.s-web-mock.v-salon .s-web-mock-hero-bg { background: radial-gradient(ellipse at center, rgba(212,175,111,0.35), transparent 70%); }
-.s-web-mock.v-salon .s-web-mock-btn-primary { background: #2a1f17; color: #fff; }
-.s-web-mock.v-salon .s-web-mock-btn-ghost { background: transparent; color: #2a1f17; border: 1px solid rgba(42,31,23,0.2); }
-.s-web-mock.v-salon .s-web-mock-rating { color: #2a1f17; }
-.s-web-mock.v-salon .s-web-mock-gallery > div { background: linear-gradient(135deg, #e8d5b7, #c9a663); }
-
-.s-web-mock.v-nails { background: #fdf2f7; color: #831843; }
-.s-web-mock.v-nails .s-web-mock-logo-dot { background: linear-gradient(135deg, #ec4899, #be185d); }
-.s-web-mock.v-nails .s-web-mock-cta { background: #ec4899; color: #fff; }
-.s-web-mock.v-nails .s-web-mock-hero-bg { background: radial-gradient(ellipse at center, rgba(236,72,153,0.25), transparent 70%); }
-.s-web-mock.v-nails .s-web-mock-btn-primary { background: #ec4899; color: #fff; }
-.s-web-mock.v-nails .s-web-mock-btn-ghost { background: transparent; color: #831843; border: 1px solid rgba(131,24,67,0.2); }
-.s-web-mock.v-nails .s-web-mock-rating { color: #831843; }
-.s-web-mock.v-nails .s-web-mock-gallery > div { background: linear-gradient(135deg, #fce7f3, #f9a8d4); }
-
-.s-web-mock.v-spa { background: #f0f7f0; color: #1c3d1c; }
-.s-web-mock.v-spa .s-web-mock-logo-dot { background: linear-gradient(135deg, #6b9166, #3a5a3a); }
-.s-web-mock.v-spa .s-web-mock-cta { background: #6b9166; color: #fff; }
-.s-web-mock.v-spa .s-web-mock-hero-bg { background: radial-gradient(ellipse at center, rgba(107,145,102,0.3), transparent 70%); }
-.s-web-mock.v-spa .s-web-mock-btn-primary { background: #3a5a3a; color: #fff; }
-.s-web-mock.v-spa .s-web-mock-btn-ghost { background: transparent; color: #1c3d1c; border: 1px solid rgba(28,61,28,0.2); }
-.s-web-mock.v-spa .s-web-mock-rating { color: #1c3d1c; }
-.s-web-mock.v-spa .s-web-mock-gallery > div { background: linear-gradient(135deg, #d1e3d1, #8aab85); }
-
-/* URL bar below laptop */
-.s-web-url { margin-top: 32px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--s-muted); display: flex; align-items: center; gap: 8px; }
+/* URL bar below laptop (clickable link to the live demo) */
+.s-web-url { margin-top: 32px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--s-muted); display: inline-flex; align-items: center; gap: 8px; text-decoration: none; cursor: pointer; transition: color 0.2s; }
+.s-web-url:hover { color: var(--s-fg); }
 .s-web-url-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; animation: s-pulse 2s infinite; }
-@media (max-width: 600px) { .s-web-url { font-size: 11px; margin-top: 20px; } }
+.s-web-url-go { font-size: 11px; color: var(--s-accent); opacity: 0; transform: translateX(-4px); transition: opacity 0.2s, transform 0.2s; }
+.s-web-url:hover .s-web-url-go { opacity: 1; transform: translateX(0); }
+@media (max-width: 600px) { .s-web-url { font-size: 11px; margin-top: 20px; } .s-web-url-go { display: none; } }
 
 /* Tabs (vertical selectors) */
 .s-web-tabs { display: flex; gap: 10px; margin-top: 28px; flex-wrap: wrap; justify-content: center; }
@@ -1393,24 +1342,6 @@ function useSectionProgress(ref) {
     return () => window.removeEventListener('scroll', onScroll);
   }, [ref]);
   return p;
-}
-
-function useCountUp(target, enabled, dur = 1200) {
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    if (!enabled) return;
-    let start = null;
-    let raf;
-    const tick = (t) => {
-      if (start === null) start = t;
-      const p = Math.min(1, (t - start) / dur);
-      setV(Math.round(target * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, enabled, dur]);
-  return v;
 }
 
 // ════════════════════════════════════════════════════════
@@ -2411,7 +2342,6 @@ function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
 
         m.cards.forEach((card, idx) => {
           let translateY = 0, translateZ = 0, blur = 0, opacity = 1, brightness = 1;
-          let rising = false;
 
           if (idx === 0) {
             // Card 0 is always present; recedes as newer cards arrive on top
@@ -2431,7 +2361,6 @@ function useScrollHijackCarousel(wrapRef, trackRef, stickyRef, count) {
             } else {
               const eased = 1 - Math.pow(1 - localP, 3); // ease-out cubic
               translateY = viewportH * 1.1 * (1 - eased);
-              rising = true;
             }
           }
 
@@ -2602,7 +2531,7 @@ const IC = {
   refresh: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>,
 };
 
-function IPhoneMockup({ progress }) {
+function IPhoneMockup() {
   const [visible, setVisible] = useState(4);
   const [paused, setPaused] = useState(false);
   const [expanded, setExpanded] = useState(-1);
@@ -3268,53 +3197,39 @@ function STimeline({ D }) {
 }
 
 // ---- Web Showcase — "Tu salón en internet" ----
+// Demos reales y vivos: cada `url` resuelve a un storefront seedeado (template beauty).
+// `shotDesktop`/`shotMobile` son capturas reales del sitio (public/storefront-demos/).
 const WEB_MOCKS = [
   {
     key: 'barber',
     name: 'Barbería Sava',
-    initial: 'S',
     url: 'savabarberia.smartkubik.com',
-    tagline: 'Precisión impecable, actitud total',
-    rating: '★ 4.7 · 25 reseñas',
-    ctaPrimary: 'Reservar Ahora',
-    ctaGhost: 'Ver Servicios',
-    ctaShort: 'Reservar',
+    shotDesktop: '/storefront-demos/savabarberia-desktop.webp',
+    shotMobile: '/storefront-demos/savabarberia-mobile.webp',
     vertical: 'Barbería',
   },
   {
     key: 'salon',
     name: 'Studio Bella',
-    initial: 'B',
     url: 'studiobella.smartkubik.com',
-    tagline: 'El arte de sentirte radiante',
-    rating: '★ 4.9 · 187 reseñas',
-    ctaPrimary: 'Reserva tu cita',
-    ctaGhost: 'Conoce el equipo',
-    ctaShort: 'Reservar',
+    shotDesktop: '/storefront-demos/studiobella-desktop.webp',
+    shotMobile: '/storefront-demos/studiobella-mobile.webp',
     vertical: 'Salón premium',
   },
   {
     key: 'nails',
     name: 'Nails by Sophie',
-    initial: 'N',
     url: 'nailsbysophie.smartkubik.com',
-    tagline: 'Manos perfectas, todos los días',
-    rating: '★ 5.0 · 94 reseñas',
-    ctaPrimary: 'Reservar Cita',
-    ctaGhost: 'Ver diseños',
-    ctaShort: 'Reservar',
+    shotDesktop: '/storefront-demos/nailsbysophie-desktop.webp',
+    shotMobile: '/storefront-demos/nailsbysophie-mobile.webp',
     vertical: 'Nail Studio',
   },
   {
     key: 'spa',
     name: 'Spa Renacer',
-    initial: 'R',
     url: 'sparenacer.smartkubik.com',
-    tagline: 'Tu pausa, tu santuario',
-    rating: '★ 4.8 · 62 reseñas',
-    ctaPrimary: 'Reservar Sesión',
-    ctaGhost: 'Ver tratamientos',
-    ctaShort: 'Reservar',
+    shotDesktop: '/storefront-demos/sparenacer-desktop.webp',
+    shotMobile: '/storefront-demos/sparenacer-mobile.webp',
     vertical: 'Spa Wellness',
   },
 ];
@@ -3381,40 +3296,40 @@ function SWebShowcase() {
         >
           <div className="s-web-laptop-screen">
             {WEB_MOCKS.map((m, i) => (
-              <div key={m.key} className={`s-web-mock v-${m.key} ${i === activeIdx ? 'active' : ''}`}>
-                <div className="s-web-mock-header">
-                  <div className="s-web-mock-logo">
-                    <div className="s-web-mock-logo-dot">{m.initial}</div>
-                    <div className="s-web-mock-name">{m.name}</div>
-                  </div>
-                  <div className="s-web-mock-cta">{m.ctaShort}</div>
-                </div>
-                <div className="s-web-mock-hero">
-                  <div className="s-web-mock-hero-bg" />
-                  <div className="s-web-mock-hero-content">
-                    <div className="s-web-mock-tagline" style={{ fontSize: 'clamp(18px, 3vw, 28px)' }}>{m.tagline}</div>
-                    <div className="s-web-mock-rating">
-                      <span style={{ color: '#fbbf24' }}>{m.rating.split('·')[0]}</span>
-                      <span style={{ opacity: 0.7 }}>·{m.rating.split('·')[1]}</span>
-                    </div>
-                    <div className="s-web-mock-buttons">
-                      <div className="s-web-mock-btn s-web-mock-btn-primary">{m.ctaPrimary}</div>
-                      <div className="s-web-mock-btn s-web-mock-btn-ghost">{m.ctaGhost}</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="s-web-mock-gallery">
-                  {[0,1,2,3].map(g => <div key={g} />)}
-                </div>
-              </div>
+              <a
+                key={m.key}
+                className={`s-web-mock ${i === activeIdx ? 'active' : ''}`}
+                href={`https://${m.url}`}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Ver el demo de ${m.name} en vivo`}
+                tabIndex={i === activeIdx ? 0 : -1}
+              >
+                <picture>
+                  <source media="(max-width: 700px)" srcSet={m.shotMobile} />
+                  <img
+                    className="s-web-shot"
+                    src={m.shotDesktop}
+                    alt={`Web de ${m.name} hecha con SmartKubik`}
+                    loading={i === 0 ? 'eager' : 'lazy'}
+                    draggable="false"
+                  />
+                </picture>
+              </a>
             ))}
           </div>
         </div>
         <div className="s-web-laptop-base" />
-        <div className="s-web-url">
+        <a
+          className="s-web-url"
+          href={`https://${WEB_MOCKS[activeIdx].url}`}
+          target="_blank"
+          rel="noreferrer"
+        >
           <span className="s-web-url-dot" />
           {WEB_MOCKS[activeIdx].url}
-        </div>
+          <span className="s-web-url-go">Ver demo →</span>
+        </a>
         <div className="s-web-tabs">
           {WEB_MOCKS.map((m, i) => (
             <button
@@ -3440,7 +3355,7 @@ function SWebShowcase() {
 
       <div className="s-web-final">
         <p>"Tu primera web profesional, sin pagar diseñador. Incluida en tu plan."</p>
-        <a className="s-web-final-link" href="https://savabarberia.smartkubik.com" target="_blank" rel="noreferrer">
+        <a className="s-web-final-link" href={`https://${WEB_MOCKS[activeIdx].url}`} target="_blank" rel="noreferrer">
           Ver demo en vivo →
         </a>
       </div>
