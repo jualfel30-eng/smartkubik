@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
@@ -63,6 +63,7 @@ export const ShelfLabelWizard = ({ isOpen, onClose, initialSelectedItems = [] })
         showBrand: true,
         showLogo: true, // New toggle
         showSKU: true, // New toggle for SKU
+        showSellingUnit: false, // Unidad de venta múltiple: oculta por defecto (es control interno del tenant)
         labelSize: 'standard', // 'standard', 'small', 'rectangular'
         exchangeRate: bcvRate || 1,
         storeName: tenant?.name || "",
@@ -248,7 +249,7 @@ export const ShelfLabelWizard = ({ isOpen, onClose, initialSelectedItems = [] })
         ...product,
         _id: `${product._id}_su_${idx}`,
         _productId: product._id,
-        productName: `${product.name} (${su.name})`,
+        productName: product.name,
         sku: product.sku,
         brand: product.brand || 'Generico',
         price: su.pricePerUnit || 0,
@@ -773,6 +774,16 @@ export const ShelfLabelWizard = ({ isOpen, onClose, initialSelectedItems = [] })
                                     <Label htmlFor="showSKU">Mostrar SKU</Label>
                                     <Switch id="showSKU" checked={config.showSKU} onCheckedChange={c => setConfig({ ...config, showSKU: c })} />
                                 </div>
+
+                                {selectedItems.some(i => i._isSellingUnit) && (
+                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-0.5">
+                                            <Label htmlFor="showSellingUnit">Mostrar unidad de venta</Label>
+                                            <p className="text-xs text-muted-foreground">Ej. "(Lata de 410 grs)". Útil solo si un producto tiene varias unidades distintas.</p>
+                                        </div>
+                                        <Switch id="showSellingUnit" checked={config.showSellingUnit} onCheckedChange={c => setConfig({ ...config, showSellingUnit: c })} />
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-4 bg-white dark:bg-card p-6 rounded-lg border dark:border-border shadow-sm">

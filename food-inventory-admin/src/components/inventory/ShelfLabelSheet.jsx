@@ -6,7 +6,6 @@ export const ShelfLabelSheet = ({ items, config }) => {
         showPrice = true,
         currency = 'VES',
         showDate = false,
-        showBarcode = false,
         showSKU = true,
         labelSize = 'standard', // 'standard' (3x5), 'small' (4x8)
         exchangeRate = 1
@@ -42,8 +41,6 @@ export const ShelfLabelSheet = ({ items, config }) => {
         labelHeight: 'h-[130px]',
         labelClass: 'flex-col text-center'
     };
-
-    const isRectangular = labelSize === 'rectangular';
 
     // Calculate items per page based on grid capacity
     const itemsPerPage = gridConfig.rows * gridConfig.cols;
@@ -88,7 +85,7 @@ export const ShelfLabelSheet = ({ items, config }) => {
                             : item.price;
 
                         const baseCurrencySymbol = currency === 'VES' ? 'Bs.' : 'REF';
-                        const currencySymbol = item.sellingUnitAbbr
+                        const currencySymbol = (config.showSellingUnit && item.sellingUnitAbbr)
                             ? `${baseCurrencySymbol}/${item.sellingUnitAbbr}`
                             : baseCurrencySymbol;
 
@@ -118,7 +115,7 @@ export const ShelfLabelSheet = ({ items, config }) => {
                                     <div className="flex flex-col gap-1">
                                         {/* Nombre del producto - alineado a la izquierda */}
                                         <div className="font-bold leading-tight line-clamp-3 text-left text-sm" title={item.productName}>
-                                            {item.productName}
+                                            {item.productName}{config.showSellingUnit && item.sellingUnitName ? ` (${item.sellingUnitName})` : ''}
                                         </div>
 
                                         {/* Marca - alineado a la izquierda */}
