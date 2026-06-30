@@ -244,13 +244,8 @@ export class SuperAdminService {
     return updatedTenant;
   }
 
-  async extendTrial(
-    tenantId: string,
-    days: number = 7,
-  ): Promise<any> {
-    this.logger.log(
-      `Extending trial for tenant ${tenantId} by ${days} days`,
-    );
+  async extendTrial(tenantId: string, days: number = 7): Promise<any> {
+    this.logger.log(`Extending trial for tenant ${tenantId} by ${days} days`);
 
     const tenant = await this.connection
       .model("Tenant")
@@ -270,9 +265,7 @@ export class SuperAdminService {
     const currentEnd = (tenant as any).trialEndDate
       ? new Date((tenant as any).trialEndDate)
       : new Date();
-    const newEnd = new Date(
-      currentEnd.getTime() + days * 24 * 60 * 60 * 1000,
-    );
+    const newEnd = new Date(currentEnd.getTime() + days * 24 * 60 * 60 * 1000);
 
     const updatedTenant = await this.connection
       .model("Tenant")
@@ -354,6 +347,27 @@ export class SuperAdminService {
     if (result.modifiedCount === 0) {
       this.logger.warn(
         `Tenant with ID "${tenantId}" not found or modules were not changed.`,
+      );
+    }
+
+    return { success: true, ...result };
+  }
+
+  async updateScaleBarcodeConfig(
+    tenantId: string,
+    scaleBarcodeConfig: any,
+  ): Promise<any> {
+    this.logger.log(`Updating scaleBarcodeConfig for tenant ID: ${tenantId}`);
+    const tenantObjectId = new Types.ObjectId(tenantId);
+
+    const result = await this.connection
+      .model("Tenant")
+      .updateOne({ _id: tenantObjectId }, { $set: { scaleBarcodeConfig } })
+      .exec();
+
+    if (result.modifiedCount === 0) {
+      this.logger.warn(
+        `Tenant with ID "${tenantId}" not found or scaleBarcodeConfig unchanged.`,
       );
     }
 
@@ -517,15 +531,9 @@ export class SuperAdminService {
     this.logger.log("Fetching funnel metrics");
     const TenantModel = this.connection.model("Tenant");
     const now = new Date();
-    const sevenDaysFromNow = new Date(
-      now.getTime() + 7 * 24 * 60 * 60 * 1000,
-    );
-    const thirtyDaysAgo = new Date(
-      now.getTime() - 30 * 24 * 60 * 60 * 1000,
-    );
-    const sevenDaysAgo = new Date(
-      now.getTime() - 7 * 24 * 60 * 60 * 1000,
-    );
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const [
       totalRegistered,

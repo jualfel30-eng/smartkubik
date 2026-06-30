@@ -188,6 +188,20 @@ export class SuperAdminController {
     );
   }
 
+  @Patch("tenants/:tenantId/scale-barcode-config")
+  @ApiOperation({
+    summary: "[SUPER ADMIN] Update scale barcode (etiqueta de balanza) config",
+  })
+  async updateScaleBarcodeConfig(
+    @Param("tenantId") tenantId: string,
+    @Body() body: { scaleBarcodeConfig: any },
+  ) {
+    return this.superAdminService.updateScaleBarcodeConfig(
+      tenantId,
+      body.scaleBarcodeConfig,
+    );
+  }
+
   @Patch("roles/:roleId/permissions")
   @ApiOperation({ summary: "[SUPER ADMIN] Update permissions for a role" })
   @ApiResponse({
