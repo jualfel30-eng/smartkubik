@@ -30,6 +30,7 @@
 | Reglas de alerta | CRUD de reglas de notificación | Admin | — |
 | Actualizar lotes | Gestiona lotes de un inventario | Almacenero | — |
 | Resumen de inventario | KPIs: total, valor, alertas | Dashboard | — |
+| Imprimir etiquetas de estante | Genera hoja imprimible de etiquetas de precio por producto | Admin / Cajero | Products |
 
 ---
 
@@ -260,5 +261,33 @@ Calcula métricas globales del inventario del tenant para el dashboard.
 
 ---
 
-*Última actualización: 2026-04-28*
-*Archivos fuente: `inventory.controller.ts`, `inventory.service.ts`, `inventory-movements.controller.ts`, `inventory-movements.service.ts`, `inventory-alerts.controller.ts`, `inventory-alerts.service.ts`*
+## Imprimir Etiquetas de Estante
+
+### ¿Qué hace?
+Genera una hoja imprimible (A4) con etiquetas de precio para colocar en estante. Cada etiqueta muestra: logo/nombre de la tienda, nombre del producto, marca, SKU, precio y la referencia de moneda. El usuario elige los productos, configura qué se muestra, y obtiene un PDF listo para imprimir.
+
+### ¿Cuándo se usa?
+Al reponer mercancía en sala o al actualizar precios, para imprimir las etiquetas de góndola de varios productos de una vez.
+
+### Paso a paso
+1. Desde la pestaña de Inventario, el usuario abre el **Asistente de Impresión de Etiquetas**
+2. **Paso 1** — selecciona los productos (con filtros por categoría/subcategoría/proveedor). Si un producto tiene **unidades de venta múltiple**, puede elegir imprimir una etiqueta por cada unidad
+3. **Paso 2 (Configuración)** — moneda (VES/REF) y tasa, y los toggles: Mostrar Marca, Fecha, Logo, SKU, y **Mostrar unidad de venta** (ver abajo)
+4. **Paso 3** — vista previa de la hoja y botón **Imprimir** (abre el diálogo de impresión del navegador)
+
+### Toggle "Mostrar unidad de venta"
+- **Solo aparece** si la selección incluye al menos un producto con unidades de venta múltiple (`hasMultipleSellingUnits`). Si todas son de unidad base, el toggle no se renderiza para no confundir.
+- **Default: apagado.** Las unidades de venta múltiple son control interno del tenant y **no deben salir al cliente final**. Con el toggle apagado la etiqueta muestra solo el nombre del producto y `REF` (sin la unidad).
+- **Encendido**: añade la unidad entre paréntesis en el nombre (ej. `Leche evaporada 410grs (Lata de 410 grs)`) y la abreviatura en la línea de referencia (`REF/LATA 410 GRS`). Útil solo cuando un producto tiene varias unidades distintas y hay que diferenciar las etiquetas.
+- El toggle gobierna **ambas** apariciones de la unidad a la vez; nunca queda duplicada sin control. (Antes de jun-2026 la unidad se imprimía siempre, llegando a aparecer hasta 3 veces por etiqueta, duplicando info ya presente en el nombre.)
+
+### Lo que pasa por detrás (técnico)
+- **Frontend-only** (no hay endpoint propio; los productos vienen de la API de Products/Inventory).
+- **Componentes**: `food-inventory-admin/src/components/inventory/ShelfLabelWizard.jsx` (asistente, selección, config) y `ShelfLabelSheet.jsx` (render imprimible de la hoja).
+- **Composición del nombre/unidad**: se decide en tiempo de render en `ShelfLabelSheet` según `config.showSellingUnit`; el nombre base y la unidad se guardan por separado en el item (`productName`, `sellingUnitName`, `sellingUnitAbbr`), no se hornean al seleccionar — así el toggle actualiza la vista previa al instante.
+- **Permisos**: acceso al módulo de Inventario.
+
+---
+
+*Última actualización: 2026-06-30*
+*Archivos fuente: `inventory.controller.ts`, `inventory.service.ts`, `inventory-movements.controller.ts`, `inventory-movements.service.ts`, `inventory-alerts.controller.ts`, `inventory-alerts.service.ts`, `food-inventory-admin/src/components/inventory/ShelfLabelWizard.jsx`, `ShelfLabelSheet.jsx`*
