@@ -1151,6 +1151,17 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
     setIsBarcodeDialogOpen(true);
   }, []);
 
+  // Genera un PLU de balanza y lo asigna al producto en edición.
+  const handleGenerateScaleCode = useCallback(async () => {
+    try {
+      const res = await fetchApi('/products/scale-code/generate');
+      const code = (res?.data || res)?.scaleCode;
+      if (code) setEditingProduct((prev) => ({ ...prev, scaleCode: code }));
+    } catch {
+      toast.error('No se pudo generar el código de balanza');
+    }
+  }, []);
+
   const handleBarcodeDetected = useCallback(
     (rawValue) => {
       const code = (rawValue || '').trim();
@@ -1616,6 +1627,7 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
         reorderQuantity: Number(editingProduct.inventoryConfig.reorderQuantity) || 0,
       },
       isSoldByWeight: editingProduct.isSoldByWeight,
+      scaleCode: editingProduct.scaleCode || undefined,
       unitOfMeasure: editingProduct.unitOfMeasure,
       hasMultipleSellingUnits: editingProduct.hasMultipleSellingUnits,
       sellingUnits: editingProduct.hasMultipleSellingUnits
@@ -4753,6 +4765,22 @@ function ProductsManagement({ defaultProductType = 'simple', showSalesFields = t
                     <div className="flex items-center space-x-2 rounded-md border px-3 py-2 h-10">
                       <Checkbox id="edit-isSoldByWeight" checked={editingProduct.isSoldByWeight} onCheckedChange={(checked) => setEditingProduct({ ...editingProduct, isSoldByWeight: checked })} />
                       <Label htmlFor="edit-isSoldByWeight" className="cursor-pointer">Vendido por Peso</Label>
+                    </div>
+                  )}
+
+                  {verticalConfig?.allowsWeight && editingProduct.isSoldByWeight && (
+                    <div className="space-y-1 rounded-md border px-3 py-2">
+                      <Label htmlFor="edit-scaleCode" className="text-sm font-medium">Código de balanza (PLU)</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="edit-scaleCode"
+                          value={editingProduct.scaleCode || ''}
+                          onChange={(e) => setEditingProduct({ ...editingProduct, scaleCode: (e.target.value || '').replace(/\D/g, '') })}
+                          placeholder="ej: 00042"
+                        />
+                        <Button type="button" variant="outline" size="sm" onClick={handleGenerateScaleCode}>Generar</Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Cárgalo en tu balanza para imprimir etiquetas con precio embebido; el cajero solo escanea.</p>
                     </div>
                   )}
 

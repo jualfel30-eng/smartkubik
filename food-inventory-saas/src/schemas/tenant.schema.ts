@@ -73,7 +73,7 @@ export class TenantSettings {
     requirePaymentConfirmation: boolean;
     allowPartialPayments: boolean;
     defaultPaymentTerms: number;
-    productViewType?: 'search' | 'grid' | 'list';
+    productViewType?: "search" | "grid" | "list";
     gridColumns?: number; // 2, 3, 4, 6
     showProductImages?: boolean;
     showProductDescription?: boolean;
@@ -111,8 +111,8 @@ export class TenantSettings {
   @Prop({ type: String, default: "standard" })
   invoiceFormat: string; // 'standard' | 'thermal'
 
-  @Prop({ type: String, default: 'logistics' })
-  fulfillmentStrategy?: 'logistics' | 'hybrid' | 'immediate' | 'counter';
+  @Prop({ type: String, default: "logistics" })
+  fulfillmentStrategy?: "logistics" | "hybrid" | "immediate" | "counter";
 
   @Prop({ type: Object })
   documentTemplates: {
@@ -365,10 +365,10 @@ export class Tenant {
     servicePackages?: boolean;
 
     // LOGISTICS specific modules
-    fixedAssets?: boolean;  // Activos Fijos
-    investments?: boolean;  // Inversiones
-    fulfillment?: boolean;  // Gestión de entregas (módulo Entregas)
-    driver?: boolean;       // Portal de repartidores
+    fixedAssets?: boolean; // Activos Fijos
+    investments?: boolean; // Inversiones
+    fulfillment?: boolean; // Gestión de entregas (módulo Entregas)
+    driver?: boolean; // Portal de repartidores
     shipments?: boolean;
     tracking?: boolean;
     routes?: boolean;
@@ -405,6 +405,26 @@ export class Tenant {
 
   @Prop({ type: Object, default: {} })
   featureFlags?: Record<string, boolean>;
+
+  // Formato de etiqueta de balanza (código de barras con precio embebido).
+  // Default EAN-13 "tipo 2": prefijo 2 + 5 dígitos PLU + 5 de precio + verificador.
+  @Prop({
+    type: Object,
+    default: {
+      enabled: false,
+      prefix: "2",
+      pluLength: 5,
+      priceLength: 5,
+      priceDecimals: 2,
+    },
+  })
+  scaleBarcodeConfig?: {
+    enabled: boolean;
+    prefix: string;
+    pluLength: number;
+    priceLength: number;
+    priceDecimals: number;
+  };
 
   @Prop({ type: String, required: true, default: "trial" })
   subscriptionPlan: string;
@@ -539,7 +559,7 @@ export class Tenant {
   @Prop({ type: String })
   website?: string;
 
-  @Prop({ type: String, default: 'VE' })
+  @Prop({ type: String, default: "VE" })
   countryCode: string;
 
   @Prop({ type: String, default: "America/Caracas" })
@@ -705,7 +725,4 @@ TenantSchema.index({ status: 1 });
 TenantSchema.index({ subscriptionPlan: 1 });
 TenantSchema.index({ subscriptionExpiresAt: 1 });
 TenantSchema.index({ trialEndDate: 1 });
-TenantSchema.index(
-  { parentTenantId: 1 },
-  { sparse: true },
-);
+TenantSchema.index({ parentTenantId: 1 }, { sparse: true });

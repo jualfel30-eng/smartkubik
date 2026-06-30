@@ -404,6 +404,13 @@ export class AuthService {
         knowledgeBaseTenantId: "",
       },
       verticalProfile: tenant.verticalProfile || { key: "food-service" },
+      scaleBarcodeConfig: tenant.scaleBarcodeConfig ?? {
+        enabled: false,
+        prefix: "2",
+        pluLength: 5,
+        priceLength: 5,
+        priceDecimals: 2,
+      },
     };
   }
 

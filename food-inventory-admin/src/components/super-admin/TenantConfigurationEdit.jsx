@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -224,6 +225,8 @@ export default function TenantConfigurationEdit() {
   const [roles, setRoles] = useState([]);
   const [allPermissions, setAllPermissions] = useState([]);
   const [enabledModules, setEnabledModules] = useState({});
+  const SCALE_CFG_DEFAULT = { enabled: false, prefix: '2', pluLength: 5, priceLength: 5, priceDecimals: 2 };
+  const [scaleBarcodeConfig, setScaleBarcodeConfig] = useState(SCALE_CFG_DEFAULT);
   const [rolePermissions, setRolePermissions] = useState({});
   const [presetDialogOpen, setPresetDialogOpen] = useState(false);
   const [selectedPresetRoles, setSelectedPresetRoles] = useState([]);
@@ -248,6 +251,7 @@ export default function TenantConfigurationEdit() {
       setAllPermissions(allPermissions);
       setEnabledModules(tenant.enabledModules || {});
       setFeatureFlags(tenant.featureFlags || {});
+      setScaleBarcodeConfig(tenant.scaleBarcodeConfig || SCALE_CFG_DEFAULT);
       setBusinessVertical(tenant.vertical || 'MIXED');
       setBusinessType(tenant.businessType || '');
 
@@ -319,6 +323,11 @@ export default function TenantConfigurationEdit() {
       // Update enabled modules
       await api.patch(`/super-admin/tenants/${tenantId}/modules`, {
         enabledModules
+      });
+
+      // Update scale barcode (etiqueta de balanza) config
+      await api.patch(`/super-admin/tenants/${tenantId}/scale-barcode-config`, {
+        scaleBarcodeConfig,
       });
 
       // Update role permissions
@@ -751,6 +760,60 @@ export default function TenantConfigurationEdit() {
               {role._id !== roles[roles.length - 1]._id && <Separator className="mt-6" />}
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      {/* Etiqueta de balanza (código con precio embebido) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Etiqueta de balanza (precio embebido)</CardTitle>
+          <CardDescription>
+            Formato del código de barras que imprime la báscula. El POS lo lee
+            para reconocer el producto (PLU) y tomar el precio sin teclear.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="scale-enabled"
+              checked={!!scaleBarcodeConfig.enabled}
+              onCheckedChange={(checked) =>
+                setScaleBarcodeConfig((prev) => ({ ...prev, enabled: !!checked }))
+              }
+            />
+            <Label htmlFor="scale-enabled" className="cursor-pointer">
+              Habilitar lectura de etiquetas de balanza
+            </Label>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {[
+              { key: 'prefix', label: 'Prefijo', type: 'text' },
+              { key: 'pluLength', label: 'Dígitos PLU', type: 'number' },
+              { key: 'priceLength', label: 'Dígitos precio', type: 'number' },
+              { key: 'priceDecimals', label: 'Decimales precio', type: 'number' },
+            ].map((f) => (
+              <div key={f.key} className="space-y-1">
+                <Label className="text-xs">{f.label}</Label>
+                <Input
+                  type={f.type}
+                  value={scaleBarcodeConfig[f.key] ?? ''}
+                  onChange={(e) =>
+                    setScaleBarcodeConfig((prev) => ({
+                      ...prev,
+                      [f.key]:
+                        f.type === 'number'
+                          ? Number(e.target.value)
+                          : e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Default EAN-13 "tipo 2": prefijo 2 + 5 dígitos PLU + 5 de precio (2 decimales).
+            Ajústalo al formato que imprime la báscula del tenant.
+          </p>
         </CardContent>
       </Card>
 

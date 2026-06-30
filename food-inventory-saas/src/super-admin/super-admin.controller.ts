@@ -18,7 +18,7 @@ import { UpdateRolePermissionsDto } from "../dto/update-role-permissions.dto";
 @UseGuards(JwtAuthGuard, SuperAdminGuard)
 @Controller("super-admin")
 export class SuperAdminController {
-  constructor(private readonly superAdminService: SuperAdminService) { }
+  constructor(private readonly superAdminService: SuperAdminService) {}
 
   @Get("tenants")
   findAll() {
@@ -107,6 +107,20 @@ export class SuperAdminController {
     return this.superAdminService.updateTenantModules(
       id,
       updateDto,
+      req.user.id,
+      req.ip,
+    );
+  }
+
+  @Patch("tenants/:id/scale-barcode-config")
+  updateScaleBarcodeConfig(
+    @Param("id") id: string,
+    @Body() body: { scaleBarcodeConfig: any },
+    @Req() req,
+  ) {
+    return this.superAdminService.updateScaleBarcodeConfig(
+      id,
+      body.scaleBarcodeConfig,
       req.user.id,
       req.ip,
     );

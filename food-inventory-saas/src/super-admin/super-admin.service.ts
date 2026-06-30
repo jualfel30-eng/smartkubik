@@ -68,7 +68,7 @@ export class SuperAdminService {
     @Inject(AuthService) private authService: AuthService,
     private auditLogService: AuditLogService,
     private featureFlagsService: FeatureFlagsService,
-  ) { }
+  ) {}
 
   async findAll(): Promise<Tenant[]> {
     return this.tenantModel.find().exec();
@@ -101,8 +101,13 @@ export class SuperAdminService {
 
     // Re-cast parentTenantId to ObjectId if present — JSON deserialization loses the BSON type
     // and saving as string breaks findSubsidiaries queries.
-    if (updatePayload.parentTenantId && typeof updatePayload.parentTenantId === "string") {
-      updatePayload.parentTenantId = new Types.ObjectId(updatePayload.parentTenantId);
+    if (
+      updatePayload.parentTenantId &&
+      typeof updatePayload.parentTenantId === "string"
+    ) {
+      updatePayload.parentTenantId = new Types.ObjectId(
+        updatePayload.parentTenantId,
+      );
     }
 
     if (updateTenantDto.subscriptionPlan) {
@@ -325,6 +330,37 @@ export class SuperAdminService {
     return updatedTenant;
   }
 
+  async updateScaleBarcodeConfig(
+    tenantId: string,
+    config: any,
+    performedBy: string,
+    ipAddress: string,
+  ) {
+    const tenant = await this.tenantModel.findById(tenantId).exec();
+    if (!tenant) {
+      throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado`);
+    }
+
+    const oldConfig = { ...(tenant.scaleBarcodeConfig || {}) };
+    const updatedTenant = await this.tenantModel
+      .findByIdAndUpdate(
+        tenantId,
+        { $set: { scaleBarcodeConfig: config } },
+        { new: true },
+      )
+      .exec();
+
+    await this.auditLogService.createLog(
+      "update_scale_barcode_config",
+      performedBy,
+      { oldConfig, newConfig: updatedTenant?.scaleBarcodeConfig },
+      ipAddress,
+      tenantId,
+    );
+
+    return updatedTenant;
+  }
+
   private async ensureBaselinePermissions() {
     for (const permission of BASELINE_PERMISSIONS) {
       await this.permissionModel.updateOne(
@@ -498,18 +534,18 @@ export class SuperAdminService {
         id: membership._id.toString(),
         user: membership.userId
           ? {
-            id: (membership.userId as any)._id?.toString?.() ?? "",
-            email: (membership.userId as any).email,
-            firstName: (membership.userId as any).firstName,
-            lastName: (membership.userId as any).lastName,
-            isActive: (membership.userId as any).isActive,
-          }
+              id: (membership.userId as any)._id?.toString?.() ?? "",
+              email: (membership.userId as any).email,
+              firstName: (membership.userId as any).firstName,
+              lastName: (membership.userId as any).lastName,
+              isActive: (membership.userId as any).isActive,
+            }
           : null,
         role: membership.roleId
           ? {
-            id: (membership.roleId as any)._id?.toString?.() ?? "",
-            name: (membership.roleId as any).name,
-          }
+              id: (membership.roleId as any)._id?.toString?.() ?? "",
+              name: (membership.roleId as any).name,
+            }
           : null,
         status: membership.status,
         isDefault: membership.isDefault,
@@ -577,56 +613,105 @@ export class SuperAdminService {
    */
   async migrateBillingSeriesForAllTenants() {
     const DEFAULTS = [
-      { name: 'Factura Principal', type: 'invoice', prefix: 'F', isDefault: true },
-      { name: 'Nota de Crédito', type: 'credit_note', prefix: 'NC', isDefault: true },
-      { name: 'Nota de Débito', type: 'debit_note', prefix: 'ND', isDefault: true },
-      { name: 'Nota de Entrega', type: 'delivery_note', prefix: 'NE', isDefault: true },
+      {
+        name: "Factura Principal",
+        type: "invoice",
+        prefix: "F",
+        isDefault: true,
+      },
+      {
+        name: "Nota de Crédito",
+        type: "credit_note",
+        prefix: "NC",
+        isDefault: true,
+      },
+      {
+        name: "Nota de Débito",
+        type: "debit_note",
+        prefix: "ND",
+        isDefault: true,
+      },
+      {
+        name: "Nota de Entrega",
+        type: "delivery_note",
+        prefix: "NE",
+        isDefault: true,
+      },
     ];
 
     const tenants = await this.tenantModel
-      .find({ status: 'active' })
-      .select('_id name')
+      .find({ status: "active" })
+      .select("_id name")
       .lean();
 
-    const results: Array<{ tenantId: string; name: string; status: string; seriesCreated: number }> = [];
+    const results: Array<{
+      tenantId: string;
+      name: string;
+      status: string;
+      seriesCreated: number;
+    }> = [];
 
     for (const tenant of tenants) {
       const tenantId = tenant._id.toString();
       try {
-        const existingCount = await this.sequenceModel.countDocuments({ tenantId });
+        const existingCount = await this.sequenceModel.countDocuments({
+          tenantId,
+        });
         if (existingCount > 0) {
-          results.push({ tenantId, name: tenant.name, status: 'skipped', seriesCreated: 0 });
+          results.push({
+            tenantId,
+            name: tenant.name,
+            status: "skipped",
+            seriesCreated: 0,
+          });
           continue;
         }
 
         let created = 0;
         for (const def of DEFAULTS) {
-          const alreadyExists = await this.sequenceModel.findOne({ tenantId, type: def.type });
+          const alreadyExists = await this.sequenceModel.findOne({
+            tenantId,
+            type: def.type,
+          });
           if (!alreadyExists) {
             await this.sequenceModel.create({
               ...def,
               currentNumber: 1,
-              status: 'active',
-              scope: 'tenant',
-              channel: 'digital',
+              status: "active",
+              scope: "tenant",
+              channel: "digital",
               tenantId,
             });
             created++;
           }
         }
-        results.push({ tenantId, name: tenant.name, status: 'migrated', seriesCreated: created });
-        this.logger.log(`✅ Billing series migrated for tenant: ${tenant.name} (${tenantId}) — ${created} series created`);
+        results.push({
+          tenantId,
+          name: tenant.name,
+          status: "migrated",
+          seriesCreated: created,
+        });
+        this.logger.log(
+          `✅ Billing series migrated for tenant: ${tenant.name} (${tenantId}) — ${created} series created`,
+        );
       } catch (err) {
-        this.logger.error(`❌ Error migrating billing series for tenant ${tenant.name}: ${err.message}`);
-        results.push({ tenantId, name: tenant.name, status: 'error', seriesCreated: 0 });
+        this.logger.error(
+          `❌ Error migrating billing series for tenant ${tenant.name}: ${err.message}`,
+        );
+        results.push({
+          tenantId,
+          name: tenant.name,
+          status: "error",
+          seriesCreated: 0,
+        });
       }
     }
 
     const summary = {
       total: tenants.length,
-      migrated: results.filter(r => r.status === 'migrated').length,
-      skipped: results.filter(r => r.status === 'skipped').length,
-      errors: results.filter(r => r.status === 'error').length,
+      migrated: results.filter((r) => r.status === "migrated").length,
+      skipped: results.filter((r) => r.status === "skipped").length,
+      errors: results.filter((r) => r.status === "error").length,
       totalSeriesCreated: results.reduce((sum, r) => sum + r.seriesCreated, 0),
     };
 

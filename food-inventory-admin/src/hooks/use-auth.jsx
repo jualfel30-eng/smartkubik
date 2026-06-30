@@ -60,6 +60,8 @@ function normalizeTenant(rawTenant) {
     // Multi-sede
     parentTenantId: rawTenant.parentTenantId || null,
     isSubsidiary: rawTenant.isSubsidiary || false,
+    // Formato de etiqueta de balanza (código con precio embebido)
+    scaleBarcodeConfig: rawTenant.scaleBarcodeConfig || null,
   };
 }
 
