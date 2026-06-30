@@ -40,7 +40,7 @@ export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
     private readonly priceHistoryService: PriceHistoryService,
-  ) { }
+  ) {}
 
   /**
    * Returns the tenantId that owns the product catalog.
@@ -133,13 +133,22 @@ export class ProductsController {
   @Get()
   @Permissions("products_read")
   async findAll(@Query() query: ProductQueryDto, @Request() req) {
-    console.log(`GET /products called with query:`, query, `User:`, req.user.email);
-    const result = await this.productsService.findAll(query, this.getCatalogTenantId(req), {
-      includeInventory: query.includeInventory,
-      inStockOnly: query.inStockOnly,
-      // Stock por tenant operativo (el catálogo puede vivir en el padre).
-      inventoryTenantId: req.user.tenantId,
-    });
+    console.log(
+      `GET /products called with query:`,
+      query,
+      `User:`,
+      req.user.email,
+    );
+    const result = await this.productsService.findAll(
+      query,
+      this.getCatalogTenantId(req),
+      {
+        includeInventory: query.includeInventory,
+        inStockOnly: query.inStockOnly,
+        // Stock por tenant operativo (el catálogo puede vivir en el padre).
+        inventoryTenantId: req.user.tenantId,
+      },
+    );
     return {
       success: true,
       data: result.products,
@@ -155,9 +164,12 @@ export class ProductsController {
   @Get(":id")
   @Permissions("products_read")
   async findOne(@Param("id") id: string, @Request() req) {
-    const product = await this.productsService.findOne(id, this.getCatalogTenantId(req));
+    const product = await this.productsService.findOne(
+      id,
+      this.getCatalogTenantId(req),
+    );
     if (!product) {
-      throw new NotFoundException('Producto no encontrado');
+      throw new NotFoundException("Producto no encontrado");
     }
     return { success: true, data: product };
   }
@@ -170,6 +182,25 @@ export class ProductsController {
       this.getCatalogTenantId(req),
     );
     return { success: true, data: result };
+  }
+
+  @Get("lookup/scale-code/:code")
+  @Permissions("products_read")
+  async findByScaleCode(@Param("code") code: string, @Request() req) {
+    const result = await this.productsService.findByScaleCode(
+      code,
+      this.getCatalogTenantId(req),
+    );
+    return { success: true, data: result };
+  }
+
+  @Get("scale-code/generate")
+  @Permissions("products_update")
+  async generateScaleCode(@Request() req) {
+    const scaleCode = await this.productsService.generateScaleCode(
+      req.user.tenantId,
+    );
+    return { success: true, data: { scaleCode } };
   }
 
   @Patch(":id")
@@ -190,7 +221,10 @@ export class ProductsController {
   @Delete(":id")
   @Permissions("products_delete")
   async remove(@Param("id") id: string, @Request() req) {
-    const result = await this.productsService.remove(id, this.getCatalogTenantId(req));
+    const result = await this.productsService.remove(
+      id,
+      this.getCatalogTenantId(req),
+    );
     return { success: true, data: result };
   }
 
@@ -201,7 +235,11 @@ export class ProductsController {
     @Body() dto: any, // Typed as AddSupplierToProductDto but using any to avoid import loop for now if DTO not exported yet
     @Request() req,
   ) {
-    const product = await this.productsService.addSupplier(id, dto, this.getCatalogUser(req));
+    const product = await this.productsService.addSupplier(
+      id,
+      dto,
+      this.getCatalogUser(req),
+    );
     return { success: true, data: product };
   }
 
@@ -235,7 +273,12 @@ export class ProductsController {
       limits: { fileSize: 5 * 1024 * 1024 },
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.match(/^image\/(jpeg|jpg|png|webp|heic)$/)) {
-          cb(new BadRequestException("Solo se permiten imágenes (JPEG, PNG, WebP, HEIC)"), false);
+          cb(
+            new BadRequestException(
+              "Solo se permiten imágenes (JPEG, PNG, WebP, HEIC)",
+            ),
+            false,
+          );
         } else {
           cb(null, true);
         }
@@ -247,11 +290,19 @@ export class ProductsController {
     @Request() req,
   ) {
     if (!files || files.length === 0) {
-      throw new BadRequestException("Debe cargar al menos una imagen de la etiqueta del producto.");
+      throw new BadRequestException(
+        "Debe cargar al menos una imagen de la etiqueta del producto.",
+      );
     }
 
-    const images = files.map((f) => ({ buffer: f.buffer, mimetype: f.mimetype }));
-    const result = await this.productsService.scanProductLabel(images, this.getCatalogTenantId(req));
+    const images = files.map((f) => ({
+      buffer: f.buffer,
+      mimetype: f.mimetype,
+    }));
+    const result = await this.productsService.scanProductLabel(
+      images,
+      this.getCatalogTenantId(req),
+    );
 
     return {
       success: true,
@@ -293,7 +344,10 @@ export class ProductsController {
   ) {
     this.ensureTenantConfirmed(req);
 
-    const product = await this.productsService.findOne(id, this.getCatalogTenantId(req));
+    const product = await this.productsService.findOne(
+      id,
+      this.getCatalogTenantId(req),
+    );
     if (!product) {
       throw new NotFoundException("Producto no encontrado");
     }
@@ -307,9 +361,14 @@ export class ProductsController {
     let priceSource = "base";
 
     // 1. Check location-based pricing (highest priority)
-    if (locationId && variant.locationPricing && Array.isArray(variant.locationPricing)) {
+    if (
+      locationId &&
+      variant.locationPricing &&
+      Array.isArray(variant.locationPricing)
+    ) {
       const locationPrice = variant.locationPricing.find(
-        (lp: any) => lp.locationId.toString() === locationId && lp.isActive !== false,
+        (lp: any) =>
+          lp.locationId.toString() === locationId && lp.isActive !== false,
       );
       if (locationPrice) {
         finalPrice = locationPrice.customPrice;
@@ -318,7 +377,11 @@ export class ProductsController {
     }
 
     // 2. Apply volume discount if applicable
-    if (quantity && variant.volumeDiscounts && Array.isArray(variant.volumeDiscounts)) {
+    if (
+      quantity &&
+      variant.volumeDiscounts &&
+      Array.isArray(variant.volumeDiscounts)
+    ) {
       const qty = parseInt(quantity);
       const applicableDiscount = variant.volumeDiscounts
         .filter((vd: any) => vd.minQuantity <= qty)
@@ -329,7 +392,8 @@ export class ProductsController {
           finalPrice = applicableDiscount.fixedPrice;
           priceSource = "volume_fixed";
         } else if (applicableDiscount.discountPercentage !== undefined) {
-          finalPrice = finalPrice * (1 - applicableDiscount.discountPercentage / 100);
+          finalPrice =
+            finalPrice * (1 - applicableDiscount.discountPercentage / 100);
           priceSource = "volume_discount";
         }
       }

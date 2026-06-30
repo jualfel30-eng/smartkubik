@@ -1086,6 +1086,67 @@ export class ProductsService {
     };
   }
 
+  /**
+   * Genera un PLU numérico único por tenant para etiquetas de balanza.
+   * MAX+1 sobre los scaleCode existentes (no count), zero-padded a la longitud pedida.
+   */
+  async generateScaleCode(
+    tenantId: string | Types.ObjectId,
+    length = 5,
+  ): Promise<string> {
+    const tid = new Types.ObjectId(tenantId);
+    const last = await this.productModel
+      .find({ tenantId: tid, scaleCode: { $exists: true, $ne: "" } })
+      .sort({ scaleCode: -1 })
+      .limit(1)
+      .select("scaleCode")
+      .lean();
+
+    let baseNumber = last.length
+      ? parseInt(last[0].scaleCode || "", 10) || 0
+      : 0;
+    let code = "";
+    let isUnique = false;
+    while (!isUnique) {
+      baseNumber++;
+      code = baseNumber.toString().padStart(length, "0");
+      const existing = await this.productModel
+        .findOne({ tenantId: tid, scaleCode: code })
+        .lean();
+      if (!existing) isUnique = true;
+    }
+    return code;
+  }
+
+  /** Resuelve un producto por su PLU de balanza (scaleCode). Espejo de findByBarcode. */
+  async findByScaleCode(scaleCode: string, tenantId: string) {
+    const normalized = (scaleCode || "").trim();
+    if (!normalized) {
+      throw new BadRequestException("El código de balanza es requerido.");
+    }
+
+    const product = await this.productModel
+      .findOne({
+        tenantId: new Types.ObjectId(tenantId),
+        scaleCode: normalized,
+      })
+      .select(
+        "name sku brand category subcategory productType isActive hasActivePromotion promotion variants.name variants.sku variants.barcode variants.basePrice variants.price variants.images unitOfMeasure hasMultipleSellingUnits sellingUnits isSoldByWeight scaleCode sendToKitchen",
+      )
+      .lean();
+
+    if (!product) {
+      throw new NotFoundException(
+        "No se encontró un producto con ese código de balanza.",
+      );
+    }
+
+    return {
+      product,
+      variant: product.variants?.[0] || null,
+    };
+  }
+
   async update(
     id: string,
     updateProductDto: UpdateProductDto,

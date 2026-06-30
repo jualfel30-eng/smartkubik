@@ -86,7 +86,13 @@ export class PricingStrategyDto {
   })
   @IsOptional()
   @IsEnum(["none", "0.99", "0.95", "0.90", "round_up", "round_down"])
-  psychologicalRounding?: "none" | "0.99" | "0.95" | "0.90" | "round_up" | "round_down";
+  psychologicalRounding?:
+    | "none"
+    | "0.99"
+    | "0.95"
+    | "0.90"
+    | "round_up"
+    | "round_down";
 }
 
 /**
@@ -97,7 +103,10 @@ export class LocationPricingDto {
   @IsMongoId()
   locationId: string;
 
-  @ApiProperty({ description: "Precio personalizado para esta ubicación", minimum: 0 })
+  @ApiProperty({
+    description: "Precio personalizado para esta ubicación",
+    minimum: 0,
+  })
   @IsNumber()
   @Min(0)
   customPrice: number;
@@ -118,19 +127,29 @@ export class LocationPricingDto {
  * DTO para descuentos por volumen
  */
 export class VolumeDiscountDto {
-  @ApiProperty({ description: "Cantidad mínima para aplicar este descuento", minimum: 1 })
+  @ApiProperty({
+    description: "Cantidad mínima para aplicar este descuento",
+    minimum: 1,
+  })
   @IsNumber()
   @Min(1)
   minQuantity: number;
 
-  @ApiPropertyOptional({ description: "Porcentaje de descuento (0-100)", minimum: 0, maximum: 100 })
+  @ApiPropertyOptional({
+    description: "Porcentaje de descuento (0-100)",
+    minimum: 0,
+    maximum: 100,
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
   @Max(100)
   discountPercentage?: number;
 
-  @ApiPropertyOptional({ description: "Precio fijo para esta cantidad", minimum: 0 })
+  @ApiPropertyOptional({
+    description: "Precio fijo para esta cantidad",
+    minimum: 0,
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -196,14 +215,20 @@ export class CreateProductVariantDto {
   @Type(() => PricingStrategyDto)
   pricingStrategy?: PricingStrategyDto;
 
-  @ApiPropertyOptional({ description: "Precios personalizados por ubicación/sucursal", type: [LocationPricingDto] })
+  @ApiPropertyOptional({
+    description: "Precios personalizados por ubicación/sucursal",
+    type: [LocationPricingDto],
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => LocationPricingDto)
   locationPricing?: LocationPricingDto[];
 
-  @ApiPropertyOptional({ description: "Descuentos por volumen/cantidad", type: [VolumeDiscountDto] })
+  @ApiPropertyOptional({
+    description: "Descuentos por volumen/cantidad",
+    type: [VolumeDiscountDto],
+  })
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
@@ -299,7 +324,10 @@ export class CreateSellingUnitDto {
   @Min(0)
   incrementStep?: number;
 
-  @ApiPropertyOptional({ description: "Si esta unidad se vende por peso", default: false })
+  @ApiPropertyOptional({
+    description: "Si esta unidad se vende por peso",
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   isSoldByWeight?: boolean;
@@ -407,6 +435,11 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   isSoldByWeight?: boolean;
+
+  @ApiPropertyOptional({ description: "PLU para etiquetas de balanza" })
+  @IsOptional()
+  @IsString()
+  scaleCode?: string;
 
   @ApiPropertyOptional({
     description: "Tiene múltiples unidades de venta",
@@ -562,13 +595,16 @@ export class CreateProductDto {
   @ApiPropertyOptional({
     description: "Tasa de IVA aplicable (0%, 8%, 16%)",
     enum: [0, 8, 16],
-    default: 0
+    default: 0,
   })
   @IsOptional()
   @IsNumber()
   ivaRate?: number;
 
-  @ApiPropertyOptional({ description: "Enviar a cocina/comanda", default: true })
+  @ApiPropertyOptional({
+    description: "Enviar a cocina/comanda",
+    default: true,
+  })
   @IsOptional()
   @IsBoolean()
   sendToKitchen?: boolean;
@@ -579,7 +615,8 @@ export class CreateProductDto {
   taxCategory: string;
 
   @ApiPropertyOptional({
-    description: "Cantidad de stock inicial en el warehouse del usuario logueado (default: 0)",
+    description:
+      "Cantidad de stock inicial en el warehouse del usuario logueado (default: 0)",
     minimum: 0,
   })
   @IsOptional()
@@ -588,7 +625,8 @@ export class CreateProductDto {
   initialInventoryQuantity?: number;
 
   @ApiPropertyOptional({
-    description: "Warehouse destino del stock inicial. Si no se especifica, se usa el warehouse default del tenant del usuario.",
+    description:
+      "Warehouse destino del stock inicial. Si no se especifica, se usa el warehouse default del tenant del usuario.",
   })
   @IsOptional()
   @IsString()
@@ -723,6 +761,11 @@ export class UpdateProductDto {
   @IsBoolean()
   isSoldByWeight?: boolean;
 
+  @ApiPropertyOptional({ description: "PLU para etiquetas de balanza" })
+  @IsOptional()
+  @IsString()
+  scaleCode?: string;
+
   @ApiPropertyOptional({ description: "Unidad de medida" })
   @IsOptional()
   @IsString()
@@ -783,7 +826,7 @@ export class UpdateProductDto {
 
   @ApiPropertyOptional({
     description: "Tasa de IVA aplicable (0%, 8%, 16%)",
-    enum: [0, 8, 16]
+    enum: [0, 8, 16],
   })
   @IsOptional()
   @IsNumber()
@@ -864,10 +907,28 @@ export class ProductQueryDto {
 
   @ApiPropertyOptional({
     description: "Ordenar por",
-    enum: ["name", "category", "createdAt", "updatedAt", "sku", "brand", "price", "cost"],
+    enum: [
+      "name",
+      "category",
+      "createdAt",
+      "updatedAt",
+      "sku",
+      "brand",
+      "price",
+      "cost",
+    ],
   })
   @IsOptional()
-  @IsEnum(["name", "category", "createdAt", "updatedAt", "sku", "brand", "price", "cost"])
+  @IsEnum([
+    "name",
+    "category",
+    "createdAt",
+    "updatedAt",
+    "sku",
+    "brand",
+    "price",
+    "cost",
+  ])
   sortBy?: string = "createdAt";
 
   @ApiPropertyOptional({ description: "Orden", enum: ["asc", "desc"] })
@@ -885,7 +946,8 @@ export class ProductQueryDto {
   includeInactive?: boolean = false;
 
   @ApiPropertyOptional({
-    description: "Incluir stock/inventario inline por producto (campo availableQuantity)",
+    description:
+      "Incluir stock/inventario inline por producto (campo availableQuantity)",
     default: false,
   })
   @IsOptional()
@@ -894,7 +956,8 @@ export class ProductQueryDto {
   includeInventory?: boolean = false;
 
   @ApiPropertyOptional({
-    description: "Solo productos con stock > 0 (filtra server-side antes de paginar)",
+    description:
+      "Solo productos con stock > 0 (filtra server-side antes de paginar)",
     default: false,
   })
   @IsOptional()
@@ -907,11 +970,17 @@ export class ProductQueryDto {
   excludeProductIds?: string[];
 
   // Optimización: filtrar por lista específica de IDs
-  @ApiPropertyOptional({ description: "Filtrar por lista de IDs (separados por coma)" })
+  @ApiPropertyOptional({
+    description: "Filtrar por lista de IDs (separados por coma)",
+  })
   @IsOptional()
   @Transform(({ value }) => {
     if (Array.isArray(value)) return value;
-    if (typeof value === 'string') return value.split(',').map(id => id.trim()).filter(id => id.length > 0);
+    if (typeof value === "string")
+      return value
+        .split(",")
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0);
     return [];
   })
   @IsArray()

@@ -60,12 +60,18 @@ export class ProductVariant {
 
   @Prop({ type: Object })
   pricingStrategy?: {
-    mode: 'manual' | 'markup' | 'margin';
+    mode: "manual" | "markup" | "margin";
     markupPercentage?: number;
     marginPercentage?: number;
     autoCalculate: boolean;
     lastManualPrice?: number;
-    psychologicalRounding?: 'none' | '0.99' | '0.95' | '0.90' | 'round_up' | 'round_down';
+    psychologicalRounding?:
+      | "none"
+      | "0.99"
+      | "0.95"
+      | "0.90"
+      | "round_up"
+      | "round_down";
   };
 
   @Prop({ type: [Object], default: [] })
@@ -205,6 +211,9 @@ export class Product {
   @Prop({ type: Boolean, default: false })
   isSoldByWeight: boolean;
 
+  @Prop({ type: String })
+  scaleCode?: string; // PLU numérico para etiquetas de balanza (precio embebido)
+
   @Prop({ type: Boolean, default: false })
   hasMultipleSellingUnits: boolean; // Si tiene múltiples unidades de venta
 
@@ -232,7 +241,7 @@ export class Product {
   @Prop({ type: Number })
   shelfLifeDays?: number;
 
-  @Prop({ type: String, enum: ['days', 'months', 'years'], default: 'days' })
+  @Prop({ type: String, enum: ["days", "months", "years"], default: "days" })
   shelfLifeUnit?: string;
 
   @Prop({ type: String })
@@ -359,6 +368,16 @@ ProductSchema.index(
     unique: true,
     partialFilterExpression: {
       "variants.barcode": { $exists: true, $ne: "" },
+    },
+  },
+);
+ProductSchema.index(
+  { scaleCode: 1, tenantId: 1 },
+  {
+    name: "uniq_scale_code_per_tenant",
+    unique: true,
+    partialFilterExpression: {
+      scaleCode: { $exists: true, $ne: "" },
     },
   },
 );
