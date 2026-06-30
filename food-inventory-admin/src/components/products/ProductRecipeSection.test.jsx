@@ -30,7 +30,44 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-import ProductRecipeSection from './ProductRecipeSection.jsx';
+import ProductRecipeSection, {
+  resolveIngredientQuantity,
+} from './ProductRecipeSection.jsx';
+
+describe('resolveIngredientQuantity (conversión a unidad base)', () => {
+  it('deja la cantidad igual si se usa la unidad base', () => {
+    expect(resolveIngredientQuantity(3, 'kg', 'kg')).toEqual({
+      quantity: 3,
+      unit: 'kg',
+      displayUnit: 'kg',
+    });
+  });
+
+  it('convierte a base usando el factor de una unidad de venta (1 saco = 25 kg)', () => {
+    // El usuario escribe "1 saco"; se descuentan 25 kg, se muestra "saco".
+    expect(resolveIngredientQuantity(1, '__ENC__saco__25', 'kg')).toEqual({
+      quantity: 25,
+      unit: 'kg',
+      displayUnit: 'saco',
+    });
+  });
+
+  it('convierte gramos a kg (factor 0.001)', () => {
+    expect(resolveIngredientQuantity(500, '__ENC__g__0.001', 'kg')).toEqual({
+      quantity: 0.5,
+      unit: 'kg',
+      displayUnit: 'g',
+    });
+  });
+
+  it('usa la unidad base cuando no se especifica unidad', () => {
+    expect(resolveIngredientQuantity(2, '', 'unidad')).toEqual({
+      quantity: 2,
+      unit: 'unidad',
+      displayUnit: 'unidad',
+    });
+  });
+});
 
 const product = {
   _id: 'prod-1',

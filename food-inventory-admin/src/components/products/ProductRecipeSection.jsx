@@ -4,6 +4,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -21,12 +28,36 @@ import { useBillOfMaterials } from '@/hooks/useBillOfMaterials';
  * Sección de "Receta / elaboración propia" embebida en la ficha de producto.
  *
  * Para negocios pequeños (abastos, panaderías) que elaboran productos propios:
- * define las materias primas que componen ESTE producto (BoM) y permite producir
- * lotes que descuentan insumos y suman el terminado al inventario.
+ * define las materias primas que componen ESTE producto (BoM) y produce lotes
+ * que descuentan insumos y suman el terminado al inventario.
  *
- * El insumo se busca server-side (igual que el buscador de productos): async,
- * sin preload — escala a miles de productos.
+ * - Insumo: búsqueda server-side (igual que el buscador de productos), sin preload.
+ * - Unidades: replica la lógica del módulo de Recetas — puedes elegir la unidad de
+ *   venta del insumo (caja, saco, paquete) y se CONVIERTE a la unidad base usando
+ *   el conversionFactor; la cantidad se guarda en base y se muestra en la unidad
+ *   elegida (displayQuantity/displayUnit).
  */
+/**
+ * Convierte una cantidad ingresada en una unidad de venta a la unidad base del
+ * insumo. `ingredientUnit` puede ser la unidad base o un valor codificado
+ * `__ENC__<nombre>__<factor>` (una unidad de venta con su conversionFactor).
+ * Devuelve la cantidad en base (lo que se descuenta) + los campos display.
+ */
+export function resolveIngredientQuantity(qty, ingredientUnit, baseUnit) {
+  let quantity = qty;
+  let unit = ingredientUnit || baseUnit;
+  let displayUnit = unit;
+  if (ingredientUnit && ingredientUnit.startsWith('__ENC__')) {
+    const parts = ingredientUnit.split('__'); // ['', 'ENC', nombre, factor]
+    const unitName = parts[2];
+    const factor = parseFloat(parts[3]) || 1;
+    quantity = qty * factor; // cantidad en unidad base
+    unit = baseUnit;
+    displayUnit = unitName;
+  }
+  return { quantity, unit, displayUnit };
+}
+
 export default function ProductRecipeSection({ product }) {
   const productId = product?._id;
   const baseUnit = product?.unitOfMeasure || 'unidad';
@@ -49,6 +80,7 @@ export default function ProductRecipeSection({ product }) {
   const [components, setComponents] = useState([]);
   const [selectedIngredient, setSelectedIngredient] = useState(null); // option {value,label,product}
   const [ingredientQty, setIngredientQty] = useState(1);
+  const [ingredientUnit, setIngredientUnit] = useState(''); // base o '__ENC__nombre__factor'
   const [saving, setSaving] = useState(false);
   const [estimatedCost, setEstimatedCost] = useState(null);
 
@@ -114,6 +146,8 @@ export default function ProductRecipeSection({ product }) {
               productName: c.componentProductId?.name || c.productName || 'Insumo',
               quantity: c.quantity,
               unit: c.unit,
+              displayQuantity: c.displayQuantity,
+              displayUnit: c.displayUnit,
               scrapPercentage: c.scrapPercentage || 0,
             })),
           );
@@ -130,6 +164,22 @@ export default function ProductRecipeSection({ product }) {
     };
   }, [productId, getBomByProduct, loadCost]);
 
+  // Unidades disponibles para el insumo seleccionado: base + unidades de venta.
+  const ingredientUnitOptions = () => {
+    const prod = selectedIngredient?.product;
+    const base = prod?.unitOfMeasure || 'unidad';
+    const units = [{ name: base, value: base }];
+    (prod?.sellingUnits || []).forEach((su) => {
+      if (su.name && su.name !== base) {
+        units.push({
+          name: `${su.name} (${su.conversionFactor} ${base})`,
+          value: `__ENC__${su.name}__${su.conversionFactor}`,
+        });
+      }
+    });
+    return units;
+  };
+
   const handleAddIngredient = () => {
     const opt = selectedIngredient;
     const qty = parseFloat(ingredientQty);
@@ -139,17 +189,29 @@ export default function ProductRecipeSection({ product }) {
       return;
     }
     const prod = opt.product || {};
+    const prodBaseUnit = prod.unitOfMeasure || 'unidad';
+
+    // Si se eligió una unidad de venta (factor codificado), convertir a unidad base.
+    const { quantity, unit, displayUnit } = resolveIngredientQuantity(
+      qty,
+      ingredientUnit,
+      prodBaseUnit,
+    );
+
     setComponents([
       ...components,
       {
         componentProductId: opt.value,
         productName: prod.name || opt.label,
-        quantity: qty,
-        unit: prod.unitOfMeasure || 'unidad',
+        quantity, // siempre en unidad base (lo que se descuenta)
+        unit,
+        displayQuantity: qty, // lo que el usuario escribió
+        displayUnit,
         scrapPercentage: 0,
       },
     ]);
     setSelectedIngredient(null);
+    setIngredientUnit('');
     setIngredientQty(1);
   };
 
@@ -178,6 +240,8 @@ export default function ProductRecipeSection({ product }) {
           componentProductId: c.componentProductId,
           quantity: c.quantity,
           unit: c.unit,
+          displayQuantity: c.displayQuantity,
+          displayUnit: c.displayUnit,
           scrapPercentage: c.scrapPercentage,
         })),
         isActive: true,
@@ -306,9 +370,9 @@ export default function ProductRecipeSection({ product }) {
             <span className="text-sm text-muted-foreground pb-2">{baseUnit}</span>
           </div>
 
-          {/* Agregar insumo (búsqueda server-side) */}
-          <div className="flex items-end gap-2 p-3 bg-muted rounded-md border">
-            <div className="flex-1 space-y-1">
+          {/* Agregar insumo (búsqueda server-side + unidad con conversión) */}
+          <div className="p-3 bg-muted rounded-md border space-y-2">
+            <div className="space-y-1">
               <Label className="text-xs">Materia prima</Label>
               <SearchableSelect
                 asyncSearch
@@ -317,24 +381,48 @@ export default function ProductRecipeSection({ product }) {
                 minSearchLength={2}
                 debounceMs={300}
                 value={selectedIngredient}
-                onSelection={(opt) => setSelectedIngredient(opt)}
+                onSelection={(opt) => {
+                  setSelectedIngredient(opt);
+                  setIngredientUnit(opt?.product?.unitOfMeasure || '');
+                }}
                 placeholder="Buscar insumo por nombre o SKU…"
               />
             </div>
-            <div className="w-24 space-y-1">
-              <Label className="text-xs">Cantidad</Label>
-              <Input
-                type="number"
-                className="h-8"
-                min="0.001"
-                step="0.001"
-                value={ingredientQty}
-                onChange={(e) => setIngredientQty(e.target.value)}
-              />
+            <div className="flex items-end gap-2">
+              <div className="w-24 space-y-1">
+                <Label className="text-xs">Cantidad</Label>
+                <Input
+                  type="number"
+                  className="h-8"
+                  min="0.001"
+                  step="0.001"
+                  value={ingredientQty}
+                  onChange={(e) => setIngredientQty(e.target.value)}
+                />
+              </div>
+              <div className="flex-1 space-y-1">
+                <Label className="text-xs">Unidad</Label>
+                <Select
+                  value={ingredientUnit}
+                  onValueChange={setIngredientUnit}
+                  disabled={!selectedIngredient}
+                >
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="Unidad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ingredientUnitOptions().map((u) => (
+                      <SelectItem key={u.value} value={u.value}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button size="sm" onClick={handleAddIngredient} disabled={!selectedIngredient}>
+                <Plus className="h-4 w-4 mr-1" /> Agregar
+              </Button>
             </div>
-            <Button size="sm" onClick={handleAddIngredient} disabled={!selectedIngredient}>
-              <Plus className="h-4 w-4 mr-1" /> Agregar
-            </Button>
           </div>
 
           {/* Tabla de insumos */}
@@ -344,7 +432,7 @@ export default function ProductRecipeSection({ product }) {
                 <TableRow>
                   <TableHead>Insumo</TableHead>
                   <TableHead className="w-28">Cantidad</TableHead>
-                  <TableHead className="w-20">Unidad</TableHead>
+                  <TableHead className="w-24">Unidad</TableHead>
                   <TableHead className="w-12"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -359,8 +447,8 @@ export default function ProductRecipeSection({ product }) {
                   components.map((c, idx) => (
                     <TableRow key={idx}>
                       <TableCell>{c.productName}</TableCell>
-                      <TableCell>{c.quantity}</TableCell>
-                      <TableCell>{c.unit}</TableCell>
+                      <TableCell>{c.displayQuantity ?? c.quantity}</TableCell>
+                      <TableCell>{c.displayUnit || c.unit}</TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
