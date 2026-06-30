@@ -1,10 +1,17 @@
 import { motion } from 'framer-motion';
-import { CheckCircle2, AlertCircle, Clock, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Clock, MoreHorizontal, ReceiptText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Table, TableHeader, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { AnimatedTableBody, AnimatedTableRow } from '@/components/ui/animated-table-body';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { classifyOrder } from '@/hooks/useOrderTriage';
 import { getPrimaryCTA } from '@/lib/orders/getPrimaryCTA';
+import { buildActionContext, getSecondaryActions } from '@/lib/orders/secondaryActions';
 import { tapScale } from '@/lib/motion';
 
 const STATUS_LABEL = {
@@ -61,7 +68,16 @@ function StatusVisual({ triage, balance }) {
   );
 }
 
-export function OrdersSmartTable({ orders = [], onRowClick, onPay, onMore, isLoading = false }) {
+export function OrdersSmartTable({
+  orders = [],
+  onRowClick,
+  onPay,
+  onRequestPayment,
+  onSecondaryAction,
+  canRequestPayment = false,
+  restaurantEnabled = false,
+  isLoading = false,
+}) {
   if (isLoading) {
     return (
       <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -89,6 +105,9 @@ export function OrdersSmartTable({ orders = [], onRowClick, onPay, onMore, isLoa
             const triage = classifyOrder(order);
             const cta = getPrimaryCTA(order);
             const balance = Math.max(0, (order.totalAmount || 0) - (order.paidAmount || 0));
+            const ctx = buildActionContext(order, { restaurantEnabled, canRequestPayment });
+            const showRequestPayment = ctx.canRequestPayment && !ctx.isPaid && !ctx.isStorefrontOrder;
+            const secondaryActions = getSecondaryActions(order, ctx, { exclude: ['request-payment'] });
             return (
               <AnimatedTableRow
                 key={order._id || order.orderNumber}
@@ -114,7 +133,7 @@ export function OrdersSmartTable({ orders = [], onRowClick, onPay, onMore, isLoa
                   <StatusVisual triage={triage} balance={balance} />
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="inline-flex items-center gap-1 justify-end">
+                  <div className="inline-flex items-center gap-1.5 justify-end">
                     <motion.button
                       type="button"
                       onClick={(e) => {
@@ -132,15 +151,46 @@ export function OrdersSmartTable({ orders = [], onRowClick, onPay, onMore, isLoa
                     >
                       {cta.label}
                     </motion.button>
-                    <button
-                      type="button"
-                      aria-label="Más acciones"
-                      onClick={(e) => { e.stopPropagation(); onMore?.(order); }}
-                      className="text-muted-foreground hover:text-foreground p-1 rounded-md"
-                    >
-                      <MoreHorizontal size={16} />
-                    </button>
-                    <ChevronRight size={14} className="text-muted-foreground" />
+                    {showRequestPayment && (
+                      <motion.button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); onRequestPayment?.(order); }}
+                        whileTap={tapScale}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted/60"
+                      >
+                        <ReceiptText size={14} />
+                        Solicitar pago
+                      </motion.button>
+                    )}
+                    {secondaryActions.length > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label="Más acciones"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-muted-foreground hover:text-foreground p-1 rounded-md"
+                          >
+                            <MoreHorizontal size={16} />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                          {secondaryActions.map((action) => {
+                            const Icon = action.icon;
+                            return (
+                              <DropdownMenuItem
+                                key={action.id}
+                                onSelect={() => onSecondaryAction?.(action.id, order)}
+                                className={cn(action.danger && 'text-destructive focus:text-destructive')}
+                              >
+                                {Icon && <Icon size={16} className="mr-2" />}
+                                {action.label}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 </TableCell>
               </AnimatedTableRow>

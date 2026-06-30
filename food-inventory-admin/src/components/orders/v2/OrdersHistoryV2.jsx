@@ -406,7 +406,10 @@ export function OrdersHistoryV2() {
           isLoading={loading && filteredOrders.length === 0}
           onRowClick={(o) => setDetailsOrder(o)}
           onPay={(o) => handleOpenPayment(o)}
-          onMore={(o) => setActionSheetOrder(o)}
+          canRequestPayment={canRequestPayment}
+          restaurantEnabled={restaurantEnabled}
+          onRequestPayment={(o) => setRequestPaymentOrder(o)}
+          onSecondaryAction={handleSecondaryAction}
         />
       )}
 
