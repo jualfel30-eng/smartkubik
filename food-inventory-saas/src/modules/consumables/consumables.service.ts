@@ -320,6 +320,8 @@ export class ConsumablesService {
       quantityRequired: number;
       isRequired?: boolean;
       isAutoDeducted?: boolean;
+      isPackagingOption?: boolean;
+      isDefaultPackaging?: boolean;
       applicableContext?: string;
       notes?: string;
     },
@@ -383,6 +385,8 @@ export class ConsumablesService {
       quantityRequired: data.quantityRequired,
       isRequired: data.isRequired ?? true,
       isAutoDeducted: data.isAutoDeducted ?? true,
+      isPackagingOption: data.isPackagingOption ?? false,
+      isDefaultPackaging: data.isDefaultPackaging ?? false,
       applicableContext: data.applicableContext || "always",
       notes: data.notes,
       isActive: true,
@@ -427,6 +431,8 @@ export class ConsumablesService {
       quantityRequired: number;
       isRequired: boolean;
       isAutoDeducted: boolean;
+      isPackagingOption: boolean;
+      isDefaultPackaging: boolean;
       priority: number;
       applicableContext: string;
       notes: string;

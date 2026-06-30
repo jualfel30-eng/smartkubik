@@ -21,6 +21,16 @@ export class ProductConsumableRelation {
   @Prop({ type: Boolean, default: true })
   isAutoDeducted: boolean; // Si se deduce automáticamente al vender el producto
 
+  // Opción de empaque elegible por línea de venta (cajita, bolsa). Si es true,
+  // NO se auto-deduce por contexto; se descuenta solo si el cajero la elige en
+  // esa línea (packagingConsumableId del OrderItem).
+  @Prop({ type: Boolean, default: false })
+  isPackagingOption: boolean;
+
+  // Empaque por defecto entre las opciones (el POS lo preselecciona).
+  @Prop({ type: Boolean, default: false })
+  isDefaultPackaging: boolean;
+
   @Prop({ type: Number, default: 0 })
   priority: number; // Prioridad de uso (0 = más alta)
 

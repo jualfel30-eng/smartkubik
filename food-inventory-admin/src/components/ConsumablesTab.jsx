@@ -67,6 +67,8 @@ function ConsumablesTab() {
     quantityRequired: 1,
     isRequired: true,
     isAutoDeducted: true,
+    isPackagingOption: false,
+    isDefaultPackaging: false,
     priority: 1,
     applicableContext: 'always',
     notes: '',
@@ -238,6 +240,8 @@ function ConsumablesTab() {
       quantityRequired: relation.quantityRequired,
       isRequired: relation.isRequired,
       isAutoDeducted: relation.isAutoDeducted,
+      isPackagingOption: relation.isPackagingOption || false,
+      isDefaultPackaging: relation.isDefaultPackaging || false,
       priority: relation.priority,
       applicableContext: relation.applicableContext,
       notes: relation.notes || '',
@@ -267,6 +271,8 @@ function ConsumablesTab() {
       quantityRequired: 1,
       isRequired: true,
       isAutoDeducted: true,
+      isPackagingOption: false,
+      isDefaultPackaging: false,
       priority: 1,
       applicableContext: 'always',
       notes: '',
@@ -589,6 +595,27 @@ function ConsumablesTab() {
                     onCheckedChange={(checked) => setRelationForm({ ...relationForm, isAutoDeducted: checked })}
                   />
                 </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>¿Es opción de empaque?</Label>
+                    <p className="text-xs text-muted-foreground">Cajita/bolsa que el cajero elige por venta (no se auto-deduce).</p>
+                  </div>
+                  <Switch
+                    checked={relationForm.isPackagingOption || false}
+                    onCheckedChange={(checked) => setRelationForm({ ...relationForm, isPackagingOption: checked })}
+                  />
+                </div>
+
+                {relationForm.isPackagingOption && (
+                  <div className="flex items-center justify-between">
+                    <Label>¿Empaque por defecto?</Label>
+                    <Switch
+                      checked={relationForm.isDefaultPackaging || false}
+                      onCheckedChange={(checked) => setRelationForm({ ...relationForm, isDefaultPackaging: checked })}
+                    />
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between">
                   <Label>¿Activo?</Label>

@@ -19,6 +19,7 @@ interface OrderCreatedEvent {
   items: Array<{
     productId: string;
     quantity: number;
+    packagingConsumableId?: string; // empaque elegido en esta línea (cajita/bolsa)
   }>;
   orderType?: string; // "takeaway", "dine_in", "delivery"
   userId?: string;
@@ -64,6 +65,17 @@ export class ConsumablesListener {
           event.orderId,
           event.userId,
         );
+
+        // Empaque elegido en la línea (cajita/bolsa): 1 por línea, no escala con peso.
+        if (item.packagingConsumableId) {
+          await this.deductPackagingForLine(
+            event.tenantId,
+            item.productId,
+            item.packagingConsumableId,
+            event.orderId,
+            event.userId,
+          );
+        }
       }
 
       this.logger.log(
@@ -115,13 +127,15 @@ export class ConsumablesListener {
     orderId: string,
     userId?: string,
   ) {
-    // Find all auto-deducted consumable relations for this product
+    // Find all auto-deducted consumable relations for this product.
+    // Las opciones de empaque (cajita/bolsa) NO entran aquí: se eligen por línea.
     const relations = await this.consumableRelationModel
       .find({
         productId,
         tenantId,
         isActive: true,
         isAutoDeducted: true,
+        isPackagingOption: { $ne: true },
       })
       .populate("consumableId")
       .lean()
@@ -172,6 +186,78 @@ export class ConsumablesListener {
         // Continue with other consumables even if one fails
       }
     }
+  }
+
+  /**
+   * Descuenta el empaque elegido en una línea de venta (cajita/bolsa): 1 empaque
+   * por línea (× quantityRequired de la relación, default 1), independiente del
+   * peso/cantidad del producto. Decrementa totalQuantity directo para que también
+   * funcione con empaques sin lotes (cajas/bolsas no perecederas). El movimiento
+   * usa la misma reference que los consumibles auto-deducidos, así el
+   * restore-on-cancel existente lo revierte igual.
+   */
+  private async deductPackagingForLine(
+    tenantId: string,
+    productId: string,
+    packagingConsumableId: string,
+    orderId: string,
+    userId?: string,
+  ) {
+    const relation = await this.consumableRelationModel
+      .findOne({
+        productId,
+        consumableId: packagingConsumableId,
+        tenantId,
+        isActive: true,
+        isPackagingOption: true,
+      })
+      .lean()
+      .exec();
+
+    if (!relation) {
+      this.logger.warn(
+        `Empaque ${packagingConsumableId} no es una opción válida para producto ${productId}`,
+      );
+      return;
+    }
+
+    const qty = relation.quantityRequired || 1;
+    const inventory = await this.inventoryModel
+      .findOne({ productId: packagingConsumableId, tenantId })
+      .lean()
+      .exec();
+
+    if (!inventory) {
+      this.logger.warn(
+        `Sin inventario para el empaque ${packagingConsumableId} en tenant ${tenantId}`,
+      );
+      return;
+    }
+
+    const unitCost = inventory.averageCostPrice || 0;
+    await this.inventoryMovementModel.create({
+      tenantId,
+      inventoryId: inventory._id,
+      productId: packagingConsumableId,
+      productSku: inventory.productSku,
+      movementType: "sale",
+      quantity: qty,
+      unitCost,
+      totalCost: -(qty * unitCost),
+      reason: "Auto-deducted consumable for order (empaque)",
+      reference: `Auto-deducted consumable for order ${orderId}`,
+      orderId: new Types.ObjectId(orderId),
+      createdBy: userId ? new Types.ObjectId(userId) : undefined,
+    });
+
+    await this.inventoryModel.updateOne(
+      { _id: inventory._id, tenantId },
+      { $inc: { totalQuantity: -qty } },
+    );
+
+    this.logger.log(
+      `Deducted ${qty} empaque ${packagingConsumableId} for order ${orderId}`,
+    );
   }
 
   private async restoreConsumablesForProduct(

@@ -76,7 +76,7 @@ export class OrdersService {
     private readonly orderPaymentsService: OrderPaymentsService,
     private readonly eventEmitter: EventEmitter2,
     @InjectConnection() private readonly connection: Connection,
-  ) { }
+  ) {}
 
   /**
    * Calculate IVA amount based on item or product configuration
@@ -85,22 +85,33 @@ export class OrdersService {
   private calculateIvaAmount(
     totalPrice: number,
     itemDto: any,
-    product: ProductDocument
+    product: ProductDocument,
   ): number {
     // Fallback chain: item → product.ivaRate → product.ivaApplicable → 16%
-    const ivaRate = itemDto.ivaRate
-      ?? product.ivaRate
-      ?? (itemDto.ivaApplicable !== undefined
-          ? (itemDto.ivaApplicable ? 16 : 0)
-          : (product.ivaApplicable ? 16 : 0));
+    const ivaRate =
+      itemDto.ivaRate ??
+      product.ivaRate ??
+      (itemDto.ivaApplicable !== undefined
+        ? itemDto.ivaApplicable
+          ? 16
+          : 0
+        : product.ivaApplicable
+          ? 16
+          : 0);
 
     return totalPrice * (ivaRate / 100);
   }
 
-  private async getTenantVerticalProfile(tenantId: string | Types.ObjectId): Promise<any> {
-    const tenant = await this.tenantModel.findById(tenantId).select('vertical settings').lean() as any;
+  private async getTenantVerticalProfile(
+    tenantId: string | Types.ObjectId,
+  ): Promise<any> {
+    const tenant = (await this.tenantModel
+      .findById(tenantId)
+      .select("vertical settings")
+      .lean()) as any;
     // Prioritize specific vertical setting, fallback to tenant vertical, then default
-    const verticalKey = tenant?.settings?.vertical || tenant?.vertical || 'food-service';
+    const verticalKey =
+      tenant?.settings?.vertical || tenant?.vertical || "food-service";
     return getVerticalProfile(verticalKey);
   }
 
@@ -108,7 +119,10 @@ export class OrdersService {
     return this.orderPaymentsService.getPaymentMethods(user);
   }
 
-  async getTopSellingProducts(tenantId: string, limit: number = 5): Promise<any[]> {
+  async getTopSellingProducts(
+    tenantId: string,
+    limit: number = 5,
+  ): Promise<any[]> {
     return this.orderAnalyticsService.getTopSellingProducts(tenantId, limit);
   }
 
@@ -116,10 +130,20 @@ export class OrdersService {
     createOrderDto: CreateOrderDto,
     user: any,
   ): Promise<OrderDocument> {
-    const { customerId, customerName, customerRif, taxType, items, payments, customerAddress, customerPhone } =
-      createOrderDto;
+    const {
+      customerId,
+      customerName,
+      customerRif,
+      taxType,
+      items,
+      payments,
+      customerAddress,
+      customerPhone,
+    } = createOrderDto;
 
-    this.logger.log(`ORDERS SERVICE CREATE v2 START: ${JSON.stringify(createOrderDto)}`);
+    this.logger.log(
+      `ORDERS SERVICE CREATE v2 START: ${JSON.stringify(createOrderDto)}`,
+    );
 
     const tenant = await this.tenantModel.findById(user.tenantId);
     if (!tenant || tenant.usage.currentOrders >= tenant.limits.maxOrders) {
@@ -134,18 +158,29 @@ export class OrdersService {
       // Update existing customer from ID if needed
       if (customer) {
         let updated = false;
-        if (customerPhone && !customer.contacts.some(c => c.value === customerPhone)) {
-          customer.contacts.push({ type: 'phone', value: customerPhone, isPrimary: false, isActive: true } as any);
+        if (
+          customerPhone &&
+          !customer.contacts.some((c) => c.value === customerPhone)
+        ) {
+          customer.contacts.push({
+            type: "phone",
+            value: customerPhone,
+            isPrimary: false,
+            isActive: true,
+          } as any);
           updated = true;
         }
-        if (customerAddress && !customer.addresses.some(a => a.street === customerAddress)) {
+        if (
+          customerAddress &&
+          !customer.addresses.some((a) => a.street === customerAddress)
+        ) {
           customer.addresses.push({
-            type: 'billing',
+            type: "billing",
             street: customerAddress,
-            city: 'Valencia',
-            state: 'Carabobo',
-            country: 'Venezuela',
-            isDefault: false
+            city: "Valencia",
+            state: "Carabobo",
+            country: "Venezuela",
+            isDefault: false,
           } as any);
           updated = true;
         }
@@ -160,18 +195,22 @@ export class OrdersService {
       if (!customer) {
         const contacts: any[] = [];
         if (customerPhone) {
-          contacts.push({ type: 'phone', value: customerPhone, isPrimary: true });
+          contacts.push({
+            type: "phone",
+            value: customerPhone,
+            isPrimary: true,
+          });
         }
 
         const addresses: any[] = [];
         if (customerAddress) {
           addresses.push({
-            type: 'billing',
+            type: "billing",
             street: customerAddress,
-            city: 'Valencia', // Default fallback
-            state: 'Carabobo', // Default fallback
-            country: 'Venezuela',
-            isDefault: true
+            city: "Valencia", // Default fallback
+            state: "Carabobo", // Default fallback
+            country: "Venezuela",
+            isDefault: true,
           });
         }
 
@@ -189,19 +228,30 @@ export class OrdersService {
         // Should update existing customer if new info is provided?
         let updated = false;
 
-        if (customerPhone && !customer.contacts.some(c => c.value === customerPhone)) {
-          customer.contacts.push({ type: 'phone', value: customerPhone, isPrimary: false, isActive: true } as any);
+        if (
+          customerPhone &&
+          !customer.contacts.some((c) => c.value === customerPhone)
+        ) {
+          customer.contacts.push({
+            type: "phone",
+            value: customerPhone,
+            isPrimary: false,
+            isActive: true,
+          } as any);
           updated = true;
         }
 
-        if (customerAddress && !customer.addresses.some(a => a.street === customerAddress)) {
+        if (
+          customerAddress &&
+          !customer.addresses.some((a) => a.street === customerAddress)
+        ) {
           customer.addresses.push({
-            type: 'billing',
+            type: "billing",
             street: customerAddress,
-            city: 'Valencia',
-            state: 'Carabobo',
-            country: 'Venezuela',
-            isDefault: false
+            city: "Valencia",
+            state: "Carabobo",
+            country: "Venezuela",
+            isDefault: false,
           } as any);
           updated = true;
         }
@@ -228,11 +278,15 @@ export class OrdersService {
         await this.customerModel.findByIdAndUpdate(customer._id, {
           defaultPriceListId: createOrderDto.priceListId,
         });
-        this.logger.log(`Updated customer ${customer._id} default price list to ${createOrderDto.priceListId}`);
+        this.logger.log(
+          `Updated customer ${customer._id} default price list to ${createOrderDto.priceListId}`,
+        );
       }
     } else if (customer.defaultPriceListId) {
       effectivePriceListId = customer.defaultPriceListId.toString();
-      this.logger.log(`Using customer's default price list: ${effectivePriceListId}`);
+      this.logger.log(
+        `Using customer's default price list: ${effectivePriceListId}`,
+      );
     }
 
     // Update customer location if provided in the order and customer doesn't have one or it's different
@@ -240,9 +294,9 @@ export class OrdersService {
       const shouldUpdateLocation =
         !customer.primaryLocation ||
         customer.primaryLocation.coordinates?.lat !==
-        createOrderDto.customerLocation.coordinates?.lat ||
+          createOrderDto.customerLocation.coordinates?.lat ||
         customer.primaryLocation.coordinates?.lng !==
-        createOrderDto.customerLocation.coordinates?.lng;
+          createOrderDto.customerLocation.coordinates?.lng;
 
       if (shouldUpdateLocation) {
         await this.customerModel.findByIdAndUpdate(customer._id, {
@@ -288,10 +342,14 @@ export class OrdersService {
           );
           if (customPrice !== null && customPrice > 0) {
             priceListOverride = customPrice;
-            this.logger.log(`Using price list price for ${variant.sku}: ${customPrice}`);
+            this.logger.log(
+              `Using price list price for ${variant.sku}: ${customPrice}`,
+            );
           }
         } catch (error) {
-          this.logger.warn(`Could not get price list price for ${variant.sku}: ${error.message}`);
+          this.logger.warn(
+            `Could not get price list price for ${variant.sku}: ${error.message}`,
+          );
         }
       }
 
@@ -382,11 +440,14 @@ export class OrdersService {
         attributeSummary,
         modifiers: itemDto.modifiers
           ? itemDto.modifiers.map((mod) => ({
-            ...mod,
-            modifierId: new Types.ObjectId(mod.modifierId),
-          }))
+              ...mod,
+              modifierId: new Types.ObjectId(mod.modifierId),
+            }))
           : [],
         specialInstructions: itemDto.specialInstructions,
+        packagingConsumableId: itemDto.packagingConsumableId
+          ? new Types.ObjectId(itemDto.packagingConsumableId)
+          : undefined,
         removedIngredients: itemDto.removedIngredients
           ? itemDto.removedIngredients.map((id) => new Types.ObjectId(id))
           : [],
@@ -433,7 +494,6 @@ export class OrdersService {
         shippingInfo.cost = shippingCost;
         shippingInfo.distance = deliveryCostResult.distance;
         shippingInfo.estimatedDuration = deliveryCostResult.duration;
-
       } catch (error) {
         this.logger.warn(`Error calculating delivery cost: ${error.message}`);
         // Fallback: shippingInfo already has address and default cost
@@ -560,15 +620,17 @@ export class OrdersService {
     // ============ IVA WITHHOLDING (Retención de IVA por Contribuyente Especial) ============
     let ivaWithholdingPercentage = 0;
     let ivaWithholdingAmount = 0;
-    const customerIsSpecialTaxpayer = createOrderDto.customerIsSpecialTaxpayer || false;
+    const customerIsSpecialTaxpayer =
+      createOrderDto.customerIsSpecialTaxpayer || false;
 
     if (customerIsSpecialTaxpayer && ivaTotal > 0) {
       // El % de retención depende del tipo de contribuyente del TENANT (vendedor):
       // - Tenant Ordinario → retención fija del 75%
       // - Tenant Especial → usa la tasa configurada (75% o 100%) según su designación SENIAT
-      const tenantTaxpayerType = tenant.taxInfo?.taxpayerType || 'ordinario';
-      if (tenantTaxpayerType === 'especial') {
-        ivaWithholdingPercentage = tenant.taxInfo?.specialTaxpayerWithholdingRate || 75;
+      const tenantTaxpayerType = tenant.taxInfo?.taxpayerType || "ordinario";
+      if (tenantTaxpayerType === "especial") {
+        ivaWithholdingPercentage =
+          tenant.taxInfo?.specialTaxpayerWithholdingRate || 75;
       } else {
         ivaWithholdingPercentage = 75;
       }
@@ -590,7 +652,8 @@ export class OrdersService {
     const tenantCurrency = tenant.settings?.currency?.primary || "USD";
     let totalAmountVes = 0;
     try {
-      const rateData = await this.exchangeRateService.getRateForCurrency(tenantCurrency);
+      const rateData =
+        await this.exchangeRateService.getRateForCurrency(tenantCurrency);
       totalAmountVes = totalAmount * rateData.rate;
       this.logger.log(
         `Calculated totalAmountVes: ${totalAmountVes} (${tenantCurrency} rate: ${rateData.rate})`,
@@ -602,7 +665,7 @@ export class OrdersService {
     // Determine Fulfillment Type and Status
     const fulfillmentType =
       createOrderDto.deliveryMethod === "delivery" ||
-        createOrderDto.deliveryMethod === "envio_nacional"
+      createOrderDto.deliveryMethod === "envio_nacional"
         ? createOrderDto.deliveryMethod === "envio_nacional"
           ? "delivery_national"
           : "delivery_local"
@@ -611,8 +674,10 @@ export class OrdersService {
           : "store";
 
     // If it's a store sale, fulfillment is immediate
-    const fulfillmentStatus = fulfillmentType === "store" ? "delivered" : "pending";
-    const fulfillmentDate = fulfillmentType === "store" ? new Date() : undefined;
+    const fulfillmentStatus =
+      fulfillmentType === "store" ? "delivered" : "pending";
+    const fulfillmentDate =
+      fulfillmentType === "store" ? new Date() : undefined;
 
     const orderData: Partial<Order> = {
       orderNumber: await this.generateOrderNumber(user.tenantId),
@@ -644,7 +709,9 @@ export class OrdersService {
       tenantId: user.tenantId,
 
       // CRITICAL: Mapping Cash Register Session
-      cashSessionId: createOrderDto.cashSessionId ? new Types.ObjectId(createOrderDto.cashSessionId) : undefined,
+      cashSessionId: createOrderDto.cashSessionId
+        ? new Types.ObjectId(createOrderDto.cashSessionId)
+        : undefined,
       cashRegisterId: createOrderDto.cashRegisterId,
       // Persist customer data snapshots
       customerRif: createOrderDto.customerRif,
@@ -661,14 +728,19 @@ export class OrdersService {
     // LINK WAITER FROM TABLE IF APPLICABLE
     if (createOrderDto.tableId) {
       try {
-        const table = await this.tableModel.findById(createOrderDto.tableId).select('assignedServerId').lean();
+        const table = await this.tableModel
+          .findById(createOrderDto.tableId)
+          .select("assignedServerId")
+          .lean();
         if (table?.assignedServerId) {
           orderData.assignedWaiterId = table.assignedServerId;
           // Also copy to assignedTo if not explicitly set in DTO
           if (!createOrderDto.assignedTo) {
             orderData.assignedTo = table.assignedServerId;
           }
-          this.logger.log(`Assigned waiter ${table.assignedServerId} from table ${createOrderDto.tableId} to order`);
+          this.logger.log(
+            `Assigned waiter ${table.assignedServerId} from table ${createOrderDto.tableId} to order`,
+          );
         }
       } catch (err) {
         this.logger.warn(`Failed to fetch table waiter: ${err.message}`);
@@ -727,14 +799,18 @@ export class OrdersService {
     if (createOrderDto.tableId) {
       try {
         await this.tableModel.findByIdAndUpdate(createOrderDto.tableId, {
-          status: 'occupied',
+          status: "occupied",
           currentOrderId: savedOrder._id,
           seatedAt: new Date(), // Reset seated time or keep original? Usually reset on new order or seat.
           // Assuming seating happens before ordering, we might just want to link the order.
         });
-        this.logger.log(`Table ${createOrderDto.tableId} linked to order ${savedOrder.orderNumber}`);
+        this.logger.log(
+          `Table ${createOrderDto.tableId} linked to order ${savedOrder.orderNumber}`,
+        );
       } catch (tableError) {
-        this.logger.error(`Failed to update table ${createOrderDto.tableId}: ${tableError.message}`);
+        this.logger.error(
+          `Failed to update table ${createOrderDto.tableId}: ${tableError.message}`,
+        );
       }
     }
 
@@ -796,6 +872,9 @@ export class OrdersService {
       items: savedOrder.items.map((item) => ({
         productId: item.productId.toString(),
         quantity: item.quantityInBaseUnit ?? item.quantity,
+        packagingConsumableId: (item as any).packagingConsumableId
+          ? (item as any).packagingConsumableId.toString()
+          : undefined,
       })),
       orderType: createOrderDto.deliveryMethod || "always",
       userId: user.id,
@@ -855,7 +934,7 @@ export class OrdersService {
         const hasBom = await this.bomModel.exists({
           productId: new Types.ObjectId(item.productId),
           isActive: true,
-          tenantId: new Types.ObjectId(user.tenantId)
+          tenantId: new Types.ObjectId(user.tenantId),
         });
 
         if (hasBom) {
@@ -864,7 +943,9 @@ export class OrdersService {
           // La deducción de ingredientes ocurrirá al procesar el pago (Legacy Flow)
           // o se puede habilitar aquí si se desea deducción inmediata.
 
-          this.logger.debug(`Skipping reservation for Recipe Product ${item.productSku} (Backflush pending payment)`);
+          this.logger.debug(
+            `Skipping reservation for Recipe Product ${item.productSku} (Backflush pending payment)`,
+          );
           continue;
         }
 
@@ -892,10 +973,11 @@ export class OrdersService {
           );
         }
       } else {
-        this.logger.log(`No items require reservation for order ${savedOrder.orderNumber} (All items are Manufactured/Recipes or list is empty)`);
+        this.logger.log(
+          `No items require reservation for order ${savedOrder.orderNumber} (All items are Manufactured/Recipes or list is empty)`,
+        );
       }
     }
-
 
     // Send WhatsApp confirmation (async, don't block response)
     setImmediate(async () => {
@@ -1049,8 +1131,8 @@ export class OrdersService {
         attributes: item.attributes,
         attributeSummary: item.attributes
           ? Object.entries(item.attributes)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(" | ")
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(" | ")
           : undefined,
         quantity: item.quantity,
         selectedUnit: item.selectedUnit,
@@ -1139,12 +1221,12 @@ export class OrdersService {
       shipping:
         dto.shippingMethod || dto.shippingAddress
           ? {
-            method: dto.shippingMethod || "pickup",
-            address: dto.shippingAddress,
-            cost: shippingCost,
-            distance: deliveryDistance,
-            notes: deliveryZone ? `Zona: ${deliveryZone}` : undefined,
-          }
+              method: dto.shippingMethod || "pickup",
+              address: dto.shippingAddress,
+              cost: shippingCost,
+              distance: deliveryDistance,
+              notes: deliveryZone ? `Zona: ${deliveryZone}` : undefined,
+            }
           : undefined,
       notes: dto.notes,
       inventoryReservation: {
@@ -1337,8 +1419,8 @@ export class OrdersService {
         select: "firstName lastName customerId",
         populate: {
           path: "customerId",
-          select: "_id name"
-        }
+          select: "_id name",
+        },
       }) // Nested populate for tips section
       .populate("tableId", "tableNumber name") // Populate table info for frontend context
       .populate("items.productId", "name sku ivaApplicable") // Fix: Populate productId, not product
@@ -1381,18 +1463,23 @@ export class OrdersService {
       for (const itemDto of updateOrderDto.items) {
         // Check if this item already exists (has _id from frontend)
         const existingItem = order.items.find(
-          (oi: any) => oi._id && oi._id.toString() === (itemDto as any)._id
+          (oi: any) => oi._id && oi._id.toString() === (itemDto as any)._id,
         );
 
         if (existingItem) {
           // UPDATE existing item (preserve metadata, update quantity/modifiers if changed)
-          const existingItemObj: any = (existingItem as any).toObject ? (existingItem as any).toObject() : existingItem;
+          const existingItemObj: any = (existingItem as any).toObject
+            ? (existingItem as any).toObject()
+            : existingItem;
           newProcessedItems.push({
             ...existingItemObj,
             quantity: itemDto.quantity,
             modifiers: itemDto.modifiers || existingItemObj.modifiers,
-            specialInstructions: itemDto.specialInstructions || existingItemObj.specialInstructions,
-            removedIngredients: itemDto.removedIngredients || existingItemObj.removedIngredients,
+            specialInstructions:
+              itemDto.specialInstructions ||
+              existingItemObj.specialInstructions,
+            removedIngredients:
+              itemDto.removedIngredients || existingItemObj.removedIngredients,
             // Keep existing metadata
             _id: (existingItem as any)._id,
             status: (itemDto as any).status || existingItemObj.status,
@@ -1405,7 +1492,7 @@ export class OrdersService {
             .session(null);
           if (!product) {
             this.logger.warn(
-              `Product ${itemDto.productId} not found for new item in order ${order.orderNumber}`
+              `Product ${itemDto.productId} not found for new item in order ${order.orderNumber}`,
             );
             continue;
           }
@@ -1413,12 +1500,16 @@ export class OrdersService {
           const variant = this.resolveVariant(product, itemDto);
           if (!variant) {
             this.logger.warn(
-              `Variant not found for product ${product.sku} in order ${order.orderNumber}`
+              `Variant not found for product ${product.sku} in order ${order.orderNumber}`,
             );
             continue;
           }
 
-          const attributes = this.buildOrderItemAttributes(product, variant, itemDto);
+          const attributes = this.buildOrderItemAttributes(
+            product,
+            variant,
+            itemDto,
+          );
           const attributeSummary = this.buildAttributeSummary(attributes);
 
           // Calculate pricing for new item
@@ -1428,7 +1519,7 @@ export class OrdersService {
 
           if (itemDto.selectedUnit && product.sellingUnits?.length > 0) {
             const selectedUnitDef = product.sellingUnits.find(
-              (u) => u.abbreviation === itemDto.selectedUnit
+              (u) => u.abbreviation === itemDto.selectedUnit,
             );
             if (selectedUnitDef) {
               unitPrice = selectedUnitDef.pricePerUnit || unitPrice;
@@ -1438,18 +1529,23 @@ export class OrdersService {
           }
 
           const modifierAdjustment = (itemDto.modifiers || []).reduce(
-            (sum, mod) => sum + (mod.priceAdjustment || 0) * (mod.quantity || 1),
-            0
+            (sum, mod) =>
+              sum + (mod.priceAdjustment || 0) * (mod.quantity || 1),
+            0,
           );
           const finalUnitPrice = unitPrice + modifierAdjustment;
           const totalPrice = finalUnitPrice * itemDto.quantity;
-          const ivaAmount = this.calculateIvaAmount(totalPrice, itemDto, product);
+          const ivaAmount = this.calculateIvaAmount(
+            totalPrice,
+            itemDto,
+            product,
+          );
           const igtfAmount = 0;
           const finalPrice = totalPrice + ivaAmount + igtfAmount;
 
           const inventoryRecord = await this.inventoryService.findByProductSku(
             variant.sku,
-            user.tenantId
+            user.tenantId,
           );
           const costPrice = inventoryRecord?.averageCostPrice || 0;
 
@@ -1457,7 +1553,9 @@ export class OrdersService {
             productId: new Types.ObjectId(itemDto.productId),
             productSku: variant.sku,
             productName: product.name,
-            variantId: variant._id ? new Types.ObjectId(variant._id) : undefined,
+            variantId: variant._id
+              ? new Types.ObjectId(variant._id)
+              : undefined,
             variantSku: variant.sku,
             attributes,
             attributeSummary,
@@ -1470,9 +1568,9 @@ export class OrdersService {
             costPrice,
             modifiers: itemDto.modifiers || [],
             specialInstructions: itemDto.specialInstructions,
-            removedIngredients: itemDto.removedIngredients?.map(
-              (id) => new Types.ObjectId(id)
-            ) || [],
+            removedIngredients:
+              itemDto.removedIngredients?.map((id) => new Types.ObjectId(id)) ||
+              [],
             ivaAmount,
             igtfAmount,
             finalPrice,
@@ -1552,7 +1650,10 @@ export class OrdersService {
     user: any,
     options?: { statuses?: string[]; limit?: number },
   ) {
-    return this.orderInventoryService.reconcileMissingOutMovements(user, options);
+    return this.orderInventoryService.reconcileMissingOutMovements(
+      user,
+      options,
+    );
   }
 
   async registerPayments(
@@ -1567,7 +1668,6 @@ export class OrdersService {
       this.findOne.bind(this),
     );
   }
-
 
   async confirmPayment(
     orderId: string,
@@ -1735,7 +1835,7 @@ export class OrdersService {
 
     // NEW: Filter by fulfillment status (supports commma separated)
     if (query.fulfillmentStatus) {
-      const statuses = query.fulfillmentStatus.split(',').map(s => s.trim());
+      const statuses = query.fulfillmentStatus.split(",").map((s) => s.trim());
       if (statuses.length > 0) {
         filter.fulfillmentStatus = { $in: statuses };
       }
@@ -1785,7 +1885,7 @@ export class OrdersService {
     status: string,
     user: any,
     notes?: string,
-    trackingNumber?: string
+    trackingNumber?: string,
   ): Promise<OrderDocument> {
     return this.orderFulfillmentService.updateFulfillmentStatus(
       id,
@@ -1817,9 +1917,15 @@ export class OrdersService {
     startDate?: Date,
     endDate?: Date,
   ): Promise<any> {
-    return this.orderAnalyticsService.getAnalyticsBySource(tenantId, startDate, endDate);
+    return this.orderAnalyticsService.getAnalyticsBySource(
+      tenantId,
+      startDate,
+      endDate,
+    );
   }
-  async migrateDeliveryNotePaymentStatus(tenantId: string): Promise<{ updated: number; checked: number }> {
+  async migrateDeliveryNotePaymentStatus(
+    tenantId: string,
+  ): Promise<{ updated: number; checked: number }> {
     return this.orderPaymentsService.migrateDeliveryNotePaymentStatus(tenantId);
   }
 }

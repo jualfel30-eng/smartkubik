@@ -163,6 +163,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         selectedUnit: item.selectedUnit,
         modifiers: item.modifiers || [],
         specialInstructions: item.specialInstructions,
+        packagingConsumableId: item.packagingConsumableId,
         removedIngredients: item.removedIngredients || [],
         ivaApplicable: true,
         discountPercentage: item.discountPercentage || 0,
@@ -961,6 +962,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       wholesaleAvailable,
       wholesalePrice,
       wholesaleMinQuantity,
+      packagingOptions,
+      packagingConsumableId,
     } = config;
 
     const finalUnitPrice = baseUnitPrice + priceAdjustment;
@@ -998,6 +1001,8 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         wholesalePrice: wholesalePrice || null,
         wholesaleMinQuantity: wholesaleMinQuantity || null,
         useWholesalePrice: shouldUseWholesale,
+        packagingOptions: packagingOptions || null,
+        packagingConsumableId: packagingConsumableId || null,
       };
 
       const items = [...prev.items];
@@ -1144,6 +1149,30 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         wholesalePrice,
         wholesaleMinQuantity,
       };
+
+      // Opciones de empaque (cajita/bolsa) elegibles por línea. Se preselecciona
+      // el default; el cajero puede cambiarlo en la línea.
+      try {
+        const resp = await fetchApi(`/consumables/relations/product/${product._id}`);
+        const rels = (resp?.data || resp || []).filter(
+          (r) => r.isPackagingOption && r.isActive !== false,
+        );
+        if (rels.length > 0) {
+          config.packagingOptions = rels.map((r) => {
+            const cid = r.consumableId?._id || r.consumableId;
+            return {
+              consumableId: cid,
+              name: products.find((p) => p._id === cid)?.name || r.consumableId?.name || 'Empaque',
+            };
+          });
+          const def = rels.find((r) => r.isDefaultPackaging) || rels[0];
+          config.packagingConsumableId = def
+            ? def.consumableId?._id || def.consumableId
+            : null;
+        }
+      } catch {
+        // sin opciones de empaque: la línea va sin empaque
+      }
 
       setPendingProductConfig(config);
 
@@ -1393,6 +1422,15 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       event.preventDefault();
       handleBarcodeLookup();
     }
+  };
+
+  const handlePackagingChange = (productId, consumableId) => {
+    setNewOrder(prev => ({
+      ...prev,
+      items: prev.items.map(item =>
+        item.productId === productId ? { ...item, packagingConsumableId: consumableId } : item
+      ),
+    }));
   };
 
   const handleItemQuantityChange = (productId, newQuantityStr, isSoldByWeight) => {
@@ -1718,6 +1756,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
           ...(item.selectedUnit && { selectedUnit: item.selectedUnit }),
           modifiers: item.modifiers || [],
           specialInstructions: item.specialInstructions,
+          ...(item.packagingConsumableId && { packagingConsumableId: item.packagingConsumableId }),
           removedIngredients: item.removedIngredients || [],
           unitPrice: item.unitPrice,
           finalPrice: getItemFinalUnitPrice(item),
@@ -2327,6 +2366,23 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                           <span className="ml-2 text-xs text-muted-foreground">{item.unitOfMeasure}</span>
                         )}
                       </div>
+                    )}
+                    {item.packagingOptions?.length > 0 && (
+                      <Select
+                        value={item.packagingConsumableId || ''}
+                        onValueChange={(v) => handlePackagingChange(item.productId, v)}
+                      >
+                        <SelectTrigger className="h-7 w-full mt-1 text-xs">
+                          <SelectValue placeholder="Empaque" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {item.packagingOptions.map((opt) => (
+                            <SelectItem key={opt.consumableId} value={opt.consumableId}>
+                              {opt.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     )}
                   </div>
                 </TableCell>

@@ -56,6 +56,22 @@ export class CreateProductConsumableRelationDto {
   isAutoDeducted?: boolean;
 
   @ApiProperty({
+    description: "Opción de empaque elegible por línea (cajita/bolsa)",
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isPackagingOption?: boolean;
+
+  @ApiProperty({
+    description: "Empaque por defecto entre las opciones",
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  isDefaultPackaging?: boolean;
+
+  @ApiProperty({
     description: "Contexto en el que se aplica este consumible",
     example: "always",
     enum: ["always", "takeaway", "dine_in", "delivery"],

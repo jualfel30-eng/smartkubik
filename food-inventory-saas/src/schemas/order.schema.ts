@@ -110,6 +110,10 @@ export class OrderItem {
   @Prop({ type: String, trim: true })
   specialInstructions?: string;
 
+  // Empaque elegido en esta línea (cajita/bolsa) a descontar al vender.
+  @Prop({ type: Types.ObjectId, ref: "Product" })
+  packagingConsumableId?: Types.ObjectId;
+
   // NUEVO: Ingredientes removidos (IDs de productos raw material)
   @Prop({ type: [{ type: Types.ObjectId, ref: "Product" }], default: [] })
   removedIngredients: Types.ObjectId[];
@@ -196,7 +200,7 @@ export class Order {
   @Prop({ type: String })
   customerRif?: string; // Denormalized TaxID for persistence
 
-  @Prop({ type: String, default: 'V' })
+  @Prop({ type: String, default: "V" })
   taxType?: string;
 
   @Prop({ type: Boolean, default: false })
@@ -494,15 +498,22 @@ export class Order {
 
   @Prop({
     type: String,
-    enum: ['pending', 'picking', 'packed', 'in_transit', 'delivered', 'cancelled'],
-    default: 'pending'
+    enum: [
+      "pending",
+      "picking",
+      "packed",
+      "in_transit",
+      "delivered",
+      "cancelled",
+    ],
+    default: "pending",
   })
   fulfillmentStatus: string;
 
   @Prop({
     type: String,
-    enum: ['store', 'delivery_local', 'delivery_national', 'pickup'],
-    default: 'store'
+    enum: ["store", "delivery_local", "delivery_national", "pickup"],
+    default: "store",
   })
   fulfillmentType: string;
 
@@ -539,8 +550,8 @@ export class Order {
 
   @Prop({
     type: String,
-    enum: ['none', 'invoice', 'delivery_note'],
-    default: 'none'
+    enum: ["none", "invoice", "delivery_note"],
+    default: "none",
   })
   billingDocumentType: string;
 
@@ -548,7 +559,7 @@ export class Order {
   // INTEGRACIÓN CON CAJA REGISTRADORA
   // ============================================
 
-  @Prop({ type: Types.ObjectId, ref: 'CashRegisterSession', default: null })
+  @Prop({ type: Types.ObjectId, ref: "CashRegisterSession", default: null })
   cashSessionId: Types.ObjectId;
 
   @Prop({ type: String, default: null })
