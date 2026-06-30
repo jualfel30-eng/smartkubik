@@ -13,6 +13,7 @@ import { Plus, Trash2, Percent, Scan, ShoppingCart, List, RotateCcw, Tag, X, Che
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { fetchApi } from '@/lib/api.js';
+import { parseScaleBarcode } from '@/lib/scale-barcode';
 import { useQueryClient } from '@tanstack/react-query';
 import { usePosCatalog } from '@/hooks/usePosCatalog';
 import { useCrmContext } from '@/context/CrmContext.jsx';
@@ -1088,7 +1089,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
   }, [newOrder.items.length, newOrder.customerName, newOrder.customerRif]);
 
   const handleProductSelection = useCallback(
-    async (selectedOption) => {
+    async (selectedOption, opts = {}) => {
       if (!selectedOption) return;
       const product = selectedOption.product;
       if (!product) return;
@@ -1100,7 +1101,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       const hasMultiUnit = product.hasMultipleSellingUnits && product.sellingUnits?.length > 0;
       const defaultUnit = hasMultiUnit ? product.sellingUnits.find(u => u.isDefault) || product.sellingUnits[0] : null;
       let baseUnitPrice = hasMultiUnit ? (defaultUnit?.pricePerUnit || 0) : (variant.basePrice || 0);
-      const initialQuantity = hasMultiUnit ? (defaultUnit?.minimumQuantity || 1) : 1;
+      // overrideQuantity: usado por etiquetas de balanza (cantidad = peso derivado del precio).
+      const initialQuantity = opts.overrideQuantity != null
+        ? opts.overrideQuantity
+        : (hasMultiUnit ? (defaultUnit?.minimumQuantity || 1) : 1);
 
       // Apply promotional discount if active
       let promotionInfo = null;
@@ -1259,6 +1263,58 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
       setIsBarcodeLookup(true);
       const productMatch = findProductByBarcode(normalized);
       try {
+        // Etiqueta de balanza (precio embebido): el código trae PLU + precio.
+        const scaleParsed = parseScaleBarcode(normalized, tenant?.scaleBarcodeConfig);
+        if (scaleParsed) {
+          let prod = products.find(
+            (p) => (p.scaleCode || '') === scaleParsed.scaleCode,
+          );
+          if (!prod) {
+            const resp = await fetchApi(
+              `/products/lookup/scale-code/${encodeURIComponent(scaleParsed.scaleCode)}`,
+            );
+            const data = resp?.data || resp;
+            if (data?.product) {
+              prod = {
+                ...data.product,
+                variants: data.product.variants?.length
+                  ? data.product.variants
+                  : data.variant
+                    ? [data.variant]
+                    : [],
+              };
+            }
+          }
+          if (!prod) {
+            toast.error('No se encontró el producto de balanza');
+            return;
+          }
+          const variant = prod.variants?.[0];
+          const pricePerUnit = variant?.basePrice || 0;
+          // El precio de la etiqueta = peso × precio/unidad ⇒ peso = precio / (precio/unidad).
+          const weight = pricePerUnit > 0 ? scaleParsed.price / pricePerUnit : 0;
+          if (weight <= 0) {
+            toast.error('El producto de balanza no tiene precio por unidad configurado');
+            return;
+          }
+          await handleProductSelection(
+            {
+              value: prod._id,
+              label: `${prod.name} (${prod.sku || 'N/A'})`,
+              product: prod,
+            },
+            { overrideQuantity: weight },
+          );
+          setBarcodeSearch('');
+          setProductSearchInput('');
+          setBarcodeSuccess(true);
+          setTimeout(() => setBarcodeSuccess(false), 600);
+          toast.success(
+            `${prod.name}: ${weight.toFixed(3)} ${prod.unitOfMeasure || ''} · $${scaleParsed.price.toFixed(2)}`,
+          );
+          return;
+        }
+
         if (productMatch) {
           await handleProductSelection({
             value: productMatch._id,
@@ -1307,7 +1363,7 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
         }
       }
     },
-    [barcodeSearch, findProductByBarcode, handleProductSelection]
+    [barcodeSearch, findProductByBarcode, handleProductSelection, tenant, products]
   );
 
   const handleBarcodeDetected = useCallback(
