@@ -557,11 +557,21 @@ export class BillOfMaterialsService {
       );
 
       if (finishedInventory) {
+        // Costo promedio ponderado: el terminado (ej: un bin a granel) se mezcla
+        // con lo que ya tenía. Si estaba vacío, el promedio da exactamente el
+        // costo de este lote; si había resto, lo pondera (igual que una compra).
+        const prevQty = finishedInventory.totalQuantity || 0;
+        const prevCost = finishedInventory.averageCostPrice || 0;
+        const newTotalQty = prevQty + quantity;
+        const weightedCost =
+          newTotalQty > 0
+            ? (prevQty * prevCost + quantity * unitCost) / newTotalQty
+            : unitCost;
         await this.inventoryService.adjustInventory(
           {
             inventoryId: finishedInventory._id.toString(),
-            newQuantity: finishedInventory.totalQuantity + quantity,
-            newCostPrice: unitCost,
+            newQuantity: newTotalQty,
+            newCostPrice: weightedCost,
             reason: `Producción de ${bom.name}`,
           },
           user,

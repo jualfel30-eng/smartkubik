@@ -171,6 +171,26 @@ describe("BillOfMaterialsService — produceBatch / previewProduction", () => {
       expect(result.unitCost).toBe(0.8); // 32 / 40
     });
 
+    it("promedia el costo del bin al producir sobre stock existente", async () => {
+      // Bin con 10 unidades a costo 2; producimos 40 a costo de lote 0.5.
+      const finishedInv = {
+        _id: new Types.ObjectId(),
+        totalQuantity: 10,
+        availableQuantity: 10,
+        averageCostPrice: 2,
+      };
+      inventoryService.findByProductSku = jest.fn((sku: string) =>
+        Promise.resolve(sku === "GALLETAS-001" ? finishedInv : invBySku[sku]),
+      );
+
+      await service.produceBatch(bomId.toString(), 40, mockUser);
+
+      // (10*2 + 40*0.5) / 50 = 0.8 (no 0.5 sobrescrito).
+      const finishedCall = inventoryService.adjustInventory.mock.calls[1][0];
+      expect(finishedCall.newQuantity).toBe(50);
+      expect(finishedCall.newCostPrice).toBeCloseTo(0.8, 5);
+    });
+
     it("lanza y NO muta inventario si falta stock", async () => {
       await expect(
         service.produceBatch(bomId.toString(), 4000, mockUser),
