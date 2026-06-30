@@ -112,20 +112,6 @@ export class SuperAdminController {
     );
   }
 
-  @Patch("tenants/:id/scale-barcode-config")
-  updateScaleBarcodeConfig(
-    @Param("id") id: string,
-    @Body() body: { scaleBarcodeConfig: any },
-    @Req() req,
-  ) {
-    return this.superAdminService.updateScaleBarcodeConfig(
-      id,
-      body.scaleBarcodeConfig,
-      req.user.id,
-      req.ip,
-    );
-  }
-
   @Patch("roles/:roleId/permissions")
   updateRolePermissions(
     @Param("roleId") roleId: string,

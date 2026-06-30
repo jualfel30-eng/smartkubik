@@ -330,37 +330,6 @@ export class SuperAdminService {
     return updatedTenant;
   }
 
-  async updateScaleBarcodeConfig(
-    tenantId: string,
-    config: any,
-    performedBy: string,
-    ipAddress: string,
-  ) {
-    const tenant = await this.tenantModel.findById(tenantId).exec();
-    if (!tenant) {
-      throw new NotFoundException(`Tenant con ID "${tenantId}" no encontrado`);
-    }
-
-    const oldConfig = { ...(tenant.scaleBarcodeConfig || {}) };
-    const updatedTenant = await this.tenantModel
-      .findByIdAndUpdate(
-        tenantId,
-        { $set: { scaleBarcodeConfig: config } },
-        { new: true },
-      )
-      .exec();
-
-    await this.auditLogService.createLog(
-      "update_scale_barcode_config",
-      performedBy,
-      { oldConfig, newConfig: updatedTenant?.scaleBarcodeConfig },
-      ipAddress,
-      tenantId,
-    );
-
-    return updatedTenant;
-  }
-
   private async ensureBaselinePermissions() {
     for (const permission of BASELINE_PERMISSIONS) {
       await this.permissionModel.updateOne(
