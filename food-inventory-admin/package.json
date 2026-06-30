@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "lint:changed": "node scripts/lint-changed.cjs",
+    "typecheck": "node scripts/typecheck.cjs",
     "preview": "vite preview",
     "test": "vitest"
   },
