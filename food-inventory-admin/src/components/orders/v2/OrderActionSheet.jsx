@@ -1,47 +1,8 @@
-import { Eye, FileText, ChefHat, MessageCircle, XCircle, Receipt, ReceiptText, RotateCcw } from 'lucide-react';
 import MobileActionSheet from '@/components/mobile/MobileActionSheet';
 import { cn } from '@/lib/utils';
 import { getPrimaryCTA } from '@/lib/orders/getPrimaryCTA';
+import { SECONDARY_ACTIONS, passesRequires, buildActionContext } from '@/lib/orders/secondaryActions';
 import haptics from '@/lib/haptics';
-
-const SECONDARY_ACTIONS = [
-  { id: 'view-detail', label: 'Ver detalle completo', icon: Eye },
-  {
-    id: 'request-payment',
-    label: 'Pedir comprobante al cliente',
-    sublabel: 'Le envías un enlace por WhatsApp para que pague',
-    icon: ReceiptText,
-    requires: 'can-request-payment',
-  },
-  { id: 'invoice', label: 'Generar factura', icon: Receipt, requires: 'paid' },
-  { id: 'view-invoice', label: 'Ver factura', icon: FileText, requires: 'has-invoice' },
-  { id: 'kitchen', label: 'Enviar a cocina', icon: ChefHat, requires: 'restaurant' },
-  { id: 'notify', label: 'Notificar al cliente', icon: MessageCircle },
-  { id: 'reopen', label: 'Reabrir orden', icon: RotateCcw, requires: 'cancelled' },
-  { id: 'cancel', label: 'Cancelar orden', icon: XCircle, danger: true, requires: 'not-cancelled' },
-];
-
-function passesRequires(action, ctx) {
-  if (!action.requires) return true;
-  switch (action.requires) {
-    case 'paid':
-      return ctx.isPaid && !ctx.hasInvoice;
-    case 'has-invoice':
-      return ctx.hasInvoice;
-    case 'restaurant':
-      return ctx.restaurantEnabled;
-    case 'cancelled':
-      return ctx.isCancelled;
-    case 'not-cancelled':
-      return !ctx.isCancelled;
-    case 'can-request-payment':
-      // Three gates per spec: permission, not already paid, and not a
-      // storefront order (those auto-issue PaymentRequests upstream).
-      return ctx.canRequestPayment && !ctx.isPaid && !ctx.isStorefrontOrder;
-    default:
-      return true;
-  }
-}
 
 function fmt(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -61,18 +22,8 @@ export function OrderActionSheet({
   }
 
   const cta = getPrimaryCTA(order);
-  const isPaid = order.paymentStatus === 'paid';
-  const isCancelled = order.status === 'cancelled' || order.status === 'refunded';
-  const hasInvoice = Boolean(order.billingDocumentId);
-  const isStorefrontOrder = order.source === 'storefront';
-  const ctx = {
-    isPaid,
-    isCancelled,
-    hasInvoice,
-    restaurantEnabled,
-    canRequestPayment,
-    isStorefrontOrder,
-  };
+  const ctx = buildActionContext(order, { restaurantEnabled, canRequestPayment });
+  const isPaid = ctx.isPaid;
 
   const handlePrimary = () => {
     haptics.select();

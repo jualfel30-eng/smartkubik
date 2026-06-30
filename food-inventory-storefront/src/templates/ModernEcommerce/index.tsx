@@ -16,7 +16,7 @@ interface ModernEcommerceTemplateProps {
   onAddToCart?: (product: Product) => void;
 }
 
-export function ModernEcommerceTemplate({
+export default function ModernEcommerceTemplate({
   config,
   featuredProducts,
   categories,
