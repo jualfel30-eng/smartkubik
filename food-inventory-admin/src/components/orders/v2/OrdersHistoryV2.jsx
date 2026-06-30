@@ -141,7 +141,7 @@ function computeWeeklyMaxAmount(orders) {
 
 export function OrdersHistoryV2() {
   const navigate = useNavigate();
-  const { tenant, user, token, hasPermission } = useAuth();
+  const { tenant, user, hasPermission } = useAuth();
   const { loadCustomers } = useCrmContext();
   const { rate: exchangeRate } = useExchangeRate();
   const isMobile = useMediaQuery('(max-width: 767px)');
