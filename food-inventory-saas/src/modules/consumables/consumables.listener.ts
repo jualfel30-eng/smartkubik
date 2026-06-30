@@ -203,11 +203,18 @@ export class ConsumablesListener {
     orderId: string,
     userId?: string,
   ) {
+    // Cast explícito (ObjectId vs String gotcha): estos campos pueden venir como
+    // string desde el evento mientras se guardan como ObjectId.
     const relation = await this.consumableRelationModel
       .findOne({
-        productId,
-        consumableId: packagingConsumableId,
-        tenantId,
+        productId: { $in: [productId, new Types.ObjectId(productId)] },
+        consumableId: {
+          $in: [
+            packagingConsumableId,
+            new Types.ObjectId(packagingConsumableId),
+          ],
+        },
+        tenantId: { $in: [tenantId, new Types.ObjectId(tenantId)] },
         isActive: true,
         isPackagingOption: true,
       })
@@ -223,7 +230,15 @@ export class ConsumablesListener {
 
     const qty = relation.quantityRequired || 1;
     const inventory = await this.inventoryModel
-      .findOne({ productId: packagingConsumableId, tenantId })
+      .findOne({
+        productId: {
+          $in: [
+            packagingConsumableId,
+            new Types.ObjectId(packagingConsumableId),
+          ],
+        },
+        tenantId: { $in: [tenantId, new Types.ObjectId(tenantId)] },
+      })
       .lean()
       .exec();
 
@@ -251,7 +266,7 @@ export class ConsumablesListener {
     });
 
     await this.inventoryModel.updateOne(
-      { _id: inventory._id, tenantId },
+      { _id: inventory._id },
       { $inc: { totalQuantity: -qty } },
     );
 
