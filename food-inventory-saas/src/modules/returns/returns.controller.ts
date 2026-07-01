@@ -54,4 +54,29 @@ export class ReturnsController {
     const data = await this.returnsService.findByOrder(id, req.user);
     return { success: true, data };
   }
+
+  @Post(":id/exchange")
+  @Permissions("orders_update")
+  @ApiOperation({
+    summary: "Iniciar un cambio: devolver a saldo a favor para una orden nueva",
+  })
+  async createExchange(
+    @Param("id") id: string,
+    @Body() dto: CreateReturnDto,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.returnsService.createExchange(id, dto, req.user);
+      return {
+        success: true,
+        message: "Devolución del cambio registrada",
+        data,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al iniciar el cambio",
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
 }

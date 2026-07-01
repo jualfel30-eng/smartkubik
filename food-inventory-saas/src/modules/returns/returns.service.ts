@@ -73,6 +73,7 @@ export class ReturnsService {
     orderId: string,
     dto: CreateReturnDto,
     user: any,
+    opts: { isExchange?: boolean } = {},
   ): Promise<ReturnDocument> {
     const tenantId: string = user?.tenantId?.toString();
 
@@ -337,6 +338,7 @@ export class ReturnsService {
       refundAmountVes: isStoreCredit ? 0 : refundVes,
       currency: "USD",
       isPartial: !fullyReturned,
+      isExchange: !!opts.isExchange,
       reason: dto.reason,
       status: "completed",
       cashSessionId: session?._id,
@@ -369,6 +371,46 @@ export class ReturnsService {
     );
 
     return returnDoc;
+  }
+
+  /**
+   * Inicia un cambio (exchange): procesa la devolución de los ítems indicados
+   * SIEMPRE a saldo a favor (para financiar la orden nueva) y marca el Return
+   * como `isExchange`. Devuelve el saldo resultante del cliente para que la UI
+   * redirija al POS con contexto. La orden nueva la crea el POS; el saldo se
+   * aplica al cobrarla (ver flujo en el wiki de returns).
+   */
+  async createExchange(
+    orderId: string,
+    dto: CreateReturnDto,
+    user: any,
+  ): Promise<{
+    return: ReturnDocument;
+    customerId?: string;
+    customerName?: string;
+    storeCreditBalance: number;
+  }> {
+    const returnDoc = await this.createReturn(
+      orderId,
+      { ...dto, refundMethod: "store_credit" },
+      user,
+      { isExchange: true },
+    );
+
+    const customerId = returnDoc.customerId?.toString();
+    const storeCreditBalance = customerId
+      ? await this.storeCreditService.getBalance(
+          user.tenantId.toString(),
+          customerId,
+        )
+      : 0;
+
+    return {
+      return: returnDoc,
+      customerId,
+      customerName: returnDoc.customerName,
+      storeCreditBalance,
+    };
   }
 
   async findByOrder(orderId: string, user: any): Promise<ReturnDocument[]> {

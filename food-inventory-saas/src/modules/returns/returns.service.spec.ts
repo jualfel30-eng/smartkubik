@@ -233,6 +233,28 @@ describe("ReturnsService", () => {
     expect(storeCreditService.credit).toHaveBeenCalledTimes(1);
   });
 
+  it("createExchange: devuelve SIEMPRE a saldo a favor, marca isExchange y reporta el balance", async () => {
+    storeCreditService.getBalance.mockResolvedValue(100);
+
+    const result = await service.createExchange(
+      orderDoc._id.toString(),
+      { reason: "Cambio de talla" },
+      user,
+    );
+
+    // Fuerza store_credit: acredita al cliente, no toca caja
+    expect(storeCreditService.credit).toHaveBeenCalledTimes(1);
+    expect(cashRegisterService.addCashMovement).not.toHaveBeenCalled();
+
+    // El Return queda marcado como parte de un cambio
+    expect(result.return.isExchange).toBe(true);
+    expect(result.return.refundMethod).toBe("store_credit");
+
+    // Reporta el saldo para que la UI redirija al POS con contexto
+    expect(result.customerId).toBe(orderDoc.customerId.toString());
+    expect(result.storeCreditBalance).toBe(100);
+  });
+
   it("devolución PARCIAL: reembolsa proporcional, deja la orden partially_returned y NO reembolsa el pago", async () => {
     const itemId = orderDoc.items[0]._id.toString();
 

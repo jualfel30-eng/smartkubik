@@ -98,6 +98,11 @@ export class Return {
   @Prop({ type: Boolean, default: false })
   isPartial: boolean;
 
+  // true si esta devolución es parte de un cambio (exchange): se devolvió a
+  // saldo a favor para financiar una orden nueva.
+  @Prop({ type: Boolean, default: false })
+  isExchange: boolean;
+
   @Prop({ type: String })
   reason?: string;
 
