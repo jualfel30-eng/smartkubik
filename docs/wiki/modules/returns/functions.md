@@ -13,6 +13,9 @@ Orquesta una devolución total o parcial con reembolso en efectivo. Ver [flows.m
 ### `planReturnLines(order, requested?)` (privado)
 Resuelve qué líneas/cantidades se devuelven. Con `requested` → parcial (valida existencia y que la cantidad no supere `quantity − returnedQuantity`, rechaza duplicados); sin `requested` → total (todo lo pendiente).
 
+### `createExchange(orderId, dto, user)`
+Inicia un cambio: llama a `createReturn` forzando `refundMethod: 'store_credit'` y `isExchange: true`, y devuelve `{ return, customerId, customerName, storeCreditBalance }` para que la UI redirija al POS con contexto. La orden nueva la crea el POS; el saldo se aplica al cobrarla.
+
 ### `findByOrder(orderId, user): Promise<ReturnDocument[]>`
 Lista devoluciones de una orden, más recientes primero. Scoped por `tenantId`.
 
@@ -28,8 +31,13 @@ La pantalla vive en `components/orders/`, por eso su función se documenta aquí
 ### `ReturnDialog` (`food-inventory-admin/src/components/orders/v2/ReturnDialog.jsx`)
 Diálogo de devolución con selector **Total / Parcial** y selector de método de reembolso **Efectivo / Saldo a favor**. En parcial lista las líneas con cantidad pendiente + input por línea y muestra el reembolso estimado en vivo. Al confirmar hace `POST /orders/:id/returns` (con `items[]` si es parcial, `refundMethod` según selección) y en éxito refresca el historial.
 
+Con la prop `exchange` entra en **modo cambio**: oculta el selector de método (fuerza saldo a favor), llama `POST /orders/:id/exchange` y al confirmar redirige al POS (`/orders/new`) pasando el cliente + saldo por el `state` del router. Acción `exchange` en `secondaryActions` (gate `can-return`).
+
+### `OrdersPOS` (contexto de cambio)
+Lee `location.state.exchange`, preselecciona el cliente en `NewOrderFormV2` (`initialCustomer`), muestra un banner del saldo, y en `handleOrderCreated` **auto-aplica el saldo** a la orden nueva (`redeem-store-credit`) antes de abrir el drawer de cobro.
+
 ### Gate `can-return` (`food-inventory-admin/src/lib/orders/secondaryActions.js`)
 Nueva acción `return` en `SECONDARY_ACTIONS` (icono `Undo2`). Visible sólo si `isPaid && !isCancelled && !hasInvoice`. Aparece tanto en el bottom-sheet mobile (`OrderActionSheet`) como en el dropdown desktop (`OrdersSmartTable`) porque ambos consumen el módulo compartido. Enrutada en `handleSecondaryAction` de `OrdersHistoryV2.jsx` (`case 'return'` → abre `ReturnDialog`).
 
 ## Pendiente
-- `createExchange` (cambio) — fase siguiente.
+- Devolver el excedente de un cambio en efectivo (hoy siempre queda como saldo a favor).

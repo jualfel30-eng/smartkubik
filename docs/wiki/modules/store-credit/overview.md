@@ -2,7 +2,7 @@
 
 ## ¿Qué es?
 
-El **motor de saldo a favor** lleva un balance de crédito por cliente y tenant: dinero que el negocio le debe al cliente y que éste puede usar en compras futuras. Es un dominio compartido — hoy lo **acredita** el módulo de Devoluciones (cuando se devuelve una compra "a saldo a favor" en vez de efectivo) y lo **redime** el flujo de cobro de órdenes.
+El **motor de saldo a favor** lleva un balance de crédito por cliente y tenant: dinero que el negocio le debe al cliente y que éste puede usar en compras futuras. Es un dominio compartido — hoy lo **acredita** el módulo de Devoluciones (cuando se devuelve una compra "a saldo a favor" en vez de efectivo, incluido el flujo de **cambio**) y lo **redime** el flujo de cobro de órdenes (manual desde el historial, o automático al completar un cambio).
 
 ## ¿Para quién es?
 

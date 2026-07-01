@@ -16,6 +16,7 @@ Schema: `src/modules/returns/schemas/return.schema.ts`
 | `refundAmountVes` | Number | Monto reembolsado en VES (de `paidAmountVes`). |
 | `currency` | String | Default `USD`. |
 | `isPartial` | Boolean | `true` si la orden quedó con ítems sin devolver tras esta devolución. |
+| `isExchange` | Boolean | `true` si la devolución es parte de un cambio (se devolvió a saldo a favor para financiar una orden nueva). |
 | `reason` | String | Opcional. |
 | `status` | String enum | `completed` \| `pending` \| `cancelled`. Fase 0 nace `completed`. |
 | `cashSessionId` | ObjectId | Sesión de caja de la que salió el efectivo. |

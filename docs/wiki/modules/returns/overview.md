@@ -22,13 +22,14 @@ Es distinto de **cancelar** una orden: cancelar es para una orden que nunca se c
 - **Devolución TOTAL** de una orden (todos los ítems).
 - **Devolución PARCIAL por ítem**: el cajero elige qué líneas y cuánto; la orden queda `partially_returned` mientras le quede saldo, `refunded` cuando se devolvió todo. Reembolso **proporcional a lo pagado** por valor de ítem.
 - **Reembolso en efectivo** (sale de la sesión de caja abierta del cajero) **o a saldo a favor** (se acredita al cliente vía [modules/store-credit/](../store-credit/overview.md), no toca caja).
+- **Cambio (exchange)**: devuelve a saldo a favor y redirige al POS para crear la orden nueva; el saldo se aplica al cobrarla y el sobrante queda a favor del cliente.
 - **Asiento contable** de la devolución (débito a "Devoluciones en Ventas" 4102 / crédito a Caja 1101 si efectivo, o al pasivo "Saldo a favor de clientes" 2104 si saldo a favor).
 - Sólo órdenes **pagadas por completo** y **sin factura fiscal**.
 
 ## Pendiente (fases siguientes — ver plan de devoluciones)
 
-- **Cambio** (exchange): devolución + nueva venta con diferencia de precio.
 - **Nota de Crédito fiscal** (HKA/SENIAT) para órdenes facturadas.
+- Devolver el excedente de un cambio en efectivo (hoy siempre queda como saldo a favor).
 
 ## Ubicación
 

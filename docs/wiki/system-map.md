@@ -765,6 +765,10 @@ Backend (ReturnsService.createReturn) orquesta, en orden:
   11. Orden → 'refunded' (completa) | 'partially_returned' (queda saldo; paymentStatus sigue 'paid')
 
 Frontend lista: GET /orders/:id/returns   (permiso orders_read)
+
+Cambio (exchange): POST /orders/:id/exchange (orders_update)
+  → createReturn forzando store_credit + isExchange; devuelve { customerId, storeCreditBalance }
+  → la UI redirige al POS; la orden nueva se cobra aplicando el saldo (redeem-store-credit)
 ```
 
 **Contrato UI**: acción `return` en `secondaryActions.js` (gate `can-return` = `isPaid && !isCancelled && !hasInvoice`; una orden `partially_returned` sigue mostrando la acción), diálogo `ReturnDialog.jsx` con selector Total/Parcial. Aparece en mobile (OrderActionSheet) y desktop (OrdersSmartTable) por el módulo compartido.
@@ -772,6 +776,7 @@ Frontend lista: GET /orders/:id/returns   (permiso orders_read)
 **Gotchas**:
 - **Devolver ≠ Cancelar**: cancelar usa `ADJUSTMENT` en background y no mueve caja; devolver crea documento `Return`, usa `IN` síncrono y saca dinero real de caja. No reciclar `cancelOrder`.
 - **Identificación de línea parcial**: por el `_id` del subdocumento `OrderItem` (`orderItemId`), no por índice ni SKU. `returnedQuantity` (default 0) vive en `OrderItem`; la línea se agota cuando `returnedQuantity >= quantity`. Estado nuevo: `partially_returned`.
+- **Cambio (exchange)** = devolución-a-saldo (`isExchange`) + orden nueva en el POS + redención automática. El excedente (V_ret > V_new) queda como saldo a favor, no se devuelve efectivo. La orden nueva la crea el POS (no un endpoint atómico); el POS auto-aplica el saldo vía `location.state.exchange`.
 - `tenantId` en `returns` es **siempre ObjectId** (colección nueva controlada). `returnNumber` es único por tenant (índice compuesto), NO global.
 - **Asiento contable** lo genera `ReturnsAccountingService` (dentro del módulo returns, NO en `accounting.service.ts`, para no arrastrar su deuda de lint legacy). Débito 4102 / crédito 1101; crea esas cuentas si el tenant no las tiene. Es best-effort: si falla, la devolución igual se completa.
 - Órdenes **facturadas** quedan fuera (requieren Nota de Crédito HKA). Gate `!hasInvoice` en front y back.
@@ -952,6 +957,7 @@ returns/**/*.ts → wiki/modules/returns/{api-reference,data-model,flows,functio
 store-credit/**/*.ts → wiki/modules/store-credit/{overview,api-reference,data-model}.md + system-map.md §1.14
 orders/services/order-payments.service.ts (redeemStoreCredit) → wiki/modules/store-credit/api-reference.md + system-map.md §1.14
 food-inventory-admin/src/components/orders/v2/ApplyCreditDialog.jsx → wiki/modules/store-credit/api-reference.md + system-map.md §1.14
+food-inventory-admin/src/components/orders/v2/OrdersPOS.jsx (contexto de cambio) → wiki/modules/returns/functions.md + system-map.md §1.13
 food-inventory-admin/src/components/orders/v2/ReturnDialog.jsx → wiki/modules/returns/functions.md + system-map.md §1.13
 food-inventory-admin/src/lib/orders/secondaryActions.js → wiki/modules/returns/functions.md + wiki/modules/orders/functions.md
 payroll*.service.ts → wiki/modules/payroll/overview.md + help/rrhh/guia-nomina.md + guides/payroll-cycle.md

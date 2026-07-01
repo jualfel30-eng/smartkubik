@@ -69,3 +69,12 @@ Lista las devoluciones de la orden `:id` (más recientes primero).
 
 - **Permiso**: `orders_read`
 - **Respuesta**: `{ "success": true, "data": [ /* Return[] */ ] }`
+
+## POST /api/v1/orders/:id/exchange  (cambio)
+
+Inicia un cambio: procesa la devolución de los ítems indicados **siempre a saldo a favor** (para financiar la orden nueva) y marca el `Return` con `isExchange: true`.
+
+- **Permiso**: `orders_update`
+- **Body**: igual que el de devolución (`{ reason?, items? }`); `refundMethod` se fuerza a `store_credit`.
+- **Respuesta**: `{ success, data: { return, customerId, customerName, storeCreditBalance } }`.
+- **Flujo**: reutiliza `createReturn` (store_credit). La UI redirige al POS con el cliente + saldo; la orden nueva la crea el POS y el saldo se aplica al cobrarla (`redeem-store-credit`). El excedente permanece como saldo a favor. Ver [flows.md](flows.md).

@@ -47,6 +47,25 @@ IN (ítem)   (USD/VES)          (déb 4102/cré 1101)  refunded
 - **Orden con factura fiscal** → 400 (requiere Nota de Crédito; fase posterior).
 - **Orden totalmente devuelta / cancelada** → 400.
 
+## Flujo: cambio (exchange)
+
+**Actor**: cajero. El cliente devuelve algo y se lleva otra cosa.
+
+1. En el historial, acción **"Cambiar por otro producto"** → `ReturnDialog` en modo cambio (selección de ítems a devolver; método forzado a saldo a favor).
+2. Al confirmar → `POST /orders/:id/exchange`: procesa la devolución a saldo a favor (marca `isExchange`) y devuelve el saldo del cliente.
+3. La UI **redirige al POS** (`/orders/new`) con el cliente preseleccionado y un banner del saldo disponible.
+4. El cajero arma la orden nueva y la crea. `OrdersPOS` detecta el contexto de cambio y **auto-aplica el saldo** a la orden recién creada (`POST /orders/:id/redeem-store-credit`).
+   - V_new > V_ret → la orden nueva queda con saldo pendiente = la diferencia (el cliente la paga por el cobro normal).
+   - V_ret ≥ V_new → la orden nueva queda cubierta y el **excedente permanece como saldo a favor**.
+
+```
+Devolver (a saldo) ──► navigate POS (cliente + saldo) ──► crear orden nueva
+                                                              │
+                                                     auto-aplicar saldo
+                                                              │
+                                              diferencia se cobra / sobrante queda a favor
+```
+
 ## Diferencia con Cancelar
 
 | | Cancelar orden | Devolver orden |
