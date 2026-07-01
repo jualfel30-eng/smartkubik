@@ -5,13 +5,14 @@ import { OrderProcessingDrawer } from '../OrderProcessingDrawer';
 import { fetchApi } from '@/lib/api';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useMediaQuery } from '@/hooks/use-media-query';
+// eslint-disable-next-line no-unused-vars -- `motion` se usa como <motion.div>; jsx-uses-vars no lo detecta
 import { motion, AnimatePresence } from 'framer-motion';
-import { fadeUp, tapScale, DUR, EASE, SPRING } from '@/lib/motion';
+import { DUR, EASE, SPRING } from '@/lib/motion';
 import AnimatedNumber from '@/components/mobile/primitives/AnimatedNumber.jsx';
 import { useDailyPOSRevenue } from '@/hooks/useDailyPOSRevenue';
 import { useAuth } from '@/hooks/use-auth.jsx';
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { History, RotateCcw, DollarSign, Target, X, Keyboard } from 'lucide-react';
 import { CashRegisterIndicator } from '@/components/cash-register/CashRegisterIndicator';
@@ -19,7 +20,12 @@ import { CashClosingDrawer } from '@/components/cash-register/CashClosingDrawer'
 
 export function OrdersPOS() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { state, setOpen } = useSidebar();
+    // Contexto de "cambio": llega por navigate('/orders/new', { state: { exchange } })
+    // desde el historial. Preselecciona el cliente y auto-aplica su saldo al
+    // crear la orden nueva. Se guarda en estado para sobrevivir el consumo.
+    const [exchange, setExchange] = useState(() => location.state?.exchange || null);
     const isDesktop = useMediaQuery("(min-width: 1024px)");
     const { tenant } = useAuth();
     const posRevenue = useDailyPOSRevenue(tenant?._id);
@@ -35,7 +41,7 @@ export function OrdersPOS() {
 
     const dismissShortcuts = useCallback(() => {
         setShowShortcuts(false);
-        try { localStorage.setItem('sk_pos:shortcuts_dismissed', 'true'); } catch {}
+        try { localStorage.setItem('sk_pos:shortcuts_dismissed', 'true'); } catch { /* localStorage no disponible */ }
     }, []);
 
     // Keyboard shortcut listeners
@@ -60,12 +66,29 @@ export function OrdersPOS() {
         return () => window.removeEventListener('keydown', handleKeydown);
     }, []);
 
-    const handleOrderCreated = (newOrder) => {
+    const handleOrderCreated = async (newOrder) => {
         document.dispatchEvent(new CustomEvent('order-form-success'));
-        console.log('Order created in POS mode:', newOrder);
 
         if (newOrder && newOrder._id) {
-            setSelectedOrderForProcessing(newOrder);
+            let orderForDrawer = newOrder;
+            // Cambio en curso: aplica el saldo a favor a la orden recién creada.
+            if (exchange) {
+                try {
+                    const res = await fetchApi(`/orders/${newOrder._id}/redeem-store-credit`, {
+                        method: 'POST',
+                        body: JSON.stringify({}),
+                    });
+                    orderForDrawer = res?.data || newOrder;
+                    toast.success('Saldo a favor aplicado a la orden nueva');
+                } catch (err) {
+                    toast.error('No se pudo aplicar el saldo a favor', {
+                        description: err?.message || 'Aplícalo manualmente desde el historial.',
+                    });
+                } finally {
+                    setExchange(null); // el cambio se completó
+                }
+            }
+            setSelectedOrderForProcessing(orderForDrawer);
             setIsProcessingDrawerOpen(true);
         }
     };
@@ -198,7 +221,30 @@ export function OrdersPOS() {
                 )}
             </AnimatePresence>
 
-            <NewOrderFormV2 onOrderCreated={handleOrderCreated} posRevenue={posRevenue} />
+            {exchange && (
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-primary/40 bg-primary/10 text-sm text-primary">
+                    <RotateCcw className="h-4 w-4 shrink-0" />
+                    <span>
+                        Cambio en curso — {exchange.customerName || 'el cliente'} tiene{' '}
+                        <strong>${Number(exchange.credit || 0).toFixed(2)}</strong> de saldo a favor. Se aplicará al cobrar la orden nueva.
+                    </span>
+                </div>
+            )}
+
+            <NewOrderFormV2
+                onOrderCreated={handleOrderCreated}
+                posRevenue={posRevenue}
+                initialCustomer={
+                    exchange?.customerId
+                        ? {
+                              customerId: exchange.customerId,
+                              name: exchange.customerName,
+                              phone: exchange.customerPhone,
+                              taxId: exchange.customerRif,
+                          }
+                        : null
+                }
+            />
 
             <OrderProcessingDrawer
                 isOpen={isProcessingDrawerOpen}

@@ -1,4 +1,4 @@
-import { Eye, FileText, ChefHat, MessageCircle, XCircle, Receipt, ReceiptText, RotateCcw, Undo2, Wallet } from 'lucide-react';
+import { Eye, FileText, ChefHat, MessageCircle, XCircle, Receipt, ReceiptText, RotateCcw, Undo2, Wallet, ArrowLeftRight } from 'lucide-react';
 
 /**
  * Acciones secundarias de una orden, compartidas entre el bottom-sheet mobile
@@ -30,6 +30,13 @@ export const SECONDARY_ACTIONS = [
     label: 'Devolver orden',
     sublabel: 'Reintegra el stock y reembolsa en efectivo',
     icon: Undo2,
+    requires: 'can-return',
+  },
+  {
+    id: 'exchange',
+    label: 'Cambiar por otro producto',
+    sublabel: 'Devuelve a saldo a favor y crea la orden nueva',
+    icon: ArrowLeftRight,
     requires: 'can-return',
   },
   { id: 'reopen', label: 'Reabrir orden', icon: RotateCcw, requires: 'cancelled' },

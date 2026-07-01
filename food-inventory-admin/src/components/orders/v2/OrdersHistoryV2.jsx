@@ -170,6 +170,7 @@ export function OrdersHistoryV2() {
   const [actionSheetOrder, setActionSheetOrder] = useState(null);
   const [requestPaymentOrder, setRequestPaymentOrder] = useState(null);
   const [returnOrder, setReturnOrder] = useState(null);
+  const [exchangeOrder, setExchangeOrder] = useState(null);
   const [applyCreditOrder, setApplyCreditOrder] = useState(null);
 
   const canRequestPayment = hasPermission?.('payment_requests_review') ?? false;
@@ -291,6 +292,8 @@ export function OrdersHistoryV2() {
         break;
       case 'return':
         setReturnOrder(order); break;
+      case 'exchange':
+        setExchangeOrder(order); break;
       case 'apply-credit':
         setApplyCreditOrder(order); break;
       case 'reopen':
@@ -453,6 +456,14 @@ export function OrdersHistoryV2() {
         open={Boolean(returnOrder)}
         onClose={() => setReturnOrder(null)}
         order={returnOrder}
+        onSuccess={fetchOrders}
+      />
+
+      <ReturnDialog
+        exchange
+        open={Boolean(exchangeOrder)}
+        onClose={() => setExchangeOrder(null)}
+        order={exchangeOrder}
         onSuccess={fetchOrders}
       />
 

@@ -111,6 +111,14 @@ describe('getSecondaryActions', () => {
     expect(ids).toContain('view-detail');
   });
 
+  it('incluye "return" y "exchange" en una orden pagada sin factura', () => {
+    const order = make({ paymentStatus: 'paid', customerId: 'c1' });
+    const ctx = buildActionContext(order, {});
+    const ids = getSecondaryActions(order, ctx).map((a) => a.id);
+    expect(ids).toContain('return');
+    expect(ids).toContain('exchange');
+  });
+
   it('includes "cancel" for a non-cancelled order and "reopen" only when cancelled', () => {
     const pendingCtx = buildActionContext(make(), {});
     const pendingIds = getSecondaryActions(make(), pendingCtx).map((a) => a.id);

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Loader2, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Loader2, RotateCcw, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
@@ -48,9 +49,14 @@ function buildLines(order) {
  * Reembolso: **efectivo** (sale de la caja abierta) o **saldo a favor** (se
  * acredita al cliente, no toca caja). Efectivo requiere una sesión de caja
  * abierta; si no la hay, el backend responde con el error y lo mostramos tal
- * cual. El cambio (exchange) llega en una fase posterior.
+ * cual.
+ *
+ * Modo **cambio** (`exchange`): la devolución se hace SIEMPRE a saldo a favor y
+ * al confirmar redirige al POS para crear la orden nueva (el saldo se aplica al
+ * cobrarla). Reutiliza el selector de ítems.
  */
-export function ReturnDialog({ open, onClose, order, onSuccess }) {
+export function ReturnDialog({ open, onClose, order, onSuccess, exchange = false }) {
+  const navigate = useNavigate();
   const [mode, setMode] = useState('total');
   const [refundMethod, setRefundMethod] = useState('cash');
   const [reason, setReason] = useState('');
@@ -96,8 +102,39 @@ export function ReturnDialog({ open, onClose, order, onSuccess }) {
     }
     setSubmitting(true);
     try {
-      const body = { refundMethod, reason: reason.trim() || undefined };
+      const body = { reason: reason.trim() || undefined };
       if (mode === 'partial') body.items = partialItems;
+
+      if (exchange) {
+        // El backend fuerza store_credit y marca isExchange; devuelve el saldo.
+        const res = await fetchApi(`/orders/${order._id}/exchange`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
+        const data = res?.data || {};
+        reset();
+        onClose?.();
+        toast.success('Devolución del cambio lista', {
+          description: `Crea la orden nueva; el saldo de ${fmt(
+            data.storeCreditBalance,
+          )} se aplicará al cobrar.`,
+        });
+        // Redirige al POS con el cliente + saldo para completar el cambio.
+        navigate('/orders/new', {
+          state: {
+            exchange: {
+              customerId: data.customerId,
+              customerName: data.customerName || order.customerName,
+              customerPhone: order.customerPhone,
+              customerRif: order.customerRif,
+              credit: data.storeCreditBalance,
+            },
+          },
+        });
+        return;
+      }
+
+      body.refundMethod = refundMethod;
       await fetchApi(`/orders/${order._id}/returns`, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -133,7 +170,15 @@ export function ReturnDialog({ open, onClose, order, onSuccess }) {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <RotateCcw size={18} /> Devolver orden
+            {exchange ? (
+              <>
+                <ArrowLeftRight size={18} /> Cambiar por otro producto
+              </>
+            ) : (
+              <>
+                <RotateCcw size={18} /> Devolver orden
+              </>
+            )}
           </DialogTitle>
           <DialogDescription>
             {order
@@ -166,7 +211,8 @@ export function ReturnDialog({ open, onClose, order, onSuccess }) {
               ))}
             </div>
 
-            {/* Método de reembolso */}
+            {/* Método de reembolso (en cambio se fuerza a saldo a favor) */}
+            {!exchange && (
             <div>
               <p className="mb-1.5 text-xs font-medium text-muted-foreground">
                 Reembolsar como
@@ -192,6 +238,7 @@ export function ReturnDialog({ open, onClose, order, onSuccess }) {
                 ))}
               </div>
             </div>
+            )}
 
             {/* Selector de ítems (sólo parcial) */}
             {mode === 'partial' && (
@@ -231,27 +278,31 @@ export function ReturnDialog({ open, onClose, order, onSuccess }) {
             <div className="rounded-xl bg-muted/40 px-3 py-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">
-                  {mode === 'partial'
-                    ? 'Reembolso estimado'
-                    : refundMethod === 'store_credit'
-                      ? 'A acreditar (saldo a favor)'
-                      : 'A reembolsar (efectivo)'}
+                  {exchange
+                    ? 'Crédito para la orden nueva'
+                    : mode === 'partial'
+                      ? 'Reembolso estimado'
+                      : refundMethod === 'store_credit'
+                        ? 'A acreditar (saldo a favor)'
+                        : 'A reembolsar (efectivo)'}
                 </span>
                 <span className="font-semibold">{fmt(estimatedRefund)}</span>
               </div>
               <p className="mt-2 text-xs text-muted-foreground">
-                {refundMethod === 'store_credit'
-                  ? 'Se acredita como saldo a favor del cliente para futuras compras (no sale dinero de la caja).'
-                  : mode === 'partial'
-                    ? 'El monto exacto lo calcula el sistema, proporcional a lo pagado.'
-                    : 'Se devuelven todos los ítems al inventario y el dinero sale de la caja abierta.'}
+                {exchange
+                  ? 'Se devuelve a saldo a favor. Luego crea la orden nueva en el POS; el saldo se aplica al cobrar y el sobrante queda a favor del cliente.'
+                  : refundMethod === 'store_credit'
+                    ? 'Se acredita como saldo a favor del cliente para futuras compras (no sale dinero de la caja).'
+                    : mode === 'partial'
+                      ? 'El monto exacto lo calcula el sistema, proporcional a lo pagado.'
+                      : 'Se devuelven todos los ítems al inventario y el dinero sale de la caja abierta.'}
               </p>
             </div>
 
             <div className="flex items-start gap-2 rounded-lg border border-amber-300/50 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
               <span>
-                {refundMethod === 'store_credit'
+                {exchange || refundMethod === 'store_credit'
                   ? 'La devolución no se puede deshacer.'
                   : 'Requiere una sesión de caja abierta. La devolución no se puede deshacer.'}
               </span>
@@ -284,7 +335,7 @@ export function ReturnDialog({ open, onClose, order, onSuccess }) {
                 disabled={submitting || (mode === 'partial' && partialItems.length === 0)}
               >
                 {submitting && <Loader2 size={16} className="mr-2 animate-spin" />}
-                Confirmar devolución
+                {exchange ? 'Devolver y crear orden nueva' : 'Confirmar devolución'}
               </Button>
             </div>
           </div>
