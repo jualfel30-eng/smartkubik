@@ -1,4 +1,4 @@
-import { Eye, FileText, ChefHat, MessageCircle, XCircle, Receipt, ReceiptText, RotateCcw } from 'lucide-react';
+import { Eye, FileText, ChefHat, MessageCircle, XCircle, Receipt, ReceiptText, RotateCcw, Undo2, Wallet } from 'lucide-react';
 
 /**
  * Acciones secundarias de una orden, compartidas entre el bottom-sheet mobile
@@ -14,10 +14,24 @@ export const SECONDARY_ACTIONS = [
     icon: ReceiptText,
     requires: 'can-request-payment',
   },
+  {
+    id: 'apply-credit',
+    label: 'Aplicar saldo a favor',
+    sublabel: 'Usa el crédito del cliente para cubrir el saldo',
+    icon: Wallet,
+    requires: 'can-apply-credit',
+  },
   { id: 'invoice', label: 'Generar factura', icon: Receipt, requires: 'paid' },
   { id: 'view-invoice', label: 'Ver factura', icon: FileText, requires: 'has-invoice' },
   { id: 'kitchen', label: 'Enviar a cocina', icon: ChefHat, requires: 'restaurant' },
   { id: 'notify', label: 'Notificar al cliente', icon: MessageCircle },
+  {
+    id: 'return',
+    label: 'Devolver orden',
+    sublabel: 'Reintegra el stock y reembolsa en efectivo',
+    icon: Undo2,
+    requires: 'can-return',
+  },
   { id: 'reopen', label: 'Reabrir orden', icon: RotateCcw, requires: 'cancelled' },
   { id: 'cancel', label: 'Cancelar orden', icon: XCircle, danger: true, requires: 'not-cancelled' },
 ];
@@ -35,6 +49,14 @@ export function passesRequires(action, ctx) {
       return ctx.isCancelled;
     case 'not-cancelled':
       return !ctx.isCancelled;
+    case 'can-return':
+      // Sólo órdenes pagadas, no ya devueltas/canceladas y sin factura fiscal
+      // (devolver facturadas requiere Nota de Crédito — fase posterior).
+      return ctx.isPaid && !ctx.isCancelled && !ctx.hasInvoice;
+    case 'can-apply-credit':
+      // Aplicar saldo a favor: orden con saldo pendiente, no cancelada, con
+      // cliente. El diálogo muestra el saldo real (0 → mensaje claro).
+      return !ctx.isPaid && !ctx.isCancelled && ctx.hasCustomer;
     case 'can-request-payment':
       // Tres compuertas: permiso, no pagada aún, y no es orden de storefront
       // (esas auto-emiten PaymentRequests upstream).
@@ -53,6 +75,7 @@ export function buildActionContext(order, { restaurantEnabled = false, canReques
     isPaid: order?.paymentStatus === 'paid',
     isCancelled: order?.status === 'cancelled' || order?.status === 'refunded',
     hasInvoice: Boolean(order?.billingDocumentId),
+    hasCustomer: Boolean(order?.customerId),
     isStorefrontOrder: order?.source === 'storefront',
     restaurantEnabled,
     canRequestPayment,

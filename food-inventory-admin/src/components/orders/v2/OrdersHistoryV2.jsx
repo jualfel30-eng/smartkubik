@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+// eslint-disable-next-line no-unused-vars -- `motion` se usa como <motion.div>; jsx-uses-vars no lo detecta
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, RefreshCw, Plus } from 'lucide-react';
@@ -19,6 +20,8 @@ import { getCelebrationTier } from '@/lib/orders/getCelebrationTier';
 
 import { PaymentDialogV2 } from '@/components/orders/v2/PaymentDialogV2';
 import { OrderDetailsDialog } from '@/components/orders/v2/OrderDetailsDialog';
+import { ReturnDialog } from '@/components/orders/v2/ReturnDialog';
+import { ApplyCreditDialog } from '@/components/orders/v2/ApplyCreditDialog';
 import { OrderProcessingDrawer } from '@/components/orders/OrderProcessingDrawer';
 import BillingDrawer from '@/components/billing/BillingDrawer';
 
@@ -166,6 +169,8 @@ export function OrdersHistoryV2() {
   const [billingOrder, setBillingOrder] = useState(null);
   const [actionSheetOrder, setActionSheetOrder] = useState(null);
   const [requestPaymentOrder, setRequestPaymentOrder] = useState(null);
+  const [returnOrder, setReturnOrder] = useState(null);
+  const [applyCreditOrder, setApplyCreditOrder] = useState(null);
 
   const canRequestPayment = hasPermission?.('payment_requests_review') ?? false;
 
@@ -284,6 +289,10 @@ export function OrdersHistoryV2() {
       case 'notify':
         toast.info('Notificación enviada al cliente');
         break;
+      case 'return':
+        setReturnOrder(order); break;
+      case 'apply-credit':
+        setApplyCreditOrder(order); break;
       case 'reopen':
         toast.info('Reabriendo orden…');
         break;
@@ -438,6 +447,20 @@ export function OrdersHistoryV2() {
         open={Boolean(requestPaymentOrder)}
         onOpenChange={(open) => !open && setRequestPaymentOrder(null)}
         order={requestPaymentOrder}
+      />
+
+      <ReturnDialog
+        open={Boolean(returnOrder)}
+        onClose={() => setReturnOrder(null)}
+        order={returnOrder}
+        onSuccess={fetchOrders}
+      />
+
+      <ApplyCreditDialog
+        open={Boolean(applyCreditOrder)}
+        onClose={() => setApplyCreditOrder(null)}
+        order={applyCreditOrder}
+        onSuccess={fetchOrders}
       />
 
       {/* Reused V2 dialogs — no UI rewrite, just orchestration */}

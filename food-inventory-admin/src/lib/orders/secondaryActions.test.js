@@ -48,6 +48,61 @@ describe('passesRequires (request-payment gate)', () => {
   });
 });
 
+describe('passesRequires (can-return gate)', () => {
+  const action = { requires: 'can-return' };
+
+  it('passes for a paid, non-cancelled order without fiscal invoice', () => {
+    const ctx = buildActionContext(make({ paymentStatus: 'paid' }), {});
+    expect(passesRequires(action, ctx)).toBe(true);
+  });
+
+  it('fails when the order is not paid', () => {
+    const ctx = buildActionContext(make({ paymentStatus: 'partial' }), {});
+    expect(passesRequires(action, ctx)).toBe(false);
+  });
+
+  it('fails when the order already has a fiscal invoice', () => {
+    const ctx = buildActionContext(
+      make({ paymentStatus: 'paid', billingDocumentId: 'doc1' }),
+      {},
+    );
+    expect(passesRequires(action, ctx)).toBe(false);
+  });
+
+  it('fails when the order is already cancelled/refunded', () => {
+    const ctx = buildActionContext(
+      make({ paymentStatus: 'paid', status: 'refunded' }),
+      {},
+    );
+    expect(passesRequires(action, ctx)).toBe(false);
+  });
+});
+
+describe('passesRequires (can-apply-credit gate)', () => {
+  const action = { requires: 'can-apply-credit' };
+
+  it('passes for an unpaid, non-cancelled order with a customer', () => {
+    const ctx = buildActionContext(
+      make({ paymentStatus: 'partial', customerId: 'c1' }),
+      {},
+    );
+    expect(passesRequires(action, ctx)).toBe(true);
+  });
+
+  it('fails when the order is already paid', () => {
+    const ctx = buildActionContext(
+      make({ paymentStatus: 'paid', customerId: 'c1' }),
+      {},
+    );
+    expect(passesRequires(action, ctx)).toBe(false);
+  });
+
+  it('fails when the order has no customer', () => {
+    const ctx = buildActionContext(make({ paymentStatus: 'partial' }), {});
+    expect(passesRequires(action, ctx)).toBe(false);
+  });
+});
+
 describe('getSecondaryActions', () => {
   it('excludes ids passed in options', () => {
     const ctx = buildActionContext(make(), { canRequestPayment: true });
