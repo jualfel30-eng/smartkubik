@@ -49,14 +49,38 @@ describe("OrdersService - Employee Assignment", () => {
 
   const exchangeRateService = {
     getBCVRate: jest.fn(),
+    getRateForCurrency: jest.fn(),
   };
 
   const couponsService = {
     apply: jest.fn(),
+    validate: jest.fn(),
   };
 
   const promotionsService = {
     apply: jest.fn(),
+    findApplicable: jest.fn(),
+    calculateDiscount: jest.fn(),
+  };
+
+  // Colaboradores añadidos al refactorizar OrdersService en sub-servicios.
+  const priceListsService = {
+    getProductPrice: jest.fn(),
+  };
+  const whatsappOrderNotificationsService = {
+    sendOrderConfirmation: jest.fn(),
+  };
+  const orderAnalyticsService = {} as any;
+  const orderFulfillmentService = {} as any;
+  const orderInventoryService = {} as any;
+  const transactionHistoryService = {} as any;
+  const tableModel = {
+    findByIdAndUpdate: jest.fn(),
+  };
+  const orderPaymentsService = {
+    registerPayments: jest.fn(),
+    confirmPayment: jest.fn(),
+    redeemStoreCredit: jest.fn(),
   };
 
   const accountingService = {
@@ -79,7 +103,6 @@ describe("OrdersService - Employee Assignment", () => {
   let orderModelMock: jest.Mock;
   let orderSaveMock: jest.Mock;
   let savedOrderPayload: any;
-  let bankAccountModel: any;
 
   beforeEach(() => {
     jest.useFakeTimers({ legacyFakeTimers: true });
@@ -102,9 +125,15 @@ describe("OrdersService - Employee Assignment", () => {
     inventoryService.reserveInventory.mockResolvedValue(null);
     deliveryService.calculateDeliveryCost.mockResolvedValue({ cost: 0 });
     exchangeRateService.getBCVRate.mockResolvedValue({ rate: 1 });
-    bankAccountModel = {
-      findById: jest.fn(),
-    };
+    exchangeRateService.getRateForCurrency.mockResolvedValue({ rate: 1 });
+    priceListsService.getProductPrice.mockResolvedValue(null);
+    whatsappOrderNotificationsService.sendOrderConfirmation.mockResolvedValue(
+      null,
+    );
+    couponsService.validate.mockResolvedValue({ isValid: false });
+    promotionsService.findApplicable.mockResolvedValue([]);
+    promotionsService.calculateDiscount.mockResolvedValue({ discount: 0 });
+    tableModel.findByIdAndUpdate.mockResolvedValue(null);
 
     orderSaveMock = jest.fn().mockImplementation(async () => {
       return {
@@ -136,26 +165,33 @@ describe("OrdersService - Employee Assignment", () => {
       }),
     };
 
+    // El orden posicional debe coincidir EXACTAMENTE con el constructor real
+    // de OrdersService (24 args) — ver orders.service.ts.
     service = new OrdersService(
-      orderModelMock as any,
-      customerModel as any,
-      productModel as any,
-      tenantModel as any,
-      bankAccountModel as any, // bankAccountModel
-      {} as any, // bomModel
-      {} as any, // modifierModel
-      inventoryService as any,
-      accountingService as any,
-      paymentsService as any,
-      deliveryService as any,
-      exchangeRateService as any,
-      shiftsService as any,
-      discountServiceMock as any,
-      {} as any, // transactionHistoryService
-      couponsService as any,
-      promotionsService as any,
-      { emit: jest.fn() } as any, // eventEmitter
-      {} as any, // connection
+      orderModelMock as any, // 1 orderModel
+      customerModel as any, // 2 customerModel
+      productModel as any, // 3 productModel
+      tenantModel as any, // 4 tenantModel
+      {} as any, // 5 bomModel
+      tableModel as any, // 6 tableModel
+      inventoryService as any, // 7 inventoryService
+      accountingService as any, // 8 accountingService
+      paymentsService as any, // 9 paymentsService
+      deliveryService as any, // 10 deliveryService
+      exchangeRateService as any, // 11 exchangeRateService
+      shiftsService as any, // 12 shiftsService
+      discountServiceMock as any, // 13 discountService
+      transactionHistoryService as any, // 14 transactionHistoryService
+      couponsService as any, // 15 couponsService
+      promotionsService as any, // 16 promotionsService
+      whatsappOrderNotificationsService as any, // 17 whatsappOrderNotificationsService
+      priceListsService as any, // 18 priceListsService
+      orderAnalyticsService as any, // 19 orderAnalyticsService
+      orderFulfillmentService as any, // 20 orderFulfillmentService
+      orderInventoryService as any, // 21 orderInventoryService
+      orderPaymentsService as any, // 22 orderPaymentsService
+      { emit: jest.fn() } as any, // 23 eventEmitter
+      {} as any, // 24 connection
     );
 
     FEATURES.EMPLOYEE_PERFORMANCE_TRACKING = true;
@@ -251,24 +287,18 @@ describe("OrdersService - Employee Assignment", () => {
     expect(savedOrderPayload.paymentStatus).toBe("pending");
   });
 
-  it("registerPayments cambia paymentStatus a partial y agrega payment ids", async () => {
+  // NOTA: la lógica de registro de pagos (recompute de paymentStatus, IGTF,
+  // movimientos de banco) se refactorizó a OrderPaymentsService. Aquí sólo se
+  // verifica que OrdersService DELEGUE correctamente; el recompute se prueba en
+  // los specs de OrderPaymentsService.
+  it("registerPayments delega en OrderPaymentsService y devuelve su resultado", async () => {
     const orderId = new Types.ObjectId().toString();
-    const order = {
+    const delegated = {
       _id: orderId,
-      orderNumber: "ORD-10",
-      paymentRecords: [],
-      paymentStatus: "pending",
-      totalAmount: 200,
-      customerId: null,
-    };
-    orderModelMock.findById.mockResolvedValue(order as any);
-    orderModelMock.findByIdAndUpdate.mockResolvedValue(null);
-    orderModelMock.findOne.mockResolvedValue({
-      ...order,
       paymentStatus: "partial",
       payments: [new Types.ObjectId()],
-    });
-    paymentsService.create.mockResolvedValue({ _id: new Types.ObjectId() });
+    };
+    orderPaymentsService.registerPayments.mockResolvedValue(delegated as any);
 
     const dto = {
       payments: [
@@ -282,51 +312,35 @@ describe("OrdersService - Employee Assignment", () => {
       ],
     };
 
-    const result = await service.registerPayments(orderId, dto as any, baseUser);
+    const result = await service.registerPayments(
+      orderId,
+      dto as any,
+      baseUser,
+    );
 
-    expect(orderModelMock.findByIdAndUpdate).toHaveBeenCalled();
-    expect(result.paymentStatus).toBe("partial");
-    expect(result.payments?.length).toBeGreaterThan(0);
+    // Delega con (orderId, dto, user, findOneCallback)
+    expect(orderPaymentsService.registerPayments).toHaveBeenCalledTimes(1);
+    const call = orderPaymentsService.registerPayments.mock.calls[0];
+    expect(call[0]).toBe(orderId);
+    expect(call[1]).toBe(dto);
+    expect(call[2]).toBe(baseUser);
+    expect(typeof call[3]).toBe("function"); // findOne bound callback
+    expect(result).toBe(delegated);
   });
 
-  it("registerPayments marca paid cuando pagos cubren total y actualiza banco", async () => {
+  it("redeemStoreCredit delega en OrderPaymentsService", async () => {
     const orderId = new Types.ObjectId().toString();
-    const order = {
-      _id: orderId,
-      orderNumber: "ORD-11",
-      paymentRecords: [],
-      paymentStatus: "pending",
-      totalAmount: 150,
-      customerId: null,
-    };
-    const bankAccount = { _id: new Types.ObjectId(), currency: "USD", currentBalance: 0, save: jest.fn() };
-    bankAccountModel.findById.mockResolvedValue(bankAccount as any);
-    orderModelMock.findById.mockResolvedValue(order as any);
-    orderModelMock.findByIdAndUpdate.mockResolvedValue(null);
-    orderModelMock.findOne.mockResolvedValue({
-      ...order,
-      paymentStatus: "paid",
-      payments: [new Types.ObjectId()],
-    });
-    paymentsService.create.mockResolvedValue({ _id: new Types.ObjectId() });
+    const delegated = { _id: orderId, paymentStatus: "paid" };
+    orderPaymentsService.redeemStoreCredit.mockResolvedValue(delegated as any);
 
-    const dto = {
-      payments: [
-        {
-          method: "efectivo_usd",
-          amount: 150,
-          reference: "ref-2",
-          isConfirmed: true,
-          bankAccountId: bankAccount._id.toString(),
-          date: new Date().toISOString(),
-        },
-      ],
-    };
+    const result = await service.redeemStoreCredit(orderId, 50, baseUser);
 
-    const result = await service.registerPayments(orderId, dto as any, baseUser);
-
-    expect(result.paymentStatus).toBe("paid");
-    expect(bankAccount.save).toHaveBeenCalled();
-    expect(bankAccount.currentBalance).toBe(150);
+    expect(orderPaymentsService.redeemStoreCredit).toHaveBeenCalledTimes(1);
+    const call = orderPaymentsService.redeemStoreCredit.mock.calls[0];
+    expect(call[0]).toBe(orderId);
+    expect(call[1]).toBe(50);
+    expect(call[2]).toBe(baseUser);
+    expect(typeof call[3]).toBe("function");
+    expect(result).toBe(delegated);
   });
 });
