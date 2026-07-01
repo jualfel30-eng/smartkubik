@@ -42,7 +42,7 @@ import { Response } from "express";
 export class OrdersController {
   private readonly logger = new Logger(OrdersController.name);
 
-  constructor(private readonly ordersService: OrdersService) { }
+  constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
   @Permissions("orders_create")
@@ -291,12 +291,43 @@ export class OrdersController {
     }
   }
 
+  @Post(":id/redeem-store-credit")
+  @Permissions("orders_update")
+  @ApiOperation({ summary: "Aplicar saldo a favor del cliente a una orden" })
+  async redeemStoreCredit(
+    @Param("id") id: string,
+    @Body() body: { amount?: number },
+    @Request() req,
+  ) {
+    try {
+      const order = await this.ordersService.redeemStoreCredit(
+        id,
+        body?.amount,
+        req.user,
+      );
+      return {
+        success: true,
+        message: "Saldo a favor aplicado",
+        data: order,
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || "Error al aplicar el saldo a favor",
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   @Post("migrate-delivery-note-status")
   @Permissions("orders_update")
-  @ApiOperation({ summary: "Migración: corregir paymentStatus de órdenes con nota de entrega" })
+  @ApiOperation({
+    summary: "Migración: corregir paymentStatus de órdenes con nota de entrega",
+  })
   async migrateDeliveryNotePaymentStatus(@Request() req) {
     try {
-      const result = await this.ordersService.migrateDeliveryNotePaymentStatus(req.user.tenantId);
+      const result = await this.ordersService.migrateDeliveryNotePaymentStatus(
+        req.user.tenantId,
+      );
       return {
         success: true,
         message: `Migración completada: ${result.updated} de ${result.checked} órdenes actualizadas`,
@@ -312,7 +343,9 @@ export class OrdersController {
 
   @Post("fix-historic-payments")
   @Permissions("orders_update")
-  @ApiOperation({ summary: "Generar documentos de pago para órdenes históricas confirmadas" })
+  @ApiOperation({
+    summary: "Generar documentos de pago para órdenes históricas confirmadas",
+  })
   async fixHistoricPayments(@Request() req) {
     try {
       const result = await this.ordersService.fixHistoricPayments(req.user);
@@ -367,7 +400,8 @@ export class OrdersController {
   @Post("__reconcile-movements")
   @Permissions("orders_update")
   @ApiOperation({
-    summary: "Reconciliar movimientos OUT faltantes para órdenes enviadas/entregadas",
+    summary:
+      "Reconciliar movimientos OUT faltantes para órdenes enviadas/entregadas",
   })
   @ApiResponse({ status: 200, description: "Reconciliación ejecutada" })
   async reconcileMovements(
@@ -398,7 +432,10 @@ export class OrdersController {
 
   @Post(":id/complete")
   @Permissions("orders_update")
-  @ApiOperation({ summary: "Completar orden y finalizar proceso (actualizar inventario si es necesario)" })
+  @ApiOperation({
+    summary:
+      "Completar orden y finalizar proceso (actualizar inventario si es necesario)",
+  })
   @ApiResponse({ status: 200, description: "Orden completada exitosamente" })
   async completeOrder(@Param("id") id: string, @Request() req) {
     try {
@@ -435,7 +472,6 @@ export class OrdersController {
     }
   }
 
-
   @Patch(":id/fulfillment")
   @Permissions("orders_update")
   @ApiOperation({ summary: "Actualizar estado de entrega (fulfillment)" })
@@ -469,7 +505,8 @@ export class OrdersController {
   @Permissions("orders_read")
   @ApiOperation({
     summary: "Get sales analytics by source (POS, Storefront, WhatsApp)",
-    description: "Returns sales metrics grouped by order source for the specified date range"
+    description:
+      "Returns sales metrics grouped by order source for the specified date range",
   })
   @ApiResponse({
     status: 200,
@@ -488,23 +525,23 @@ export class OrdersController {
                 properties: {
                   source: { type: "string", example: "storefront" },
                   totalOrders: { type: "number", example: 42 },
-                  totalRevenue: { type: "number", example: 1250.50 },
-                  averageOrderValue: { type: "number", example: 29.77 }
-                }
-              }
+                  totalRevenue: { type: "number", example: 1250.5 },
+                  averageOrderValue: { type: "number", example: 29.77 },
+                },
+              },
             },
             summary: {
               type: "object",
               properties: {
                 totalOrders: { type: "number" },
                 totalRevenue: { type: "number" },
-                averageOrderValue: { type: "number" }
-              }
-            }
-          }
-        }
-      }
-    }
+                averageOrderValue: { type: "number" },
+              },
+            },
+          },
+        },
+      },
+    },
   })
   async getAnalyticsBySource(
     @Query("startDate") startDate?: string,

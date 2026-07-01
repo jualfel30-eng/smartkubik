@@ -1669,6 +1669,19 @@ export class OrdersService {
     );
   }
 
+  async redeemStoreCredit(
+    orderId: string,
+    amount: number | undefined,
+    user: any,
+  ): Promise<OrderDocument> {
+    return this.orderPaymentsService.redeemStoreCredit(
+      orderId,
+      amount,
+      user,
+      this.findOne.bind(this),
+    );
+  }
+
   async confirmPayment(
     orderId: string,
     paymentIndex: number,

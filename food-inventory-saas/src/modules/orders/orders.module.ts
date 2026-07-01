@@ -13,6 +13,7 @@ import { WhatsAppOrderNotificationsService } from "./whatsapp-order-notification
 import { AuthModule } from "../../auth/auth.module";
 import { InventoryModule } from "../inventory/inventory.module";
 import { CustomersModule } from "../customers/customers.module";
+import { StoreCreditModule } from "../store-credit/store-credit.module";
 import { Order, OrderSchema } from "../../schemas/order.schema";
 import { Customer, CustomerSchema } from "../../schemas/customer.schema";
 import { Product, ProductSchema } from "../../schemas/product.schema";
@@ -56,6 +57,7 @@ import { PriceListsModule } from "../price-lists/price-lists.module";
     AccountingModule,
     RolesModule,
     PaymentsModule,
+    StoreCreditModule,
     DeliveryModule,
     ShiftsModule,
     ExchangeRateModule,
@@ -99,4 +101,4 @@ import { PriceListsModule } from "../price-lists/price-lists.module";
     WhatsAppOrderNotificationsService,
   ],
 })
-export class OrdersModule { }
+export class OrdersModule {}

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   NotFoundException,
@@ -18,6 +19,7 @@ import { InventoryMovementsService } from "../../inventory/inventory-movements.s
 import { TablesService } from "../../tables/tables.service";
 import { OrderInventoryService } from "./order-inventory.service";
 import { OrderFulfillmentService } from "./order-fulfillment.service";
+import { StoreCreditService } from "../../store-credit/store-credit.service";
 
 @Injectable()
 export class OrderPaymentsService {
@@ -34,7 +36,141 @@ export class OrderPaymentsService {
     private readonly orderInventoryService: OrderInventoryService,
     private readonly orderFulfillmentService: OrderFulfillmentService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly storeCreditService: StoreCreditService,
   ) {}
+
+  /**
+   * Redime saldo a favor del cliente contra el saldo pendiente de una orden.
+   * Debita el ledger y registra un pago de método `store_credit` reutilizando
+   * `registerPayments` (que recalcula estado y dispara los hooks de "pagada").
+   * Si el pago no se registra por algún motivo, revierte el débito (compensa).
+   */
+  async redeemStoreCredit(
+    orderId: string,
+    requestedAmount: number | undefined,
+    user: any,
+    findOneCallback: (
+      id: string,
+      tenantId: string,
+    ) => Promise<OrderDocument | null>,
+  ): Promise<OrderDocument> {
+    const order = await this.orderModel.findOne({
+      _id: orderId,
+      tenantId: user.tenantId,
+    });
+    if (!order) {
+      throw new NotFoundException("Orden no encontrada");
+    }
+    if (order.status === "cancelled" || order.status === "refunded") {
+      throw new BadRequestException(
+        "No se puede aplicar saldo a una orden cancelada o devuelta",
+      );
+    }
+    if (order.paymentStatus === "paid") {
+      throw new BadRequestException("La orden ya está pagada");
+    }
+    if (!order.customerId) {
+      throw new BadRequestException(
+        "La orden no tiene cliente; no se puede aplicar saldo a favor",
+      );
+    }
+
+    const customerId = order.customerId.toString();
+    const balance = await this.storeCreditService.getBalance(
+      user.tenantId.toString(),
+      customerId,
+    );
+    if (balance <= 0) {
+      throw new BadRequestException("El cliente no tiene saldo a favor");
+    }
+
+    const orderRemaining = Math.max(
+      0,
+      (order.totalAmount || 0) - (order.paidAmount || 0),
+    );
+    const cap = Math.min(
+      balance,
+      orderRemaining,
+      requestedAmount && requestedAmount > 0 ? requestedAmount : Infinity,
+    );
+    const applyAmount = Math.round(cap * 100) / 100;
+    if (applyAmount <= 0) {
+      throw new BadRequestException("No hay saldo pendiente que cubrir");
+    }
+
+    // Debitar el ledger primero (atómico; falla si no alcanza).
+    await this.storeCreditService.debit({
+      tenantId: user.tenantId.toString(),
+      customerId,
+      amount: applyAmount,
+      source: "order_redemption",
+      referenceId: order._id.toString(),
+      reference: order.orderNumber,
+      reason: `Aplicado a orden ${order.orderNumber}`,
+      createdBy: user.id,
+    });
+
+    const paidBefore = order.paidAmount || 0;
+    try {
+      await this.registerPayments(
+        orderId,
+        {
+          payments: [
+            {
+              method: "store_credit",
+              amount: applyAmount,
+              currency: "USD",
+              isConfirmed: true,
+              reference: "Saldo a favor",
+              idempotencyKey: `${orderId}-sc-${Date.now()}`,
+            } as any,
+          ],
+        },
+        user,
+        findOneCallback,
+      );
+    } catch (err) {
+      await this.compensateRedemption(user, customerId, order, applyAmount);
+      throw err;
+    }
+
+    const finalOrder = await findOneCallback(orderId, user.tenantId);
+    // Si el pago no llegó a registrarse, revertir el débito para no perder saldo.
+    if (
+      !finalOrder ||
+      (finalOrder.paidAmount || 0) < paidBefore + applyAmount - 0.01
+    ) {
+      await this.compensateRedemption(user, customerId, order, applyAmount);
+      throw new BadRequestException(
+        "No se pudo aplicar el saldo a favor a la orden",
+      );
+    }
+    return finalOrder;
+  }
+
+  private async compensateRedemption(
+    user: any,
+    customerId: string,
+    order: OrderDocument,
+    amount: number,
+  ): Promise<void> {
+    try {
+      await this.storeCreditService.credit({
+        tenantId: user.tenantId.toString(),
+        customerId,
+        amount,
+        source: "manual",
+        referenceId: order._id.toString(),
+        reference: order.orderNumber,
+        reason: `Reversa de redención fallida (orden ${order.orderNumber})`,
+        createdBy: user.id,
+      });
+    } catch (err) {
+      this.logger.error(
+        `No se pudo revertir el débito de saldo a favor para orden ${order.orderNumber}: ${err.message}`,
+      );
+    }
+  }
 
   async getPaymentMethods(user: any): Promise<any> {
     const tenant = await this.tenantModel.findById(user.tenantId);
@@ -106,7 +242,10 @@ export class OrderPaymentsService {
     orderId: string,
     bulkRegisterPaymentsDto: BulkRegisterPaymentsDto,
     user: any,
-    findOneCallback: (id: string, tenantId: string) => Promise<OrderDocument | null>,
+    findOneCallback: (
+      id: string,
+      tenantId: string,
+    ) => Promise<OrderDocument | null>,
   ): Promise<OrderDocument> {
     this.logger.log(`Registering payments for order ${orderId}`);
     const order = await this.orderModel.findById(orderId);
@@ -252,15 +391,10 @@ export class OrderPaymentsService {
       return sum + (record.igtf || 0);
     }, 0);
 
-    this.logger.log(
-      `Total IGTF calculated for order ${orderId}: ${totalIgtf}`,
-    );
+    this.logger.log(`Total IGTF calculated for order ${orderId}: ${totalIgtf}`);
 
     const updatedTotalAmount =
-      order.subtotal +
-      order.ivaTotal +
-      totalIgtf +
-      (order.shippingCost || 0);
+      order.subtotal + order.ivaTotal + totalIgtf + (order.shippingCost || 0);
 
     this.logger.log(
       `Order ${orderId} - Updated totals: subtotal=${order.subtotal}, IVA=${order.ivaTotal}, IGTF=${totalIgtf}, total=${updatedTotalAmount}`,
@@ -379,9 +513,7 @@ export class OrderPaymentsService {
     confirmedMethod: string,
     user: any,
   ): Promise<OrderDocument> {
-    this.logger.log(
-      `Confirming payment ${paymentIndex} for order ${orderId}`,
-    );
+    this.logger.log(`Confirming payment ${paymentIndex} for order ${orderId}`);
 
     let order = await this.orderModel.findById(orderId);
     if (!order) {
@@ -482,8 +614,7 @@ export class OrderPaymentsService {
           let usdAmount = record.amount;
           let vesAmount = record.amountVes;
           const rate = record.exchangeRate || 1;
-          const isVes =
-            record.currency === "VES" || record.currency === "Bs";
+          const isVes = record.currency === "VES" || record.currency === "Bs";
 
           if (isVes) {
             if (!vesAmount && usdAmount) {
@@ -551,8 +682,7 @@ export class OrderPaymentsService {
     let updated = 0;
     for (const order of orders) {
       const effectiveTotal =
-        Number(order.subtotal || 0) +
-        Number((order as any).shippingCost || 0);
+        Number(order.subtotal || 0) + Number((order as any).shippingCost || 0);
       const paidAmount = Number(order.paidAmount || 0);
       if (paidAmount >= effectiveTotal - 0.01) {
         await this.orderModel.updateOne(
