@@ -222,7 +222,33 @@ Consolida múltiples sesiones de caja en un solo reporte. Para supervisores que 
 - **Genera**: Documento con `closingType='consolidated'`, todas las métricas agregadas
 - **Permisos**: `cash_register_admin`
 
+## Devolver Orden
+
+### ¿Qué hace?
+Desde el menú de acciones de una orden en el historial, permite **devolver** una orden pagada: reintegra la mercancía al inventario, reembolsa en efectivo desde la caja abierta y marca la orden como devuelta. Es distinto de **Cancelar** (esa es para órdenes no cumplidas y no mueve caja).
+
+### ¿Cuándo se usa?
+El cliente trae mercancía de vuelta. La acción "Devolver orden" aparece si la orden está **pagada, no cancelada ni totalmente devuelta y sin factura fiscal**. Una orden parcialmente devuelta sigue mostrando la acción para devolver el resto.
+
+### Lo que pasa por detrás (técnico)
+- Vive en el **módulo Returns**, no en orders. Ver [modules/returns/](../returns/overview.md) y `system-map.md` §1.13.
+- UI: `ReturnDialog.jsx` (selector Total/Parcial) + acción `return` en `secondaryActions.js` (gate `can-return`).
+- Total y parcial por ítem + efectivo + asiento contable. Devolución parcial deja la orden `partially_returned` con reembolso proporcional. Saldo a favor y cambio: fases siguientes.
+
+## Aplicar Saldo a Favor
+
+### ¿Qué hace?
+Aplica el **saldo a favor** (store credit) del cliente al saldo pendiente de una orden. Descuenta del crédito del cliente y lo registra como un pago `store_credit` en la orden; si queda cubierta, la marca pagada.
+
+### ¿Cuándo se usa?
+El cliente tiene saldo (p.ej. de una devolución previa "a saldo a favor") y lo usa para cubrir una compra. La acción "Aplicar saldo a favor" aparece en órdenes **con saldo pendiente, con cliente y no canceladas**.
+
+### Lo que pasa por detrás (técnico)
+- Endpoint `POST /orders/:id/redeem-store-credit` → `OrderPaymentsService.redeemStoreCredit`. Debita el ledger (atómico) y reutiliza `registerPayments`; compensa si el pago no se refleja.
+- Motor de saldo: [modules/store-credit/](../store-credit/overview.md) y `system-map.md` §1.14.
+- UI: `ApplyCreditDialog.jsx` + acción `apply-credit` en `secondaryActions.js` (gate `can-apply-credit`).
+
 ---
 
-*Última actualización: 2026-04-28*
-*Archivos fuente: `orders.service.ts`, `order-*.service.ts`, `discount.service.ts`, `cash-register.service.ts`*
+*Última actualización: 2026-07-01*
+*Archivos fuente: `orders.service.ts`, `order-*.service.ts`, `discount.service.ts`, `cash-register.service.ts`, `returns/*.ts`, `store-credit/*.ts`*

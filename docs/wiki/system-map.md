@@ -742,6 +742,69 @@ payment_requests_review  →  granted to: admin, employee (seed)
 
 ---
 
+### 1.13 Returns (Devoluciones) — Contrato de Datos
+
+```
+Frontend envía: POST /orders/:id/returns   (permiso orders_update)
+  Body: { refundMethod?: 'cash'|'store_credit', reason?: string,
+          items?: [{ orderItemId, quantity }] }   ← sin items = TOTAL; con items = PARCIAL
+
+Backend (ReturnsService.createReturn) orquesta, en orden:
+  1. Valida: orden del tenant · paymentStatus==='paid' · no cancelada ni total-devuelta
+     · SIN billingDocumentId (sin factura fiscal) · tiene ítems          → si no, 400
+  2. planReturnLines: parcial valida quantity ≤ (vendida − returnedQuantity); total = todo lo pendiente
+  3. Exige sesión de caja abierta del usuario (getOpenSession)           → si no, 400
+  4. Reembolso PROPORCIONAL a lo pagado: paidAmount × valorDevuelto / valorTotalItems
+  5. Inventario: 1 movimiento IN por línea (cantidad devuelta en unidad base)
+  6. Reembolso: cash → addCashMovement out por moneda (exige caja abierta);
+                store_credit → StoreCreditService.credit (acredita saldo, no toca caja)
+  7. Actualiza items[].returnedQuantity; calcula si la orden quedó completa
+  8. Asiento contable: débito 4102 / crédito 1101 (cash) o 2104 pasivo saldo a favor (store_credit), best-effort
+  9. Payments → 'refunded' SÓLO si la devolución completa la orden
+  10. Persiste Return (returnNumber RET-<año>-NNNN único POR TENANT, isPartial, journalEntryId)
+  11. Orden → 'refunded' (completa) | 'partially_returned' (queda saldo; paymentStatus sigue 'paid')
+
+Frontend lista: GET /orders/:id/returns   (permiso orders_read)
+```
+
+**Contrato UI**: acción `return` en `secondaryActions.js` (gate `can-return` = `isPaid && !isCancelled && !hasInvoice`; una orden `partially_returned` sigue mostrando la acción), diálogo `ReturnDialog.jsx` con selector Total/Parcial. Aparece en mobile (OrderActionSheet) y desktop (OrdersSmartTable) por el módulo compartido.
+
+**Gotchas**:
+- **Devolver ≠ Cancelar**: cancelar usa `ADJUSTMENT` en background y no mueve caja; devolver crea documento `Return`, usa `IN` síncrono y saca dinero real de caja. No reciclar `cancelOrder`.
+- **Identificación de línea parcial**: por el `_id` del subdocumento `OrderItem` (`orderItemId`), no por índice ni SKU. `returnedQuantity` (default 0) vive en `OrderItem`; la línea se agota cuando `returnedQuantity >= quantity`. Estado nuevo: `partially_returned`.
+- `tenantId` en `returns` es **siempre ObjectId** (colección nueva controlada). `returnNumber` es único por tenant (índice compuesto), NO global.
+- **Asiento contable** lo genera `ReturnsAccountingService` (dentro del módulo returns, NO en `accounting.service.ts`, para no arrastrar su deuda de lint legacy). Débito 4102 / crédito 1101; crea esas cuentas si el tenant no las tiene. Es best-effort: si falla, la devolución igual se completa.
+- Órdenes **facturadas** quedan fuera (requieren Nota de Crédito HKA). Gate `!hasInvoice` en front y back.
+- Multi-unidad: el reingreso usa `quantityInBaseUnit` (ver [patterns/multi-unit-conversions.md](patterns/multi-unit-conversions.md)).
+
+---
+
+### 1.14 Store Credit (Saldo a favor) — Contrato de Datos
+
+```
+Acumular:  lo hace Devoluciones con refundMethod='store_credit' (§1.13)
+           → StoreCreditService.credit (balance += ; movimiento source 'return')
+
+Consultar: GET /store-credit/:customerId            → { balance, currency }
+           GET /store-credit/:customerId/movements  → ledger
+
+Redimir:   POST /orders/:id/redeem-store-credit  (permiso orders_update)
+           Body { amount? }  → aplica min(saldo, pendiente)
+           1. StoreCreditService.debit (atómico; filtro balance>=amount)
+           2. registerPayments con un pago method='store_credit' (recalcula estado + hooks)
+           3. si el pago no se refleja → compensa (re-credita el débito)
+```
+
+**Contrato UI**: acción `apply-credit` en `secondaryActions.js` (gate `can-apply-credit` = `!isPaid && !isCancelled && hasCustomer`), diálogo `ApplyCreditDialog.jsx` (carga balance, aplica el mínimo).
+
+**Gotchas**:
+- Balance **atómico**: `credit`=`$inc` upsert; `debit`=`findOneAndUpdate` con filtro `balance >= amount`. Nunca read-modify-write.
+- Saldo en **USD**. La porción VES de una devolución se convierte con la tasa de la orden (`totalAmountVes/totalAmount`).
+- El pago de una orden NO genera asiento (contabilidad al facturar), así que la redención sólo mueve ledger + pago. La devolución a saldo sí acredita el pasivo 2104 (§1.13).
+- `tenantId`/`customerId` en las colecciones de saldo son **siempre ObjectId** (nuevas, controladas).
+
+---
+
 ## SECCIÓN 2: TIPOS Y GOTCHAS GLOBALES
 
 ### 2.1 String vs ObjectId — Tabla Definitiva
@@ -885,6 +948,12 @@ billing.service.ts → wiki/modules/billing/overview.md + help/finanzas/facturac
 customers.service.ts → wiki/modules/customers-crm/{functions,flows,api-reference}.md + help/clientes/gestionar-clientes.md
 auth.service.ts → wiki/modules/auth-users-roles/{functions,flows,api-reference}.md + help/configuracion/usuarios-roles-permisos.md
 cash-register.service.ts → wiki/modules/orders/{functions,flows}.md + help/ventas/caja-registradora.md
+returns/**/*.ts → wiki/modules/returns/{api-reference,data-model,flows,functions,overview}.md + system-map.md §1.13
+store-credit/**/*.ts → wiki/modules/store-credit/{overview,api-reference,data-model}.md + system-map.md §1.14
+orders/services/order-payments.service.ts (redeemStoreCredit) → wiki/modules/store-credit/api-reference.md + system-map.md §1.14
+food-inventory-admin/src/components/orders/v2/ApplyCreditDialog.jsx → wiki/modules/store-credit/api-reference.md + system-map.md §1.14
+food-inventory-admin/src/components/orders/v2/ReturnDialog.jsx → wiki/modules/returns/functions.md + system-map.md §1.13
+food-inventory-admin/src/lib/orders/secondaryActions.js → wiki/modules/returns/functions.md + wiki/modules/orders/functions.md
 payroll*.service.ts → wiki/modules/payroll/overview.md + help/rrhh/guia-nomina.md + guides/payroll-cycle.md
 appointments/*.service.ts → wiki/modules/beauty/overview.md + help/salon/guia-salon-belleza.md
 beauty/*.service.ts → wiki/modules/beauty/overview.md + help/salon/guia-salon-belleza.md
