@@ -69,6 +69,11 @@ export class OrderItem {
   @Prop({ type: Number, required: true })
   quantity: number;
 
+  // Cantidad ya devuelta de esta línea (devoluciones parciales acumulativas).
+  // Default 0 — órdenes legacy sin el campo se leen como `|| 0`.
+  @Prop({ type: Number, default: 0 })
+  returnedQuantity?: number;
+
   @Prop({ type: String })
   selectedUnit?: string; // Unidad de venta seleccionada (ej: "kg", "g", "lb")
 

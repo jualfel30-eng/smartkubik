@@ -130,6 +130,8 @@ import { BinancePayModule } from "./modules/binance-pay/binance-pay.module";
 import { StripePayModule } from "./modules/stripe-pay/stripe-pay.module";
 import { DriversModule } from "./modules/drivers/drivers.module";
 import { CashRegisterModule } from "./modules/cash-register/cash-register.module";
+import { ReturnsModule } from "./modules/returns/returns.module";
+import { StoreCreditModule } from "./modules/store-credit/store-credit.module";
 import { FixedAssetsModule } from "./modules/fixed-assets/fixed-assets.module";
 import { InvestmentsModule } from "./modules/investments/investments.module";
 import { DataImportModule } from "./modules/data-import/data-import.module";
@@ -218,252 +220,262 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     ...(process.env.DISABLE_BULLMQ === "true"
       ? []
       : [
-        BullModule.forRootAsync({
-          imports: [
-            ConfigModule,
-            MongooseModule.forFeature([
-              { name: GlobalSetting.name, schema: GlobalSettingSchema },
-            ]),
-          ],
-          useFactory: async (
-            configService: ConfigService,
-            globalSettingModel: Model<GlobalSettingDocument>,
-          ) => {
-            const prefix =
-              configService.get<string>("BULLMQ_PREFIX") || "food_inventory";
-            const defaultJobOptions = {
-              removeOnComplete: 200,
-              removeOnFail: 200,
-              attempts: 3,
-              backoff: {
-                type: "exponential",
-                delay: 3000,
-              },
-            };
+          BullModule.forRootAsync({
+            imports: [
+              ConfigModule,
+              MongooseModule.forFeature([
+                { name: GlobalSetting.name, schema: GlobalSettingSchema },
+              ]),
+            ],
+            useFactory: async (
+              configService: ConfigService,
+              globalSettingModel: Model<GlobalSettingDocument>,
+            ) => {
+              const prefix =
+                configService.get<string>("BULLMQ_PREFIX") || "food_inventory";
+              const defaultJobOptions = {
+                removeOnComplete: 200,
+                removeOnFail: 200,
+                attempts: 3,
+                backoff: {
+                  type: "exponential",
+                  delay: 3000,
+                },
+              };
 
-            if (sharedRedisConnection) {
+              if (sharedRedisConnection) {
+                return {
+                  connection: sharedRedisConnection,
+                  prefix,
+                  defaultJobOptions,
+                };
+              }
+
+              const buildConnectionConfig = (url: string) => {
+                if (!url) throw new Error("Redis URL is empty");
+
+                let normalized = url.trim();
+                if (!normalized.includes("://")) {
+                  normalized = `redis://${normalized}`;
+                }
+
+                const parsed = new URL(normalized);
+                const config: Record<string, any> = {
+                  host: parsed.hostname,
+                  port: parsed.port ? Number(parsed.port) : 6379,
+                  maxRetriesPerRequest: null,
+                  enableReadyCheck: false,
+                };
+
+                if (parsed.username) {
+                  config.username = decodeURIComponent(parsed.username);
+                }
+
+                if (parsed.password) {
+                  config.password = decodeURIComponent(parsed.password);
+                }
+
+                if (parsed.pathname && parsed.pathname !== "/") {
+                  const dbValue = Number(parsed.pathname.replace("/", ""));
+                  if (!Number.isNaN(dbValue)) {
+                    config.db = dbValue;
+                  }
+                }
+
+                const tlsQuery =
+                  parsed.searchParams.get("tls") ||
+                  parsed.searchParams.get("ssl");
+                const tlsExplicitlyDisabled =
+                  tlsQuery && tlsQuery.toLowerCase() === "false";
+
+                const forceTls =
+                  !tlsExplicitlyDisabled &&
+                  (parsed.protocol === "rediss:" ||
+                    (tlsQuery && tlsQuery.toLowerCase() === "true") ||
+                    parsed.hostname.endsWith(".redis-cloud.com") ||
+                    configService.get<string>("REDIS_TLS") === "true");
+
+                if (forceTls) {
+                  config.tls = {
+                    rejectUnauthorized: false,
+                    servername: parsed.hostname,
+                  };
+                }
+
+                return config;
+              };
+
+              let redisOpts: any = {};
+              const envRedisUrl = configService
+                .get<string>("REDIS_URL")
+                ?.trim();
+              let resolvedRedisUrl = envRedisUrl;
+
+              if (!resolvedRedisUrl) {
+                const redisUrlSetting = await globalSettingModel
+                  .findOne({ key: "REDIS_URL" })
+                  .lean()
+                  .exec();
+                resolvedRedisUrl = redisUrlSetting?.value?.trim();
+              }
+
+              if (resolvedRedisUrl) {
+                redisOpts = buildConnectionConfig(resolvedRedisUrl);
+              } else {
+                redisOpts = {
+                  host: configService.get<string>("REDIS_HOST") || "127.0.0.1",
+                  port: Number(configService.get<string>("REDIS_PORT") || 6379),
+                  maxRetriesPerRequest: null,
+                  enableReadyCheck: false,
+                };
+
+                const username = configService.get<string>("REDIS_USERNAME");
+                if (username) redisOpts.username = username;
+
+                const password = configService.get<string>("REDIS_PASSWORD");
+                if (password) redisOpts.password = password;
+
+                const db = configService.get<string>("REDIS_DB");
+                if (db) {
+                  const dbValue = Number(db);
+                  redisOpts.db = Number.isNaN(dbValue) ? 0 : dbValue;
+                }
+
+                if (configService.get<string>("REDIS_TLS") === "true") {
+                  redisOpts.tls = {};
+                }
+              }
+
+              console.log(
+                "--- Initializing Shared Redis Connection for BullMQ ---",
+              );
+              sharedRedisConnection = new Redis(redisOpts);
+
+              sharedRedisConnection.on("error", (err) => {
+                console.error("Shared Redis Connection Error:", err);
+              });
+
               return {
                 connection: sharedRedisConnection,
                 prefix,
                 defaultJobOptions,
               };
-            }
-
-            const buildConnectionConfig = (url: string) => {
-              if (!url) throw new Error("Redis URL is empty");
-
-              let normalized = url.trim();
-              if (!normalized.includes("://")) {
-                normalized = `redis://${normalized}`;
-              }
-
-              const parsed = new URL(normalized);
-              const config: Record<string, any> = {
-                host: parsed.hostname,
-                port: parsed.port ? Number(parsed.port) : 6379,
-                maxRetriesPerRequest: null,
-                enableReadyCheck: false,
+            },
+            inject: [ConfigService, getModelToken(GlobalSetting.name)],
+          }),
+          BullModule.forRootAsync("secondary", {
+            imports: [ConfigModule],
+            useFactory: async (configService: ConfigService) => {
+              const prefix =
+                configService.get<string>("BULLMQ_PREFIX") || "food_inventory";
+              const defaultJobOptions = {
+                removeOnComplete: 200,
+                removeOnFail: 200,
+                attempts: 3,
+                backoff: {
+                  type: "exponential",
+                  delay: 3000,
+                },
               };
 
-              if (parsed.username) {
-                config.username = decodeURIComponent(parsed.username);
-              }
-
-              if (parsed.password) {
-                config.password = decodeURIComponent(parsed.password);
-              }
-
-              if (parsed.pathname && parsed.pathname !== "/") {
-                const dbValue = Number(parsed.pathname.replace("/", ""));
-                if (!Number.isNaN(dbValue)) {
-                  config.db = dbValue;
+              const buildConnectionConfig = (url: string) => {
+                let normalized = url.trim();
+                if (!normalized.includes("://")) {
+                  normalized = `redis://${normalized}`;
                 }
-              }
+                const parsed = new URL(normalized);
+                const config: Record<string, any> = {
+                  host: parsed.hostname,
+                  port: parsed.port ? Number(parsed.port) : 6379,
+                  maxRetriesPerRequest: null,
+                  enableReadyCheck: false,
+                };
+                if (parsed.username) {
+                  config.username = decodeURIComponent(parsed.username);
+                }
+                if (parsed.password) {
+                  config.password = decodeURIComponent(parsed.password);
+                }
+                if (parsed.pathname && parsed.pathname !== "/") {
+                  const dbValue = Number(parsed.pathname.replace("/", ""));
+                  if (!Number.isNaN(dbValue)) {
+                    config.db = dbValue;
+                  }
+                }
+                const tlsQuery =
+                  parsed.searchParams.get("tls") ||
+                  parsed.searchParams.get("ssl");
+                const tlsExplicitlyDisabled =
+                  tlsQuery && tlsQuery.toLowerCase() === "false";
 
-              const tlsQuery =
-                parsed.searchParams.get("tls") ||
-                parsed.searchParams.get("ssl");
-              const tlsExplicitlyDisabled =
-                tlsQuery && tlsQuery.toLowerCase() === "false";
+                const forceTls =
+                  !tlsExplicitlyDisabled &&
+                  (parsed.protocol === "rediss:" ||
+                    (tlsQuery && tlsQuery.toLowerCase() === "true") ||
+                    parsed.hostname.endsWith(".redis-cloud.com") ||
+                    configService.get<string>("REDIS_TLS") === "true");
 
-              const forceTls =
-                !tlsExplicitlyDisabled &&
-                (parsed.protocol === "rediss:" ||
-                  (tlsQuery && tlsQuery.toLowerCase() === "true") ||
-                  parsed.hostname.endsWith(".redis-cloud.com") ||
-                  configService.get<string>("REDIS_TLS") === "true");
+                if (forceTls) {
+                  config.tls = {
+                    rejectUnauthorized: false,
+                    servername: parsed.hostname,
+                  };
+                }
+                return config;
+              };
 
-              if (forceTls) {
-                config.tls = {
-                  rejectUnauthorized: false,
-                  servername: parsed.hostname,
+              if (sharedSecondaryRedisConnection) {
+                return {
+                  connection: sharedSecondaryRedisConnection,
+                  prefix,
+                  defaultJobOptions,
                 };
               }
 
-              return config;
-            };
+              const secondaryUrl = configService
+                .get<string>("REDIS_URL_SECONDARY")
+                ?.trim();
 
-            let redisOpts: any = {};
-            const envRedisUrl = configService.get<string>("REDIS_URL")?.trim();
-            let resolvedRedisUrl = envRedisUrl;
-
-            if (!resolvedRedisUrl) {
-              const redisUrlSetting = await globalSettingModel
-                .findOne({ key: "REDIS_URL" })
-                .lean()
-                .exec();
-              resolvedRedisUrl = redisUrlSetting?.value?.trim();
-            }
-
-            if (resolvedRedisUrl) {
-              redisOpts = buildConnectionConfig(resolvedRedisUrl);
-            } else {
-              redisOpts = {
-                host: configService.get<string>("REDIS_HOST") || "127.0.0.1",
-                port: Number(configService.get<string>("REDIS_PORT") || 6379),
-                maxRetriesPerRequest: null,
-                enableReadyCheck: false,
-              };
-
-              const username = configService.get<string>("REDIS_USERNAME");
-              if (username) redisOpts.username = username;
-
-              const password = configService.get<string>("REDIS_PASSWORD");
-              if (password) redisOpts.password = password;
-
-              const db = configService.get<string>("REDIS_DB");
-              if (db) {
-                const dbValue = Number(db);
-                redisOpts.db = Number.isNaN(dbValue) ? 0 : dbValue;
-              }
-
-              if (configService.get<string>("REDIS_TLS") === "true") {
-                redisOpts.tls = {};
-              }
-            }
-
-            console.log("--- Initializing Shared Redis Connection for BullMQ ---");
-            sharedRedisConnection = new Redis(redisOpts);
-
-            sharedRedisConnection.on('error', (err) => {
-              console.error('Shared Redis Connection Error:', err);
-            });
-
-            return {
-              connection: sharedRedisConnection,
-              prefix,
-              defaultJobOptions,
-            };
-          },
-          inject: [ConfigService, getModelToken(GlobalSetting.name)],
-        }),
-        BullModule.forRootAsync("secondary", {
-          imports: [ConfigModule],
-          useFactory: async (configService: ConfigService) => {
-            const prefix =
-              configService.get<string>("BULLMQ_PREFIX") || "food_inventory";
-            const defaultJobOptions = {
-              removeOnComplete: 200,
-              removeOnFail: 200,
-              attempts: 3,
-              backoff: {
-                type: "exponential",
-                delay: 3000,
-              },
-            };
-
-            const buildConnectionConfig = (url: string) => {
-              let normalized = url.trim();
-              if (!normalized.includes("://")) {
-                normalized = `redis://${normalized}`;
-              }
-              const parsed = new URL(normalized);
-              const config: Record<string, any> = {
-                host: parsed.hostname,
-                port: parsed.port ? Number(parsed.port) : 6379,
-                maxRetriesPerRequest: null,
-                enableReadyCheck: false,
-              };
-              if (parsed.username) {
-                config.username = decodeURIComponent(parsed.username);
-              }
-              if (parsed.password) {
-                config.password = decodeURIComponent(parsed.password);
-              }
-              if (parsed.pathname && parsed.pathname !== "/") {
-                const dbValue = Number(parsed.pathname.replace("/", ""));
-                if (!Number.isNaN(dbValue)) {
-                  config.db = dbValue;
+              if (!secondaryUrl) {
+                console.log(
+                  "--- No REDIS_URL_SECONDARY found, falling back to PRIMARY for 'secondary' scope ---",
+                );
+                if (sharedRedisConnection) {
+                  return {
+                    connection: sharedRedisConnection,
+                    prefix,
+                    defaultJobOptions,
+                  };
                 }
-              }
-              const tlsQuery =
-                parsed.searchParams.get("tls") ||
-                parsed.searchParams.get("ssl");
-              const tlsExplicitlyDisabled =
-                tlsQuery && tlsQuery.toLowerCase() === "false";
-
-              const forceTls =
-                !tlsExplicitlyDisabled &&
-                (parsed.protocol === "rediss:" ||
-                  (tlsQuery && tlsQuery.toLowerCase() === "true") ||
-                  parsed.hostname.endsWith(".redis-cloud.com") ||
-                  configService.get<string>("REDIS_TLS") === "true");
-
-              if (forceTls) {
-                config.tls = {
-                  rejectUnauthorized: false,
-                  servername: parsed.hostname,
+                const primaryUrl =
+                  configService.get<string>("REDIS_URL") ||
+                  "redis://127.0.0.1:6379";
+                return {
+                  connection: new Redis(buildConnectionConfig(primaryUrl)),
+                  prefix,
+                  defaultJobOptions,
                 };
               }
-              return config;
-            };
 
-            if (sharedSecondaryRedisConnection) {
+              console.log(
+                "--- Initializing Shared Redis Connection (SECONDARY) ---",
+              );
+              sharedSecondaryRedisConnection = new Redis(
+                buildConnectionConfig(secondaryUrl),
+              );
+              sharedSecondaryRedisConnection.on("error", (err) =>
+                console.error("Secondary Redis Error:", err),
+              );
+
               return {
                 connection: sharedSecondaryRedisConnection,
                 prefix,
                 defaultJobOptions,
               };
-            }
-
-            const secondaryUrl = configService
-              .get<string>("REDIS_URL_SECONDARY")
-              ?.trim();
-
-            if (!secondaryUrl) {
-              console.log(
-                "--- No REDIS_URL_SECONDARY found, falling back to PRIMARY for 'secondary' scope ---",
-              );
-              if (sharedRedisConnection) {
-                return { connection: sharedRedisConnection, prefix, defaultJobOptions };
-              }
-              const primaryUrl = configService.get<string>("REDIS_URL") || "redis://127.0.0.1:6379";
-              return {
-                connection: new Redis(buildConnectionConfig(primaryUrl)),
-                prefix,
-                defaultJobOptions,
-              };
-            }
-
-            console.log(
-              "--- Initializing Shared Redis Connection (SECONDARY) ---",
-            );
-            sharedSecondaryRedisConnection = new Redis(
-              buildConnectionConfig(secondaryUrl),
-            );
-            sharedSecondaryRedisConnection.on("error", (err) =>
-              console.error("Secondary Redis Error:", err),
-            );
-
-            return {
-              connection: sharedSecondaryRedisConnection,
-              prefix,
-              defaultJobOptions,
-            };
-          },
-          inject: [ConfigService],
-        }),
-      ]),
+            },
+            inject: [ConfigService],
+          }),
+        ]),
     FeatureFlagsGlobalModule,
     FeatureFlagsModule,
     CountryPluginModule,
@@ -577,6 +589,8 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     StripePayModule,
     DriversModule,
     CashRegisterModule,
+    ReturnsModule,
+    StoreCreditModule,
     FixedAssetsModule,
     InvestmentsModule,
     DataImportModule,
@@ -607,4 +621,4 @@ let sharedSecondaryRedisConnection: Redis | null = null;
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}
