@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
+import { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { initClarity, identifyUser } from '@/lib/analytics';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button.jsx';
@@ -38,8 +38,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CrmProvider } from './context/CrmContext.jsx';
 import { AccountingProvider } from './context/AccountingContext.jsx';
-import { NotificationProvider, useNotification } from './context/NotificationContext.jsx';
-import { useFeatureFlags } from './hooks/use-feature-flags.jsx';
+import { NotificationProvider } from './context/NotificationContext.jsx';
 import { getNavLinks } from './config/navLinks.js';
 import SidebarNavigation from '@/components/sidebar/SidebarNavigation';
 import SidebarFooterContent from '@/components/sidebar/SidebarFooterContent';
@@ -48,6 +47,7 @@ import { FabProvider } from './contexts/FabContext.jsx';
 import { BusinessLocationProvider } from './context/BusinessLocationContext.jsx';
 import { NotificationCenter } from './components/NotificationCenter.jsx';
 import { PaymentRequestsBadge } from './components/payment-requests/PaymentRequestsBadge.jsx';
+import { SedeSwitcher } from './components/SedeSwitcher.jsx';
 import TrialBanner from './components/TrialBanner.jsx';
 import { CountryPluginProvider } from './country-plugins/CountryPluginContext.jsx';
 import { PwaInstallProvider } from './hooks/use-pwa-install.jsx';
@@ -322,7 +322,6 @@ function TenantLayout() {
     activeMembershipId,
     selectTenant,
     isSwitchingTenant,
-    isMultiTenantEnabled,
     logout,
     hasPermission,
     saveLastLocation,
@@ -538,6 +537,7 @@ function TenantLayout() {
                   <span className="text-xs">⌘</span>K
                 </kbd>
               </Button>
+              <SedeSwitcher />
               <PaymentRequestsBadge />
               <NotificationCenter />
               <Button
