@@ -252,10 +252,12 @@ export function ContactDetailPanel({ customer, onClose, onEdit, onViewFull }) {
                 {recentTransactions.map((tx, i) => (
                   <div key={tx._id || i} className="flex items-center justify-between py-2.5 border-b border-border/50 last:border-0">
                     <div>
-                      <div className="text-sm font-medium text-foreground">{tx.type || 'Pedido'}</div>
-                      <div className="text-xs text-muted-foreground">{formatDate(tx.createdAt || tx.date)}</div>
+                      <div className="text-sm font-medium text-foreground">
+                        {tx.orderNumber ? `#${tx.orderNumber}` : (tx.type || 'Pedido')}
+                      </div>
+                      <div className="text-xs text-muted-foreground">{formatDate(tx.orderDate || tx.createdAt || tx.date)}</div>
                     </div>
-                    <span className="text-sm font-semibold text-foreground">{formatCurrency(tx.total || tx.amount)}</span>
+                    <span className="text-sm font-semibold text-foreground">{formatCurrency(tx.totalAmount ?? tx.total ?? tx.amount)}</span>
                   </div>
                 ))}
               </div>
