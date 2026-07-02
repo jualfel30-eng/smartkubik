@@ -26,6 +26,12 @@ El **motor de saldo a favor** lleva un balance de crédito por cliente y tenant:
 - **Acreditar** (devolución a saldo): crédito al pasivo "Saldo a favor de clientes" (2104) — el negocio queda debiéndole al cliente. Lo hace el asiento de la devolución (`ReturnsAccountingService`, `refundMethod='store_credit'`).
 - **Redimir** (usar saldo al cobrar): el pago de la orden con método `store_credit` reduce ese pasivo. El pago de una orden NO genera asiento automático (la contabilidad ocurre al facturar), así que la redención sólo mueve el ledger + el pago de la orden.
 
+## Dónde se ve el saldo
+
+- **POS** (`NewOrderFormV2`): al seleccionar el cliente en una orden nueva, un chip "Saldo a favor: $X".
+- **CRM** (`ContactDetailPanel`): chip en la ficha del cliente.
+- Componente compartido: `food-inventory-admin/src/components/orders/CustomerStoreCreditChip.jsx` (consulta `GET /store-credit/:customerId`; sólo se muestra si el saldo > 0).
+
 ## Ubicación
 
 - Backend: `food-inventory-saas/src/modules/store-credit/`

@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import WhatsAppComposer from '@/components/shared/WhatsAppComposer.jsx';
 import { getContactTypeBadge } from './badges.jsx';
 import { computeInactiveDays } from './AtRiskBadge.jsx';
+import { CustomerStoreCreditChip } from '@/components/orders/CustomerStoreCreditChip';
 
 const formatCurrency = (value) => {
   if (!value && value !== 0) return '$0.00';
@@ -126,10 +127,13 @@ export function ContactDetailPanel({ customer, onClose, onEdit, onViewFull }) {
                     {customer.companyName}
                   </div>
                 )}
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center flex-wrap gap-2 mt-2">
                   {getContactTypeBadge(customer.customerType)}
                   {customer.taxInfo?.taxId && (
                     <span className="text-xs text-muted-foreground">{customer.taxInfo.taxId}</span>
+                  )}
+                  {customer._id && (
+                    <CustomerStoreCreditChip customerId={customer._id} />
                   )}
                 </div>
               </div>

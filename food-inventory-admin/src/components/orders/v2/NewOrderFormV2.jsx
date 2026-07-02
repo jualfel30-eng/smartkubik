@@ -19,6 +19,7 @@ import { usePosCatalog } from '@/hooks/usePosCatalog';
 import { useCrmContext } from '@/context/CrmContext.jsx';
 import { venezuelaData } from '@/lib/venezuela-data.js';
 import { SearchableSelect } from './custom/SearchableSelect';
+import { CustomerStoreCreditChip } from '../CustomerStoreCreditChip';
 import { LocationPicker } from '@/components/ui/LocationPicker.jsx';
 import { useExchangeRate } from '@/hooks/useExchangeRate';
 import { useCountryPlugin } from '@/country-plugins/CountryPluginContext';
@@ -2958,6 +2959,10 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                         customControlClass="h-10 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors"
                       />
 
+                      {newOrder.customerId && (
+                        <CustomerStoreCreditChip customerId={newOrder.customerId} />
+                      )}
+
                       {/* Progressive disclosure: contacto + dirección revelados solo si se necesitan */}
                       {!showOptionalCustomerFields ? (
                         <button
@@ -3309,6 +3314,9 @@ export function NewOrderFormV2({ onOrderCreated, isEmbedded = false, initialCust
                       placeholder="Escriba para buscar cliente..."
                       isLoading={isSearchingCustomers}
                     />
+                    {newOrder.customerId && (
+                      <CustomerStoreCreditChip customerId={newOrder.customerId} />
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
