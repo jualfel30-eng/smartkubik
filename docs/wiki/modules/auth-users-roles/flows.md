@@ -65,6 +65,14 @@ sequenceDiagram
     F->>F: Redirect a /dashboard
 ```
 
+### Cambio de sede/organización en sesión (quick-switch)
+
+Un usuario multi-tenant puede cambiar de sede u organización sin re-login. Hay **dos puntos de entrada** que terminan llamando al mismo `selectTenant(membershipId, { rememberAsDefault })` (`src/hooks/use-auth.jsx`) → `POST /auth/switch-tenant` → nuevos tokens → `window.location.reload()`:
+
+1. **Sidebar** (`SidebarHeaderContent`, `src/App.jsx`): botón con el nombre del tenant que abre el modal `TenantPickerDialog` (radios + toggle "recordar selección"). El sidebar arranca colapsado.
+2. **Header — `SedeSwitcher`** (`src/components/SedeSwitcher.jsx`): dropdown inline siempre visible en la Zona 3 del header desktop (entre el buscador y "Solicitudes de pago"). Muestra la sede/organización activa (ícono `MapPin` para sede, `Building2` para organización) y despliega **todas** las membresías con badge "Sede"/"Organización"; un click cambia de contexto (`rememberAsDefault: false` — cambio de sesión, no altera el default). Incluye enlace "Administrar organizaciones" → `/organizations`.
+   - **Guard de visibilidad:** solo se renderiza si `isMultiTenantEnabled && memberships.length > 1`. Un tenant con una sola membresía no lo ve.
+
 ---
 
 ## Flujo 2: Guard Stack en cada Request
