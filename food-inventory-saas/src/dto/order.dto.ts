@@ -678,18 +678,13 @@ export class OrderQueryDto {
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ description: "Estado de la orden" })
+  @ApiPropertyOptional({
+    description:
+      "Estado(s) de la orden. Un valor o varios separados por comas " +
+      "(ej. 'refunded,partially_returned'); el service los resuelve con $in.",
+  })
   @IsOptional()
-  @IsEnum([
-    "draft",
-    "pending",
-    "confirmed",
-    "processing",
-    "shipped",
-    "delivered",
-    "cancelled",
-    "refunded",
-  ])
+  @IsString()
   status?: string;
 
   @ApiPropertyOptional({ description: "Estado de entrega (fulfillment)" })
