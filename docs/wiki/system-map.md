@@ -60,6 +60,12 @@ REFRESH:
 SWITCH TENANT:
   Frontend envía:  POST /auth/switch-tenant { membershipId: string(MongoId), rememberAsDefault?: boolean }
   Backend retorna: Nuevos tokens con tenantId diferente
+  UI de cambio (2 entradas, ambas → selectTenant() + window.location.reload()):
+    - Sidebar: SidebarHeaderContent → modal TenantPickerDialog (con toggle "recordar").
+    - Header: SedeSwitcher (src/components/SedeSwitcher.jsx) — dropdown inline en Zona 3
+      del header desktop (entre buscador y Solicitudes de pago). Lista todas las membresías
+      (badge Sede/Organización); 1 click = cambio de sesión (rememberAsDefault=false).
+      Solo visible si isMultiTenantEnabled && memberships.length > 1.
 
 PERMISOS (cómo el frontend los verifica):
   useAuth().hasPermission('inventory_read') verifica:
@@ -777,6 +783,7 @@ Cambio (exchange): POST /orders/:id/exchange (orders_update)
 - **Devolver ≠ Cancelar**: cancelar usa `ADJUSTMENT` en background y no mueve caja; devolver crea documento `Return`, usa `IN` síncrono y saca dinero real de caja. No reciclar `cancelOrder`.
 - **Identificación de línea parcial**: por el `_id` del subdocumento `OrderItem` (`orderItemId`), no por índice ni SKU. `returnedQuantity` (default 0) vive en `OrderItem`; la línea se agota cuando `returnedQuantity >= quantity`. Estado nuevo: `partially_returned`.
 - **Cambio (exchange)** = devolución-a-saldo (`isExchange`) + orden nueva en el POS + redención automática. El excedente (V_ret > V_new) queda como saldo a favor, no se devuelve efectivo. La orden nueva la crea el POS (no un endpoint atómico); el POS auto-aplica el saldo vía `location.state.exchange`.
+- **Visibilidad de órdenes devueltas**: al devolver, `status` pasa a `refunded`/`partially_returned`, que NO coinciden con los filtros `delivered`/`pending` → "desaparecen" de esas vistas. Solución: filtro **"Devueltas"** (`status=refunded,partially_returned`; el backend soporta status separado por comas → `$in`) + badge naranja "Devuelta"/"Devuelta parcial" en la fila.
 - `tenantId` en `returns` es **siempre ObjectId** (colección nueva controlada). `returnNumber` es único por tenant (índice compuesto), NO global.
 - **Asiento contable** lo genera `ReturnsAccountingService` (dentro del módulo returns, NO en `accounting.service.ts`, para no arrastrar su deuda de lint legacy). Débito 4102 / crédito 1101; crea esas cuentas si el tenant no las tiene. Es best-effort: si falla, la devolución igual se completa.
 - Órdenes **facturadas** quedan fuera (requieren Nota de Crédito HKA). Gate `!hasInvoice` en front y back.

@@ -1844,7 +1844,14 @@ export class OrdersService {
     const filter: any = { tenantId };
     const andConditions: any[] = [];
 
-    if (status) filter.status = status;
+    // status soporta un valor único o varios separados por comas (→ $in).
+    if (status) {
+      const statuses = status
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      filter.status = statuses.length > 1 ? { $in: statuses } : statuses[0];
+    }
 
     // NEW: Filter by fulfillment status (supports commma separated)
     if (query.fulfillmentStatus) {

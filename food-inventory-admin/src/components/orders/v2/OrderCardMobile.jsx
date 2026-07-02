@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+// eslint-disable-next-line no-unused-vars -- `motion` se usa como <motion.*>; jsx-uses-vars no lo detecta
 import { motion, useReducedMotion } from 'framer-motion';
 import { CheckCircle2, AlertCircle, Clock, MoreVertical, ArrowRight, Eye, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -16,8 +17,12 @@ const STATUS_LABEL = {
   shipped: 'Enviada',
   delivered: 'Entregada',
   cancelled: 'Cancelada',
-  refunded: 'Reembolsada',
+  refunded: 'Devuelta',
+  partially_returned: 'Devuelta parcial',
 };
+
+// Estados de devolución: badge con color distintivo para que se noten.
+const RETURNED_STATUSES = new Set(['refunded', 'partially_returned']);
 
 function fmtCurrency(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -129,7 +134,14 @@ export function OrderCardMobile({ order, onTap, onPay, onViewDetail, onMore }) {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-semibold text-foreground">#{order?.orderNumber || '—'}</span>
               {order?.status && order.status !== 'pending' && (
-                <span className="text-[11px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                <span
+                  className={cn(
+                    'text-[11px] uppercase tracking-wide px-2 py-0.5 rounded-full',
+                    RETURNED_STATUSES.has(order.status)
+                      ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300'
+                      : 'bg-muted text-muted-foreground',
+                  )}
+                >
                   {STATUS_LABEL[order.status] || order.status}
                 </span>
               )}

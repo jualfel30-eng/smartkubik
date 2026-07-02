@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-unused-vars -- `motion` se usa como <motion.*>; jsx-uses-vars no lo detecta
 import { motion } from 'framer-motion';
 import { CheckCircle2, AlertCircle, Clock, MoreHorizontal, ReceiptText } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -22,8 +23,11 @@ const STATUS_LABEL = {
   shipped: 'Enviada',
   delivered: 'Entregada',
   cancelled: 'Cancelada',
-  refunded: 'Reembolsada',
+  refunded: 'Devuelta',
+  partially_returned: 'Devuelta parcial',
 };
+
+const RETURNED_STATUSES = new Set(['refunded', 'partially_returned']);
 
 function fmt(n) {
   return `$${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -124,7 +128,17 @@ export function OrdersSmartTable({
                       {order.customerName || 'Cliente sin nombre'}
                     </span>
                     <span className="text-[11px] text-muted-foreground">
-                      {relativeTime(order.createdAt)} · {STATUS_LABEL[order.status] || order.status}
+                      {relativeTime(order.createdAt)}
+                      {' · '}
+                      <span
+                        className={
+                          RETURNED_STATUSES.has(order.status)
+                            ? 'font-semibold text-orange-600 dark:text-orange-400'
+                            : ''
+                        }
+                      >
+                        {STATUS_LABEL[order.status] || order.status}
+                      </span>
                     </span>
                   </div>
                 </TableCell>

@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-unused-vars -- `motion` se usa como <motion.*>; jsx-uses-vars no lo detecta
 import { motion } from 'framer-motion';
 import { SlidersHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -10,6 +11,7 @@ export const FILTER_CHIPS = [
   { key: 'pending', label: 'Pendientes' },
   { key: 'overdue', label: 'Vencidas' },
   { key: 'paid', label: 'Pagadas' },
+  { key: 'returned', label: 'Devueltas' },
   { key: 'all', label: 'Todas' },
 ];
 

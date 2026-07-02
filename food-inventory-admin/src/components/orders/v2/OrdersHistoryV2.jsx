@@ -68,6 +68,11 @@ function buildQueryParams({ filter, page, limit, search }) {
     case 'paid':
       params.set('status', 'delivered');
       break;
+    case 'returned':
+      // Órdenes devueltas (total o parcial). El backend soporta status
+      // separado por comas → $in.
+      params.set('status', 'refunded,partially_returned');
+      break;
     case 'today':
     case 'week':
     case 'all':
