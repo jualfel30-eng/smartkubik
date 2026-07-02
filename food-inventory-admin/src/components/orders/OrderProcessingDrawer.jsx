@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   Package,
   CreditCard,
+  Wallet,
   FileText,
   CheckCheck,
   Truck,
@@ -86,6 +87,7 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
   const [fulfillmentType, setFulfillmentType] = useState(order?.fulfillmentType || 'store');
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderData, setOrderData] = useState(order);
+  const [storeCredit, setStoreCredit] = useState(0);
 
   // Payment dialog state
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
@@ -221,6 +223,37 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
     (effectiveTotals.totalAmount || 0) - (orderData?.paidAmount || 0),
     [effectiveTotals.totalAmount, orderData?.paidAmount]
   );
+
+  // Saldo a favor del cliente de la orden (para poder aplicarlo al cobrar).
+  const customerIdForCredit = orderData?.customerId?._id || orderData?.customerId;
+  useEffect(() => {
+    if (!customerIdForCredit || isPaid) { setStoreCredit(0); return; }
+    let active = true;
+    fetchApi(`/store-credit/${customerIdForCredit}`)
+      .then((res) => { if (active) setStoreCredit(Number(res?.data?.balance) || 0); })
+      .catch(() => { if (active) setStoreCredit(0); });
+    return () => { active = false; };
+  }, [customerIdForCredit, isPaid, orderData?.paidAmount]);
+
+  const handleApplyStoreCredit = async () => {
+    if (!orderData?._id) return;
+    try {
+      await fetchApi(`/orders/${orderData._id}/redeem-store-credit`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      toast.success('Saldo a favor aplicado');
+      await refreshOrder();
+      if (customerIdForCredit) {
+        const res = await fetchApi(`/store-credit/${customerIdForCredit}`);
+        setStoreCredit(Number(res?.data?.balance) || 0);
+      }
+    } catch (err) {
+      toast.error('No se pudo aplicar el saldo a favor', {
+        description: err?.message || 'Intenta de nuevo.',
+      });
+    }
+  };
 
   // Step validation - recalculates on every render to ensure button state is always current
   const canProceedToStep = (stepId) => {
@@ -361,6 +394,8 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
           isPartiallyPaid={isPartiallyPaid}
           balance={balance}
           onOpenPaymentDialog={() => setShowPaymentDialog(true)}
+          storeCredit={storeCredit}
+          onApplyStoreCredit={handleApplyStoreCredit}
           selectedDocumentType={selectedDocumentType}
           onDocumentTypeChange={setSelectedDocumentType}
           effectiveTotals={effectiveTotals}
@@ -567,7 +602,7 @@ export function OrderProcessingDrawer({ isOpen, onClose, order, onUpdate }) {
 
 // ==================== STEP COMPONENTS ====================
 
-function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChange, isPaid, isPartiallyPaid, balance, onOpenPaymentDialog, selectedDocumentType, onDocumentTypeChange, effectiveTotals, ivaLabel, igtfLabel }) {
+function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChange, isPaid, isPartiallyPaid, balance, onOpenPaymentDialog, storeCredit = 0, onApplyStoreCredit, selectedDocumentType, onDocumentTypeChange, effectiveTotals, ivaLabel, igtfLabel }) {
   const isDeliveryNote = selectedDocumentType === 'delivery_note';
 
   // Use effective totals (adjusted for document type)
@@ -745,6 +780,18 @@ function Step1SummaryAndPayment({ order, fulfillmentType, onFulfillmentTypeChang
                   </div>
                 ))}
               </div>
+            )}
+
+            {storeCredit > 0 && (
+              <Button
+                onClick={onApplyStoreCredit}
+                variant="outline"
+                className="w-full border-emerald-400 text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700 dark:hover:bg-emerald-950/30"
+                size="lg"
+              >
+                <Wallet className="h-4 w-4 mr-2" />
+                Aplicar saldo a favor ({formatCurrency(Math.min(storeCredit, balance))})
+              </Button>
             )}
 
             <Button
